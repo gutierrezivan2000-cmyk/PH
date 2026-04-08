@@ -7,57 +7,63 @@ import { DEMO_USER } from "@/lib/demo-store";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
+const providers = IS_DEMO
+  ? [
+      Credentials({
+        id: "demo",
+        name: "Demo",
+        credentials: {},
+        async authorize() {
+          return {
+            id: DEMO_USER.id,
+            name: DEMO_USER.name,
+            email: DEMO_USER.email,
+            image: DEMO_USER.image,
+          };
+        },
+      }),
+    ]
+  : [
+      Google({
+        clientId: process.env.AUTH_GOOGLE_ID!,
+        clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+      }),
+    ];
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // In demo mode: no DB adapter, use JWT sessions
-  ...(IS_DEMO
-    ? { session: { strategy: "jwt" as const } }
-    : { adapter: PrismaAdapter(db) }),
+  // In demo mode: no DB adapter, pure JWT sessions
+  ...(IS_DEMO ? {} : { adapter: PrismaAdapter(db) }),
 
-  providers: [
-    // Demo credentials provider (only active in DEMO_MODE)
-    ...(IS_DEMO
-      ? [
-          Credentials({
-            id: "demo",
-            name: "Demo",
-            credentials: {},
-            async authorize() {
-              return {
-                id: DEMO_USER.id,
-                name: DEMO_USER.name,
-                email: DEMO_USER.email,
-                image: DEMO_USER.image,
-              };
-            },
-          }),
-        ]
-      : []),
+  session: { strategy: IS_DEMO ? "jwt" : "database" },
 
-    // Google OAuth (only when not in demo mode)
-    ...(!IS_DEMO
-      ? [
-          Google({
-            clientId: process.env.AUTH_GOOGLE_ID,
-            clientSecret: process.env.AUTH_GOOGLE_SECRET,
-          }),
-        ]
-      : []),
-  ],
+  providers,
+
+  trustHost: true,
 
   pages: {
     signIn: "/login",
   },
 
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.name = user.name;
+        token.email = user.email;
+        token.picture = user.image;
       }
       return token;
     },
-    session({ session, token }) {
+    async session({ session, token, user }) {
       if (token && session.user) {
+        // JWT mode (demo)
         session.user.id = token.id as string;
+        session.user.name = token.name as string;
+        session.user.email = token.email as string;
+        session.user.image = token.picture as string;
+      } else if (user && session.user) {
+        // Database mode (production)
+        session.user.id = user.id;
       }
       return session;
     },
