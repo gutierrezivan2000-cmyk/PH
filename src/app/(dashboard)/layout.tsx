@@ -2,6 +2,7 @@
 
 import { SessionProvider } from "next-auth/react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
+import { DemoBanner } from "@/components/ui/demo-banner";
 
 export default function DashboardLayout({
   children,
@@ -10,9 +11,12 @@ export default function DashboardLayout({
 }) {
   return (
     <SessionProvider>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 bg-slate-50">{children}</main>
+      <div className="flex flex-col min-h-screen">
+        <DemoBanner />
+        <div className="flex flex-1">
+          <Sidebar />
+          <main className="flex-1 bg-slate-50">{children}</main>
+        </div>
       </div>
     </SessionProvider>
   );

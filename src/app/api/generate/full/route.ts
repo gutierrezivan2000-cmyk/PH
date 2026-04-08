@@ -1,5 +1,5 @@
 export const runtime = "nodejs";
-export const maxDuration = 300; // 5 minutes for long AI generation
+export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
@@ -11,28 +11,137 @@ import { generatePdfHtml } from "@/lib/documents/pdf-generator";
 import { generatePptx, parseMarkdownToSlides } from "@/lib/documents/pptx-generator";
 import { put } from "@vercel/blob";
 
+// Demo-mode imports
+import {
+  DEMO_USER,
+  createGeneration,
+  updateGeneration,
+  getPropertyById,
+  checkUsageLimitDemo,
+  saveFileBuffers,
+} from "@/lib/demo-store";
+import { getMockInforme, getMockActa, simulateProcessingDelay } from "@/lib/mock-ai";
+
+const IS_DEMO = process.env.DEMO_MODE === "true";
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  // Check subscription
+  // ── DEMO MODE ────────────────────────────────────────────────────────────
+  if (IS_DEMO) {
+    const formData = await req.formData();
+    const propertyId = formData.get("propertyId") as string;
+    const month = parseInt(formData.get("month") as string);
+    const year = parseInt(formData.get("year") as string);
+    const type = (formData.get("type") as string) || "full";
+
+    if (!propertyId || !month || !year) {
+      return NextResponse.json(
+        { error: "Faltan campos: propertyId, month, year" },
+        { status: 400 }
+      );
+    }
+
+    const property = getPropertyById(propertyId, DEMO_USER.id);
+    if (!property) {
+      return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
+    }
+
+    const usageCheck = checkUsageLimitDemo(DEMO_USER.id);
+    if (!usageCheck.allowed) {
+      return NextResponse.json({ error: usageCheck.reason }, { status: 429 });
+    }
+
+    const generation = createGeneration({
+      userId: DEMO_USER.id,
+      propertyId,
+      type,
+      status: "processing",
+      month,
+      year,
+      inputFiles: [],
+      inputText: null,
+      outputFiles: null,
+      tokensUsed: 0,
+      costUsd: 0,
+      errorMessage: null,
+      property,
+    });
+
+    // Run in background — return generation ID immediately for polling
+    (async () => {
+      await simulateProcessingDelay(5000);
+
+      const months = [
+        "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+        "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+      ];
+      const period = `${months[month - 1]} ${year}`;
+
+      const informeText = getMockInforme(property.name, month, year);
+      const actaText = getMockActa(property.name, month, year);
+
+      const informeHtml = generatePdfHtml({
+        title: "Informe de Gestion",
+        propertyName: property.name,
+        period,
+        content: informeText,
+        type: "informe",
+      });
+
+      const actaHtml = generatePdfHtml({
+        title: "Acta de Reunion",
+        propertyName: property.name,
+        period,
+        content: actaText,
+        type: "acta",
+      });
+
+      const slidesData = parseMarkdownToSlides(informeText, property.name, period);
+      const pptxBuffer = await generatePptx(slidesData);
+
+      saveFileBuffers(generation.id, {
+        informeHtml,
+        actaHtml,
+        presentacionPptx: pptxBuffer,
+      });
+
+      const outputFiles = {
+        informeHtml: `/api/demo/files/${generation.id}/informe`,
+        actaHtml: `/api/demo/files/${generation.id}/acta`,
+        presentacionPptx: `/api/demo/files/${generation.id}/pptx`,
+      };
+
+      updateGeneration(generation.id, {
+        status: "completed",
+        outputFiles,
+        tokensUsed: 13840,
+        costUsd: 0.19,
+        completedAt: new Date(),
+      });
+    })();
+
+    return NextResponse.json({ id: generation.id, status: "processing" });
+  }
+
+  // ── PRODUCTION MODE ───────────────────────────────────────────────────────
   const subscription = await db.subscription.findUnique({
     where: { userId: session.user.id },
   });
 
   if (subscription?.status !== "active") {
     return NextResponse.json(
-      { error: "Necesitas una suscripci\u00f3n activa para generar documentos." },
+      { error: "Necesitas una suscripcion activa para generar documentos." },
       { status: 403 }
     );
   }
 
-  // Check usage limits
-  const usage = await checkUsageLimits(session.user.id);
-  if (!usage.allowed) {
-    return NextResponse.json({ error: usage.reason }, { status: 429 });
+  const usageCheck = await checkUsageLimits(session.user.id);
+  if (!usageCheck.allowed) {
+    return NextResponse.json({ error: usageCheck.reason }, { status: 429 });
   }
 
   const formData = await req.formData();
@@ -50,7 +159,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Verify property belongs to user
   const property = await db.property.findFirst({
     where: { id: propertyId, userId: session.user.id },
   });
@@ -59,7 +167,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
   }
 
-  // Create generation record
   const generation = await db.generation.create({
     data: {
       userId: session.user.id,
@@ -73,16 +180,14 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    // Parse and consolidate files
     const consolidatedContent = await consolidateFiles(files, additionalText ?? undefined);
 
     const monthNames = [
-      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+      "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+      "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
     ];
     const period = `${monthNames[month - 1]} ${year}`;
 
-    // Run AI pipeline
     const result = await runGenerationPipeline({
       generationId: generation.id,
       userId: session.user.id,
@@ -95,10 +200,9 @@ export async function POST(req: NextRequest) {
 
     const outputFiles: Record<string, string> = {};
 
-    // Generate PDF for informe
     if (result.informeText) {
       const informeHtml = generatePdfHtml({
-        title: "Informe de Gesti\u00f3n",
+        title: "Informe de Gestion",
         propertyName: property.name,
         period,
         content: result.informeText,
@@ -111,21 +215,23 @@ export async function POST(req: NextRequest) {
       );
       outputFiles.informeHtml = informeBlob.url;
 
-      // Generate PPTX presentation
       const slidesData = parseMarkdownToSlides(result.informeText, property.name, period);
       const pptxBuffer = await generatePptx(slidesData);
       const pptxBlob = await put(
         `generations/${generation.id}/presentacion.pptx`,
         pptxBuffer,
-        { access: "public", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
+        {
+          access: "public",
+          contentType:
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        }
       );
       outputFiles.presentacionPptx = pptxBlob.url;
     }
 
-    // Generate PDF for acta
     if (result.actaText) {
       const actaHtml = generatePdfHtml({
-        title: "Acta",
+        title: "Acta de Reunion",
         propertyName: property.name,
         period,
         content: result.actaText,
@@ -139,14 +245,9 @@ export async function POST(req: NextRequest) {
       outputFiles.actaHtml = actaBlob.url;
     }
 
-    // Update generation as completed
     await db.generation.update({
       where: { id: generation.id },
-      data: {
-        status: "completed",
-        outputFiles,
-        completedAt: new Date(),
-      },
+      data: { status: "completed", outputFiles, completedAt: new Date() },
     });
 
     return NextResponse.json({
@@ -164,9 +265,8 @@ export async function POST(req: NextRequest) {
         errorMessage: error instanceof Error ? error.message : "Error desconocido",
       },
     });
-
     return NextResponse.json(
-      { error: "Error al generar documentos", details: error instanceof Error ? error.message : undefined },
+      { error: "Error al generar documentos" },
       { status: 500 }
     );
   }

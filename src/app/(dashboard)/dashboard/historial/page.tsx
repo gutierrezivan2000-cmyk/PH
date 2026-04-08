@@ -14,6 +14,8 @@ interface Generation {
   month: number;
   year: number;
   property: { name: string };
+  tokensUsed: number;
+  costUsd: number;
   createdAt: string;
 }
 
@@ -34,14 +36,13 @@ export default function HistorialPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // We'll use a simple approach - fetch all jobs
-    // In a real app this would be a dedicated endpoint with pagination
-    fetch("/api/usage")
-      .then(() => {
-        // For now just set empty - this page works once generations exist
-        setLoading(false);
+    fetch("/api/generations")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setGenerations(data);
       })
-      .catch(() => setLoading(false));
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -77,23 +78,45 @@ export default function HistorialPage() {
           <Link key={gen.id} href={`/dashboard/generar/${gen.id}`}>
             <Card className="hover:border-primary/50 transition-colors cursor-pointer">
               <CardContent className="flex items-center gap-4 p-4">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
                   <FileText className="h-5 w-5 text-primary" />
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium">{gen.property.name}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{gen.property.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {MONTHS[gen.month - 1]} {gen.year} - {TYPE_LABELS[gen.type] ?? gen.type}
+                    {MONTHS[gen.month - 1]} {gen.year} — {TYPE_LABELS[gen.type] ?? gen.type}
                   </p>
                 </div>
-                <Badge
-                  variant={gen.status === "completed" ? "default" : gen.status === "failed" ? "destructive" : "secondary"}
-                >
-                  {gen.status === "completed" && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                  {gen.status === "failed" && <AlertCircle className="h-3 w-3 mr-1" />}
-                  {gen.status === "processing" && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                  {gen.status}
-                </Badge>
+                <div className="flex items-center gap-3">
+                  {gen.status === "completed" && (
+                    <span className="text-xs text-muted-foreground hidden sm:block">
+                      {gen.tokensUsed.toLocaleString()} tokens
+                    </span>
+                  )}
+                  <Badge
+                    variant={
+                      gen.status === "completed"
+                        ? "default"
+                        : gen.status === "failed"
+                        ? "destructive"
+                        : "secondary"
+                    }
+                    className="gap-1"
+                  >
+                    {gen.status === "completed" && <CheckCircle2 className="h-3 w-3" />}
+                    {gen.status === "failed" && <AlertCircle className="h-3 w-3" />}
+                    {gen.status === "processing" && (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    )}
+                    {gen.status === "completed"
+                      ? "Listo"
+                      : gen.status === "processing"
+                      ? "Procesando"
+                      : gen.status === "failed"
+                      ? "Error"
+                      : gen.status}
+                  </Badge>
+                </div>
               </CardContent>
             </Card>
           </Link>
