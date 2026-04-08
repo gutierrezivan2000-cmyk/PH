@@ -40,17 +40,35 @@ export default function JobResultPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check sessionStorage first (demo mode caches completed generations here)
+    try {
+      const cached = sessionStorage.getItem(`gen-${params.jobId}`);
+      if (cached) {
+        setGeneration(JSON.parse(cached));
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // sessionStorage unavailable — fall through to API
+    }
+
+    let cancelled = false;
     const fetchJob = async () => {
       const res = await fetch(`/api/jobs/${params.jobId}`);
-      if (res.ok) {
-        setGeneration(await res.json());
+      if (res.ok && !cancelled) {
+        const data = await res.json();
+        setGeneration(data);
+        // Stop polling once completed or failed
+        if (data.status === "completed" || data.status === "failed") {
+          clearInterval(interval);
+        }
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     };
 
     fetchJob();
     const interval = setInterval(fetchJob, 3000);
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [params.jobId]);
 
   if (loading) {

@@ -20,7 +20,7 @@ import {
   checkUsageLimitDemo,
   saveFileBuffers,
 } from "@/lib/demo-store";
-import { getMockInforme, getMockActa, simulateProcessingDelay } from "@/lib/mock-ai";
+import { getMockInforme, getMockActa } from "@/lib/mock-ai";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -71,60 +71,70 @@ export async function POST(req: NextRequest) {
       property,
     });
 
-    // Run in background — return generation ID immediately for polling
-    (async () => {
-      await simulateProcessingDelay(5000);
+    // Generate everything synchronously before returning (Vercel kills async work after response)
+    const months = [
+      "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+      "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+    ];
+    const period = `${months[month - 1]} ${year}`;
 
-      const months = [
-        "Enero","Febrero","Marzo","Abril","Mayo","Junio",
-        "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
-      ];
-      const period = `${months[month - 1]} ${year}`;
+    const informeText = getMockInforme(property.name, month, year);
+    const actaText = getMockActa(property.name, month, year);
 
-      const informeText = getMockInforme(property.name, month, year);
-      const actaText = getMockActa(property.name, month, year);
+    const informeHtml = generatePdfHtml({
+      title: "Informe de Gestion",
+      propertyName: property.name,
+      period,
+      content: informeText,
+      type: "informe",
+    });
 
-      const informeHtml = generatePdfHtml({
-        title: "Informe de Gestion",
-        propertyName: property.name,
-        period,
-        content: informeText,
-        type: "informe",
-      });
+    const actaHtml = generatePdfHtml({
+      title: "Acta de Reunion",
+      propertyName: property.name,
+      period,
+      content: actaText,
+      type: "acta",
+    });
 
-      const actaHtml = generatePdfHtml({
-        title: "Acta de Reunion",
-        propertyName: property.name,
-        period,
-        content: actaText,
-        type: "acta",
-      });
+    const slidesData = parseMarkdownToSlides(informeText, property.name, period);
+    const pptxBuffer = await generatePptx(slidesData);
 
-      const slidesData = parseMarkdownToSlides(informeText, property.name, period);
-      const pptxBuffer = await generatePptx(slidesData);
+    saveFileBuffers(generation.id, {
+      informeHtml,
+      actaHtml,
+      presentacionPptx: pptxBuffer,
+    });
 
-      saveFileBuffers(generation.id, {
-        informeHtml,
-        actaHtml,
-        presentacionPptx: pptxBuffer,
-      });
+    // Encode property info in file URLs so the demo endpoint can regenerate on-the-fly
+    const fileParams = `?p=${encodeURIComponent(property.name)}&m=${month}&y=${year}`;
+    const outputFiles = {
+      informeHtml: `/api/demo/files/${generation.id}/informe${fileParams}`,
+      actaHtml: `/api/demo/files/${generation.id}/acta${fileParams}`,
+      presentacionPptx: `/api/demo/files/${generation.id}/pptx${fileParams}`,
+    };
 
-      const outputFiles = {
-        informeHtml: `/api/demo/files/${generation.id}/informe`,
-        actaHtml: `/api/demo/files/${generation.id}/acta`,
-        presentacionPptx: `/api/demo/files/${generation.id}/pptx`,
-      };
+    updateGeneration(generation.id, {
+      status: "completed",
+      outputFiles,
+      tokensUsed: 13840,
+      costUsd: 0.19,
+      completedAt: new Date(),
+    });
 
-      updateGeneration(generation.id, {
-        status: "completed",
-        outputFiles,
-        tokensUsed: 13840,
-        costUsd: 0.19,
-        completedAt: new Date(),
-      });
-    })();
-
-    return NextResponse.json({ id: generation.id, status: "processing" });
+    return NextResponse.json({
+      id: generation.id,
+      status: "completed",
+      outputFiles,
+      tokensUsed: 13840,
+      costUsd: 0.19,
+      month,
+      year,
+      type,
+      property: { name: property.name },
+      createdAt: generation.createdAt.toISOString(),
+      completedAt: new Date().toISOString(),
+    });
   }
 
   // ── PRODUCTION MODE ───────────────────────────────────────────────────────

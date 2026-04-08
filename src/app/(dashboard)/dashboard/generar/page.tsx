@@ -67,7 +67,8 @@ export default function GenerarPage() {
       return;
     }
 
-    if (files.length === 0 && !additionalText.trim()) {
+    const isDemo = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+    if (!isDemo && files.length === 0 && !additionalText.trim()) {
       setError("Debes subir al menos un archivo o escribir informacion");
       return;
     }
@@ -91,6 +92,16 @@ export default function GenerarPage() {
       if (!res.ok) {
         setError(data.error || "Error al generar documentos");
         return;
+      }
+
+      // Cache the completed generation data so the results page can use it
+      // even if the serverless in-memory store is gone on the next request
+      if (data.status === "completed") {
+        try {
+          sessionStorage.setItem(`gen-${data.id}`, JSON.stringify(data));
+        } catch {
+          // sessionStorage unavailable — results page will poll API
+        }
       }
 
       router.push(`/dashboard/generar/${data.id}`);

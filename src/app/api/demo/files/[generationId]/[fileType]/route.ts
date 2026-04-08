@@ -15,42 +15,58 @@ const SEEDED_CONTENT: Record<string, { month: number; year: number }> = {
 const PROPERTY_NAME = "Conjunto Residencial Los Pinos";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ generationId: string; fileType: string }> }
 ) {
   const { generationId, fileType } = await params;
 
-  // Try live buffers first (from a just-completed generation)
+  // Try live buffers first (from a just-completed generation in same invocation)
   let buffers = getFileBuffers(generationId);
 
-  // For seeded historical generations, build content on the fly
-  if (!buffers && SEEDED_CONTENT[generationId]) {
-    const { month, year } = SEEDED_CONTENT[generationId];
+  // Resolve property name, month, year — from seeded data or query params
+  let propertyName: string | null = null;
+  let month: number | null = null;
+  let year: number | null = null;
+
+  if (SEEDED_CONTENT[generationId]) {
+    propertyName = PROPERTY_NAME;
+    month = SEEDED_CONTENT[generationId].month;
+    year = SEEDED_CONTENT[generationId].year;
+  } else {
+    // Query params encode the property info for cross-invocation regeneration
+    const sp = req.nextUrl.searchParams;
+    propertyName = sp.get("p");
+    month = sp.has("m") ? parseInt(sp.get("m")!) : null;
+    year = sp.has("y") ? parseInt(sp.get("y")!) : null;
+  }
+
+  // Generate on-the-fly when buffers aren't available but we have the metadata
+  if (!buffers && propertyName && month && year) {
     const months = [
       "Enero","Febrero","Marzo","Abril","Mayo","Junio",
       "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
     ];
     const period = `${months[month - 1]} ${year}`;
-    const informeText = getMockInforme(PROPERTY_NAME, month, year);
-    const actaText = getMockActa(PROPERTY_NAME, month, year);
+    const informeText = getMockInforme(propertyName, month, year);
+    const actaText = getMockActa(propertyName, month, year);
 
     let pptxBuffer: Buffer | undefined;
     if (fileType === "pptx") {
-      const slidesData = parseMarkdownToSlides(informeText, PROPERTY_NAME, period);
+      const slidesData = parseMarkdownToSlides(informeText, propertyName, period);
       pptxBuffer = await generatePptx(slidesData);
     }
 
     buffers = {
       informeHtml: generatePdfHtml({
         title: "Informe de Gestion",
-        propertyName: PROPERTY_NAME,
+        propertyName,
         period,
         content: informeText,
         type: "informe",
       }),
       actaHtml: generatePdfHtml({
         title: "Acta de Reunion",
-        propertyName: PROPERTY_NAME,
+        propertyName,
         period,
         content: actaText,
         type: "acta",
