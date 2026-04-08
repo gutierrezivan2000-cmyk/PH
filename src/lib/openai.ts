@@ -1,11 +1,16 @@
 import OpenAI from "openai";
 
-export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy-init: only create client when actually called (not in demo mode)
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return _openai;
+}
 
 export async function transcribeAudio(file: File): Promise<string> {
-  const transcription = await openai.audio.transcriptions.create({
+  const transcription = await getOpenAI().audio.transcriptions.create({
     file,
     model: "whisper-1",
     language: "es",
@@ -18,7 +23,7 @@ export async function generateWithAssistant(
   userContent: string,
   model: string = "gpt-4o"
 ): Promise<{ text: string; tokensUsed: number }> {
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model,
     messages: [
       { role: "system", content: systemPrompt },

@@ -5,7 +5,12 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-function createPrismaClient() {
+function createPrismaClient(): PrismaClient {
+  // In demo mode, return a stub that won't be used (all routes bypass DB)
+  if (process.env.DEMO_MODE === "true") {
+    return {} as PrismaClient;
+  }
+
   const adapter = new PrismaPg({
     connectionString: process.env.DATABASE_URL,
   });

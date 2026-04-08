@@ -1,8 +1,25 @@
 import Stripe from "stripe";
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-03-31.basil",
-  typescript: true,
+// Lazy-init: only create the Stripe client when actually needed (not in demo mode)
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key || key === "sk_test_placeholder") {
+      throw new Error("Stripe is not configured (demo mode)");
+    }
+    _stripe = new Stripe(key, {
+      apiVersion: "2025-03-31.basil",
+      typescript: true,
+    });
+  }
+  return _stripe;
+}
+
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    return (getStripe() as unknown as Record<string | symbol, unknown>)[prop];
+  },
 });
 
 export const PLANS = {
