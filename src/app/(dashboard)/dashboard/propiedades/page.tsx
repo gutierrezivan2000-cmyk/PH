@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Building, Plus, MapPin, Home } from "lucide-react";
+import { Building, Plus, MapPin, Home, X } from "lucide-react";
 
 interface Property {
   id: string;
@@ -64,112 +64,119 @@ export default function PropiedadesPage() {
   return (
     <div>
       <Header title="Mis Propiedades" />
-      <div className="p-6 max-w-3xl space-y-6">
+      <div className="p-8 max-w-3xl space-y-6">
         <div className="flex justify-between items-center">
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Administra las propiedades horizontales que gestionas
           </p>
           <Button onClick={() => setShowForm(!showForm)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Agregar Propiedad
+            {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {showForm ? "Cancelar" : "Agregar"}
           </Button>
         </div>
 
         {showForm && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Nueva Propiedad</CardTitle>
+          <Card className="border-primary/20 shadow-md">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base">Nueva Propiedad</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">Nombre del conjunto/edificio *</label>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Nombre del conjunto/edificio *</label>
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Ej: Conjunto Residencial Los Pinos"
+                    className="rounded-xl"
                     required
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Direccion</label>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Direccion</label>
                   <Input
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     placeholder="Ej: Calle 123 #45-67"
+                    className="rounded-xl"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium">Ciudad</label>
+                    <label className="text-sm font-medium text-foreground mb-1.5 block">Ciudad</label>
                     <Input
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                       placeholder="Ej: Bogota"
+                      className="rounded-xl"
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Numero de unidades</label>
+                    <label className="text-sm font-medium text-foreground mb-1.5 block">Unidades</label>
                     <Input
                       type="number"
                       value={units}
                       onChange={(e) => setUnits(e.target.value)}
                       placeholder="Ej: 120"
+                      className="rounded-xl"
                     />
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <Button type="submit" disabled={loading}>
-                    {loading ? "Guardando..." : "Guardar"}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
-                    Cancelar
-                  </Button>
-                </div>
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading ? "Guardando..." : "Guardar Propiedad"}
+                </Button>
               </form>
             </CardContent>
           </Card>
         )}
 
         {properties.length === 0 && !showForm && (
-          <Card>
-            <CardContent className="flex flex-col items-center py-12 text-center">
-              <Building className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="font-medium">No tienes propiedades registradas</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Agrega tu primera propiedad para empezar a generar documentos
+          <Card className="border-dashed border-2">
+            <CardContent className="flex flex-col items-center py-16 text-center">
+              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
+                <Building className="h-8 w-8 text-primary" />
+              </div>
+              <p className="font-semibold mb-1">No tienes propiedades registradas</p>
+              <p className="text-sm text-muted-foreground max-w-xs">
+                Agrega tu primera propiedad para empezar a generar documentos profesionales
               </p>
+              <Button className="mt-6 gap-2" onClick={() => setShowForm(true)}>
+                <Plus className="h-4 w-4" />
+                Agregar primera propiedad
+              </Button>
             </CardContent>
           </Card>
         )}
 
-        {properties.map((property) => (
-          <Card key={property.id}>
-            <CardContent className="flex items-center gap-4 p-6">
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Building className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold">{property.name}</p>
-                <div className="flex gap-4 mt-1">
-                  {property.address && (
-                    <span className="text-sm text-muted-foreground flex items-center gap-1">
-                      <MapPin className="h-3 w-3" /> {property.address}
-                    </span>
-                  )}
-                  {property.city && (
-                    <span className="text-sm text-muted-foreground">{property.city}</span>
-                  )}
-                  {property.units && (
-                    <span className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Home className="h-3 w-3" /> {property.units} unidades
-                    </span>
-                  )}
+        <div className="space-y-3">
+          {properties.map((property) => (
+            <Card key={property.id} className="group hover:shadow-md transition-all duration-200">
+              <CardContent className="flex items-center gap-4 p-5">
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                  <Building className="h-6 w-6 text-primary" />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate">{property.name}</p>
+                  <div className="flex flex-wrap gap-3 mt-1">
+                    {property.address && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <MapPin className="h-3 w-3" /> {property.address}
+                      </span>
+                    )}
+                    {property.city && (
+                      <span className="text-xs text-muted-foreground">{property.city}</span>
+                    )}
+                    {property.units && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Home className="h-3 w-3" /> {property.units} unidades
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   );

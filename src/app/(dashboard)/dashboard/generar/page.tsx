@@ -13,6 +13,7 @@ import {
   X,
   Loader2,
   AlertCircle,
+  Sparkles,
 } from "lucide-react";
 
 interface Property {
@@ -115,37 +116,39 @@ export default function GenerarPage() {
   return (
     <div>
       <Header title="Generar Documentos" />
-      <div className="p-6 max-w-3xl">
+      <div className="p-8 max-w-3xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-sm">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
               {error}
             </div>
           )}
 
           {/* Property selection */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Propiedad</CardTitle>
-              <CardDescription>Selecciona la propiedad para la que deseas generar documentos</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Propiedad</CardTitle>
+              <CardDescription>Selecciona la propiedad para generar documentos</CardDescription>
             </CardHeader>
             <CardContent>
               {properties.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No tienes propiedades registradas.{" "}
-                  <a href="/dashboard/propiedades" className="text-primary underline">Agrega una primero</a>.
-                </p>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+                  <p className="text-sm text-amber-800">
+                    No tienes propiedades registradas.{" "}
+                    <a href="/dashboard/propiedades" className="text-primary font-medium underline">Agrega una primero</a>.
+                  </p>
+                </div>
               ) : (
                 <select
                   value={selectedProperty}
                   onChange={(e) => setSelectedProperty(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                  className="w-full h-10 rounded-xl border border-input bg-transparent px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">Seleccionar propiedad...</option>
                   {properties.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} {p.address ? `- ${p.address}` : ""}
+                      {p.name} {p.address ? `— ${p.address}` : ""}
                     </option>
                   ))}
                 </select>
@@ -155,14 +158,14 @@ export default function GenerarPage() {
 
           {/* Period */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Periodo</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Periodo</CardTitle>
             </CardHeader>
             <CardContent className="flex gap-4">
               <select
                 value={month}
                 onChange={(e) => setMonth(parseInt(e.target.value))}
-                className="flex-1 h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                className="flex-1 h-10 rounded-xl border border-input bg-transparent px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 {MONTHS.map((m, i) => (
                   <option key={m} value={i + 1}>{m}</option>
@@ -174,34 +177,35 @@ export default function GenerarPage() {
                 onChange={(e) => setYear(parseInt(e.target.value))}
                 min={2020}
                 max={2030}
-                className="w-28"
+                className="w-28 rounded-xl"
               />
             </CardContent>
           </Card>
 
           {/* Generation type */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Tipo de generacion</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Tipo de generacion</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex gap-3">
                 {[
-                  { value: "full", label: "Completo (Informe + Acta + PPTX)" },
-                  { value: "informe", label: "Solo Informe" },
-                  { value: "acta", label: "Solo Acta" },
+                  { value: "full", label: "Completo", sub: "Informe + Acta + PPTX" },
+                  { value: "informe", label: "Solo Informe", sub: "" },
+                  { value: "acta", label: "Solo Acta", sub: "" },
                 ].map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
                     onClick={() => setType(opt.value)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 ${
                       type === opt.value
-                        ? "bg-primary text-white border-primary"
-                        : "bg-white text-foreground border-input hover:bg-slate-50"
+                        ? "bg-primary/5 text-primary border-primary/30 shadow-sm"
+                        : "bg-white text-muted-foreground border-border/50 hover:bg-secondary hover:border-border"
                     }`}
                   >
                     {opt.label}
+                    {opt.sub && <span className="block text-xs mt-0.5 opacity-70">{opt.sub}</span>}
                   </button>
                 ))}
               </div>
@@ -210,20 +214,22 @@ export default function GenerarPage() {
 
           {/* File upload */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Archivos de soporte</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Archivos de soporte</CardTitle>
               <CardDescription>
-                Sube textos, fotos, audios, PDFs, Excel o Word con la informacion de tu gestion
+                Sube textos, fotos, audios, PDFs, Excel o Word
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <label className="flex flex-col items-center justify-center border-2 border-dashed border-input rounded-lg p-8 cursor-pointer hover:border-primary/50 transition-colors">
-                <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                <span className="text-sm text-muted-foreground">
-                  Arrastra archivos aqui o haz clic para seleccionar
+              <label className="flex flex-col items-center justify-center border-2 border-dashed border-border/60 rounded-2xl p-10 cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all duration-200">
+                <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-3">
+                  <Upload className="h-7 w-7 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-foreground">
+                  Arrastra archivos o haz clic para seleccionar
                 </span>
                 <span className="text-xs text-muted-foreground mt-1">
-                  PDF, Word, Excel, imagenes, audio (max 25MB c/u, max 20 archivos)
+                  PDF, Word, Excel, imagenes, audio (max 25MB, max 20 archivos)
                 </span>
                 <input
                   type="file"
@@ -237,16 +243,16 @@ export default function GenerarPage() {
               {files.length > 0 && (
                 <div className="space-y-2">
                   {files.map((file, i) => (
-                    <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{file.name}</span>
-                        <Badge variant="secondary" className="text-xs">
+                    <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-secondary/50 rounded-xl px-4 py-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="text-sm truncate">{file.name}</span>
+                        <Badge variant="secondary" className="text-xs flex-shrink-0">
                           {(file.size / 1024 / 1024).toFixed(1)}MB
                         </Badge>
                       </div>
-                      <button type="button" onClick={() => removeFile(i)}>
-                        <X className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                      <button type="button" onClick={() => removeFile(i)} className="p-1 hover:bg-red-100 rounded-lg transition-colors">
+                        <X className="h-4 w-4 text-muted-foreground hover:text-red-500" />
                       </button>
                     </div>
                   ))}
@@ -257,32 +263,32 @@ export default function GenerarPage() {
 
           {/* Additional text */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Informacion adicional (opcional)</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Informacion adicional</CardTitle>
               <CardDescription>
-                Escribe cualquier informacion adicional que quieras incluir
+                Notas o informacion extra que quieras incluir (opcional)
               </CardDescription>
             </CardHeader>
             <CardContent>
               <textarea
                 value={additionalText}
                 onChange={(e) => setAdditionalText(e.target.value)}
-                rows={6}
+                rows={5}
                 placeholder="Escribe aqui notas, actividades realizadas, novedades del mes..."
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-full rounded-xl border border-input bg-transparent px-4 py-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
               />
             </CardContent>
           </Card>
 
-          <Button type="submit" size="lg" className="w-full" disabled={loading}>
+          <Button type="submit" size="lg" className="w-full h-14 text-base rounded-2xl gap-2" disabled={loading}>
             {loading ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 className="h-5 w-5 animate-spin" />
                 Generando documentos...
               </>
             ) : (
               <>
-                <FileText className="h-4 w-4 mr-2" />
+                <Sparkles className="h-5 w-5" />
                 Generar Documentos
               </>
             )}

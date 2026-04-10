@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Activity } from "lucide-react";
 
 interface UsageData {
   monthlyGenerations: number;
@@ -28,11 +29,16 @@ export function UsageCard() {
   if (!usage) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Uso del Mes</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Activity className="h-4 w-4 text-primary" />
+            Uso del Mes
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Cargando...</p>
+          <div className="h-20 flex items-center justify-center">
+            <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          </div>
         </CardContent>
       </Card>
     );
@@ -43,23 +49,26 @@ export function UsageCard() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Uso del Mes</CardTitle>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <Activity className="h-4 w-4 text-primary" />
+          Uso del Mes
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
         <div>
-          <div className="flex justify-between text-sm mb-1">
-            <span>Generaciones mensuales</span>
-            <span className="font-medium">
+          <div className="flex justify-between text-sm mb-2">
+            <span className="text-muted-foreground">Generaciones mensuales</span>
+            <span className="font-semibold tabular-nums">
               {usage.monthlyGenerations}/{usage.limits.generationsPerMonth}
             </span>
           </div>
           <Progress value={monthlyPercent} />
         </div>
         <div>
-          <div className="flex justify-between text-sm mb-1">
-            <span>Generaciones hoy</span>
-            <span className="font-medium">
+          <div className="flex justify-between text-sm mb-2">
+            <span className="text-muted-foreground">Generaciones hoy</span>
+            <span className="font-semibold tabular-nums">
               {usage.dailyGenerations}/{usage.limits.generationsPerDay}
             </span>
           </div>

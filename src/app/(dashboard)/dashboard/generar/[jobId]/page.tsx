@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Header } from "@/components/dashboard/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Presentation, Download, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { FileText, Presentation, Download, Loader2, AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
 
 interface Generation {
   id: string;
@@ -75,8 +74,11 @@ export default function JobResultPage() {
     return (
       <div>
         <Header title="Resultado" />
-        <div className="p-6 flex items-center justify-center min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="p-8 flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-4">
+            <div className="w-12 h-12 border-3 border-primary/20 border-t-primary rounded-full animate-spin mx-auto" />
+            <p className="text-muted-foreground text-sm">Cargando resultado...</p>
+          </div>
         </div>
       </div>
     );
@@ -86,49 +88,58 @@ export default function JobResultPage() {
     return (
       <div>
         <Header title="Resultado" />
-        <div className="p-6">
-          <p className="text-muted-foreground">Generacion no encontrada.</p>
+        <div className="p-8">
+          <Card className="border-dashed border-2">
+            <CardContent className="flex flex-col items-center py-16 text-center">
+              <AlertCircle className="h-10 w-10 text-muted-foreground mb-4" />
+              <p className="font-semibold">Generacion no encontrada</p>
+              <p className="text-sm text-muted-foreground mt-1">Es posible que haya expirado o no exista.</p>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
   }
 
   const statusConfig = {
-    pending: { label: "Pendiente", color: "secondary" as const, icon: Loader2 },
-    processing: { label: "Procesando", color: "default" as const, icon: Loader2 },
-    completed: { label: "Completado", color: "default" as const, icon: CheckCircle2 },
-    failed: { label: "Error", color: "destructive" as const, icon: AlertCircle },
+    pending: { label: "Pendiente", variant: "secondary" as const, icon: Loader2, spin: true },
+    processing: { label: "Procesando", variant: "default" as const, icon: Sparkles, spin: true },
+    completed: { label: "Completado", variant: "default" as const, icon: CheckCircle2, spin: false },
+    failed: { label: "Error", variant: "destructive" as const, icon: AlertCircle, spin: false },
   };
 
   const status = statusConfig[generation.status as keyof typeof statusConfig] ?? statusConfig.pending;
+  const StatusIcon = status.icon;
 
   return (
     <div>
-      <Header title={`${generation.property.name} - ${MONTHS[generation.month - 1]} ${generation.year}`} />
-      <div className="p-6 max-w-3xl space-y-6">
+      <Header title={`${generation.property.name} — ${MONTHS[generation.month - 1]} ${generation.year}`} />
+      <div className="p-8 max-w-3xl space-y-6">
         {/* Status */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Estado de la Generacion</CardTitle>
-              <Badge variant={status.color} className="gap-1">
-                <status.icon className={`h-3 w-3 ${generation.status === "processing" ? "animate-spin" : ""}`} />
+              <CardTitle className="text-base">Estado de la Generacion</CardTitle>
+              <Badge variant={status.variant} className="gap-1.5 px-3 py-1">
+                <StatusIcon className={`h-3.5 w-3.5 ${status.spin ? "animate-spin" : ""}`} />
                 {status.label}
               </Badge>
             </div>
           </CardHeader>
           {generation.errorMessage && (
             <CardContent>
-              <p className="text-sm text-destructive">{generation.errorMessage}</p>
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="text-sm text-red-700">{generation.errorMessage}</p>
+              </div>
             </CardContent>
           )}
         </Card>
 
         {/* Downloads */}
         {generation.status === "completed" && generation.outputFiles && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Documentos Generados</CardTitle>
+          <Card className="overflow-hidden">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Documentos Generados</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {generation.outputFiles.informeHtml && (
@@ -136,16 +147,18 @@ export default function JobResultPage() {
                   href={generation.outputFiles.informeHtml}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                  className="group flex items-center justify-between p-5 bg-blue-50/80 rounded-2xl hover:bg-blue-100/80 transition-all duration-200"
                 >
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-6 w-6 text-primary" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <FileText className="h-6 w-6 text-blue-600" />
+                    </div>
                     <div>
-                      <p className="font-medium">Informe de Gestion</p>
-                      <p className="text-sm text-muted-foreground">Documento HTML (imprimir como PDF)</p>
+                      <p className="font-semibold text-sm">Informe de Gestion</p>
+                      <p className="text-xs text-muted-foreground">HTML — abrir e imprimir como PDF</p>
                     </div>
                   </div>
-                  <Download className="h-5 w-5 text-primary" />
+                  <Download className="h-5 w-5 text-blue-600 group-hover:translate-y-0.5 transition-transform" />
                 </a>
               )}
               {generation.outputFiles.actaHtml && (
@@ -153,32 +166,36 @@ export default function JobResultPage() {
                   href={generation.outputFiles.actaHtml}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                  className="group flex items-center justify-between p-5 bg-emerald-50/80 rounded-2xl hover:bg-emerald-100/80 transition-all duration-200"
                 >
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-6 w-6 text-green-600" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <FileText className="h-6 w-6 text-emerald-600" />
+                    </div>
                     <div>
-                      <p className="font-medium">Acta Legal</p>
-                      <p className="text-sm text-muted-foreground">Documento HTML (imprimir como PDF)</p>
+                      <p className="font-semibold text-sm">Acta Legal</p>
+                      <p className="text-xs text-muted-foreground">HTML — abrir e imprimir como PDF</p>
                     </div>
                   </div>
-                  <Download className="h-5 w-5 text-green-600" />
+                  <Download className="h-5 w-5 text-emerald-600 group-hover:translate-y-0.5 transition-transform" />
                 </a>
               )}
               {generation.outputFiles.presentacionPptx && (
                 <a
                   href={generation.outputFiles.presentacionPptx}
                   download
-                  className="flex items-center justify-between p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+                  className="group flex items-center justify-between p-5 bg-purple-50/80 rounded-2xl hover:bg-purple-100/80 transition-all duration-200"
                 >
-                  <div className="flex items-center gap-3">
-                    <Presentation className="h-6 w-6 text-purple-600" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <Presentation className="h-6 w-6 text-purple-600" />
+                    </div>
                     <div>
-                      <p className="font-medium">Presentacion PPTX</p>
-                      <p className="text-sm text-muted-foreground">PowerPoint listo para presentar</p>
+                      <p className="font-semibold text-sm">Presentacion PPTX</p>
+                      <p className="text-xs text-muted-foreground">PowerPoint listo para presentar</p>
                     </div>
                   </div>
-                  <Download className="h-5 w-5 text-purple-600" />
+                  <Download className="h-5 w-5 text-purple-600 group-hover:translate-y-0.5 transition-transform" />
                 </a>
               )}
             </CardContent>
@@ -187,18 +204,20 @@ export default function JobResultPage() {
 
         {/* Stats */}
         {generation.status === "completed" && (
-          <Card>
-            <CardContent className="flex gap-6 p-6">
-              <div>
-                <p className="text-sm text-muted-foreground">Tokens utilizados</p>
-                <p className="text-lg font-semibold">{generation.tokensUsed.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Costo estimado</p>
-                <p className="text-lg font-semibold">${generation.costUsd.toFixed(4)}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-2 gap-4">
+            <Card>
+              <CardContent className="p-5 text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Tokens</p>
+                <p className="text-2xl font-bold tabular-nums">{generation.tokensUsed.toLocaleString()}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-5 text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Costo</p>
+                <p className="text-2xl font-bold tabular-nums">${generation.costUsd.toFixed(4)}</p>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </div>

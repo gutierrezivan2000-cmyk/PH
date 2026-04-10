@@ -10,14 +10,14 @@ import {
   Building,
   History,
   CreditCard,
-  Settings,
   LogOut,
+  Sparkles,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Generar Documentos", href: "/dashboard/generar", icon: FileText },
+  { name: "Generar", href: "/dashboard/generar", icon: Sparkles },
   { name: "Propiedades", href: "/dashboard/propiedades", icon: Building },
   { name: "Historial", href: "/dashboard/historial", icon: History },
   { name: "Suscripcion", href: "/dashboard/suscripcion", icon: CreditCard },
@@ -27,13 +27,17 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col w-64 bg-slate-900 text-white min-h-screen">
-      <div className="flex items-center gap-2 px-6 py-5 border-b border-slate-700">
-        <Building2 className="h-8 w-8 text-blue-400" />
-        <span className="text-lg font-bold">PH Gestion</span>
+    <div className="flex flex-col w-[260px] bg-white border-r border-border/50 min-h-screen">
+      {/* Logo */}
+      <div className="flex items-center gap-2.5 px-6 py-5">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-purple-400 flex items-center justify-center shadow-md shadow-primary/20">
+          <Building2 className="h-5 w-5 text-white" />
+        </div>
+        <span className="text-lg font-bold text-foreground">PH Gestion</span>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-2 space-y-1">
         {navigation.map((item) => {
           const isActive = pathname === item.href ||
             (item.href !== "/dashboard" && pathname.startsWith(item.href));
@@ -42,25 +46,26 @@ export function Sidebar() {
               key={item.name}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-primary text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  ? "bg-primary/10 text-primary shadow-sm"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               )}
             >
-              <item.icon className="h-5 w-5" />
+              <item.icon className={cn("h-[18px] w-[18px]", isActive && "text-primary")} />
               {item.name}
             </Link>
           );
         })}
       </nav>
 
-      <div className="px-3 py-4 border-t border-slate-700">
+      {/* Logout */}
+      <div className="px-3 py-4 border-t border-border/50">
         <button
           onClick={() => signOut({ callbackUrl: "/" })}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white w-full transition-colors"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-red-50 hover:text-red-600 w-full transition-all duration-200"
         >
-          <LogOut className="h-5 w-5" />
+          <LogOut className="h-[18px] w-[18px]" />
           Cerrar Sesion
         </button>
       </div>
