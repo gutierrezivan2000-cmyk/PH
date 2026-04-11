@@ -1,5 +1,4 @@
 import { PrismaClient } from "@/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -11,6 +10,9 @@ function createPrismaClient(): PrismaClient {
     return {} as PrismaClient;
   }
 
+  // Dynamic require to avoid crashing in demo when pg is not configured
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { PrismaPg } = require("@prisma/adapter-pg");
   const adapter = new PrismaPg({
     connectionString: process.env.DATABASE_URL,
   });

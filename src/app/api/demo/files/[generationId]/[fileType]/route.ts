@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getFileBuffers } from "@/lib/demo-store";
 import { getMockInforme, getMockActa } from "@/lib/mock-ai";
 import { generatePdfHtml } from "@/lib/documents/pdf-generator";
-import { generatePptx, parseMarkdownToSlides } from "@/lib/documents/pptx-generator";
+import { parseMarkdownToSlides } from "@/lib/documents/slide-parser";
 
 // Pre-baked content for seeded historical generations
 const SEEDED_CONTENT: Record<string, { month: number; year: number }> = {
@@ -52,8 +52,13 @@ export async function GET(
 
     let pptxBuffer: Buffer | undefined;
     if (fileType === "pptx") {
-      const slidesData = parseMarkdownToSlides(informeText, propertyName, period);
-      pptxBuffer = await generatePptx(slidesData);
+      try {
+        const slidesData = parseMarkdownToSlides(informeText, propertyName, period);
+        const { generatePptx } = await import("@/lib/documents/pptx-generator");
+        pptxBuffer = await generatePptx(slidesData);
+      } catch {
+        // PPTX generation failed
+      }
     }
 
     buffers = {
