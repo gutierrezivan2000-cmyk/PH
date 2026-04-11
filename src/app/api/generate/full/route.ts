@@ -21,6 +21,9 @@ import {
   saveFileBuffers,
 } from "@/lib/demo-store";
 import { getMockInforme, getMockActa } from "@/lib/mock-ai";
+import { generateWithAssistant } from "@/lib/openai";
+import { STRATEGOS_SYSTEM_PROMPT, buildStrategosPrompt } from "@/lib/ai/strategos";
+import { GRAMMATEUS_SYSTEM_PROMPT, buildGrammatusPrompt } from "@/lib/ai/grammateus";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -37,6 +40,8 @@ export async function POST(req: NextRequest) {
     const month = parseInt(formData.get("month") as string);
     const year = parseInt(formData.get("year") as string);
     const type = (formData.get("type") as string) || "full";
+    const additionalText = formData.get("additionalText") as string | null;
+    const files = formData.getAll("files") as File[];
 
     if (!propertyId || !month || !year) {
       return NextResponse.json(
@@ -62,8 +67,8 @@ export async function POST(req: NextRequest) {
       status: "processing",
       month,
       year,
-      inputFiles: [],
-      inputText: null,
+      inputFiles: files.map((f) => ({ name: f.name, type: f.type })),
+      inputText: additionalText,
       outputFiles: null,
       tokensUsed: 0,
       costUsd: 0,
@@ -71,70 +76,139 @@ export async function POST(req: NextRequest) {
       property,
     });
 
-    // Generate everything synchronously before returning (Vercel kills async work after response)
-    const months = [
-      "Enero","Febrero","Marzo","Abril","Mayo","Junio",
-      "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
-    ];
-    const period = `${months[month - 1]} ${year}`;
+    try {
+      const months = [
+        "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+        "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+      ];
+      const period = `${months[month - 1]} ${year}`;
 
-    const informeText = getMockInforme(property.name, month, year);
-    const actaText = getMockActa(property.name, month, year);
+      // Check if real OpenAI key is available
+      const openaiKey = process.env.OPENAI_API_KEY;
+      const hasRealAI = !!openaiKey && openaiKey !== "sk-placeholder" && !openaiKey.includes("placeholder");
 
-    const informeHtml = generatePdfHtml({
-      title: "Informe de Gestion",
-      propertyName: property.name,
-      period,
-      content: informeText,
-      type: "informe",
-    });
+      let informeText: string;
+      let actaText: string;
+      let tokensUsed = 0;
 
-    const actaHtml = generatePdfHtml({
-      title: "Acta de Reunion",
-      propertyName: property.name,
-      period,
-      content: actaText,
-      type: "acta",
-    });
+      if (hasRealAI && (files.length > 0 || additionalText?.trim())) {
+        // ── REAL AI: parse files and generate with OpenAI ──
+        // Only parse text-based files (skip audio in demo to avoid Whisper costs)
+        const textParts: string[] = [];
+        if (additionalText?.trim()) {
+          textParts.push(`[Informacion del administrador]\n${additionalText}`);
+        }
+        for (const file of files) {
+          try {
+            if (file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".csv")) {
+              textParts.push(`[Archivo: ${file.name}]\n${await file.text()}`);
+            } else {
+              // Use the full parser for pdf, docx, xlsx
+              const { consolidateFiles: consolidate } = await import("@/lib/parsers");
+              const parsed = await consolidate([file]);
+              textParts.push(parsed);
+            }
+          } catch {
+            textParts.push(`[Archivo: ${file.name} — no se pudo procesar]`);
+          }
+        }
 
-    const slidesData = parseMarkdownToSlides(informeText, property.name, period);
-    const pptxBuffer = await generatePptx(slidesData);
+        const content = textParts.join("\n\n---\n\n");
 
-    saveFileBuffers(generation.id, {
-      informeHtml,
-      actaHtml,
-      presentacionPptx: pptxBuffer,
-    });
+        // Generate informe with AI
+        if (type === "informe" || type === "full") {
+          const prompt = buildStrategosPrompt(property.name, month, year, content);
+          const result = await generateWithAssistant(STRATEGOS_SYSTEM_PROMPT, prompt);
+          informeText = result.text;
+          tokensUsed += result.tokensUsed;
+        } else {
+          informeText = "";
+        }
 
-    // Encode property info in file URLs so the demo endpoint can regenerate on-the-fly
-    const fileParams = `?p=${encodeURIComponent(property.name)}&m=${month}&y=${year}`;
-    const outputFiles = {
-      informeHtml: `/api/demo/files/${generation.id}/informe${fileParams}`,
-      actaHtml: `/api/demo/files/${generation.id}/acta${fileParams}`,
-      presentacionPptx: `/api/demo/files/${generation.id}/pptx${fileParams}`,
-    };
+        // Generate acta with AI
+        if (type === "acta" || type === "full") {
+          const prompt = buildGrammatusPrompt(property.name, month, year, content);
+          const result = await generateWithAssistant(GRAMMATEUS_SYSTEM_PROMPT, prompt);
+          actaText = result.text;
+          tokensUsed += result.tokensUsed;
+        } else {
+          actaText = "";
+        }
+      } else {
+        // ── MOCK: use pre-built content ──
+        informeText = (type === "informe" || type === "full") ? getMockInforme(property.name, month, year) : "";
+        actaText = (type === "acta" || type === "full") ? getMockActa(property.name, month, year) : "";
+        tokensUsed = 13840;
+      }
 
-    updateGeneration(generation.id, {
-      status: "completed",
-      outputFiles,
-      tokensUsed: 13840,
-      costUsd: 0.19,
-      completedAt: new Date(),
-    });
+      // Generate HTML documents
+      const informeHtml = informeText ? generatePdfHtml({
+        title: "Informe de Gestion",
+        propertyName: property.name,
+        period,
+        content: informeText,
+        type: "informe",
+      }) : undefined;
 
-    return NextResponse.json({
-      id: generation.id,
-      status: "completed",
-      outputFiles,
-      tokensUsed: 13840,
-      costUsd: 0.19,
-      month,
-      year,
-      type,
-      property: { name: property.name },
-      createdAt: generation.createdAt.toISOString(),
-      completedAt: new Date().toISOString(),
-    });
+      const actaHtml = actaText ? generatePdfHtml({
+        title: "Acta de Reunion",
+        propertyName: property.name,
+        period,
+        content: actaText,
+        type: "acta",
+      }) : undefined;
+
+      // PPTX generation can fail on some environments — make it optional
+      let pptxBuffer: Buffer | undefined;
+      if (informeText) {
+        try {
+          const slidesData = parseMarkdownToSlides(informeText, property.name, period);
+          pptxBuffer = await generatePptx(slidesData);
+        } catch {
+          // PPTX generation failed — skip it
+        }
+      }
+
+      saveFileBuffers(generation.id, {
+        informeHtml,
+        actaHtml,
+        presentacionPptx: pptxBuffer,
+      });
+
+      const fileParams = `?p=${encodeURIComponent(property.name)}&m=${month}&y=${year}`;
+      const outputFiles: Record<string, string> = {};
+      if (informeHtml) outputFiles.informeHtml = `/api/demo/files/${generation.id}/informe${fileParams}`;
+      if (actaHtml) outputFiles.actaHtml = `/api/demo/files/${generation.id}/acta${fileParams}`;
+      if (pptxBuffer) outputFiles.presentacionPptx = `/api/demo/files/${generation.id}/pptx${fileParams}`;
+
+      const costUsd = hasRealAI ? tokensUsed * 0.000015 : 0.19;
+
+      updateGeneration(generation.id, {
+        status: "completed",
+        outputFiles,
+        tokensUsed,
+        costUsd,
+        completedAt: new Date(),
+      });
+
+      return NextResponse.json({
+        id: generation.id,
+        status: "completed",
+        outputFiles,
+        tokensUsed,
+        costUsd,
+        month,
+        year,
+        type,
+        property: { name: property.name },
+        createdAt: generation.createdAt.toISOString(),
+        completedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Error desconocido";
+      updateGeneration(generation.id, { status: "failed", errorMessage: msg });
+      return NextResponse.json({ error: `Error al generar: ${msg}` }, { status: 500 });
+    }
   }
 
   // ── PRODUCTION MODE ───────────────────────────────────────────────────────

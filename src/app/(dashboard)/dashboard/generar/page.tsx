@@ -88,7 +88,14 @@ export default function GenerarPage() {
       files.forEach((file) => formData.append("files", file));
 
       const res = await fetch("/api/generate/full", { method: "POST", body: formData });
-      const data = await res.json();
+
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        setError(`Error del servidor (${res.status}). Intenta de nuevo.`);
+        return;
+      }
 
       if (!res.ok) {
         setError(data.error || "Error al generar documentos");
