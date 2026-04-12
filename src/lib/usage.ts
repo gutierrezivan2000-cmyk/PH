@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { PLANS } from "@/lib/stripe";
+import { PLANS } from "@/lib/epayco";
 
 const plan = PLANS.pro;
 

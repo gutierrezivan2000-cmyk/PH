@@ -66,18 +66,19 @@ model VerificationToken {
 }
 
 // ============================================
-// Subscription (Stripe)
+// Subscription (ePayco)
 // ============================================
 
 model Subscription {
-  id                   String    @id @default(cuid())
-  userId               String    @unique
-  stripeCustomerId     String    @unique
-  stripeSubscriptionId String?   @unique
-  stripePriceId        String?
-  status               String    @default("inactive")
-  currentPeriodStart   DateTime?
-  currentPeriodEnd     DateTime?
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  epaycoCustomerId    String?   @unique
+  epaycoSubscriptionId String?  @unique
+  epaycoRef           String?   // Last transaction reference
+  planId              String?   // ePayco plan ID
+  status              String    @default("inactive") // active, inactive, canceled, past_due
+  currentPeriodStart  DateTime?
+  currentPeriodEnd    DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

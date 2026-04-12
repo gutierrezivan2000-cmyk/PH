@@ -1,31 +1,84 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { UsageCard } from "@/components/dashboard/UsageCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, CreditCard, Loader2, Zap, Star, Shield } from "lucide-react";
+import Script from "next/script";
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
+declare global {
+  interface Window {
+    ePayco?: {
+      checkout: {
+        configure: (config: { key: string; test: boolean }) => {
+          open: (data: Record<string, string>) => void;
+        };
+      };
+    };
+  }
+}
+
 export default function SuscripcionPage() {
   const [loading, setLoading] = useState(false);
+  const [epaycoReady, setEpaycoReady] = useState(false);
 
-  const handleSubscribe = async () => {
+  // Track when the ePayco script is loaded
+  useEffect(() => {
+    if (window.ePayco) setEpaycoReady(true);
+  }, []);
+
+  const handleSubscribe = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/stripe/checkout", { method: "POST" });
+      const res = await fetch("/api/epayco/checkout", { method: "POST" });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
+
+      if (data.url) {
+        // Demo mode redirect
+        window.location.href = data.url;
+        return;
+      }
+
+      if (!data.checkoutConfig || !data.publicKey) {
+        console.error("Invalid checkout response", data);
+        return;
+      }
+
+      // Open ePayco checkout widget
+      if (!window.ePayco) {
+        console.error("ePayco script not loaded");
+        return;
+      }
+
+      const handler = window.ePayco.checkout.configure({
+        key: data.publicKey,
+        test: data.isTest,
+      });
+
+      handler.open(data.checkoutConfig);
+    } catch (error) {
+      console.error("Error opening checkout:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   return (
     <div>
+      {/* Load ePayco checkout script */}
+      {!IS_DEMO && (
+        <Script
+          src="https://checkout.epayco.co/checkout.js"
+          onLoad={() => setEpaycoReady(true)}
+          strategy="lazyOnload"
+        />
+      )}
+
       <Header title="Suscripcion" />
       <div className="p-8 max-w-2xl space-y-6">
         <UsageCard />
@@ -49,8 +102,8 @@ export default function SuscripcionPage() {
             </div>
 
             <div className="flex items-baseline gap-1 mt-3 mb-1">
-              <span className="text-5xl font-extrabold text-gradient">$20</span>
-              <span className="text-muted-foreground text-lg">/mes USD</span>
+              <span className="text-5xl font-extrabold text-gradient">$89.900</span>
+              <span className="text-muted-foreground text-lg">/mes COP</span>
             </div>
             {IS_DEMO && (
               <p className="text-sm text-amber-600 mb-6">
@@ -87,23 +140,28 @@ export default function SuscripcionPage() {
                   </p>
                 </div>
                 <p className="text-xs text-amber-700">
-                  En produccion, los pagos se procesan via Stripe con tarjeta de credito.
+                  En produccion, los pagos se procesan via ePayco.
                 </p>
               </div>
             ) : (
-              <Button
-                onClick={handleSubscribe}
-                className="w-full gap-2 h-12 rounded-2xl"
-                size="lg"
-                disabled={loading}
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CreditCard className="h-4 w-4" />
-                )}
-                {loading ? "Redirigiendo a Stripe..." : "Suscribirse con Stripe"}
-              </Button>
+              <div className="space-y-3">
+                <Button
+                  onClick={handleSubscribe}
+                  className="w-full gap-2 h-12 rounded-2xl"
+                  size="lg"
+                  disabled={loading || (!epaycoReady && !IS_DEMO)}
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="h-4 w-4" />
+                  )}
+                  {loading ? "Abriendo pasarela..." : "Suscribirse con ePayco"}
+                </Button>
+                <p className="text-xs text-center text-muted-foreground">
+                  Pago seguro procesado por ePayco. Acepta tarjetas de credito, debito, PSE y mas.
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
