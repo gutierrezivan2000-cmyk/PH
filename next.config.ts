@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     "@napi-rs/canvas",
     "@prisma/adapter-pg",
     "pg",
+    "epayco-sdk-node",
   ],
 };
 

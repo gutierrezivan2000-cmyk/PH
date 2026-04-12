@@ -1,4 +1,4 @@
-import { transcribeAudio } from "@/lib/openai";
+import { transcribeAudio } from "@/lib/ai-client";
 
 export async function parseAudioFile(file: File): Promise<string> {
   const text = await transcribeAudio(file);

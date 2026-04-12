@@ -94,9 +94,9 @@ async function handleDemo(req: NextRequest) {
     ];
     const period = `${months[month - 1]} ${year}`;
 
-    // Check if real OpenAI key is available
-    const openaiKey = process.env.OPENAI_API_KEY;
-    const hasRealAI = !!openaiKey && openaiKey !== "sk-placeholder" && !openaiKey.includes("placeholder");
+    // Check if real AI key is available (Anthropic Claude)
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    const hasRealAI = !!anthropicKey && !anthropicKey.includes("placeholder") && anthropicKey.length > 10;
 
     let informeText: string;
     let actaText: string;
@@ -125,8 +125,8 @@ async function handleDemo(req: NextRequest) {
 
       const content = textParts.join("\n\n---\n\n");
 
-      // Dynamic import of OpenAI only when needed
-      const { generateWithAssistant } = await import("@/lib/openai");
+      // Dynamic import of AI client only when needed
+      const { generateWithAssistant } = await import("@/lib/ai-client");
 
       // Generate informe with AI
       if (type === "informe" || type === "full") {

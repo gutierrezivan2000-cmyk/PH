@@ -1,12 +1,12 @@
-import { generateWithAssistant } from "@/lib/openai";
+import { generateWithAssistant } from "@/lib/ai-client";
 import { STRATEGOS_SYSTEM_PROMPT, buildStrategosPrompt } from "@/lib/ai/strategos";
 import { GRAMMATEUS_SYSTEM_PROMPT, buildGrammatusPrompt } from "@/lib/ai/grammateus";
 import { recordUsage } from "@/lib/usage";
 import { db } from "@/lib/db";
 
-// Cost estimates per 1K tokens (GPT-4o)
-const COST_PER_1K_INPUT = 0.0025;
-const COST_PER_1K_OUTPUT = 0.01;
+// Cost estimates per 1K tokens (Claude Sonnet 4)
+const COST_PER_1K_INPUT = 0.003;
+const COST_PER_1K_OUTPUT = 0.015;
 
 function estimateCost(tokens: number): number {
   // Rough estimate: assume 40% input, 60% output
