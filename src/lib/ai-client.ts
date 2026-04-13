@@ -19,23 +19,38 @@ export async function generateWithClaude(
 ): Promise<{ text: string; tokensUsed: number }> {
   const client = getClient();
 
-  const response = await client.messages.create({
-    model,
-    max_tokens: 8000,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userContent }],
-    temperature: 0.7,
-  });
+  try {
+    const response = await client.messages.create({
+      model,
+      max_tokens: 8000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userContent }],
+      temperature: 0.7,
+    });
 
-  const text = response.content
-    .filter((block) => block.type === "text")
-    .map((block) => block.text)
-    .join("\n");
+    const text = response.content
+      .filter((block) => block.type === "text")
+      .map((block) => block.text)
+      .join("\n");
 
-  const tokensUsed =
-    (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+    const tokensUsed =
+      (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
 
-  return { text, tokensUsed };
+    return { text, tokensUsed };
+  } catch (error: unknown) {
+    // Translate common API errors to user-friendly Spanish messages
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes("credit balance is too low") || msg.includes("billing")) {
+      throw new Error("El servicio de IA no tiene creditos disponibles. Contacta al administrador de la plataforma.");
+    }
+    if (msg.includes("authentication") || msg.includes("api_key") || msg.includes("401")) {
+      throw new Error("La clave de API de IA no es valida. Contacta al administrador de la plataforma.");
+    }
+    if (msg.includes("rate_limit") || msg.includes("429")) {
+      throw new Error("El servicio de IA esta temporalmente saturado. Intenta de nuevo en unos minutos.");
+    }
+    throw error;
+  }
 }
 
 // Keep backward-compatible name for existing imports
