@@ -1,7 +1,5 @@
-import { parseAudioFile } from "./audio";
-import { parseSpreadsheet } from "./spreadsheet";
-import { parsePdfFile } from "./pdf";
-import { parseDocxFile } from "./docx";
+// Dynamic imports — each parser is loaded only when needed to avoid
+// crashing serverless runtimes with heavy/incompatible native modules.
 
 export type FileType = "audio" | "spreadsheet" | "pdf" | "docx" | "image" | "text" | "unknown";
 
@@ -36,14 +34,22 @@ export async function parseFile(
   const buffer = Buffer.from(await file.arrayBuffer());
 
   switch (fileType) {
-    case "audio":
+    case "audio": {
+      const { parseAudioFile } = await import("./audio");
       return { text: await parseAudioFile(file), type: fileType };
-    case "spreadsheet":
+    }
+    case "spreadsheet": {
+      const { parseSpreadsheet } = await import("./spreadsheet");
       return { text: await parseSpreadsheet(buffer, file.name), type: fileType };
-    case "pdf":
+    }
+    case "pdf": {
+      const { parsePdfFile } = await import("./pdf");
       return { text: await parsePdfFile(buffer, file.name), type: fileType };
-    case "docx":
+    }
+    case "docx": {
+      const { parseDocxFile } = await import("./docx");
       return { text: await parseDocxFile(buffer, file.name), type: fileType };
+    }
     case "text": {
       const text = await file.text();
       return { text: `[Archivo de texto: ${file.name}]\n${text}`, type: fileType };
