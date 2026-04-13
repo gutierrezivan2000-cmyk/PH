@@ -229,26 +229,53 @@ async function handleDemo(req: NextRequest) {
 // ── PRODUCTION MODE ───────────────────────────────────────────────────────────
 async function handleProduction(req: NextRequest, userId: string) {
   // Dynamic imports for production-only heavy dependencies
-  const { db } = await import("@/lib/db");
-  const { checkUsageLimits } = await import("@/lib/usage");
-  const { consolidateFiles } = await import("@/lib/parsers");
-  const { runGenerationPipeline } = await import("@/lib/ai/pipeline");
-  const { put } = await import("@vercel/blob");
-
-  const subscription = await db.subscription.findUnique({
-    where: { userId },
-  });
-
-  if (subscription?.status !== "active") {
+  let db, checkUsageLimits, consolidateFiles, runGenerationPipeline, put;
+  try {
+    ({ db } = await import("@/lib/db"));
+    ({ checkUsageLimits } = await import("@/lib/usage"));
+    ({ consolidateFiles } = await import("@/lib/parsers"));
+    ({ runGenerationPipeline } = await import("@/lib/ai/pipeline"));
+    ({ put } = await import("@vercel/blob"));
+  } catch (importError) {
+    console.error("[generate/full] Import error:", importError);
     return NextResponse.json(
-      { error: "Necesitas una suscripcion activa para generar documentos." },
-      { status: 403 }
+      { error: "Error al cargar modulos del servidor" },
+      { status: 500 }
     );
   }
 
-  const usageCheck = await checkUsageLimits(userId);
-  if (!usageCheck.allowed) {
-    return NextResponse.json({ error: usageCheck.reason }, { status: 429 });
+  // Ensure user exists in DB
+  let dbUserId = userId;
+  try {
+    const session = await auth();
+    if (session?.user?.email) {
+      const existing = await db.user.findUnique({ where: { email: session.user.email } });
+      if (existing) {
+        dbUserId = existing.id;
+      } else {
+        const created = await db.user.create({
+          data: {
+            email: session.user.email,
+            name: session.user.name,
+            image: session.user.image,
+          },
+        });
+        dbUserId = created.id;
+      }
+    }
+  } catch (e) {
+    console.error("[generate/full] User sync error:", e);
+  }
+
+  // Check usage limits (works without subscription)
+  try {
+    const usageCheck = await checkUsageLimits(dbUserId);
+    if (!usageCheck.allowed) {
+      return NextResponse.json({ error: usageCheck.reason }, { status: 429 });
+    }
+  } catch (e) {
+    console.error("[generate/full] Usage check error:", e);
+    // Continue — don't block generation if usage check fails
   }
 
   const formData = await req.formData();
@@ -267,7 +294,7 @@ async function handleProduction(req: NextRequest, userId: string) {
   }
 
   const property = await db.property.findFirst({
-    where: { id: propertyId, userId },
+    where: { id: propertyId, userId: dbUserId },
   });
 
   if (!property) {
@@ -276,7 +303,7 @@ async function handleProduction(req: NextRequest, userId: string) {
 
   const generation = await db.generation.create({
     data: {
-      userId,
+      userId: dbUserId,
       propertyId,
       type,
       month,
@@ -377,8 +404,10 @@ async function handleProduction(req: NextRequest, userId: string) {
         errorMessage: error instanceof Error ? error.message : "Error desconocido",
       },
     });
+    const errMsg = error instanceof Error ? error.message : "Error desconocido";
+    console.error("[generate/full] Production error:", errMsg);
     return NextResponse.json(
-      { error: "Error al generar documentos" },
+      { error: `Error al generar: ${errMsg.slice(0, 200)}` },
       { status: 500 }
     );
   }
