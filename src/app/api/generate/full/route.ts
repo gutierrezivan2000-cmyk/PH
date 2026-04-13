@@ -228,18 +228,50 @@ async function handleDemo(req: NextRequest) {
 
 // ── PRODUCTION MODE ───────────────────────────────────────────────────────────
 async function handleProduction(req: NextRequest, userId: string) {
-  // Dynamic imports for production-only heavy dependencies
-  let db, checkUsageLimits, consolidateFiles, runGenerationPipeline, put;
+  // Dynamic imports for production-only heavy dependencies — import individually
+  // so we can identify which module fails
+  let db: Awaited<typeof import("@/lib/db")>["db"];
+  let checkUsageLimits: Awaited<typeof import("@/lib/usage")>["checkUsageLimits"];
+  let runGenerationPipeline: Awaited<typeof import("@/lib/ai/pipeline")>["runGenerationPipeline"];
+  let put: Awaited<typeof import("@vercel/blob")>["put"];
+
   try {
     ({ db } = await import("@/lib/db"));
-    ({ checkUsageLimits } = await import("@/lib/usage"));
-    ({ consolidateFiles } = await import("@/lib/parsers"));
-    ({ runGenerationPipeline } = await import("@/lib/ai/pipeline"));
-    ({ put } = await import("@vercel/blob"));
-  } catch (importError) {
-    console.error("[generate/full] Import error:", importError);
+  } catch (e) {
+    console.error("[generate/full] DB import error:", e);
+    const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
-      { error: "Error al cargar modulos del servidor" },
+      { error: `Error al conectar con la base de datos: ${msg.slice(0, 200)}` },
+      { status: 500 }
+    );
+  }
+
+  try {
+    ({ checkUsageLimits } = await import("@/lib/usage"));
+  } catch (e) {
+    console.error("[generate/full] Usage import error:", e);
+    // Non-critical — continue without usage checks
+    checkUsageLimits = async () => ({ allowed: true as boolean, reason: "", dailyUsed: 0, monthlyUsed: 0 });
+  }
+
+  try {
+    ({ runGenerationPipeline } = await import("@/lib/ai/pipeline"));
+  } catch (e) {
+    console.error("[generate/full] Pipeline import error:", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json(
+      { error: `Error al cargar el motor de IA: ${msg.slice(0, 200)}` },
+      { status: 500 }
+    );
+  }
+
+  try {
+    ({ put } = await import("@vercel/blob"));
+  } catch (e) {
+    console.error("[generate/full] Blob import error:", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json(
+      { error: `Error al cargar almacenamiento: ${msg.slice(0, 200)}` },
       { status: 500 }
     );
   }
@@ -331,6 +363,8 @@ async function handleProduction(req: NextRequest, userId: string) {
   });
 
   try {
+    // Lazy-import parsers only when needed (avoids loading pdf-parse/mammoth/xlsx eagerly)
+    const { consolidateFiles } = await import("@/lib/parsers");
     const consolidatedContent = await consolidateFiles(files, additionalText ?? undefined);
 
     const monthNames = [
