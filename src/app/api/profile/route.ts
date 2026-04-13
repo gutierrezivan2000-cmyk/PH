@@ -106,7 +106,8 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("[PROFILE PUT]", error);
-    return NextResponse.json({ error: "Error al actualizar perfil" }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[PROFILE PUT]", msg, error);
+    return NextResponse.json({ error: `Error: ${msg.slice(0, 200)}` }, { status: 500 });
   }
 }
