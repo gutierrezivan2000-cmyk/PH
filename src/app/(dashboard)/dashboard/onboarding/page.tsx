@@ -35,19 +35,29 @@ export default function OnboardingPage() {
   const [propCity, setPropCity] = useState("");
   const [propUnits, setPropUnits] = useState("");
 
+  const [error, setError] = useState("");
+
   const handleFinish = async () => {
     setLoading(true);
+    setError("");
     try {
       // Save profile
-      await fetch("/api/profile", {
+      const profileRes = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, cargo, company, phone, city, onboarded: true }),
       });
 
+      if (!profileRes.ok) {
+        const data = await profileRes.json();
+        setError(data.error || "Error al guardar el perfil. Intenta de nuevo.");
+        setLoading(false);
+        return;
+      }
+
       // Save property if filled
       if (propName.trim()) {
-        await fetch("/api/properties", {
+        const propRes = await fetch("/api/properties", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -57,13 +67,15 @@ export default function OnboardingPage() {
             units: propUnits,
           }),
         });
+        if (!propRes.ok) {
+          console.error("[ONBOARDING] Property save failed");
+        }
       }
 
-      router.push("/dashboard");
+      // Force navigation with window.location to avoid client cache
+      window.location.href = "/dashboard";
     } catch {
-      // Continue anyway
-      router.push("/dashboard");
-    } finally {
+      setError("Error de conexion. Intenta de nuevo.");
       setLoading(false);
     }
   };
@@ -305,6 +317,12 @@ export default function OnboardingPage() {
                   </div>
                 )}
               </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 mb-4 text-left">
+                  {error}
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setStep(2)} className="h-12 rounded-2xl gap-2">

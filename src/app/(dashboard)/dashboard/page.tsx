@@ -18,15 +18,22 @@ export default function DashboardPage() {
   useEffect(() => {
     if (IS_DEMO) return;
     fetch("/api/profile")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Profile fetch failed");
+        return r.json();
+      })
       .then((data) => {
-        if (!data.onboarded) {
+        // Only redirect to onboarding if we got a valid response AND user hasn't onboarded
+        if (data.onboarded === false && !data.error) {
           router.replace("/dashboard/onboarding");
         } else {
           setChecking(false);
         }
       })
-      .catch(() => setChecking(false));
+      .catch(() => {
+        // If profile check fails, don't block — show dashboard
+        setChecking(false);
+      });
   }, [router]);
 
   if (checking) {

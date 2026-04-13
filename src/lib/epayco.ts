@@ -39,8 +39,8 @@ export const PLANS = {
     name: "Plan Profesional",
     idPlan: "plan-profesional-ph",
     description: "Hasta 3 propiedades — informes y actas con IA",
-    amount: 84000, // ~$20 USD in COP
-    currency: "cop",
+    amount: 20,
+    currency: "usd",
     interval: "month",
     intervalCount: 1,
     trialDays: 7,
@@ -57,8 +57,8 @@ export const PLANS = {
     name: "Plan Elite",
     idPlan: "plan-elite-ph",
     description: "Propiedades ilimitadas — para grandes administradores",
-    amount: 840000, // ~$200 USD in COP
-    currency: "cop",
+    amount: 200,
+    currency: "usd",
     interval: "month",
     intervalCount: 1,
     trialDays: 7,
