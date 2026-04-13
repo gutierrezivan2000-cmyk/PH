@@ -38,18 +38,37 @@ export const PLANS = {
   pro: {
     name: "Plan Profesional",
     idPlan: "plan-profesional-ph",
-    description: "Suscripción mensual PH Gestión — generación de informes y actas",
-    amount: 89900, // COP — adjust as needed
+    description: "Hasta 3 propiedades — informes y actas con IA",
+    amount: 84000, // ~$20 USD in COP
     currency: "cop",
     interval: "month",
     intervalCount: 1,
     trialDays: 7,
+    maxProperties: 3,
     limits: {
       generationsPerDay: 3,
       generationsPerMonth: 15,
       maxFileSizeMb: 25,
       maxFilesPerGeneration: 20,
       maxAudioMinutes: 30,
+    },
+  },
+  elite: {
+    name: "Plan Elite",
+    idPlan: "plan-elite-ph",
+    description: "Propiedades ilimitadas — para grandes administradores",
+    amount: 840000, // ~$200 USD in COP
+    currency: "cop",
+    interval: "month",
+    intervalCount: 1,
+    trialDays: 7,
+    maxProperties: 999,
+    limits: {
+      generationsPerDay: 10,
+      generationsPerMonth: 50,
+      maxFileSizeMb: 25,
+      maxFilesPerGeneration: 20,
+      maxAudioMinutes: 60,
     },
   },
 } as const;

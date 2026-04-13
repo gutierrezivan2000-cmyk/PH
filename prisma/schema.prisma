@@ -18,6 +18,13 @@ model User {
   emailVerified DateTime?
   image         String?
 
+  // Profile fields
+  cargo         String?
+  phone         String?
+  company       String?
+  city          String?
+  onboarded     Boolean   @default(false)
+
   accounts     Account[]
   sessions     Session[]
   subscription Subscription?

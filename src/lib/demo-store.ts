@@ -151,6 +151,10 @@ export function createProperty(data: {
   return prop;
 }
 
+export function deleteProperty(id: string, userId: string): void {
+  _store.properties = _store.properties.filter((p) => !(p.id === id && p.userId === userId));
+}
+
 export function getPropertyById(id: string, userId: string): DemoProperty | undefined {
   return _store.properties.find((p) => p.id === id && p.userId === userId);
 }

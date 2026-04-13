@@ -1,0 +1,112 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+
+const IS_DEMO = process.env.DEMO_MODE === "true";
+
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  if (IS_DEMO) {
+    return NextResponse.json({
+      name: session.user.name,
+      email: session.user.email,
+      image: session.user.image,
+      cargo: "Administrador (demo)",
+      phone: "",
+      company: "",
+      city: "",
+      onboarded: true,
+    });
+  }
+
+  try {
+    const { db } = await import("@/lib/db");
+    const user = await db.user.findUnique({
+      where: { email: session.user.email! },
+    });
+    if (!user) {
+      return NextResponse.json({
+        name: session.user.name,
+        email: session.user.email,
+        image: session.user.image,
+        cargo: "",
+        phone: "",
+        company: "",
+        city: "",
+        onboarded: false,
+      });
+    }
+    return NextResponse.json({
+      name: user.name,
+      email: user.email,
+      image: user.image,
+      cargo: user.cargo ?? "",
+      phone: user.phone ?? "",
+      company: user.company ?? "",
+      city: user.city ?? "",
+      onboarded: user.onboarded,
+    });
+  } catch (error) {
+    console.error("[PROFILE GET]", error);
+    return NextResponse.json({
+      name: session.user.name,
+      email: session.user.email,
+      image: session.user.image,
+      cargo: "",
+      phone: "",
+      company: "",
+      city: "",
+      onboarded: false,
+    });
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  const body = await req.json();
+  const { name, cargo, phone, company, city, onboarded } = body;
+
+  if (IS_DEMO) {
+    return NextResponse.json({ ok: true });
+  }
+
+  try {
+    const { db } = await import("@/lib/db");
+
+    // Find or create user by email
+    let user = await db.user.findUnique({ where: { email: session.user.email! } });
+    if (!user) {
+      user = await db.user.create({
+        data: {
+          email: session.user.email!,
+          name: session.user.name,
+          image: session.user.image,
+        },
+      });
+    }
+
+    await db.user.update({
+      where: { id: user.id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(cargo !== undefined && { cargo }),
+        ...(phone !== undefined && { phone }),
+        ...(company !== undefined && { company }),
+        ...(city !== undefined && { city }),
+        ...(onboarded !== undefined && { onboarded }),
+      },
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("[PROFILE PUT]", error);
+    return NextResponse.json({ error: "Error al actualizar perfil" }, { status: 500 });
+  }
+}

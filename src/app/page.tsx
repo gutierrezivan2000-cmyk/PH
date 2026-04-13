@@ -216,30 +216,30 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-grid opacity-50" />
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Precio Transparente</p>
+            <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Precios Transparentes</p>
             <h2 className="text-3xl sm:text-4xl font-bold">
-              Un plan, todo incluido
+              Elige el plan para tu operacion
             </h2>
             <p className="text-muted-foreground mt-4 text-lg">
-              Sin costos ocultos. Cancela cuando quieras.
+              Sin costos ocultos. Cancela cuando quieras. 7 dias de prueba gratis.
             </p>
           </div>
 
-          <div className="max-w-lg mx-auto">
-            <Card className="relative overflow-hidden border-2 border-primary/30 glow-primary">
-              {/* Popular badge */}
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Plan Profesional */}
+            <Card className="relative overflow-hidden border-2 border-border/40 hover:border-primary/30 transition-colors">
               <div className="absolute top-0 right-0">
-                <div className="bg-gradient-to-r from-primary to-purple-400 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl flex items-center gap-1">
-                  <Star className="h-3 w-3" /> Mas popular
+                <div className="bg-gradient-to-r from-gray-600 to-gray-500 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl flex items-center gap-1">
+                  <Star className="h-3 w-3" /> Popular
                 </div>
               </div>
 
-              <CardContent className="p-10">
+              <CardContent className="p-8 pt-10">
                 <h3 className="text-2xl font-bold mb-1">Plan Profesional</h3>
-                <p className="text-muted-foreground text-sm mb-6">Para administradores que quieren resultados</p>
+                <p className="text-muted-foreground text-sm mb-6">Hasta 3 propiedades</p>
 
                 <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-6xl font-extrabold text-gradient">$20</span>
+                  <span className="text-5xl font-extrabold">$20</span>
                   <span className="text-muted-foreground text-lg">/mes USD</span>
                 </div>
                 <p className="text-sm text-primary font-medium mb-8 flex items-center gap-1.5">
@@ -247,16 +247,16 @@ export default function LandingPage() {
                   7 dias de prueba gratis
                 </p>
 
-                <ul className="space-y-4 mb-10">
+                <ul className="space-y-3 mb-8">
                   {[
-                    "Hasta 15 generaciones por mes",
+                    "Hasta 3 propiedades",
+                    "15 generaciones por mes",
                     "Informe de gestion en PDF",
                     "Acta legal en PDF (Ley 675)",
                     "Presentacion PPTX profesional",
-                    "Sube textos, fotos, audios, Excel, PDF, Word",
-                    "Historial completo de documentos",
-                    "Multiples propiedades",
-                    "Soporte prioritario",
+                    "Todos los formatos de entrada",
+                    "Historial completo",
+                    "Soporte por WhatsApp",
                   ].map((feature) => (
                     <li key={feature} className="flex items-start gap-3">
                       <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -268,17 +268,68 @@ export default function LandingPage() {
                 </ul>
 
                 <Link href="/login" className="block">
-                  <Button className="w-full h-14 text-base rounded-2xl" size="lg">
-                    Comenzar prueba gratuita
+                  <Button variant="outline" className="w-full h-12 text-base rounded-2xl" size="lg">
+                    Comenzar gratis
                     <ArrowRight className="h-5 w-5" />
                   </Button>
                 </Link>
-                <p className="text-xs text-center text-muted-foreground mt-4">
-                  Sin tarjeta de credito requerida para la prueba
+              </CardContent>
+            </Card>
+
+            {/* Plan Elite */}
+            <Card className="relative overflow-hidden border-2 border-primary/30 glow-primary">
+              <div className="absolute top-0 right-0">
+                <div className="bg-gradient-to-r from-primary to-purple-400 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" /> Recomendado
+                </div>
+              </div>
+
+              <CardContent className="p-8 pt-10">
+                <h3 className="text-2xl font-bold mb-1">Plan Elite</h3>
+                <p className="text-muted-foreground text-sm mb-6">Mas de 10 propiedades — sin limites</p>
+
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-5xl font-extrabold text-gradient">$200</span>
+                  <span className="text-muted-foreground text-lg">/mes USD</span>
+                </div>
+                <p className="text-sm text-primary font-medium mb-8 flex items-center gap-1.5">
+                  <Clock className="h-4 w-4" />
+                  7 dias de prueba gratis
                 </p>
+
+                <ul className="space-y-3 mb-8">
+                  {[
+                    "Propiedades ilimitadas",
+                    "50 generaciones por mes",
+                    "10 generaciones diarias",
+                    "Todo lo del plan Profesional",
+                    "Generaciones en lote",
+                    "Soporte prioritario",
+                    "Reportes avanzados",
+                    "Capacitacion personalizada",
+                  ].map((feature) => (
+                    <li key={feature} className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Check className="h-3 w-3 text-primary" />
+                      </div>
+                      <span className="text-sm">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <Link href="/login" className="block">
+                  <Button className="w-full h-12 text-base rounded-2xl shadow-lg shadow-primary/25" size="lg">
+                    Comenzar gratis
+                    <ArrowRight className="h-5 w-5" />
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           </div>
+
+          <p className="text-xs text-center text-muted-foreground mt-8">
+            Sin tarjeta de credito requerida para la prueba. Pago seguro via ePayco.
+          </p>
         </div>
       </section>
 

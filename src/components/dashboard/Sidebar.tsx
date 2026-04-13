@@ -6,14 +6,17 @@ import { cn } from "@/lib/utils";
 import {
   Building2,
   LayoutDashboard,
-  FileText,
   Building,
   History,
   CreditCard,
   LogOut,
   Sparkles,
+  Settings,
+  MessageCircle,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
+
+const WHATSAPP_LINK = "https://wa.me/message/PLACEHOLDER";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -21,6 +24,7 @@ const navigation = [
   { name: "Propiedades", href: "/dashboard/propiedades", icon: Building },
   { name: "Historial", href: "/dashboard/historial", icon: History },
   { name: "Suscripcion", href: "/dashboard/suscripcion", icon: CreditCard },
+  { name: "Configuracion", href: "/dashboard/configuracion", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -58,6 +62,19 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* WhatsApp Support */}
+      <div className="px-3 py-2">
+        <a
+          href={WHATSAPP_LINK}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-emerald-700 hover:bg-emerald-50 transition-all duration-200"
+        >
+          <MessageCircle className="h-[18px] w-[18px]" />
+          Soporte
+        </a>
+      </div>
 
       {/* Logout */}
       <div className="px-3 py-4 border-t border-border/50">

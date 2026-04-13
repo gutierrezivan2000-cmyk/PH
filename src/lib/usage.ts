@@ -1,7 +1,18 @@
 import { db } from "@/lib/db";
 import { PLANS } from "@/lib/epayco";
 
-const plan = PLANS.pro;
+type PlanLimits = {
+  generationsPerDay: number;
+  generationsPerMonth: number;
+  maxFileSizeMb: number;
+  maxFilesPerGeneration: number;
+  maxAudioMinutes: number;
+};
+
+function getPlanLimits(planId?: string | null): PlanLimits {
+  if (planId === "plan-elite-ph") return { ...PLANS.elite.limits };
+  return { ...PLANS.pro.limits };
+}
 
 export async function checkUsageLimits(userId: string): Promise<{
   allowed: boolean;
@@ -12,6 +23,15 @@ export async function checkUsageLimits(userId: string): Promise<{
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  // Get user's plan
+  let limits: PlanLimits = { ...PLANS.pro.limits };
+  try {
+    const sub = await db.subscription.findUnique({ where: { userId } });
+    limits = getPlanLimits(sub?.planId);
+  } catch {
+    // default to pro limits
+  }
 
   const [dailyCount, monthlyCount] = await Promise.all([
     db.generation.count({
@@ -30,19 +50,19 @@ export async function checkUsageLimits(userId: string): Promise<{
     }),
   ]);
 
-  if (dailyCount >= plan.limits.generationsPerDay) {
+  if (dailyCount >= limits.generationsPerDay) {
     return {
       allowed: false,
-      reason: `Has alcanzado el l\u00edmite diario de ${plan.limits.generationsPerDay} generaciones.`,
+      reason: `Has alcanzado el l\u00edmite diario de ${limits.generationsPerDay} generaciones.`,
       dailyUsed: dailyCount,
       monthlyUsed: monthlyCount,
     };
   }
 
-  if (monthlyCount >= plan.limits.generationsPerMonth) {
+  if (monthlyCount >= limits.generationsPerMonth) {
     return {
       allowed: false,
-      reason: `Has alcanzado el l\u00edmite mensual de ${plan.limits.generationsPerMonth} generaciones.`,
+      reason: `Has alcanzado el l\u00edmite mensual de ${limits.generationsPerMonth} generaciones.`,
       dailyUsed: dailyCount,
       monthlyUsed: monthlyCount,
     };
@@ -67,6 +87,14 @@ export async function getUsageSummary(userId: string) {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
+  let limits: PlanLimits = { ...PLANS.pro.limits };
+  try {
+    const sub = await db.subscription.findUnique({ where: { userId } });
+    limits = getPlanLimits(sub?.planId);
+  } catch {
+    // default
+  }
+
   const [monthlyGenerations, dailyGenerations, monthlyTokens] = await Promise.all([
     db.generation.count({
       where: { userId, createdAt: { gte: startOfMonth }, status: "completed" },
@@ -85,6 +113,6 @@ export async function getUsageSummary(userId: string) {
     dailyGenerations,
     monthlyTokens: monthlyTokens._sum.tokens ?? 0,
     monthlyCost: monthlyTokens._sum.costUsd ?? 0,
-    limits: plan.limits,
+    limits,
   };
 }

@@ -1,11 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
 import { PLANS } from "@/lib/epayco";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -17,18 +16,29 @@ export async function POST() {
     return NextResponse.json({ url: `${appUrl}/dashboard?success=true&demo=1` });
   }
 
-  // Check if user already has an active subscription
-  const existing = await db.subscription.findUnique({
-    where: { userId: session.user.id },
-  });
-
-  if (existing?.status === "active") {
-    return NextResponse.json({ error: "Ya tienes una suscripción activa" }, { status: 400 });
+  let planType: "pro" | "elite" = "pro";
+  try {
+    const body = await req.json();
+    if (body.plan === "elite") planType = "elite";
+  } catch {
+    // default to pro
   }
 
-  // Return the checkout configuration for the frontend widget
+  // Check if user already has an active subscription
+  try {
+    const { db } = await import("@/lib/db");
+    const existing = await db.subscription.findUnique({
+      where: { userId: session.user.id },
+    });
+    if (existing?.status === "active") {
+      return NextResponse.json({ error: "Ya tienes una suscripcion activa" }, { status: 400 });
+    }
+  } catch (e) {
+    console.error("[CHECKOUT] DB check failed, proceeding:", e);
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const plan = PLANS.pro;
+  const plan = PLANS[planType];
 
   return NextResponse.json({
     checkoutConfig: {
@@ -41,7 +51,7 @@ export async function POST() {
       tax: "0",
       country: "co",
       lang: "es",
-      external: "false", // onPage modal
+      external: "false",
       confirmation: `${appUrl}/api/epayco/confirmation`,
       response: `${appUrl}/dashboard/epayco/response`,
       extra1: session.user.id,

@@ -1,13 +1,42 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
 import { UsageCard } from "@/components/dashboard/UsageCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Building, History, Sparkles, ArrowRight } from "lucide-react";
+import { FileText, Building, History, Sparkles, ArrowRight, Loader2 } from "lucide-react";
+
+const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const [checking, setChecking] = useState(!IS_DEMO);
+
+  useEffect(() => {
+    if (IS_DEMO) return;
+    fetch("/api/profile")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.onboarded) {
+          router.replace("/dashboard/onboarding");
+        } else {
+          setChecking(false);
+        }
+      })
+      .catch(() => setChecking(false));
+  }, [router]);
+
+  if (checking) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div>
       <Header title="Dashboard" />

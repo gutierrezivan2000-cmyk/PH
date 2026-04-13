@@ -5,7 +5,7 @@ import { Header } from "@/components/dashboard/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Building, Plus, MapPin, Home, X } from "lucide-react";
+import { Building, Plus, MapPin, Home, X, AlertCircle, Trash2 } from "lucide-react";
 
 interface Property {
   id: string;
@@ -24,6 +24,7 @@ export default function PropiedadesPage() {
   const [city, setCity] = useState("");
   const [units, setUnits] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const fetchProperties = () => {
     fetch("/api/properties")
@@ -41,6 +42,7 @@ export default function PropiedadesPage() {
     if (!name.trim()) return;
 
     setLoading(true);
+    setError("");
     try {
       const res = await fetch("/api/properties", {
         method: "POST",
@@ -55,9 +57,24 @@ export default function PropiedadesPage() {
         setUnits("");
         setShowForm(false);
         fetchProperties();
+      } else {
+        const data = await res.json();
+        setError(data.error || "Error al guardar la propiedad");
       }
+    } catch {
+      setError("Error de conexion. Intenta de nuevo.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("¿Estas seguro de eliminar esta propiedad?")) return;
+    try {
+      const res = await fetch(`/api/properties?id=${id}`, { method: "DELETE" });
+      if (res.ok) fetchProperties();
+    } catch {
+      // ignore
     }
   };
 
@@ -82,6 +99,12 @@ export default function PropiedadesPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-2 text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    {error}
+                  </div>
+                )}
                 <div>
                   <label className="text-sm font-medium text-foreground mb-1.5 block">Nombre del conjunto/edificio *</label>
                   <Input
@@ -173,6 +196,13 @@ export default function PropiedadesPage() {
                     )}
                   </div>
                 </div>
+                <button
+                  onClick={() => handleDelete(property.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600"
+                  title="Eliminar propiedad"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </CardContent>
             </Card>
           ))}
