@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     }
 
     const blob = await put(`uploads/${session.user.id}/${Date.now()}-${file.name}`, file, {
-      access: "public",
+      access: "private",
     });
 
     uploadedFiles.push({

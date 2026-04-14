@@ -396,7 +396,7 @@ async function handleProduction(req: NextRequest, userId: string) {
       const informeBlob = await put(
         `generations/${generation.id}/informe.html`,
         informeHtml,
-        { access: "public", contentType: "text/html" }
+        { access: "private", contentType: "text/html" }
       );
       outputFiles.informeHtml = informeBlob.url;
 
@@ -408,7 +408,7 @@ async function handleProduction(req: NextRequest, userId: string) {
           `generations/${generation.id}/presentacion.pptx`,
           pptxBuffer,
           {
-            access: "public",
+            access: "private",
             contentType:
               "application/vnd.openxmlformats-officedocument.presentationml.presentation",
           }
@@ -430,7 +430,7 @@ async function handleProduction(req: NextRequest, userId: string) {
       const actaBlob = await put(
         `generations/${generation.id}/acta.html`,
         actaHtml,
-        { access: "public", contentType: "text/html" }
+        { access: "private", contentType: "text/html" }
       );
       outputFiles.actaHtml = actaBlob.url;
     }
