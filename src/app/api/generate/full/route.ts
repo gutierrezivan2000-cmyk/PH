@@ -299,33 +299,31 @@ async function handleProduction(req: NextRequest, userId: string) {
     console.error("[generate/full] User sync error:", e);
   }
 
-  // Check subscription & usage limits
-  try {
-    const subscription = await db.subscription.findUnique({ where: { userId: dbUserId } });
-    const hasActiveSubscription = subscription?.status === "active";
-
-    if (!hasActiveSubscription) {
-      // Free trial: 1 generation total
-      const totalGenerations = await db.generation.count({
-        where: { userId: dbUserId, status: "completed" },
-      });
-      if (totalGenerations >= 1) {
-        return NextResponse.json(
-          { error: "Tu prueba gratuita ha terminado (1 generacion). Suscribete para continuar generando documentos." },
-          { status: 403 }
-        );
-      }
-    } else {
-      // Active subscription: check plan limits
-      const usageCheck = await checkUsageLimits(dbUserId);
-      if (!usageCheck.allowed) {
-        return NextResponse.json({ error: usageCheck.reason }, { status: 429 });
-      }
-    }
-  } catch (e) {
-    console.error("[generate/full] Subscription/usage check error:", e);
-    // Continue — don't block generation if check fails
-  }
+  // TODO: Re-enable subscription & usage limits after testing
+  // Subscription checks temporarily disabled for testing
+  // ---
+  // try {
+  //   const subscription = await db.subscription.findUnique({ where: { userId: dbUserId } });
+  //   const hasActiveSubscription = subscription?.status === "active";
+  //   if (!hasActiveSubscription) {
+  //     const totalGenerations = await db.generation.count({
+  //       where: { userId: dbUserId, status: "completed" },
+  //     });
+  //     if (totalGenerations >= 1) {
+  //       return NextResponse.json(
+  //         { error: "Tu prueba gratuita ha terminado (1 generacion). Suscribete para continuar generando documentos." },
+  //         { status: 403 }
+  //       );
+  //     }
+  //   } else {
+  //     const usageCheck = await checkUsageLimits(dbUserId);
+  //     if (!usageCheck.allowed) {
+  //       return NextResponse.json({ error: usageCheck.reason }, { status: 429 });
+  //     }
+  //   }
+  // } catch (e) {
+  //   console.error("[generate/full] Subscription/usage check error:", e);
+  // }
 
   const formData = await req.formData();
   const propertyId = formData.get("propertyId") as string;
