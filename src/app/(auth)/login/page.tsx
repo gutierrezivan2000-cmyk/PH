@@ -3,7 +3,7 @@
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, Zap, ArrowRight } from "lucide-react";
+import { Sparkles, Zap, ArrowRight } from "lucide-react";
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
@@ -12,26 +12,33 @@ export default function LoginPage() {
     <div className="min-h-screen flex relative overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 bg-grid" />
-      <div className="absolute top-0 left-1/3 w-[600px] h-[600px] bg-gradient-to-br from-primary/15 to-purple-300/15 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-gradient-to-tl from-emerald-200/15 to-transparent rounded-full blur-3xl" />
+      <div className="absolute top-0 left-1/3 w-[600px] h-[600px] bg-gradient-to-br from-primary/20 to-purple-300/20 rounded-full blur-3xl animate-pulse-slow" />
+      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-gradient-to-tl from-violet-300/15 to-transparent rounded-full blur-3xl animate-pulse-slow" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-primary/5 via-purple-400/10 to-primary/5 rounded-full blur-3xl" />
 
       {/* Content */}
       <div className="relative flex items-center justify-center w-full p-4">
-        <div className="w-full max-w-sm space-y-6">
+        <div className="w-full max-w-sm space-y-6 animate-fade-in">
           {/* Logo */}
           <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-400 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-primary/25">
-              <Building2 className="h-8 w-8 text-white" />
+            <div className="inline-flex items-center justify-center mb-5 animate-float">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary via-purple-500 to-violet-400 flex items-center justify-center shadow-lg shadow-primary/30">
+                <Sparkles className="h-8 w-8 text-white" />
+              </div>
             </div>
-            <h1 className="text-2xl font-bold">PH Gestion</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Plataforma de gestion para propiedad horizontal
+            <h1 className="text-4xl font-extrabold tracking-tight">
+              <span className="text-gradient">SOPH</span>
+              <span className="text-foreground">.</span>
+              <span className="text-gradient">IA</span>
+            </h1>
+            <p className="text-muted-foreground text-sm mt-2 max-w-xs mx-auto">
+              Inteligencia Artificial para Propiedad Horizontal
             </p>
           </div>
 
           {/* Demo banner */}
           {IS_DEMO && (
-            <div className="bg-amber-50 border border-amber-200/80 rounded-2xl px-4 py-3 text-center">
+            <div className="bg-amber-50 border border-amber-200/80 rounded-2xl px-4 py-3 text-center animate-slide-up">
               <p className="text-sm font-medium text-amber-800 flex items-center justify-center gap-2">
                 <Zap className="h-4 w-4" />
                 Modo Demo — no se requieren credenciales
@@ -39,7 +46,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <Card className="border-border/40 shadow-xl shadow-black/5">
+          <Card className="border-border/40 shadow-xl shadow-primary/5 animate-slide-up">
             <CardContent className="p-8 space-y-4">
               {/* Demo login button */}
               {IS_DEMO && (
@@ -60,7 +67,7 @@ export default function LoginPage() {
                 <Button
                   onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
                   variant="outline"
-                  className="w-full h-12 text-base gap-3 rounded-2xl"
+                  className="w-full h-12 text-base gap-3 rounded-2xl hover:shadow-md transition-shadow"
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24">
                     <path

@@ -13,6 +13,9 @@ import {
   Sparkles,
   Settings,
   MessageCircle,
+  ChevronsLeft,
+  ChevronsRight,
+  X,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -27,65 +30,201 @@ const navigation = [
   { name: "Configuracion", href: "/dashboard/configuracion", icon: Settings },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  open: boolean;
+  onClose: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}
+
+export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col w-[260px] bg-white border-r border-border/50 min-h-screen">
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 px-6 py-5">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-purple-400 flex items-center justify-center shadow-md shadow-primary/20">
-          <Building2 className="h-5 w-5 text-white" />
+    <>
+      {/* Desktop sidebar */}
+      <aside
+        className={cn(
+          "hidden lg:flex flex-col bg-white/95 backdrop-blur-sm border-r border-gray-200/60 min-h-screen transition-all duration-300 ease-in-out relative group/sidebar",
+          collapsed ? "w-[76px]" : "w-[264px]"
+        )}
+      >
+        {/* Logo */}
+        <div className={cn(
+          "flex items-center gap-3 h-[72px] border-b border-gray-100/80",
+          collapsed ? "px-4 justify-center" : "px-6"
+        )}>
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/25 flex-shrink-0">
+            <Sparkles className="h-5 w-5 text-white" />
+          </div>
+          {!collapsed && (
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-lg font-extrabold bg-gradient-to-r from-violet-700 to-purple-600 bg-clip-text text-transparent leading-tight">
+                SOPH.IA
+              </span>
+              <span className="text-[10px] font-medium text-gray-400 tracking-wider uppercase">
+                Gestion Inteligente
+              </span>
+            </div>
+          )}
         </div>
-        <span className="text-lg font-bold text-foreground">PH Gestion</span>
-      </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-2 space-y-1">
-        {navigation.map((item) => {
-          const isActive = pathname === item.href ||
-            (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                isActive
-                  ? "bg-primary/10 text-primary shadow-sm"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              )}
-            >
-              <item.icon className={cn("h-[18px] w-[18px]", isActive && "text-primary")} />
-              {item.name}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* WhatsApp Support */}
-      <div className="px-3 py-2">
-        <a
-          href={WHATSAPP_LINK}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-emerald-700 hover:bg-emerald-50 transition-all duration-200"
-        >
-          <MessageCircle className="h-[18px] w-[18px]" />
-          Soporte
-        </a>
-      </div>
-
-      {/* Logout */}
-      <div className="px-3 py-4 border-t border-border/50">
+        {/* Collapse toggle */}
         <button
-          onClick={() => signOut({ callbackUrl: "/" })}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-red-50 hover:text-red-600 w-full transition-all duration-200"
+          onClick={onToggleCollapse}
+          className="absolute -right-3.5 top-[52px] w-7 h-7 rounded-full bg-white border border-gray-200/80 shadow-md flex items-center justify-center opacity-0 group-hover/sidebar:opacity-100 transition-all duration-200 hover:bg-violet-50 hover:border-violet-200 z-10"
         >
-          <LogOut className="h-[18px] w-[18px]" />
-          Cerrar Sesion
+          {collapsed ? (
+            <ChevronsRight className="h-3.5 w-3.5 text-gray-500" />
+          ) : (
+            <ChevronsLeft className="h-3.5 w-3.5 text-gray-500" />
+          )}
         </button>
-      </div>
-    </div>
+
+        {/* Nav */}
+        <nav className={cn("flex-1 py-5 space-y-1", collapsed ? "px-2" : "px-3")}>
+          {navigation.map((item) => {
+            const isActive = pathname === item.href ||
+              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                title={collapsed ? item.name : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl text-[13px] font-medium transition-all duration-200 group/item",
+                  collapsed ? "px-3 py-3 justify-center" : "px-3.5 py-2.5",
+                  isActive
+                    ? "bg-gradient-to-r from-violet-50 to-purple-50/80 text-violet-700 shadow-sm border border-violet-100/60"
+                    : "text-gray-500 hover:bg-gray-50/80 hover:text-gray-800 border border-transparent"
+                )}
+              >
+                <item.icon className={cn(
+                  "h-[18px] w-[18px] flex-shrink-0 transition-all duration-200",
+                  isActive
+                    ? "text-violet-600"
+                    : "text-gray-400 group-hover/item:text-violet-500"
+                )} />
+                {!collapsed && <span className="truncate">{item.name}</span>}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* WhatsApp Support */}
+        <div className={cn("py-2", collapsed ? "px-2" : "px-3")}>
+          <a
+            href={WHATSAPP_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={collapsed ? "Soporte" : undefined}
+            className={cn(
+              "flex items-center gap-3 rounded-xl text-[13px] font-medium text-emerald-600 hover:bg-emerald-50/80 transition-all duration-200",
+              collapsed ? "px-3 py-3 justify-center" : "px-3.5 py-2.5"
+            )}
+          >
+            <MessageCircle className="h-[18px] w-[18px] flex-shrink-0" />
+            {!collapsed && <span>Soporte WhatsApp</span>}
+          </a>
+        </div>
+
+        {/* Logout */}
+        <div className={cn("py-4 border-t border-gray-100/80", collapsed ? "px-2" : "px-3")}>
+          <button
+            onClick={() => signOut({ callbackUrl: "/" })}
+            title={collapsed ? "Cerrar Sesion" : undefined}
+            className={cn(
+              "flex items-center gap-3 rounded-xl text-[13px] font-medium text-gray-400 hover:bg-red-50/80 hover:text-red-600 w-full transition-all duration-200",
+              collapsed ? "px-3 py-3 justify-center" : "px-3.5 py-2.5"
+            )}
+          >
+            <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
+            {!collapsed && <span>Cerrar Sesion</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Mobile sidebar */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 w-[288px] bg-white shadow-2xl shadow-black/10 transform transition-transform duration-300 ease-in-out lg:hidden flex flex-col",
+          open ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Mobile header */}
+        <div className="flex items-center justify-between px-5 h-[72px] border-b border-gray-100/80 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
+              <Sparkles className="h-5 w-5 text-white" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-lg font-extrabold bg-gradient-to-r from-violet-700 to-purple-600 bg-clip-text text-transparent leading-tight">
+                SOPH.IA
+              </span>
+              <span className="text-[10px] font-medium text-gray-400 tracking-wider uppercase">
+                Gestion Inteligente
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-colors"
+          >
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Mobile nav */}
+        <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
+          {navigation.map((item) => {
+            const isActive = pathname === item.href ||
+              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={onClose}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-medium transition-all duration-200",
+                  isActive
+                    ? "bg-gradient-to-r from-violet-50 to-purple-50/80 text-violet-700 shadow-sm border border-violet-100/60"
+                    : "text-gray-500 hover:bg-gray-50/80 hover:text-gray-800 border border-transparent"
+                )}
+              >
+                <item.icon className={cn(
+                  "h-[18px] w-[18px] flex-shrink-0",
+                  isActive ? "text-violet-600" : "text-gray-400"
+                )} />
+                {item.name}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Mobile WhatsApp */}
+        <div className="px-3 py-2 flex-shrink-0">
+          <a
+            href={WHATSAPP_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-medium text-emerald-600 hover:bg-emerald-50/80 transition-all duration-200"
+          >
+            <MessageCircle className="h-[18px] w-[18px]" />
+            Soporte WhatsApp
+          </a>
+        </div>
+
+        {/* Mobile Logout */}
+        <div className="px-3 py-4 border-t border-gray-100/80 flex-shrink-0">
+          <button
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-medium text-gray-400 hover:bg-red-50/80 hover:text-red-600 w-full transition-all duration-200"
+          >
+            <LogOut className="h-[18px] w-[18px]" />
+            Cerrar Sesion
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
