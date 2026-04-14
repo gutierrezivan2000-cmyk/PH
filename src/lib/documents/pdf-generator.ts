@@ -245,10 +245,50 @@ export function generatePdfHtml(data: PdfDocumentData): string {
       letter-spacing: 0.02em;
     }
 
+    /* Download bar */
+    .download-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: linear-gradient(135deg, ${accentColor}, ${accentColor}dd);
+      color: #fff;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    }
+    .download-bar .info {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .download-bar .info small {
+      opacity: 0.8;
+      font-weight: 400;
+      font-size: 12px;
+    }
+    .download-bar button {
+      background: #fff;
+      color: ${accentColor};
+      border: none;
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .download-bar button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
     /* Print styles */
     @media print {
       body { padding: 0; }
       .page { padding: 30px 40px; max-width: none; }
+      .download-bar { display: none !important; }
       h2 { page-break-after: avoid; }
       table { page-break-inside: avoid; }
       .doc-footer { position: fixed; bottom: 20px; left: 0; right: 0; }
@@ -256,6 +296,13 @@ export function generatePdfHtml(data: PdfDocumentData): string {
   </style>
 </head>
 <body>
+  <div class="download-bar">
+    <div class="info">
+      ${title} &mdash; ${propertyName}<br/>
+      <small>Generado por SOPH.IA &bull; ${period}</small>
+    </div>
+    <button onclick="window.print()">Descargar PDF</button>
+  </div>
   <div class="page">
     <div class="doc-header">
       <h1>${title.toUpperCase()}</h1>
@@ -263,7 +310,7 @@ export function generatePdfHtml(data: PdfDocumentData): string {
     </div>
     ${contentHtml}
     <div class="doc-footer">
-      Documento generado el ${new Date().toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })} &bull; PH Gestion
+      Documento generado el ${new Date().toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })} &bull; SOPH.IA
     </div>
   </div>
 </body>
