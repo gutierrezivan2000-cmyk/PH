@@ -52,8 +52,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // On first Google sign-in, ensure user exists in our DB
       if (account?.provider === "google" && user?.email) {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { db } = require("@/lib/db");
+          const { db } = await import("@/lib/db");
           const existing = await db.user.findUnique({
             where: { email: user.email },
           });
