@@ -32,7 +32,10 @@ export async function POST(req: NextRequest) {
       return handleDemo(req);
     }
 
-    return handleProduction(req, session.user.id);
+    const user = session.user!;
+    return handleProduction(req, {
+      user: { id: user.id!, email: user.email, name: user.name, image: user.image },
+    });
   } catch (error) {
     console.error("[generate/full] Unhandled error:", error);
     const msg = error instanceof Error ? error.message : "Error desconocido";
@@ -216,7 +219,7 @@ async function handleDemo(req: NextRequest) {
 }
 
 // ── PRODUCTION MODE (simplified with step-by-step timing) ────────────────────
-async function handleProduction(req: NextRequest, userId: string) {
+async function handleProduction(req: NextRequest, session: { user: { id: string; email?: string | null; name?: string | null; image?: string | null } }) {
   const timing: Record<string, number> = {};
   const t0 = Date.now();
 
@@ -231,12 +234,11 @@ async function handleProduction(req: NextRequest, userId: string) {
     return NextResponse.json({ error: `Error DB import: ${msg.slice(0, 200)}` }, { status: 500 });
   }
 
-  // Step 2: Ensure user exists
-  let dbUserId = userId;
+  // Step 2: Ensure user exists (reuse session from POST, no second auth() call)
+  let dbUserId = session.user.id;
   try {
     const t = Date.now();
-    const session = await auth();
-    if (session?.user?.email) {
+    if (session.user.email) {
       const existing = await db.user.findUnique({ where: { email: session.user.email } });
       if (existing) {
         dbUserId = existing.id;

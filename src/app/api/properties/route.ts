@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
 import {
   getProperties,
   createProperty,
@@ -10,8 +9,14 @@ import {
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
+async function getDb() {
+  const { db } = await import("@/lib/db");
+  return db;
+}
+
 async function ensureUserExists(session: { user: { id: string; email?: string | null; name?: string | null; image?: string | null } }) {
   try {
+    const db = await getDb();
     const existing = await db.user.findUnique({ where: { email: session.user.email! } });
     if (existing) return existing.id;
     const created = await db.user.create({
@@ -39,6 +44,7 @@ export async function GET() {
   }
 
   try {
+    const db = await getDb();
     const dbUserId = await ensureUserExists(session as { user: { id: string; email: string; name: string; image: string } });
     const properties = await db.property.findMany({
       where: { userId: dbUserId },
@@ -76,6 +82,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const db = await getDb();
     const dbUserId = await ensureUserExists(session as { user: { id: string; email: string; name: string; image: string } });
     const property = await db.property.create({
       data: {
@@ -110,6 +117,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
+    const db = await getDb();
     const dbUserId = await ensureUserExists(session as { user: { id: string; email: string; name: string; image: string } });
     await db.property.deleteMany({ where: { id, userId: dbUserId } });
     return NextResponse.json({ ok: true });
