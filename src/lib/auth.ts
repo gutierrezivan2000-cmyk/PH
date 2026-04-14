@@ -5,6 +5,12 @@ import { DEMO_USER } from "@/lib/demo-store";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
+// Accept AUTH_SECRET or NEXTAUTH_SECRET
+const secret =
+  process.env.AUTH_SECRET ||
+  process.env.NEXTAUTH_SECRET ||
+  (process.env.NODE_ENV === "development" ? "dev-secret-not-for-production" : undefined);
+
 const providers = IS_DEMO
   ? [
       Credentials({
@@ -23,14 +29,14 @@ const providers = IS_DEMO
     ]
   : [
       Google({
-        clientId: process.env.AUTH_GOOGLE_ID!,
-        clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+        clientId: process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || "",
+        clientSecret: process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET || "",
       }),
     ];
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // Always use JWT sessions — no database dependency for auth.
-  // User data (properties, generations) is stored separately via Prisma.
+  secret,
+
   session: { strategy: "jwt" },
 
   providers,
@@ -39,6 +45,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
   pages: {
     signIn: "/login",
+    error: "/login",
   },
 
   callbacks: {
