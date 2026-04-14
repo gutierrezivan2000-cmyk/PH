@@ -350,60 +350,67 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     }
     timing.aiGeneration = Date.now() - t7;
 
-    // Step 8: Generate HTML documents
+    // Step 8: Generate HTML + PPTX and upload to Blob (all in parallel)
     const t8 = Date.now();
     const outputFiles: Record<string, string> = {};
 
     const { put } = await import("@vercel/blob");
 
-    if (informeText) {
-      const informeHtml = generatePdfHtml({
-        title: "Informe de Gestion",
-        propertyName: property.name,
-        period,
-        content: informeText,
-        type: "informe",
-      });
-      const informeBlob = await put(
-        `generations/${generation.id}/informe.html`,
-        informeHtml,
-        { access: "private", contentType: "text/html" }
+    // Prepare all documents synchronously (fast, CPU-only)
+    const informeHtml = informeText ? generatePdfHtml({
+      title: "Informe de Gestion",
+      propertyName: property.name,
+      period,
+      content: informeText,
+      type: "informe",
+    }) : null;
+
+    const actaHtml = actaText ? generatePdfHtml({
+      title: "Acta de Reunion",
+      propertyName: property.name,
+      period,
+      content: actaText,
+      type: "acta",
+    }) : null;
+
+    // Upload all files in parallel (including PPTX generation + upload)
+    const uploadPromises: Promise<void>[] = [];
+
+    if (informeHtml) {
+      uploadPromises.push(
+        put(`generations/${generation.id}/informe.html`, informeHtml, { access: "private", contentType: "text/html" })
+          .then((blob) => { outputFiles.informeHtml = blob.url; })
       );
-      outputFiles.informeHtml = informeBlob.url;
     }
 
-    if (actaText) {
-      const actaHtml = generatePdfHtml({
-        title: "Acta de Reunion",
-        propertyName: property.name,
-        period,
-        content: actaText,
-        type: "acta",
-      });
-      const actaBlob = await put(
-        `generations/${generation.id}/acta.html`,
-        actaHtml,
-        { access: "private", contentType: "text/html" }
+    if (actaHtml) {
+      uploadPromises.push(
+        put(`generations/${generation.id}/acta.html`, actaHtml, { access: "private", contentType: "text/html" })
+          .then((blob) => { outputFiles.actaHtml = blob.url; })
       );
-      outputFiles.actaHtml = actaBlob.url;
     }
 
-    // PPTX — skip for now to save time, add back later
     if (informeText) {
-      try {
-        const slidesData = parseMarkdownToSlides(informeText, property.name, period);
-        const { generatePptx } = await import("@/lib/documents/pptx-generator");
-        const pptxBuffer = await generatePptx(slidesData);
-        const pptxBlob = await put(
-          `generations/${generation.id}/presentacion.pptx`,
-          pptxBuffer,
-          { access: "private", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
-        );
-        outputFiles.presentacionPptx = pptxBlob.url;
-      } catch {
-        // PPTX failed — skip
-      }
+      uploadPromises.push(
+        (async () => {
+          try {
+            const slidesData = parseMarkdownToSlides(informeText, property.name, period);
+            const { generatePptx } = await import("@/lib/documents/pptx-generator");
+            const pptxBuffer = await generatePptx(slidesData);
+            const pptxBlob = await put(
+              `generations/${generation.id}/presentacion.pptx`,
+              pptxBuffer,
+              { access: "private", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
+            );
+            outputFiles.presentacionPptx = pptxBlob.url;
+          } catch {
+            // PPTX failed — skip silently
+          }
+        })()
+      );
     }
+
+    await Promise.all(uploadPromises);
     timing.docsAndUpload = Date.now() - t8;
 
     // Step 9: Update DB
