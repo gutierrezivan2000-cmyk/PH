@@ -21,7 +21,19 @@ export async function GET() {
       include: { property: true },
       orderBy: { createdAt: "desc" },
     });
-    return NextResponse.json(generations);
+
+    // Replace raw blob URLs with proxy download URLs
+    const mapped = generations.map((g) => {
+      const out = g.outputFiles as Record<string, string> | null;
+      if (!out) return g;
+      const proxy: Record<string, string> = {};
+      if (out.informeHtml) proxy.informeHtml = `/api/download/${g.id}/informe`;
+      if (out.actaHtml) proxy.actaHtml = `/api/download/${g.id}/acta`;
+      if (out.presentacionPptx) proxy.presentacionPptx = `/api/download/${g.id}/pptx`;
+      return { ...g, outputFiles: Object.keys(proxy).length > 0 ? proxy : null };
+    });
+
+    return NextResponse.json(mapped);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: `Error de base de datos: ${msg.slice(0, 200)}` }, { status: 500 });

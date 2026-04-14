@@ -1,5 +1,5 @@
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
@@ -352,7 +352,6 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
 
     // Step 8: Generate HTML + PPTX and upload to Blob (all in parallel)
     const t8 = Date.now();
-    const outputFiles: Record<string, string> = {};
 
     const { put } = await import("@vercel/blob");
 
@@ -374,19 +373,21 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     }) : null;
 
     // Upload all files in parallel (including PPTX generation + upload)
+    // Store raw blob URLs in DB, but return proxy download URLs to client
+    const blobUrls: Record<string, string> = {};
     const uploadPromises: Promise<void>[] = [];
 
     if (informeHtml) {
       uploadPromises.push(
         put(`generations/${generation.id}/informe.html`, informeHtml, { access: "private", contentType: "text/html" })
-          .then((blob) => { outputFiles.informeHtml = blob.url; })
+          .then((blob) => { blobUrls.informeHtml = blob.url; })
       );
     }
 
     if (actaHtml) {
       uploadPromises.push(
         put(`generations/${generation.id}/acta.html`, actaHtml, { access: "private", contentType: "text/html" })
-          .then((blob) => { outputFiles.actaHtml = blob.url; })
+          .then((blob) => { blobUrls.actaHtml = blob.url; })
       );
     }
 
@@ -402,7 +403,7 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
               pptxBuffer,
               { access: "private", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
             );
-            outputFiles.presentacionPptx = pptxBlob.url;
+            blobUrls.presentacionPptx = pptxBlob.url;
           } catch {
             // PPTX failed — skip silently
           }
@@ -413,12 +414,18 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     await Promise.all(uploadPromises);
     timing.docsAndUpload = Date.now() - t8;
 
-    // Step 9: Update DB
+    // Build proxy download URLs for the client
+    const outputFiles: Record<string, string> = {};
+    if (blobUrls.informeHtml) outputFiles.informeHtml = `/api/download/${generation.id}/informe`;
+    if (blobUrls.actaHtml) outputFiles.actaHtml = `/api/download/${generation.id}/acta`;
+    if (blobUrls.presentacionPptx) outputFiles.presentacionPptx = `/api/download/${generation.id}/pptx`;
+
+    // Step 9: Update DB (store raw blob URLs for the download proxy)
     const t9 = Date.now();
     const costUsd = totalTokens * 0.000003; // Haiku pricing
     await db.generation.update({
       where: { id: generation.id },
-      data: { status: "completed", outputFiles, tokensUsed: totalTokens, costUsd, completedAt: new Date() },
+      data: { status: "completed", outputFiles: blobUrls, tokensUsed: totalTokens, costUsd, completedAt: new Date() },
     });
     timing.dbUpdate = Date.now() - t9;
 

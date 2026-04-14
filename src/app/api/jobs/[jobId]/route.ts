@@ -4,6 +4,16 @@ import { getGenerationById, DEMO_USER } from "@/lib/demo-store";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
+/** Convert raw blob URLs stored in DB to proxy download URLs */
+function toProxyUrls(generationId: string, outputFiles: Record<string, string> | null | undefined): Record<string, string> | null {
+  if (!outputFiles) return null;
+  const proxy: Record<string, string> = {};
+  if (outputFiles.informeHtml) proxy.informeHtml = `/api/download/${generationId}/informe`;
+  if (outputFiles.actaHtml) proxy.actaHtml = `/api/download/${generationId}/acta`;
+  if (outputFiles.presentacionPptx) proxy.presentacionPptx = `/api/download/${generationId}/pptx`;
+  return Object.keys(proxy).length > 0 ? proxy : null;
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
@@ -34,7 +44,11 @@ export async function GET(
       return NextResponse.json({ error: "No encontrado" }, { status: 404 });
     }
 
-    return NextResponse.json(generation);
+    // Replace raw blob URLs with proxy download URLs
+    return NextResponse.json({
+      ...generation,
+      outputFiles: toProxyUrls(generation.id, generation.outputFiles as Record<string, string> | null),
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: `Error de base de datos: ${msg.slice(0, 200)}` }, { status: 500 });
