@@ -47,7 +47,7 @@ export default function DashboardPage() {
   return (
     <div>
       <Header title="Dashboard" />
-      <div className="p-8 space-y-8 max-w-5xl">
+      <div className="p-6 lg:p-8 space-y-8 max-w-6xl mx-auto w-full">
         {/* Welcome + CTA */}
         <div className="bg-gradient-to-r from-primary via-purple-600 to-primary rounded-2xl p-8 text-white relative overflow-hidden">
           <div className="absolute inset-0 bg-grid opacity-10" />

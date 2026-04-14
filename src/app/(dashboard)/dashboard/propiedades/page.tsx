@@ -72,16 +72,20 @@ export default function PropiedadesPage() {
     if (!confirm("¿Estas seguro de eliminar esta propiedad?")) return;
     try {
       const res = await fetch(`/api/properties?id=${id}`, { method: "DELETE" });
-      if (res.ok) fetchProperties();
+      if (res.ok) {
+        fetchProperties();
+      } else {
+        setError("No se pudo eliminar la propiedad. Intenta de nuevo.");
+      }
     } catch {
-      // ignore
+      setError("Error de conexion al eliminar. Intenta de nuevo.");
     }
   };
 
   return (
     <div>
       <Header title="Mis Propiedades" />
-      <div className="p-8 max-w-3xl space-y-6">
+      <div className="p-6 lg:p-8 max-w-4xl mx-auto w-full space-y-6">
         <div className="flex justify-between items-center">
           <p className="text-muted-foreground text-sm">
             Administra las propiedades horizontales que gestionas

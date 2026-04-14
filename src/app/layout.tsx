@@ -2,9 +2,25 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PH Gestion - Plataforma para Administradores de Propiedad Horizontal",
+  title: "SOPH.IA - Informes y Actas de Propiedad Horizontal con IA",
   description:
-    "Genera informes de gestion, actas y presentaciones profesionales para tu propiedad horizontal con inteligencia artificial.",
+    "Genera informes de gestion, actas legales y presentaciones profesionales para propiedad horizontal en minutos con inteligencia artificial. Cumple Ley 675.",
+  keywords: [
+    "propiedad horizontal",
+    "informes de gestion",
+    "actas legales",
+    "ley 675",
+    "administracion PH",
+    "inteligencia artificial",
+    "software propiedad horizontal",
+  ],
+  openGraph: {
+    title: "SOPH.IA - Informes y Actas de Propiedad Horizontal con IA",
+    description:
+      "Genera informes, actas y presentaciones profesionales para tu propiedad horizontal en minutos. Potenciado con IA.",
+    type: "website",
+    locale: "es_CO",
+  },
 };
 
 export default function RootLayout({

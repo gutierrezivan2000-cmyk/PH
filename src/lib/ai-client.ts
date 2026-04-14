@@ -49,6 +49,15 @@ export async function generateWithClaude(
     if (msg.includes("rate_limit") || msg.includes("429")) {
       throw new Error("El servicio de IA esta temporalmente saturado. Intenta de nuevo en unos minutos.");
     }
+    if (msg.includes("overloaded") || msg.includes("529")) {
+      throw new Error("El servicio de IA esta sobrecargado en este momento. Intenta de nuevo en unos minutos.");
+    }
+    if (msg.includes("timeout") || msg.includes("ETIMEDOUT") || msg.includes("ECONNRESET")) {
+      throw new Error("La solicitud tardo demasiado. Verifica tu conexion e intenta de nuevo.");
+    }
+    if (msg.includes("fetch failed") || msg.includes("ENOTFOUND")) {
+      throw new Error("No se pudo conectar con el servicio de IA. Verifica la conexion a internet.");
+    }
     throw error;
   }
 }

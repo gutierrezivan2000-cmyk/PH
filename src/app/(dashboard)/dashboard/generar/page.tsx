@@ -123,7 +123,7 @@ export default function GenerarPage() {
   return (
     <div>
       <Header title="Generar Documentos" />
-      <div className="p-8 max-w-3xl">
+      <div className="p-6 lg:p-8 max-w-3xl mx-auto w-full">
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-sm">

@@ -17,6 +17,7 @@ import {
   Check,
   Loader2,
   MessageCircle,
+  AlertCircle,
 } from "lucide-react";
 
 const WHATSAPP_LINK = "https://wa.me/message/PLACEHOLDER";
@@ -37,6 +38,7 @@ export default function ConfiguracionPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
   // Editable fields
   const [name, setName] = useState("");
@@ -63,16 +65,22 @@ export default function ConfiguracionPage() {
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
+    setError("");
     try {
-      await fetch("/api/profile", {
+      const res = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, cargo, company, phone, city }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Error al guardar los cambios. Intenta de nuevo.");
+        return;
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
-      // ignore
+      setError("Error de conexion. Verifica tu internet e intenta de nuevo.");
     } finally {
       setSaving(false);
     }
@@ -90,7 +98,7 @@ export default function ConfiguracionPage() {
   return (
     <div>
       <Header title="Configuracion" />
-      <div className="p-8 max-w-2xl space-y-6">
+      <div className="p-6 lg:p-8 max-w-3xl mx-auto w-full space-y-6">
         {/* Profile Card */}
         <Card>
           <CardHeader className="pb-4">
@@ -189,6 +197,13 @@ export default function ConfiguracionPage() {
                     />
                   </div>
                 </div>
+
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-sm">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    {error}
+                  </div>
+                )}
 
                 <Button
                   onClick={handleSave}

@@ -114,7 +114,7 @@ export default function JobResultPage() {
   return (
     <div>
       <Header title={`${generation.property.name} — ${MONTHS[generation.month - 1]} ${generation.year}`} />
-      <div className="p-8 max-w-3xl space-y-6">
+      <div className="p-6 lg:p-8 max-w-4xl mx-auto w-full space-y-6">
         {/* Status */}
         <Card>
           <CardHeader className="pb-3">

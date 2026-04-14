@@ -101,6 +101,22 @@ body {
   background-clip: text;
 }
 
+/* Slide-in animation for mobile sidebar */
+@keyframes slide-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.2s ease-out;
+}
+
+/* FAQ accordion transition */
+.accordion-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, opacity 0.2s ease-out;
+}
+
 /* Smooth scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

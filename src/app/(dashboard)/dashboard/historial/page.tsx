@@ -49,7 +49,7 @@ export default function HistorialPage() {
   return (
     <div>
       <Header title="Historial" />
-      <div className="p-8 max-w-3xl space-y-5">
+      <div className="p-6 lg:p-8 max-w-4xl mx-auto w-full space-y-5">
         <p className="text-sm text-muted-foreground">
           Todos los documentos que has generado
         </p>
