@@ -12,17 +12,20 @@ function getClient(): Anthropic {
   return _client;
 }
 
+// Model selection: Use env var to override, default to Haiku for speed on Hobby plan
+const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
+
 export async function generateWithClaude(
   systemPrompt: string,
   userContent: string,
-  model: string = "claude-sonnet-4-20250514"
+  model: string = DEFAULT_MODEL
 ): Promise<{ text: string; tokensUsed: number }> {
   const client = getClient();
 
   try {
     const response = await client.messages.create({
       model,
-      max_tokens: 8000,
+      max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }],
       temperature: 0.7,
