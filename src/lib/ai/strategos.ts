@@ -191,14 +191,36 @@ export function buildStrategosPrompt(
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
   ];
 
-  return `Genera el informe de gestión mensual para:
-- Propiedad: ${propertyName}
+  return `GENERA EL INFORME DE GESTIÓN MENSUAL con los siguientes datos:
+
+📋 DATOS DEL INFORME:
+- Copropiedad: ${propertyName}
 - Período: ${monthNames[month - 1]} ${year}
 
-Información proporcionada por el administrador:
+📄 INFORMACIÓN PROPORCIONADA POR EL ADMINISTRADOR:
 ---
 ${consolidatedContent}
 ---
 
-Genera el informe completo basándote en toda la información anterior. Adapta la estructura de los 10 pasos al contexto mensual: incluye las secciones relevantes según los datos proporcionados. Si hay datos financieros, preséntalos con tablas. Si hay compromisos, incluye semáforo de cumplimiento. Si faltan datos para alguna sección crítica (como estados financieros oficiales), indícalo claramente.`;
+📌 INSTRUCCIONES DE CALIDAD:
+
+1. **Extensión**: El informe debe ser COMPLETO y DETALLADO. Mínimo 2000 palabras. No resumas — desarrolla cada sección con profundidad profesional.
+
+2. **Estructura**: Adapta los 10 pasos de la estructura obligatoria al contexto mensual. Incluye TODAS las secciones relevantes según los datos proporcionados.
+
+3. **Datos financieros**: Si hay cifras, preséntalas en tablas Markdown bien formateadas con totales y variaciones porcentuales.
+
+4. **Semáforo de cumplimiento**: Si hay compromisos o tareas, incluye el semáforo (🟢 Verde ≥80%, 🟡 Amarillo 50-79%, 🔴 Rojo <50%) con tabla de seguimiento.
+
+5. **KPIs**: Incluye indicadores clave de desempeño con valores numéricos concretos extraídos de la información proporcionada.
+
+6. **Tono**: Profesional, ejecutivo, orientado a resultados. Redacción en tercera persona. Sin coloquialismos.
+
+7. **Secciones faltantes**: Si no hay datos para una sección importante, indícalo con "[INFORMACIÓN NO PROPORCIONADA — Se recomienda incluir para el próximo informe]".
+
+8. **Conclusión ejecutiva**: SIEMPRE incluye una conclusión ejecutiva al final con resumen de impacto, principales logros y retos identificados.
+
+9. **Formato**: Usa Markdown profesional con ## para secciones principales, ### para subsecciones, **negritas** para énfasis, tablas para datos estructurados, y listas para enumeraciones.
+
+IMPORTANTE: Responde ÚNICAMENTE con el contenido del informe. No incluyas preámbulos ni explicaciones fuera del documento.`;
 }

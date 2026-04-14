@@ -130,14 +130,42 @@ export function buildGrammatusPrompt(
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
   ];
 
-  return `Genera el Acta de reunión del Consejo de Administración para:
-- Copropiedad: ${propertyName}
-- Período: ${monthNames[month - 1]} ${year}
+  return `GENERA EL ACTA DE REUNIÓN DEL CONSEJO DE ADMINISTRACIÓN con los siguientes datos:
 
-Información proporcionada por el administrador (puede ser transcripción, resumen o lista de temas):
+📋 DATOS DEL ACTA:
+- Copropiedad: ${propertyName}
+- Período correspondiente: ${monthNames[month - 1]} ${year}
+
+📄 INFORMACIÓN PROPORCIONADA (puede ser transcripción, resumen, notas o lista de temas):
 ---
 ${consolidatedContent}
 ---
 
-Genera el Acta completa basándote en toda la información anterior, siguiendo la estructura institucional. Identifica los temas tratados, las intervenciones, las decisiones y las votaciones. Si no hay datos suficientes para alguna sección obligatoria, incluye el campo con [PENDIENTE DE COMPLETAR].`;
+📌 INSTRUCCIONES DE CALIDAD:
+
+1. **Carácter legal**: Esta es un acta con valor legal conforme a la Ley 675 de 2001, Art. 43. Debe tener la formalidad y precisión de un documento jurídico colombiano.
+
+2. **Extensión**: El acta debe ser COMPLETA y DETALLADA. Desarrolla cada punto tratado con las intervenciones, deliberaciones y decisiones. Mínimo 1500 palabras.
+
+3. **Estructura obligatoria**: Sigue EXACTAMENTE la estructura de acta con:
+   - Encabezado completo (Acta No., tipo de reunión, datos de la sesión)
+   - Verificación de quórum con listado de asistentes
+   - Aprobación del orden del día
+   - Desarrollo punto por punto de cada tema tratado
+   - Registro de votaciones con resultados (a favor, en contra, abstenciones)
+   - Compromisos adquiridos con responsables y fechas
+   - Cierre formal con hora de finalización
+   - Espacio de firmas
+
+4. **Lenguaje**: Jurídico colombiano formal pero comprensible. Usa expresiones como "se deja constancia", "se aprueba por unanimidad/mayoría", "el consejero [nombre] manifiesta", "se somete a consideración".
+
+5. **Imparcialidad absoluta**: Registra todas las intervenciones de manera objetiva. No emitas juicios de valor.
+
+6. **Datos faltantes**: Si falta información esencial (fecha exacta, hora, asistentes específicos), usa [PENDIENTE DE COMPLETAR] en los campos correspondientes.
+
+7. **Referencias legales**: Cuando sea pertinente, referencia artículos de la Ley 675 de 2001.
+
+8. **Formato**: Usa Markdown con ## para secciones principales, ### para subsecciones, **negritas** para roles y decisiones, tablas para votaciones, y --- para separadores.
+
+IMPORTANTE: Responde ÚNICAMENTE con el contenido del Acta. No incluyas preámbulos ni explicaciones fuera del documento.`;
 }

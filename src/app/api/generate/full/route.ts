@@ -422,7 +422,7 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
 
     // Step 9: Update DB (store raw blob URLs for the download proxy)
     const t9 = Date.now();
-    const costUsd = totalTokens * 0.000003; // Haiku pricing
+    const costUsd = totalTokens * 0.000009; // Sonnet pricing (blended input/output)
     await db.generation.update({
       where: { id: generation.id },
       data: { status: "completed", outputFiles: blobUrls, tokensUsed: totalTokens, costUsd, completedAt: new Date() },

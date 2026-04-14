@@ -12,8 +12,9 @@ function getClient(): Anthropic {
   return _client;
 }
 
-// Model selection: Use env var to override, default to Haiku for speed on Hobby plan
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
+// Model selection: Sonnet for quality, Haiku for speed
+// With Vercel Pro (300s timeout), Sonnet is viable and produces much better documents
+const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
 
 export async function generateWithClaude(
   systemPrompt: string,
@@ -25,10 +26,10 @@ export async function generateWithClaude(
   try {
     const response = await client.messages.create({
       model,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }],
-      temperature: 0.7,
+      temperature: 0.4, // Lower temperature for formal/legal documents
     });
 
     const text = response.content
