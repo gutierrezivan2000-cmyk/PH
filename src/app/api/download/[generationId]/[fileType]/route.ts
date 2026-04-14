@@ -10,12 +10,12 @@ const FILE_TYPE_MAP: Record<string, { key: string; contentType: string; filename
   informe: {
     key: "informeHtml",
     contentType: "text/html; charset=utf-8",
-    filename: "informe.html",
+    filename: "informe-de-gestion.html",
   },
   acta: {
     key: "actaHtml",
     contentType: "text/html; charset=utf-8",
-    filename: "acta.html",
+    filename: "acta-de-reunion.html",
   },
   pptx: {
     key: "presentacionPptx",
@@ -75,38 +75,28 @@ export async function GET(
     return NextResponse.redirect(new URL(blobUrl, _req.url));
   }
 
-  // Fetch the private blob content from Vercel Blob storage
+  // Use @vercel/blob get() to properly access private blobs
   try {
-    const blobResponse = await fetch(blobUrl, {
-      headers: {
-        Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
-      },
-    });
+    const { get } = await import("@vercel/blob");
+    const result = await get(blobUrl, { access: "private" });
 
-    if (!blobResponse.ok) {
-      return NextResponse.json(
-        { error: `Error al obtener archivo: ${blobResponse.status}` },
-        { status: 502 }
-      );
+    if (!result) {
+      return NextResponse.json({ error: "Archivo no encontrado en storage" }, { status: 404 });
     }
 
-    const body = blobResponse.body;
-    if (!body) {
-      return NextResponse.json({ error: "Archivo vacio" }, { status: 502 });
-    }
-
-    return new NextResponse(body, {
+    return new NextResponse(result.stream, {
       status: 200,
       headers: {
         "Content-Type": fileInfo.contentType,
         "Content-Disposition": fileType === "pptx"
           ? `attachment; filename="${fileInfo.filename}"`
-          : "inline",
+          : `inline; filename="${fileInfo.filename}"`,
         "Cache-Control": "private, max-age=3600",
       },
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: `Error al descargar: ${msg.slice(0, 200)}` }, { status: 500 });
+    console.error(`[download] Error fetching blob: ${msg}`, { blobUrl, generationId, fileType });
+    return NextResponse.json({ error: `Error al descargar archivo: ${msg.slice(0, 200)}` }, { status: 500 });
   }
 }

@@ -18,7 +18,7 @@ const COLORS = {
 
 export async function generatePptx(data: PresentationData): Promise<Buffer> {
   const pptx = new PptxGenJS();
-  pptx.author = "PH SaaS";
+  pptx.author = "SOPH.IA";
   pptx.subject = data.title;
   pptx.title = `${data.title} - ${data.propertyName}`;
 
@@ -91,7 +91,7 @@ export async function generatePptx(data: PresentationData): Promise<Buffer> {
         options: {
           fontSize: 14,
           color: COLORS.text,
-          bullet: { code: "2022" },
+          bullet: { characterCode: "2022" },
           breakLine: true as const,
           paraSpaceAfter: 6,
         },
