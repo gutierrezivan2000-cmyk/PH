@@ -1,5 +1,5 @@
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
@@ -22,7 +22,6 @@ import { GRAMMATEUS_SYSTEM_PROMPT, buildGrammatusPrompt } from "@/lib/ai/grammat
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
 export async function POST(req: NextRequest) {
-  // Top-level try-catch to ensure we ALWAYS return a JSON response
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -94,7 +93,6 @@ async function handleDemo(req: NextRequest) {
     ];
     const period = `${months[month - 1]} ${year}`;
 
-    // Check if real AI key is available (Anthropic Claude)
     const anthropicKey = process.env.ANTHROPIC_API_KEY;
     const hasRealAI = !!anthropicKey && !anthropicKey.includes("placeholder") && anthropicKey.length > 10;
 
@@ -103,7 +101,6 @@ async function handleDemo(req: NextRequest) {
     let tokensUsed = 0;
 
     if (hasRealAI && (files.length > 0 || additionalText?.trim())) {
-      // ── REAL AI: parse files and generate with OpenAI ──
       const textParts: string[] = [];
       if (additionalText?.trim()) {
         textParts.push(`[Informacion del administrador]\n${additionalText}`);
@@ -113,7 +110,6 @@ async function handleDemo(req: NextRequest) {
           if (file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".csv")) {
             textParts.push(`[Archivo: ${file.name}]\n${await file.text()}`);
           } else {
-            // Dynamic import of parsers only when needed (avoids module-level crash)
             const { consolidateFiles } = await import("@/lib/parsers");
             const parsed = await consolidateFiles([file]);
             textParts.push(parsed);
@@ -124,11 +120,8 @@ async function handleDemo(req: NextRequest) {
       }
 
       const content = textParts.join("\n\n---\n\n");
-
-      // Dynamic import of AI client only when needed
       const { generateWithAssistant } = await import("@/lib/ai-client");
 
-      // Generate informe with AI
       if (type === "informe" || type === "full") {
         const prompt = buildStrategosPrompt(property.name, month, year, content);
         const result = await generateWithAssistant(STRATEGOS_SYSTEM_PROMPT, prompt);
@@ -138,7 +131,6 @@ async function handleDemo(req: NextRequest) {
         informeText = "";
       }
 
-      // Generate acta with AI
       if (type === "acta" || type === "full") {
         const prompt = buildGrammatusPrompt(property.name, month, year, content);
         const result = await generateWithAssistant(GRAMMATEUS_SYSTEM_PROMPT, prompt);
@@ -148,13 +140,11 @@ async function handleDemo(req: NextRequest) {
         actaText = "";
       }
     } else {
-      // ── MOCK: use pre-built content ──
       informeText = (type === "informe" || type === "full") ? getMockInforme(property.name, month, year) : "";
       actaText = (type === "acta" || type === "full") ? getMockActa(property.name, month, year) : "";
       tokensUsed = 13840;
     }
 
-    // Generate HTML documents
     const informeHtml = informeText ? generatePdfHtml({
       title: "Informe de Gestion",
       propertyName: property.name,
@@ -171,7 +161,6 @@ async function handleDemo(req: NextRequest) {
       type: "acta",
     }) : undefined;
 
-    // PPTX generation — optional, uses dynamic import to avoid crashing
     let pptxBuffer: Buffer | undefined;
     if (informeText) {
       try {
@@ -226,59 +215,26 @@ async function handleDemo(req: NextRequest) {
   }
 }
 
-// ── PRODUCTION MODE ───────────────────────────────────────────────────────────
+// ── PRODUCTION MODE (simplified with step-by-step timing) ────────────────────
 async function handleProduction(req: NextRequest, userId: string) {
-  // Dynamic imports for production-only heavy dependencies — import individually
-  // so we can identify which module fails
+  const timing: Record<string, number> = {};
+  const t0 = Date.now();
+
+  // Step 1: Import DB
   let db: Awaited<typeof import("@/lib/db")>["db"];
-  let checkUsageLimits: Awaited<typeof import("@/lib/usage")>["checkUsageLimits"];
-  let runGenerationPipeline: Awaited<typeof import("@/lib/ai/pipeline")>["runGenerationPipeline"];
-  let put: Awaited<typeof import("@vercel/blob")>["put"];
-
   try {
+    const t = Date.now();
     ({ db } = await import("@/lib/db"));
+    timing.dbImport = Date.now() - t;
   } catch (e) {
-    console.error("[generate/full] DB import error:", e);
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json(
-      { error: `Error al conectar con la base de datos: ${msg.slice(0, 200)}` },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: `Error DB import: ${msg.slice(0, 200)}` }, { status: 500 });
   }
 
-  try {
-    ({ checkUsageLimits } = await import("@/lib/usage"));
-  } catch (e) {
-    console.error("[generate/full] Usage import error:", e);
-    // Non-critical — continue without usage checks
-    checkUsageLimits = async () => ({ allowed: true as boolean, reason: "", dailyUsed: 0, monthlyUsed: 0 });
-  }
-
-  try {
-    ({ runGenerationPipeline } = await import("@/lib/ai/pipeline"));
-  } catch (e) {
-    console.error("[generate/full] Pipeline import error:", e);
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json(
-      { error: `Error al cargar el motor de IA: ${msg.slice(0, 200)}` },
-      { status: 500 }
-    );
-  }
-
-  try {
-    ({ put } = await import("@vercel/blob"));
-  } catch (e) {
-    console.error("[generate/full] Blob import error:", e);
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json(
-      { error: `Error al cargar almacenamiento: ${msg.slice(0, 200)}` },
-      { status: 500 }
-    );
-  }
-
-  // Ensure user exists in DB
+  // Step 2: Ensure user exists
   let dbUserId = userId;
   try {
+    const t = Date.now();
     const session = await auth();
     if (session?.user?.email) {
       const existing = await db.user.findUnique({ where: { email: session.user.email } });
@@ -286,45 +242,19 @@ async function handleProduction(req: NextRequest, userId: string) {
         dbUserId = existing.id;
       } else {
         const created = await db.user.create({
-          data: {
-            email: session.user.email,
-            name: session.user.name,
-            image: session.user.image,
-          },
+          data: { email: session.user.email, name: session.user.name, image: session.user.image },
         });
         dbUserId = created.id;
       }
     }
+    timing.userSync = Date.now() - t;
   } catch (e) {
     console.error("[generate/full] User sync error:", e);
+    timing.userSync = -1;
   }
 
-  // TODO: Re-enable subscription & usage limits after testing
-  // Subscription checks temporarily disabled for testing
-  // ---
-  // try {
-  //   const subscription = await db.subscription.findUnique({ where: { userId: dbUserId } });
-  //   const hasActiveSubscription = subscription?.status === "active";
-  //   if (!hasActiveSubscription) {
-  //     const totalGenerations = await db.generation.count({
-  //       where: { userId: dbUserId, status: "completed" },
-  //     });
-  //     if (totalGenerations >= 1) {
-  //       return NextResponse.json(
-  //         { error: "Tu prueba gratuita ha terminado (1 generacion). Suscribete para continuar generando documentos." },
-  //         { status: 403 }
-  //       );
-  //     }
-  //   } else {
-  //     const usageCheck = await checkUsageLimits(dbUserId);
-  //     if (!usageCheck.allowed) {
-  //       return NextResponse.json({ error: usageCheck.reason }, { status: 429 });
-  //     }
-  //   }
-  // } catch (e) {
-  //   console.error("[generate/full] Subscription/usage check error:", e);
-  // }
-
+  // Step 3: Parse form data
+  const t3 = Date.now();
   const formData = await req.formData();
   const propertyId = formData.get("propertyId") as string;
   const month = parseInt(formData.get("month") as string);
@@ -332,22 +262,23 @@ async function handleProduction(req: NextRequest, userId: string) {
   const additionalText = formData.get("additionalText") as string | null;
   const type = (formData.get("type") as string) || "full";
   const files = formData.getAll("files") as File[];
+  timing.formParse = Date.now() - t3;
 
   if (!propertyId || !month || !year) {
-    return NextResponse.json(
-      { error: "Faltan campos requeridos: propertyId, month, year" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
   }
 
-  const property = await db.property.findFirst({
-    where: { id: propertyId, userId: dbUserId },
-  });
+  // Step 4: Find property
+  const t4 = Date.now();
+  const property = await db.property.findFirst({ where: { id: propertyId, userId: dbUserId } });
+  timing.findProperty = Date.now() - t4;
 
   if (!property) {
     return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
   }
 
+  // Step 5: Create generation record
+  const t5 = Date.now();
   const generation = await db.generation.create({
     data: {
       userId: dbUserId,
@@ -359,11 +290,22 @@ async function handleProduction(req: NextRequest, userId: string) {
       inputText: additionalText,
     },
   });
+  timing.createGeneration = Date.now() - t5;
 
   try {
-    // Lazy-import parsers only when needed (avoids loading pdf-parse/mammoth/xlsx eagerly)
-    const { consolidateFiles } = await import("@/lib/parsers");
-    const consolidatedContent = await consolidateFiles(files, additionalText ?? undefined);
+    // Step 6: Parse files
+    const t6 = Date.now();
+    let consolidatedContent = additionalText?.trim() || "";
+    if (files.length > 0) {
+      try {
+        const { consolidateFiles } = await import("@/lib/parsers");
+        consolidatedContent = await consolidateFiles(files, additionalText ?? undefined);
+      } catch (e) {
+        console.error("[generate/full] Parser error:", e);
+        // Continue with just the text
+      }
+    }
+    timing.parseFiles = Date.now() - t6;
 
     const monthNames = [
       "Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -371,24 +313,53 @@ async function handleProduction(req: NextRequest, userId: string) {
     ];
     const period = `${monthNames[month - 1]} ${year}`;
 
-    const result = await runGenerationPipeline({
-      generationId: generation.id,
-      userId,
-      propertyName: property.name,
-      month,
-      year,
-      consolidatedContent,
-      type: type as "informe" | "acta" | "full",
-    });
+    // Step 7: AI Generation — directly, no pipeline module
+    const t7 = Date.now();
+    const { generateWithAssistant } = await import("@/lib/ai-client");
 
+    let informeText: string | undefined;
+    let actaText: string | undefined;
+    let totalTokens = 0;
+
+    // Run in parallel
+    const informePromise = (type === "informe" || type === "full")
+      ? generateWithAssistant(
+          STRATEGOS_SYSTEM_PROMPT,
+          buildStrategosPrompt(property.name, month, year, consolidatedContent)
+        )
+      : null;
+
+    const actaPromise = (type === "acta" || type === "full")
+      ? generateWithAssistant(
+          GRAMMATEUS_SYSTEM_PROMPT,
+          buildGrammatusPrompt(property.name, month, year, consolidatedContent)
+        )
+      : null;
+
+    const [informeResult, actaResult] = await Promise.all([informePromise, actaPromise]);
+
+    if (informeResult) {
+      informeText = informeResult.text;
+      totalTokens += informeResult.tokensUsed;
+    }
+    if (actaResult) {
+      actaText = actaResult.text;
+      totalTokens += actaResult.tokensUsed;
+    }
+    timing.aiGeneration = Date.now() - t7;
+
+    // Step 8: Generate HTML documents
+    const t8 = Date.now();
     const outputFiles: Record<string, string> = {};
 
-    if (result.informeText) {
+    const { put } = await import("@vercel/blob");
+
+    if (informeText) {
       const informeHtml = generatePdfHtml({
         title: "Informe de Gestion",
         propertyName: property.name,
         period,
-        content: result.informeText,
+        content: informeText,
         type: "informe",
       });
       const informeBlob = await put(
@@ -397,32 +368,14 @@ async function handleProduction(req: NextRequest, userId: string) {
         { access: "private", contentType: "text/html" }
       );
       outputFiles.informeHtml = informeBlob.url;
-
-      try {
-        const slidesData = parseMarkdownToSlides(result.informeText, property.name, period);
-        const { generatePptx } = await import("@/lib/documents/pptx-generator");
-        const pptxBuffer = await generatePptx(slidesData);
-        const pptxBlob = await put(
-          `generations/${generation.id}/presentacion.pptx`,
-          pptxBuffer,
-          {
-            access: "private",
-            contentType:
-              "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-          }
-        );
-        outputFiles.presentacionPptx = pptxBlob.url;
-      } catch {
-        // PPTX generation failed — skip it
-      }
     }
 
-    if (result.actaText) {
+    if (actaText) {
       const actaHtml = generatePdfHtml({
         title: "Acta de Reunion",
         propertyName: property.name,
         period,
-        content: result.actaText,
+        content: actaText,
         type: "acta",
       });
       const actaBlob = await put(
@@ -433,30 +386,57 @@ async function handleProduction(req: NextRequest, userId: string) {
       outputFiles.actaHtml = actaBlob.url;
     }
 
+    // PPTX — skip for now to save time, add back later
+    if (informeText) {
+      try {
+        const slidesData = parseMarkdownToSlides(informeText, property.name, period);
+        const { generatePptx } = await import("@/lib/documents/pptx-generator");
+        const pptxBuffer = await generatePptx(slidesData);
+        const pptxBlob = await put(
+          `generations/${generation.id}/presentacion.pptx`,
+          pptxBuffer,
+          { access: "private", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
+        );
+        outputFiles.presentacionPptx = pptxBlob.url;
+      } catch {
+        // PPTX failed — skip
+      }
+    }
+    timing.docsAndUpload = Date.now() - t8;
+
+    // Step 9: Update DB
+    const t9 = Date.now();
+    const costUsd = totalTokens * 0.000003; // Haiku pricing
     await db.generation.update({
       where: { id: generation.id },
-      data: { status: "completed", outputFiles, completedAt: new Date() },
+      data: { status: "completed", outputFiles, tokensUsed: totalTokens, costUsd, completedAt: new Date() },
     });
+    timing.dbUpdate = Date.now() - t9;
+
+    timing.total = Date.now() - t0;
 
     return NextResponse.json({
       id: generation.id,
       status: "completed",
       outputFiles,
-      tokensUsed: result.totalTokens,
-      costUsd: result.totalCost,
+      tokensUsed: totalTokens,
+      costUsd,
+      timing, // Include timing for debugging
     });
   } catch (error) {
-    await db.generation.update({
-      where: { id: generation.id },
-      data: {
-        status: "failed",
-        errorMessage: error instanceof Error ? error.message : "Error desconocido",
-      },
-    });
+    timing.total = Date.now() - t0;
     const errMsg = error instanceof Error ? error.message : "Error desconocido";
-    console.error("[generate/full] Production error:", errMsg);
+    console.error("[generate/full] Error:", errMsg, "timing:", timing);
+
+    try {
+      await db.generation.update({
+        where: { id: generation.id },
+        data: { status: "failed", errorMessage: errMsg },
+      });
+    } catch { /* ignore */ }
+
     return NextResponse.json(
-      { error: `Error al generar: ${errMsg.slice(0, 200)}` },
+      { error: `Error al generar: ${errMsg.slice(0, 300)}`, timing },
       { status: 500 }
     );
   }
