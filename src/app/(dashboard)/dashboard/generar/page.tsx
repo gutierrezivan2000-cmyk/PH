@@ -87,7 +87,15 @@ export default function GenerarPage() {
       }
       files.forEach((file) => formData.append("files", file));
 
-      const res = await fetch("/api/generate/full", { method: "POST", body: formData });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 280000); // 280s timeout
+
+      const res = await fetch("/api/generate/full", {
+        method: "POST",
+        body: formData,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
       let data;
       try {
@@ -113,8 +121,12 @@ export default function GenerarPage() {
       }
 
       router.push(`/dashboard/generar/${data.id}`);
-    } catch {
-      setError("Error de conexion. Intenta de nuevo.");
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("La generacion tardo demasiado. Intenta con menos archivos o un tipo individual (solo Informe o solo Acta).");
+      } else {
+        setError("Error de conexion. Intenta de nuevo.");
+      }
     } finally {
       setLoading(false);
     }

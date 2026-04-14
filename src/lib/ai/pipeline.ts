@@ -49,26 +49,37 @@ export async function runGenerationPipeline(
   });
 
   try {
-    // Generate Informe if needed
-    if (type === "informe" || type === "full") {
-      const prompt = buildStrategosPrompt(propertyName, month, year, consolidatedContent);
-      const result = await generateWithAssistant(STRATEGOS_SYSTEM_PROMPT, prompt);
-      informeText = result.text;
-      totalTokens += result.tokensUsed;
-      const cost = estimateCost(result.tokensUsed);
+    // Run informe and acta generation in PARALLEL to cut time in half
+    const informePromise = (type === "informe" || type === "full")
+      ? (async () => {
+          const prompt = buildStrategosPrompt(propertyName, month, year, consolidatedContent);
+          return generateWithAssistant(STRATEGOS_SYSTEM_PROMPT, prompt);
+        })()
+      : null;
+
+    const actaPromise = (type === "acta" || type === "full")
+      ? (async () => {
+          const prompt = buildGrammatusPrompt(propertyName, month, year, consolidatedContent);
+          return generateWithAssistant(GRAMMATEUS_SYSTEM_PROMPT, prompt);
+        })()
+      : null;
+
+    const [informeResult, actaResult] = await Promise.all([informePromise, actaPromise]);
+
+    if (informeResult) {
+      informeText = informeResult.text;
+      totalTokens += informeResult.tokensUsed;
+      const cost = estimateCost(informeResult.tokensUsed);
       totalCost += cost;
-      await recordUsage(userId, result.tokensUsed, cost, "informe");
+      await recordUsage(userId, informeResult.tokensUsed, cost, "informe");
     }
 
-    // Generate Acta if needed
-    if (type === "acta" || type === "full") {
-      const prompt = buildGrammatusPrompt(propertyName, month, year, consolidatedContent);
-      const result = await generateWithAssistant(GRAMMATEUS_SYSTEM_PROMPT, prompt);
-      actaText = result.text;
-      totalTokens += result.tokensUsed;
-      const cost = estimateCost(result.tokensUsed);
+    if (actaResult) {
+      actaText = actaResult.text;
+      totalTokens += actaResult.tokensUsed;
+      const cost = estimateCost(actaResult.tokensUsed);
       totalCost += cost;
-      await recordUsage(userId, result.tokensUsed, cost, "acta");
+      await recordUsage(userId, actaResult.tokensUsed, cost, "acta");
     }
 
     // Update generation record
