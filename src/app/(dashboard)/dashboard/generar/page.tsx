@@ -88,7 +88,7 @@ export default function GenerarPage() {
       files.forEach((file) => formData.append("files", file));
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 280000); // 280s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s — server has 60s max
 
       const res = await fetch("/api/generate/full", {
         method: "POST",
@@ -101,12 +101,18 @@ export default function GenerarPage() {
       try {
         data = await res.json();
       } catch {
-        setError(`Error del servidor (${res.status}). Intenta de nuevo.`);
+        if (res.status === 504) {
+          setError("El servidor tardo mas de 60 segundos. Intenta generar solo un tipo (Informe o Acta) en vez de Completo.");
+        } else {
+          setError(`Error del servidor (${res.status}). Intenta de nuevo.`);
+        }
         return;
       }
 
       if (!res.ok) {
-        setError(data.error || "Error al generar documentos");
+        // Show timing data if available for debugging
+        const timingInfo = data.timing ? ` [Timing: ${JSON.stringify(data.timing)}]` : "";
+        setError((data.error || "Error al generar documentos") + timingInfo);
         return;
       }
 
@@ -123,9 +129,9 @@ export default function GenerarPage() {
       router.push(`/dashboard/generar/${data.id}`);
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") {
-        setError("La generacion tardo demasiado. Intenta con menos archivos o un tipo individual (solo Informe o solo Acta).");
+        setError("La generacion tardo mas de 90 segundos. Intenta con menos archivos o un tipo individual (solo Informe o solo Acta).");
       } else {
-        setError("Error de conexion. Intenta de nuevo.");
+        setError("Error de conexion. Verifica tu internet e intenta de nuevo.");
       }
     } finally {
       setLoading(false);
