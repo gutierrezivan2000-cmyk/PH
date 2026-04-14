@@ -124,7 +124,7 @@ export default function OnboardingPage() {
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-400 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/25">
                   <User className="h-8 w-8 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold">Bienvenido a PH Gestion</h2>
+                <h2 className="text-2xl font-bold">Bienvenido a SOPH.IA</h2>
                 <p className="text-muted-foreground mt-2">
                   Cuentanos sobre ti para personalizar tu experiencia
                 </p>
@@ -343,8 +343,8 @@ export default function OnboardingPage() {
         )}
 
         <div className="flex items-center justify-center gap-2 text-muted-foreground">
-          <Building2 className="h-4 w-4" />
-          <span className="text-sm font-medium">PH Gestion</span>
+          <Sparkles className="h-4 w-4" />
+          <span className="text-sm font-medium">SOPH.IA</span>
         </div>
       </div>
     </div>

@@ -1,375 +1,416 @@
+"use client";
+
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   FileText,
-  Presentation,
-  Shield,
+  Sparkles,
   Upload,
-  Zap,
-  Building2,
+  Download,
+  Shield,
+  History,
+  Presentation,
+  FileSpreadsheet,
   ArrowRight,
   Check,
-  Sparkles,
-  Clock,
-  Star,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  Brain,
 } from "lucide-react";
+import { useState } from "react";
+
+const FEATURES = [
+  {
+    icon: FileText,
+    title: "Informes de Gestion",
+    desc: "Genera informes mensuales completos con KPIs, semaforos de cumplimiento, tablas financieras y conclusiones ejecutivas.",
+    color: "from-violet-500 to-purple-600",
+    bg: "bg-violet-500/10",
+  },
+  {
+    icon: Shield,
+    title: "Actas del Consejo",
+    desc: "Actas legales conforme a la Ley 675 de 2001, con estructura institucional, registro de votaciones y espacio de firmas.",
+    color: "from-emerald-500 to-teal-600",
+    bg: "bg-emerald-500/10",
+  },
+  {
+    icon: Presentation,
+    title: "Presentaciones PPTX",
+    desc: "Presentaciones listas para la asamblea con diapositivas profesionales generadas automaticamente desde el informe.",
+    color: "from-blue-500 to-indigo-600",
+    bg: "bg-blue-500/10",
+  },
+  {
+    icon: Upload,
+    title: "Procesamiento de Archivos",
+    desc: "Sube PDF, Excel, Word, imagenes y audios. SOPH.IA extrae y analiza toda la informacion automaticamente.",
+    color: "from-amber-500 to-orange-600",
+    bg: "bg-amber-500/10",
+  },
+  {
+    icon: Brain,
+    title: "Marco Legal Integrado",
+    desc: "Ley 675/2001, Ley 1801/2016, Habeas Data y normativa colombiana integrada en cada documento generado.",
+    color: "from-rose-500 to-pink-600",
+    bg: "bg-rose-500/10",
+  },
+  {
+    icon: History,
+    title: "Historial Completo",
+    desc: "Todos tus documentos organizados por propiedad y periodo. Acceso inmediato a cualquier generacion anterior.",
+    color: "from-cyan-500 to-blue-600",
+    bg: "bg-cyan-500/10",
+  },
+];
+
+const STEPS = [
+  {
+    num: "01",
+    title: "Sube tu informacion",
+    desc: "Carga textos, fotos, audios, Excel, PDF o Word con la informacion del mes.",
+    icon: Upload,
+  },
+  {
+    num: "02",
+    title: "SOPH.IA analiza y genera",
+    desc: "La IA procesa toda la informacion y redacta documentos profesionales con marco legal.",
+    icon: Sparkles,
+  },
+  {
+    num: "03",
+    title: "Descarga tus documentos",
+    desc: "Obtene informe PDF, acta legal y presentacion PPTX listos para entregar.",
+    icon: Download,
+  },
+];
+
+const FAQS = [
+  {
+    q: "Que tipo de documentos genera SOPH.IA?",
+    a: "SOPH.IA genera tres tipos de documentos: Informes de Gestion mensuales con KPIs y semaforos, Actas del Consejo de Administracion conforme a la Ley 675 de 2001, y Presentaciones PPTX profesionales listas para asamblea.",
+  },
+  {
+    q: "Es legalmente valido el contenido generado?",
+    a: "SOPH.IA genera documentos con estructura legal colombiana y referencias a la Ley 675 de 2001, pero los documentos deben ser revisados y firmados por las personas autorizadas. La IA es una herramienta de redaccion, no un sustituto de la validacion juridica.",
+  },
+  {
+    q: "Que formatos de archivo puedo subir?",
+    a: "Puedes subir PDF, Word (.docx), Excel (.xlsx, .csv), imagenes (.jpg, .png), archivos de texto (.txt) y audios (.mp3, .wav, .m4a). SOPH.IA extrae y procesa la informacion de cada formato automaticamente.",
+  },
+  {
+    q: "Cuanto tiempo tarda en generar los documentos?",
+    a: "La generacion completa (informe + acta + presentacion) tarda entre 1 y 3 minutos dependiendo del volumen de informacion. Puedes generar documentos individuales para mayor velocidad.",
+  },
+  {
+    q: "Puedo usar SOPH.IA para varias propiedades?",
+    a: "Si, puedes registrar multiples propiedades en tu cuenta y generar documentos independientes para cada una. El historial se organiza por propiedad y periodo.",
+  },
+  {
+    q: "Mis datos estan seguros?",
+    a: "Toda la informacion se transmite cifrada, se almacena en servidores seguros y solo tu tienes acceso a tus documentos. No compartimos datos con terceros.",
+  },
+];
+
+const PLAN_FEATURES = [
+  "Informes de Gestion ilimitados",
+  "Actas del Consejo ilimitadas",
+  "Presentaciones PPTX",
+  "Procesamiento de archivos (PDF, Excel, Word)",
+  "Marco legal colombiano integrado",
+  "Historial completo de documentos",
+  "Soporte por WhatsApp",
+  "Propiedades ilimitadas",
+];
 
 export default function LandingPage() {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Navbar */}
-      <nav className="fixed top-0 w-full z-50 glass border-b border-white/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+    <div className="min-h-screen bg-[#0a0a1a] text-white overflow-hidden">
+      {/* ── NAVBAR ── */}
+      <nav className="fixed top-0 w-full z-50 liquid-glass-dark">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-purple-400 flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+              <Sparkles className="h-4.5 w-4.5 text-white" />
             </div>
-            <span className="text-lg font-bold text-foreground">PH Gestion</span>
+            <span className="text-lg font-extrabold tracking-tight">
+              SOPH<span className="text-white/50">.</span><span className="bg-gradient-to-r from-amber-300 to-yellow-200 bg-clip-text text-transparent">IA</span>
+            </span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/login">
-              <Button variant="ghost" size="sm">Iniciar Sesion</Button>
+            <Link href="/login" className="text-sm text-white/70 hover:text-white transition-colors hidden sm:block">
+              Iniciar Sesion
             </Link>
-            <Link href="/login">
-              <Button size="sm">
-                Comenzar Gratis
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+            <Link
+              href="/login"
+              className="px-5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-sm font-semibold hover:shadow-lg hover:shadow-violet-500/30 transition-all hover:-translate-y-0.5"
+            >
+              Comenzar
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative pt-32 pb-20 lg:pt-44 lg:pb-32 overflow-hidden">
-        {/* Background decorations */}
-        <div className="absolute inset-0 bg-grid" />
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-to-br from-primary/20 via-purple-300/20 to-pink-200/20 rounded-full blur-3xl animate-gradient" />
-        <div className="absolute top-40 right-0 w-96 h-96 bg-gradient-to-bl from-emerald-200/20 to-transparent rounded-full blur-3xl" />
+      {/* ── HERO ── */}
+      <section className="relative pt-32 pb-24 px-6">
+        {/* Background orbs */}
+        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full bg-violet-600/15 blur-[150px] animate-orb" />
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-indigo-500/15 blur-[130px] animate-orb-delayed" />
+        <div className="absolute top-1/3 right-0 w-[300px] h-[300px] rounded-full bg-purple-500/10 blur-[100px] animate-orb-slow" />
 
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-full px-4 py-1.5 mb-8">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium text-primary">Potenciado con Inteligencia Artificial</span>
+        <div className="relative max-w-5xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full liquid-glass text-sm font-medium text-white/80 mb-8">
+            <Zap className="h-4 w-4 text-amber-400" />
+            Potenciado por Inteligencia Artificial
           </div>
 
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.1]">
-            Informes y Actas de{" "}
-            <span className="text-gradient">Propiedad Horizontal</span>{" "}
-            en minutos
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.1] mb-6">
+            Documentos{" "}
+            <span className="bg-gradient-to-r from-violet-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
+              profesionales
+            </span>
+            <br />
+            en minutos, no en horas
           </h1>
 
-          <p className="mt-8 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Sube tus documentos, fotos y audios. Nuestra IA genera automaticamente
-            el informe de gestion, el acta legal y la presentacion
-            que necesitas cada mes.
+          <p className="text-lg sm:text-xl text-white/60 max-w-2xl mx-auto mb-10 leading-relaxed">
+            SOPH.IA genera informes de gestion, actas legales y presentaciones
+            para administradores de propiedad horizontal con inteligencia artificial.
           </p>
 
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/login">
-              <Button size="lg" className="text-base px-8 h-14 rounded-2xl shadow-lg shadow-primary/25">
-                Empieza con 7 dias gratis
-                <ArrowRight className="h-5 w-5" />
-              </Button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/login"
+              className="group px-8 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 text-base font-bold hover:shadow-2xl hover:shadow-violet-500/30 transition-all hover:-translate-y-1 flex items-center gap-2"
+            >
+              Comenzar Gratis
+              <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Link>
-            <Link href="#como-funciona">
-              <Button size="lg" variant="outline" className="text-base px-8 h-14 rounded-2xl">
-                Como funciona
-              </Button>
-            </Link>
+            <a
+              href="#como-funciona"
+              className="px-8 py-4 rounded-2xl liquid-glass text-base font-semibold hover:bg-white/20 transition-all flex items-center gap-2"
+            >
+              Ver como funciona
+            </a>
           </div>
 
-          <div className="mt-12 flex items-center justify-center gap-8 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <Check className="h-4 w-4 text-emerald-500" /> Sin tarjeta de credito
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="h-4 w-4 text-emerald-500" /> Listo en 2 minutos
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="h-4 w-4 text-emerald-500" /> Cumple Ley 675
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="py-24 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Documentos Profesionales</p>
-            <h2 className="text-3xl sm:text-4xl font-bold">
-              Todo lo que necesitas, un solo clic
-            </h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                icon: FileText,
-                title: "Informe de Gestion",
-                description: "Informes mensuales completos con secciones administrativa, financiera, mantenimiento, seguridad y convivencia.",
-                color: "from-blue-500 to-indigo-600",
-                bg: "bg-blue-50",
-                iconColor: "text-blue-600",
-              },
-              {
-                icon: Shield,
-                title: "Acta Legal",
-                description: "Actas que cumplen con la Ley 675 y normativas de propiedad horizontal en Colombia y Latinoamerica.",
-                color: "from-emerald-500 to-teal-600",
-                bg: "bg-emerald-50",
-                iconColor: "text-emerald-600",
-              },
-              {
-                icon: Presentation,
-                title: "Presentacion PPTX",
-                description: "Presentacion visual profesional en PowerPoint lista para la asamblea con graficos y datos clave.",
-                color: "from-purple-500 to-pink-600",
-                bg: "bg-purple-50",
-                iconColor: "text-purple-600",
-              },
-            ].map((feature) => (
-              <Card key={feature.title} className="group hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border-border/40 overflow-hidden">
-                <CardContent className="p-8">
-                  <div className={`w-14 h-14 ${feature.bg} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
-                    <feature.icon className={`h-7 w-7 ${feature.iconColor}`} />
+          {/* Hero glass card mockup */}
+          <div className="mt-16 mx-auto max-w-3xl liquid-glass rounded-3xl p-1">
+            <div className="bg-gradient-to-br from-violet-900/40 to-indigo-900/40 rounded-[22px] p-8 sm:p-12">
+              <div className="grid sm:grid-cols-3 gap-6 text-center">
+                {[
+                  { label: "Informe PDF", icon: FileText, color: "text-violet-400" },
+                  { label: "Acta Legal", icon: Shield, color: "text-emerald-400" },
+                  { label: "Presentacion PPTX", icon: Presentation, color: "text-blue-400" },
+                ].map((item) => (
+                  <div key={item.label} className="flex flex-col items-center gap-3">
+                    <div className="w-14 h-14 rounded-2xl liquid-glass flex items-center justify-center">
+                      <item.icon className={`h-7 w-7 ${item.color}`} />
+                    </div>
+                    <span className="text-sm font-medium text-white/70">{item.label}</span>
                   </div>
-                  <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
-                  <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section id="como-funciona" className="py-24 bg-gradient-to-b from-secondary/50 to-background relative">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Simple y Rapido</p>
-            <h2 className="text-3xl sm:text-4xl font-bold">
-              Tres pasos, cero complicaciones
-            </h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8 relative">
-            {/* Connector line (desktop) */}
-            <div className="hidden md:block absolute top-12 left-[20%] right-[20%] h-px bg-gradient-to-r from-primary/20 via-primary/40 to-primary/20" />
-
-            {[
-              {
-                step: "01",
-                icon: Upload,
-                title: "Sube tu informacion",
-                description: "Textos, fotos, audios, PDFs, Excel, Word — cualquier formato con tu gestion mensual.",
-              },
-              {
-                step: "02",
-                icon: Zap,
-                title: "La IA procesa todo",
-                description: "Nuestra inteligencia artificial analiza y estructura toda la informacion automaticamente.",
-              },
-              {
-                step: "03",
-                icon: FileText,
-                title: "Descarga tus documentos",
-                description: "Informe PDF, Acta legal PDF y Presentacion PPTX. Listos para entregar.",
-              },
-            ].map((item) => (
-              <div key={item.step} className="text-center relative">
-                <div className="w-24 h-24 bg-white rounded-3xl shadow-lg shadow-primary/10 flex items-center justify-center mx-auto mb-6 relative">
-                  <item.icon className="h-10 w-10 text-primary" />
-                  <span className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-400 text-white text-xs font-bold flex items-center justify-center shadow-md">
-                    {item.step}
-                  </span>
-                </div>
-                <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{item.description}</p>
+                ))}
               </div>
-            ))}
+              <div className="mt-8 h-2 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-full w-3/4 bg-gradient-to-r from-violet-500 to-purple-500 rounded-full animate-pulse" />
+              </div>
+              <p className="text-xs text-white/40 mt-3 text-center">Generando documentos profesionales...</p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Social proof */}
-      <section className="py-16 border-y border-border/40">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+      {/* ── SOCIAL PROOF ── */}
+      <section className="py-16 px-6 border-t border-white/5">
+        <div className="max-w-5xl mx-auto text-center">
+          <p className="text-white/40 text-sm font-medium tracking-wider uppercase mb-8">
+            La herramienta inteligente para administradores de propiedad horizontal
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
             {[
-              { value: "500+", label: "Documentos generados" },
-              { value: "50+", label: "Administradores activos" },
-              { value: "< 3 min", label: "Tiempo promedio" },
-              { value: "4.9/5", label: "Satisfaccion" },
+              { value: "3", label: "Documentos generados" },
+              { value: "<3min", label: "Tiempo promedio" },
+              { value: "100%", label: "Marco legal Col." },
+              { value: "24/7", label: "Disponibilidad" },
             ].map((stat) => (
               <div key={stat.label}>
-                <p className="text-3xl font-bold text-gradient">{stat.value}</p>
-                <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
+                <p className="text-3xl font-extrabold bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">
+                  {stat.value}
+                </p>
+                <p className="text-sm text-white/50 mt-1">{stat.label}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Pricing */}
-      <section className="py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-grid opacity-50" />
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ── HOW IT WORKS ── */}
+      <section id="como-funciona" className="py-24 px-6 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-violet-950/20 to-transparent" />
+        <div className="relative max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Precios Transparentes</p>
-            <h2 className="text-3xl sm:text-4xl font-bold">
-              Elige el plan para tu operacion
+            <p className="text-violet-400 text-sm font-semibold tracking-wider uppercase mb-3">Como funciona</p>
+            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
+              Tres pasos. Documentos perfectos.
             </h2>
-            <p className="text-muted-foreground mt-4 text-lg">
-              Sin costos ocultos. Cancela cuando quieras. 7 dias de prueba gratis.
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {STEPS.map((step) => (
+              <div key={step.num} className="liquid-glass rounded-2xl p-8 hover:bg-white/[0.15] transition-all group">
+                <span className="text-5xl font-extrabold text-white/10 group-hover:text-violet-500/30 transition-colors">
+                  {step.num}
+                </span>
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500/20 to-purple-500/20 flex items-center justify-center mt-4 mb-4">
+                  <step.icon className="h-6 w-6 text-violet-400" />
+                </div>
+                <h3 className="text-lg font-bold mb-2">{step.title}</h3>
+                <p className="text-white/50 text-sm leading-relaxed">{step.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FEATURES ── */}
+      <section className="py-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-violet-400 text-sm font-semibold tracking-wider uppercase mb-3">Funcionalidades</p>
+            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
+              Todo lo que necesitas en un solo lugar
+            </h2>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {FEATURES.map((f) => (
+              <div key={f.title} className="liquid-glass rounded-2xl p-7 hover:bg-white/[0.15] transition-all group">
+                <div className={`w-12 h-12 rounded-xl ${f.bg} flex items-center justify-center mb-5 group-hover:scale-110 transition-transform`}>
+                  <f.icon className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-lg font-bold mb-2">{f.title}</h3>
+                <p className="text-white/50 text-sm leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── PRICING ── */}
+      <section className="py-24 px-6 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-violet-950/20 to-transparent" />
+        <div className="relative max-w-lg mx-auto text-center">
+          <p className="text-violet-400 text-sm font-semibold tracking-wider uppercase mb-3">Precio</p>
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">
+            Simple y accesible
+          </h2>
+          <p className="text-white/50 mb-12">Un solo plan con todo incluido. Sin sorpresas.</p>
+
+          <div className="liquid-glass rounded-3xl p-8 sm:p-10 text-left">
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-5xl font-extrabold">$20</span>
+              <span className="text-white/50">USD / mes</span>
+            </div>
+            <p className="text-white/40 text-sm mb-8">Todo incluido. Cancela cuando quieras.</p>
+
+            <ul className="space-y-3 mb-8">
+              {PLAN_FEATURES.map((f) => (
+                <li key={f} className="flex items-center gap-3 text-sm">
+                  <div className="w-5 h-5 rounded-full bg-violet-500/20 flex items-center justify-center flex-shrink-0">
+                    <Check className="h-3 w-3 text-violet-400" />
+                  </div>
+                  <span className="text-white/70">{f}</span>
+                </li>
+              ))}
+            </ul>
+
+            <Link
+              href="/login"
+              className="block w-full text-center px-8 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 text-base font-bold hover:shadow-2xl hover:shadow-violet-500/30 transition-all hover:-translate-y-1"
+            >
+              Comenzar Ahora
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section className="py-24 px-6">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-violet-400 text-sm font-semibold tracking-wider uppercase mb-3">Preguntas frecuentes</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+              Resolvemos tus dudas
+            </h2>
+          </div>
+
+          <div className="space-y-3">
+            {FAQS.map((faq, i) => (
+              <div key={i} className="liquid-glass rounded-2xl overflow-hidden">
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="w-full flex items-center justify-between p-5 text-left hover:bg-white/5 transition-colors"
+                >
+                  <span className="font-semibold text-sm pr-4">{faq.q}</span>
+                  {openFaq === i ? (
+                    <ChevronUp className="h-5 w-5 text-white/40 flex-shrink-0" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-white/40 flex-shrink-0" />
+                  )}
+                </button>
+                {openFaq === i && (
+                  <div className="px-5 pb-5">
+                    <p className="text-white/50 text-sm leading-relaxed">{faq.a}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FINAL CTA ── */}
+      <section className="py-24 px-6 relative">
+        <div className="absolute inset-0 bg-gradient-to-t from-violet-950/30 to-transparent" />
+        <div className="relative max-w-3xl mx-auto text-center">
+          <div className="liquid-glass rounded-3xl p-10 sm:p-16">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-violet-500/30">
+              <Sparkles className="h-8 w-8 text-white" />
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">
+              Transforma tu administracion hoy
+            </h2>
+            <p className="text-white/50 max-w-lg mx-auto mb-8 leading-relaxed">
+              Unete a los administradores que ya generan documentos profesionales
+              en minutos con inteligencia artificial.
             </p>
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 text-base font-bold hover:shadow-2xl hover:shadow-violet-500/30 transition-all hover:-translate-y-1"
+            >
+              Comenzar Gratis
+              <ArrowRight className="h-5 w-5" />
+            </Link>
           </div>
+        </div>
+      </section>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Plan Profesional */}
-            <Card className="relative overflow-hidden border-2 border-border/40 hover:border-primary/30 transition-colors">
-              <div className="absolute top-0 right-0">
-                <div className="bg-gradient-to-r from-gray-600 to-gray-500 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl flex items-center gap-1">
-                  <Star className="h-3 w-3" /> Popular
-                </div>
-              </div>
-
-              <CardContent className="p-8 pt-10">
-                <h3 className="text-2xl font-bold mb-1">Plan Profesional</h3>
-                <p className="text-muted-foreground text-sm mb-6">Hasta 3 propiedades</p>
-
-                <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-5xl font-extrabold">$20</span>
-                  <span className="text-muted-foreground text-lg">/mes USD</span>
-                </div>
-                <p className="text-sm text-primary font-medium mb-8 flex items-center gap-1.5">
-                  <Clock className="h-4 w-4" />
-                  7 dias de prueba gratis
-                </p>
-
-                <ul className="space-y-3 mb-8">
-                  {[
-                    "Hasta 3 propiedades",
-                    "15 generaciones por mes",
-                    "Informe de gestion en PDF",
-                    "Acta legal en PDF (Ley 675)",
-                    "Presentacion PPTX profesional",
-                    "Todos los formatos de entrada",
-                    "Historial completo",
-                    "Soporte por WhatsApp",
-                  ].map((feature) => (
-                    <li key={feature} className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Check className="h-3 w-3 text-emerald-600" />
-                      </div>
-                      <span className="text-sm">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Link href="/login" className="block">
-                  <Button variant="outline" className="w-full h-12 text-base rounded-2xl" size="lg">
-                    Comenzar gratis
-                    <ArrowRight className="h-5 w-5" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* Plan Elite */}
-            <Card className="relative overflow-hidden border-2 border-primary/30 glow-primary">
-              <div className="absolute top-0 right-0">
-                <div className="bg-gradient-to-r from-primary to-purple-400 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl flex items-center gap-1">
-                  <Sparkles className="h-3 w-3" /> Recomendado
-                </div>
-              </div>
-
-              <CardContent className="p-8 pt-10">
-                <h3 className="text-2xl font-bold mb-1">Plan Elite</h3>
-                <p className="text-muted-foreground text-sm mb-6">Mas de 10 propiedades — sin limites</p>
-
-                <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-5xl font-extrabold text-gradient">$200</span>
-                  <span className="text-muted-foreground text-lg">/mes USD</span>
-                </div>
-                <p className="text-sm text-primary font-medium mb-8 flex items-center gap-1.5">
-                  <Clock className="h-4 w-4" />
-                  7 dias de prueba gratis
-                </p>
-
-                <ul className="space-y-3 mb-8">
-                  {[
-                    "Propiedades ilimitadas",
-                    "50 generaciones por mes",
-                    "10 generaciones diarias",
-                    "Todo lo del plan Profesional",
-                    "Generaciones en lote",
-                    "Soporte prioritario",
-                    "Reportes avanzados",
-                    "Capacitacion personalizada",
-                  ].map((feature) => (
-                    <li key={feature} className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Check className="h-3 w-3 text-primary" />
-                      </div>
-                      <span className="text-sm">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Link href="/login" className="block">
-                  <Button className="w-full h-12 text-base rounded-2xl shadow-lg shadow-primary/25" size="lg">
-                    Comenzar gratis
-                    <ArrowRight className="h-5 w-5" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+      {/* ── FOOTER ── */}
+      <footer className="py-10 px-6 border-t border-white/5">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-white" />
+            </div>
+            <span className="font-bold tracking-tight">
+              SOPH<span className="text-white/50">.</span><span className="bg-gradient-to-r from-amber-300 to-yellow-200 bg-clip-text text-transparent">IA</span>
+            </span>
           </div>
-
-          <p className="text-xs text-center text-muted-foreground mt-8">
-            Sin tarjeta de credito requerida para la prueba. Pago seguro via ePayco.
+          <p className="text-white/30 text-sm">
+            &copy; {new Date().getFullYear()} SOPH.IA. Todos los derechos reservados.
           </p>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="bg-gradient-to-br from-primary via-purple-600 to-primary rounded-3xl p-12 lg:p-16 relative overflow-hidden">
-            <div className="absolute inset-0 bg-grid opacity-10" />
-            <div className="relative">
-              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                Deja de perder horas en documentos
-              </h2>
-              <p className="text-purple-100 text-lg mb-8 max-w-xl mx-auto">
-                Unete a los administradores que ya generan sus informes, actas y presentaciones en minutos.
-              </p>
-              <Link href="/login">
-                <Button size="lg" className="bg-white text-primary hover:bg-white/90 shadow-xl h-14 px-10 text-base rounded-2xl">
-                  Empezar ahora — es gratis
-                  <ArrowRight className="h-5 w-5" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-border/40 py-12 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-purple-400 flex items-center justify-center">
-                <Building2 className="h-4 w-4 text-white" />
-              </div>
-              <span className="font-semibold">PH Gestion</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              &copy; {new Date().getFullYear()} PH Gestion. Todos los derechos reservados.
-            </p>
-          </div>
         </div>
       </footer>
     </div>
