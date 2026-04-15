@@ -5,7 +5,6 @@ const nextConfig: NextConfig = {
     "pdf-parse",
     "mammoth",
     "xlsx",
-    "pptxgenjs",
     "@napi-rs/canvas",
     "@prisma/adapter-pg",
     "pg",
