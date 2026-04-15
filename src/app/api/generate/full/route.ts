@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { auth } from "@/lib/auth";
 
 // Demo-mode imports (lightweight, no heavy native deps)
@@ -168,10 +169,12 @@ async function handleDemo(req: NextRequest) {
     if (informeText) {
       try {
         const slidesData = parseMarkdownToSlides(informeText, property.name, period);
+        console.log(`[generate/full] Demo: parsed ${slidesData.slides.length} slides`);
         const { generatePptx } = await import("@/lib/documents/pptx-generator");
         pptxBuffer = await generatePptx(slidesData);
-      } catch {
-        // PPTX generation failed — skip it silently
+        console.log(`[generate/full] Demo: PPTX generated, ${pptxBuffer.length} bytes`);
+      } catch (e) {
+        console.error("[generate/full] Demo PPTX generation error:", e);
       }
     }
 
@@ -218,26 +221,20 @@ async function handleDemo(req: NextRequest) {
   }
 }
 
-// ── PRODUCTION MODE (simplified with step-by-step timing) ────────────────────
+// ── PRODUCTION MODE — background processing with after() ─────────────────────
 async function handleProduction(req: NextRequest, session: { user: { id: string; email?: string | null; name?: string | null; image?: string | null } }) {
-  const timing: Record<string, number> = {};
-  const t0 = Date.now();
-
   // Step 1: Import DB
   let db: Awaited<typeof import("@/lib/db")>["db"];
   try {
-    const t = Date.now();
     ({ db } = await import("@/lib/db"));
-    timing.dbImport = Date.now() - t;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: `Error DB import: ${msg.slice(0, 200)}` }, { status: 500 });
+    return NextResponse.json({ error: `Error DB: ${msg.slice(0, 200)}` }, { status: 500 });
   }
 
-  // Step 2: Ensure user exists (reuse session from POST, no second auth() call)
+  // Step 2: Ensure user exists
   let dbUserId = session.user.id;
   try {
-    const t = Date.now();
     if (session.user.email) {
       const existing = await db.user.findUnique({ where: { email: session.user.email } });
       if (existing) {
@@ -249,14 +246,11 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
         dbUserId = created.id;
       }
     }
-    timing.userSync = Date.now() - t;
   } catch (e) {
     console.error("[generate/full] User sync error:", e);
-    timing.userSync = -1;
   }
 
   // Step 3: Parse form data
-  const t3 = Date.now();
   const formData = await req.formData();
   const propertyId = formData.get("propertyId") as string;
   const month = parseInt(formData.get("month") as string);
@@ -264,196 +258,194 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
   const additionalText = formData.get("additionalText") as string | null;
   const type = (formData.get("type") as string) || "full";
   const files = formData.getAll("files") as File[];
-  timing.formParse = Date.now() - t3;
 
   if (!propertyId || !month || !year) {
     return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
   }
 
   // Step 4: Find property
-  const t4 = Date.now();
   const property = await db.property.findFirst({ where: { id: propertyId, userId: dbUserId } });
-  timing.findProperty = Date.now() - t4;
-
   if (!property) {
     return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
   }
 
-  // Step 5: Create generation record
-  const t5 = Date.now();
+  // Step 5: Create generation record with "processing" status
   const generation = await db.generation.create({
     data: {
       userId: dbUserId,
       propertyId,
       type,
+      status: "processing",
       month,
       year,
       inputFiles: files.map((f) => ({ name: f.name, type: f.type, size: f.size })),
       inputText: additionalText,
     },
   });
-  timing.createGeneration = Date.now() - t5;
 
-  try {
-    // Step 6: Parse files
-    const t6 = Date.now();
-    let consolidatedContent = additionalText?.trim() || "";
-    if (files.length > 0) {
-      try {
-        const { consolidateFiles } = await import("@/lib/parsers");
-        consolidatedContent = await consolidateFiles(files, additionalText ?? undefined);
-      } catch (e) {
-        console.error("[generate/full] Parser error:", e);
-        // Continue with just the text
-      }
-    }
-    timing.parseFiles = Date.now() - t6;
-
-    const monthNames = [
-      "Enero","Febrero","Marzo","Abril","Mayo","Junio",
-      "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
-    ];
-    const period = `${monthNames[month - 1]} ${year}`;
-
-    // Step 7: AI Generation — directly, no pipeline module
-    const t7 = Date.now();
-    const { generateWithAssistant } = await import("@/lib/ai-client");
-
-    let informeText: string | undefined;
-    let actaText: string | undefined;
-    let totalTokens = 0;
-
-    // Run in parallel
-    const informePromise = (type === "informe" || type === "full")
-      ? generateWithAssistant(
-          STRATEGOS_SYSTEM_PROMPT,
-          buildStrategosPrompt(property.name, month, year, consolidatedContent)
-        )
-      : null;
-
-    const actaPromise = (type === "acta" || type === "full")
-      ? generateWithAssistant(
-          GRAMMATEUS_SYSTEM_PROMPT,
-          buildGrammatusPrompt(property.name, month, year, consolidatedContent)
-        )
-      : null;
-
-    const [informeResult, actaResult] = await Promise.all([informePromise, actaPromise]);
-
-    if (informeResult) {
-      informeText = informeResult.text;
-      totalTokens += informeResult.tokensUsed;
-    }
-    if (actaResult) {
-      actaText = actaResult.text;
-      totalTokens += actaResult.tokensUsed;
-    }
-    timing.aiGeneration = Date.now() - t7;
-
-    // Step 8: Generate HTML + PPTX and upload to Blob (all in parallel)
-    const t8 = Date.now();
-
-    const { put } = await import("@vercel/blob");
-
-    // Prepare all documents synchronously (fast, CPU-only)
-    const informeHtml = informeText ? generatePdfHtml({
-      title: "Informe de Gestion",
-      propertyName: property.name,
-      period,
-      content: informeText,
-      type: "informe",
-    }) : null;
-
-    const actaHtml = actaText ? generatePdfHtml({
-      title: "Acta de Reunion",
-      propertyName: property.name,
-      period,
-      content: actaText,
-      type: "acta",
-    }) : null;
-
-    // Upload all files in parallel (including PPTX generation + upload)
-    // Store raw blob URLs in DB, but return proxy download URLs to client
-    const blobUrls: Record<string, string> = {};
-    const uploadPromises: Promise<void>[] = [];
-
-    if (informeHtml) {
-      uploadPromises.push(
-        put(`generations/${generation.id}/informe.html`, informeHtml, { access: "private", contentType: "text/html" })
-          .then((blob) => { blobUrls.informeHtml = blob.url; })
-      );
-    }
-
-    if (actaHtml) {
-      uploadPromises.push(
-        put(`generations/${generation.id}/acta.html`, actaHtml, { access: "private", contentType: "text/html" })
-          .then((blob) => { blobUrls.actaHtml = blob.url; })
-      );
-    }
-
-    if (informeText) {
-      uploadPromises.push(
-        (async () => {
-          try {
-            const slidesData = parseMarkdownToSlides(informeText, property.name, period);
-            const { generatePptx } = await import("@/lib/documents/pptx-generator");
-            const pptxBuffer = await generatePptx(slidesData);
-            const pptxBlob = await put(
-              `generations/${generation.id}/presentacion.pptx`,
-              pptxBuffer,
-              { access: "private", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
-            );
-            blobUrls.presentacionPptx = pptxBlob.url;
-          } catch {
-            // PPTX failed — skip silently
-          }
-        })()
-      );
-    }
-
-    await Promise.all(uploadPromises);
-    timing.docsAndUpload = Date.now() - t8;
-
-    // Build proxy download URLs for the client
-    const outputFiles: Record<string, string> = {};
-    if (blobUrls.informeHtml) outputFiles.informeHtml = `/api/download/${generation.id}/informe`;
-    if (blobUrls.actaHtml) outputFiles.actaHtml = `/api/download/${generation.id}/acta`;
-    if (blobUrls.presentacionPptx) outputFiles.presentacionPptx = `/api/download/${generation.id}/pptx`;
-
-    // Step 9: Update DB (store raw blob URLs for the download proxy)
-    const t9 = Date.now();
-    const costUsd = totalTokens * 0.000009; // Sonnet pricing (blended input/output)
-    await db.generation.update({
-      where: { id: generation.id },
-      data: { status: "completed", outputFiles: blobUrls, tokensUsed: totalTokens, costUsd, completedAt: new Date() },
-    });
-    timing.dbUpdate = Date.now() - t9;
-
-    timing.total = Date.now() - t0;
-
-    return NextResponse.json({
-      id: generation.id,
-      status: "completed",
-      outputFiles,
-      tokensUsed: totalTokens,
-      costUsd,
-      timing, // Include timing for debugging
-    });
-  } catch (error) {
-    timing.total = Date.now() - t0;
-    const errMsg = error instanceof Error ? error.message : "Error desconocido";
-    console.error("[generate/full] Error:", errMsg, "timing:", timing);
-
+  // Step 6: Pre-read file contents before returning response
+  // (File objects from formData are only available in the current request)
+  const fileContents: { name: string; text: string }[] = [];
+  for (const file of files) {
     try {
+      if (file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".csv")) {
+        fileContents.push({ name: file.name, text: await file.text() });
+      } else {
+        const { consolidateFiles } = await import("@/lib/parsers");
+        const parsed = await consolidateFiles([file]);
+        fileContents.push({ name: file.name, text: parsed });
+      }
+    } catch {
+      fileContents.push({ name: file.name, text: `[Archivo: ${file.name} — no se pudo procesar]` });
+    }
+  }
+
+  // ═══ RESPOND IMMEDIATELY — client gets redirected to results page ═══
+  // The heavy AI work happens in after() below
+  after(async () => {
+    try {
+      console.log(`[generate/full] Background: starting generation ${generation.id}`);
+
+      // Build consolidated content from pre-read files
+      const textParts: string[] = [];
+      if (additionalText?.trim()) {
+        textParts.push(`[Informacion del administrador]\n${additionalText}`);
+      }
+      for (const fc of fileContents) {
+        textParts.push(`[Archivo: ${fc.name}]\n${fc.text}`);
+      }
+      const consolidatedContent = textParts.join("\n\n---\n\n") || "[No se proporcionaron archivos ni texto adicional]";
+
+      const monthNames = [
+        "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+        "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+      ];
+      const period = `${monthNames[month - 1]} ${year}`;
+
+      // AI Generation — parallel
+      const { generateWithAssistant } = await import("@/lib/ai-client");
+
+      let informeText: string | undefined;
+      let actaText: string | undefined;
+      let totalTokens = 0;
+
+      const informePromise = (type === "informe" || type === "full")
+        ? generateWithAssistant(
+            STRATEGOS_SYSTEM_PROMPT,
+            buildStrategosPrompt(property.name, month, year, consolidatedContent)
+          )
+        : null;
+
+      const actaPromise = (type === "acta" || type === "full")
+        ? generateWithAssistant(
+            GRAMMATEUS_SYSTEM_PROMPT,
+            buildGrammatusPrompt(property.name, month, year, consolidatedContent)
+          )
+        : null;
+
+      const [informeResult, actaResult] = await Promise.all([informePromise, actaPromise]);
+
+      if (informeResult) {
+        informeText = informeResult.text;
+        totalTokens += informeResult.tokensUsed;
+      }
+      if (actaResult) {
+        actaText = actaResult.text;
+        totalTokens += actaResult.tokensUsed;
+      }
+
+      // Generate documents + upload to Blob in parallel
+      const { put } = await import("@vercel/blob");
+
+      const informeHtml = informeText ? generatePdfHtml({
+        title: "Informe de Gestion",
+        propertyName: property.name,
+        period,
+        content: informeText,
+        type: "informe",
+      }) : null;
+
+      const actaHtml = actaText ? generatePdfHtml({
+        title: "Acta de Reunion",
+        propertyName: property.name,
+        period,
+        content: actaText,
+        type: "acta",
+      }) : null;
+
+      const blobUrls: Record<string, string> = {};
+      const uploadPromises: Promise<void>[] = [];
+
+      if (informeHtml) {
+        uploadPromises.push(
+          put(`generations/${generation.id}/informe.html`, informeHtml, { access: "private", contentType: "text/html" })
+            .then((blob) => { blobUrls.informeHtml = blob.url; })
+        );
+      }
+
+      if (actaHtml) {
+        uploadPromises.push(
+          put(`generations/${generation.id}/acta.html`, actaHtml, { access: "private", contentType: "text/html" })
+            .then((blob) => { blobUrls.actaHtml = blob.url; })
+        );
+      }
+
+      if (informeText) {
+        uploadPromises.push(
+          (async () => {
+            try {
+              const slidesData = parseMarkdownToSlides(informeText, property.name, period);
+              const { generatePptx } = await import("@/lib/documents/pptx-generator");
+              const pptxBuffer = await generatePptx(slidesData);
+              const pptxBlob = await put(
+                `generations/${generation.id}/presentacion.pptx`,
+                pptxBuffer,
+                { access: "private", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
+              );
+              blobUrls.presentacionPptx = pptxBlob.url;
+            } catch (e) {
+              console.error("[generate/full] PPTX generation error:", e);
+            }
+          })()
+        );
+      }
+
+      await Promise.all(uploadPromises);
+
+      // Update DB with completed status
+      const costUsd = totalTokens * 0.000009;
       await db.generation.update({
         where: { id: generation.id },
-        data: { status: "failed", errorMessage: errMsg },
+        data: {
+          status: "completed",
+          outputFiles: blobUrls,
+          tokensUsed: totalTokens,
+          costUsd,
+          completedAt: new Date(),
+        },
       });
-    } catch { /* ignore */ }
 
-    return NextResponse.json(
-      { error: `Error al generar: ${errMsg.slice(0, 300)}`, timing },
-      { status: 500 }
-    );
-  }
+      console.log(`[generate/full] Background: completed ${generation.id} (${totalTokens} tokens, $${costUsd.toFixed(4)})`);
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "Error desconocido";
+      console.error(`[generate/full] Background error for ${generation.id}:`, errMsg);
+
+      try {
+        await db.generation.update({
+          where: { id: generation.id },
+          data: { status: "failed", errorMessage: errMsg },
+        });
+      } catch { /* ignore */ }
+    }
+  });
+
+  // Return immediately with the generation ID — client will poll for status
+  return NextResponse.json({
+    id: generation.id,
+    status: "processing",
+    month,
+    year,
+    type,
+    property: { name: property.name },
+  });
 }

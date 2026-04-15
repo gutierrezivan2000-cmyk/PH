@@ -135,6 +135,20 @@ export default function JobResultPage() {
           )}
         </Card>
 
+        {/* Processing indicator */}
+        {(generation.status === "processing" || generation.status === "pending") && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="flex flex-col items-center py-12 text-center">
+              <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-6" />
+              <p className="font-semibold text-lg">Generando documentos con IA...</p>
+              <p className="text-sm text-muted-foreground mt-2 max-w-md">
+                SOPH.IA esta analizando tus archivos y generando informe, acta y presentacion.
+                Esto puede tomar entre 1 y 3 minutos. Esta pagina se actualiza automaticamente.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Downloads */}
         {generation.status === "completed" && generation.outputFiles && (
           <Card className="overflow-hidden">

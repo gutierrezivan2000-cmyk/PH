@@ -60,8 +60,29 @@ export async function generateWithClaude(
 // Keep backward-compatible name for existing imports
 export const generateWithAssistant = generateWithClaude;
 
-export async function transcribeAudio(_file: File): Promise<string> {
-  // Claude doesn't have a Whisper equivalent — for now, return a placeholder.
-  // In production, you can use a separate Whisper API or another service.
-  return "[Transcripcion de audio no disponible — se requiere servicio de transcripcion]";
+export async function transcribeAudio(file: File): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    console.warn("[transcribeAudio] OPENAI_API_KEY not set — audio transcription unavailable");
+    return "[Transcripcion de audio no disponible — configura OPENAI_API_KEY en las variables de entorno para habilitar transcripcion con Whisper]";
+  }
+
+  const { default: OpenAI } = await import("openai");
+  const openai = new OpenAI({ apiKey });
+
+  // Convert Web File to the format OpenAI SDK expects
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  // OpenAI SDK accepts File-like objects with name property
+  const uploadFile = new File([buffer], file.name, { type: file.type });
+
+  const response = await openai.audio.transcriptions.create({
+    model: "whisper-1",
+    file: uploadFile,
+    language: "es", // Spanish — primary language for this app
+    response_format: "text",
+  });
+
+  return typeof response === "string" ? response : (response as { text: string }).text;
 }
