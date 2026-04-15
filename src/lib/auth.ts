@@ -37,51 +37,28 @@ const productionProviders = [
     credentials: {
       email: { label: "Email", type: "email" },
       password: { label: "Password", type: "password" },
-      name: { label: "Name", type: "text" },
-      action: { label: "Action", type: "text" },
     },
     async authorize(credentials) {
-      const email = credentials?.email as string;
-      const password = credentials?.password as string;
-      const name = credentials?.name as string | undefined;
-      const action = credentials?.action as string | undefined;
+      try {
+        const email = credentials?.email as string;
+        const password = credentials?.password as string;
 
-      if (!email || !password) return null;
+        if (!email || !password) return null;
 
-      const { db } = await import("@/lib/db");
-      const bcrypt = await import("bcryptjs");
+        const { db } = await import("@/lib/db");
+        const bcrypt = await import("bcryptjs");
 
-      if (action === "register") {
-        // Registration
-        const existing = await db.user.findUnique({ where: { email } });
-        if (existing) {
-          throw new Error("Ya existe una cuenta con este correo electronico");
-        }
+        const user = await db.user.findUnique({ where: { email } });
+        if (!user || !user.passwordHash) return null;
 
-        const passwordHash = await bcrypt.hash(password, 12);
-        const user = await db.user.create({
-          data: {
-            email,
-            name: name || email.split("@")[0],
-            passwordHash,
-          },
-        });
+        const isValid = await bcrypt.compare(password, user.passwordHash);
+        if (!isValid) return null;
 
         return { id: user.id, name: user.name, email: user.email, image: user.image };
+      } catch (e) {
+        console.error("[AUTH] Credentials authorize error:", e);
+        return null;
       }
-
-      // Login
-      const user = await db.user.findUnique({ where: { email } });
-      if (!user || !user.passwordHash) {
-        throw new Error("Credenciales invalidas");
-      }
-
-      const isValid = await bcrypt.compare(password, user.passwordHash);
-      if (!isValid) {
-        throw new Error("Credenciales invalidas");
-      }
-
-      return { id: user.id, name: user.name, email: user.email, image: user.image };
     },
   }),
 ];

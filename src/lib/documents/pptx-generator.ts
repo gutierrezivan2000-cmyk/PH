@@ -151,13 +151,31 @@ export async function generatePptx(data: PresentationData): Promise<Buffer> {
     align: "center",
   });
 
-  // Try nodebuffer first (native Node.js), fall back to uint8array for serverless
+  // Generate the PPTX binary — try multiple output strategies for serverless compat
+  console.log(`[pptx-generator] Writing PPTX with ${data.slides.length} content slides...`);
+
+  let buffer: Buffer;
   try {
     const output = await pptx.write({ outputType: "nodebuffer" });
-    return output as Buffer;
-  } catch {
-    console.warn("[pptx-generator] nodebuffer failed, falling back to uint8array");
-    const output = await pptx.write({ outputType: "uint8array" });
-    return Buffer.from(output as Uint8Array);
+    buffer = Buffer.isBuffer(output) ? output : Buffer.from(output as ArrayBuffer);
+  } catch (e) {
+    console.warn("[pptx-generator] nodebuffer failed:", e instanceof Error ? e.message : String(e));
+    try {
+      const output = await pptx.write({ outputType: "uint8array" });
+      buffer = Buffer.from(output as Uint8Array);
+    } catch (e2) {
+      console.warn("[pptx-generator] uint8array failed:", e2 instanceof Error ? e2.message : String(e2));
+      // Last resort: base64
+      const output = await pptx.write({ outputType: "base64" });
+      buffer = Buffer.from(output as string, "base64");
+    }
   }
+
+  console.log(`[pptx-generator] PPTX buffer ready: ${buffer.length} bytes, isBuffer: ${Buffer.isBuffer(buffer)}`);
+
+  if (buffer.length === 0) {
+    throw new Error("PPTX generation produced empty buffer");
+  }
+
+  return buffer;
 }

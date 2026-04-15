@@ -416,40 +416,45 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
         );
       }
 
-      // PPTX generation — use a local const to avoid closure issues
+      // PPTX generation — runs AFTER html uploads complete to avoid timeout issues
       const finalInformeText = informeText;
       if (finalInformeText) {
         console.log(`[generate/full] PPTX: informeText length = ${finalInformeText.length}`);
-        console.log(`[generate/full] PPTX: informeText first 500 chars:\n${finalInformeText.substring(0, 500)}`);
-        uploadPromises.push(
-          (async () => {
-            try {
-              console.log("[generate/full] PPTX: starting slide parsing...");
-              const slidesData = parseMarkdownToSlides(finalInformeText, property.name, period);
-              console.log(`[generate/full] PPTX: parsed ${slidesData.slides.length} slides`);
-              if (slidesData.slides.length > 0) {
-                console.log(`[generate/full] PPTX: slide titles: ${slidesData.slides.map(s => s.title).join(" | ")}`);
-              }
-              const { generatePptx } = await import("@/lib/documents/pptx-generator");
-              const pptxBuffer = await generatePptx(slidesData);
-              console.log(`[generate/full] PPTX: generated ${pptxBuffer.length} bytes`);
-              const pptxBlob = await put(
-                `generations/${generation.id}/presentacion.pptx`,
-                pptxBuffer,
-                { access: "private", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
-              );
-              blobUrls.presentacionPptx = pptxBlob.url;
-              console.log("[generate/full] PPTX: uploaded successfully to blob");
-            } catch (e) {
-              console.error("[generate/full] PPTX generation error:", e instanceof Error ? e.stack : String(e));
-            }
-          })()
-        );
-      } else {
-        console.log("[generate/full] PPTX: skipped — no informeText available");
+        console.log(`[generate/full] PPTX: first 300 chars:\n${finalInformeText.substring(0, 300)}`);
       }
 
+      // First, upload the HTML files
       await Promise.all(uploadPromises);
+
+      // Then generate and upload PPTX separately (so html uploads are guaranteed)
+      if (finalInformeText) {
+        try {
+          console.log("[generate/full] PPTX: starting slide parsing...");
+          const slidesData = parseMarkdownToSlides(finalInformeText, property.name, period);
+          console.log(`[generate/full] PPTX: parsed ${slidesData.slides.length} slides`);
+          if (slidesData.slides.length > 0) {
+            console.log(`[generate/full] PPTX: slide titles: ${slidesData.slides.map(s => s.title).join(" | ")}`);
+          }
+          console.log("[generate/full] PPTX: importing pptx-generator...");
+          const { generatePptx } = await import("@/lib/documents/pptx-generator");
+          console.log("[generate/full] PPTX: generating buffer...");
+          const pptxBuffer = await generatePptx(slidesData);
+          console.log(`[generate/full] PPTX: buffer ready, ${pptxBuffer.length} bytes`);
+          console.log("[generate/full] PPTX: uploading to blob...");
+          const pptxBlob = await put(
+            `generations/${generation.id}/presentacion.pptx`,
+            pptxBuffer,
+            { access: "public", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
+          );
+          blobUrls.presentacionPptx = pptxBlob.url;
+          console.log(`[generate/full] PPTX: uploaded to ${pptxBlob.url}`);
+        } catch (e) {
+          console.error("[generate/full] PPTX FAILED:", e instanceof Error ? e.stack : String(e));
+        }
+      } else {
+        console.log("[generate/full] PPTX: skipped — no informeText");
+      }
+
       await updateProgress(90);
 
       // Update DB with completed status

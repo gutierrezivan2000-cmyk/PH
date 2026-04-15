@@ -75,13 +75,32 @@ export async function GET(
     return NextResponse.redirect(new URL(blobUrl, _req.url));
   }
 
-  // Use @vercel/blob get() to properly access private blobs
+  // Fetch the blob content — try @vercel/blob get() first, fall back to direct fetch
   try {
+    // Try @vercel/blob get() — try public first (PPTX), fall back to private (HTML)
     const { get } = await import("@vercel/blob");
-    const result = await get(blobUrl, { access: "private" });
+    let result = await get(blobUrl, { access: "public" }).catch(() => null);
+    if (!result) {
+      result = await get(blobUrl, { access: "private" }).catch(() => null);
+    }
 
     if (!result) {
-      return NextResponse.json({ error: "Archivo no encontrado en storage" }, { status: 404 });
+      // Fallback: direct fetch for public blobs
+      console.log(`[download] get() returned null, trying direct fetch: ${blobUrl}`);
+      const directRes = await fetch(blobUrl);
+      if (!directRes.ok) {
+        return NextResponse.json({ error: "Archivo no encontrado en storage" }, { status: 404 });
+      }
+      return new NextResponse(directRes.body, {
+        status: 200,
+        headers: {
+          "Content-Type": fileInfo.contentType,
+          "Content-Disposition": fileType === "pptx"
+            ? `attachment; filename="${fileInfo.filename}"`
+            : `inline; filename="${fileInfo.filename}"`,
+          "Cache-Control": "private, max-age=3600",
+        },
+      });
     }
 
     return new NextResponse(result.stream, {
@@ -96,7 +115,28 @@ export async function GET(
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error(`[download] Error fetching blob: ${msg}`, { blobUrl, generationId, fileType });
-    return NextResponse.json({ error: `Error al descargar archivo: ${msg.slice(0, 200)}` }, { status: 500 });
+    console.error(`[download] Blob get() error, trying direct fetch: ${msg}`, { blobUrl });
+
+    // Fallback: direct fetch (works for public blobs)
+    try {
+      const directRes = await fetch(blobUrl);
+      if (!directRes.ok) {
+        return NextResponse.json({ error: "Archivo no encontrado en storage" }, { status: 404 });
+      }
+      return new NextResponse(directRes.body, {
+        status: 200,
+        headers: {
+          "Content-Type": fileInfo.contentType,
+          "Content-Disposition": fileType === "pptx"
+            ? `attachment; filename="${fileInfo.filename}"`
+            : `inline; filename="${fileInfo.filename}"`,
+          "Cache-Control": "private, max-age=3600",
+        },
+      });
+    } catch (e2) {
+      const msg2 = e2 instanceof Error ? e2.message : String(e2);
+      console.error(`[download] Direct fetch also failed: ${msg2}`);
+      return NextResponse.json({ error: `Error al descargar archivo: ${msg2.slice(0, 200)}` }, { status: 500 });
+    }
   }
 }

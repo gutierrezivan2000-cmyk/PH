@@ -55,12 +55,10 @@ function LoginContent() {
         }
       }
 
-      // Sign in
+      // Sign in — registration already handled by /api/auth/register above
       const result = await signIn("credentials", {
         email,
         password,
-        name: mode === "register" ? name : undefined,
-        action: mode === "register" ? "register" : "login",
         redirect: false,
       });
 
