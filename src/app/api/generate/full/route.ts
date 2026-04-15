@@ -168,14 +168,21 @@ async function handleDemo(req: NextRequest) {
     let pptxBuffer: Buffer | undefined;
     if (informeText) {
       try {
+        console.log(`[generate/full] Demo PPTX: informeText length = ${informeText.length}`);
+        console.log(`[generate/full] Demo PPTX: first 300 chars:\n${informeText.substring(0, 300)}`);
         const slidesData = parseMarkdownToSlides(informeText, property.name, period);
-        console.log(`[generate/full] Demo: parsed ${slidesData.slides.length} slides`);
+        console.log(`[generate/full] Demo PPTX: parsed ${slidesData.slides.length} slides`);
+        if (slidesData.slides.length > 0) {
+          console.log(`[generate/full] Demo PPTX: slide titles: ${slidesData.slides.map(s => s.title).join(" | ")}`);
+        }
         const { generatePptx } = await import("@/lib/documents/pptx-generator");
         pptxBuffer = await generatePptx(slidesData);
-        console.log(`[generate/full] Demo: PPTX generated, ${pptxBuffer.length} bytes`);
+        console.log(`[generate/full] Demo PPTX: generated ${pptxBuffer.length} bytes`);
       } catch (e) {
-        console.error("[generate/full] Demo PPTX generation error:", e);
+        console.error("[generate/full] Demo PPTX generation error:", e instanceof Error ? e.stack : String(e));
       }
+    } else {
+      console.log("[generate/full] Demo PPTX: skipped — no informeText");
     }
 
     saveFileBuffers(generation.id, {
@@ -412,12 +419,17 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
       // PPTX generation — use a local const to avoid closure issues
       const finalInformeText = informeText;
       if (finalInformeText) {
+        console.log(`[generate/full] PPTX: informeText length = ${finalInformeText.length}`);
+        console.log(`[generate/full] PPTX: informeText first 500 chars:\n${finalInformeText.substring(0, 500)}`);
         uploadPromises.push(
           (async () => {
             try {
-              console.log("[generate/full] PPTX: starting generation...");
+              console.log("[generate/full] PPTX: starting slide parsing...");
               const slidesData = parseMarkdownToSlides(finalInformeText, property.name, period);
               console.log(`[generate/full] PPTX: parsed ${slidesData.slides.length} slides`);
+              if (slidesData.slides.length > 0) {
+                console.log(`[generate/full] PPTX: slide titles: ${slidesData.slides.map(s => s.title).join(" | ")}`);
+              }
               const { generatePptx } = await import("@/lib/documents/pptx-generator");
               const pptxBuffer = await generatePptx(slidesData);
               console.log(`[generate/full] PPTX: generated ${pptxBuffer.length} bytes`);
@@ -427,12 +439,14 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
                 { access: "private", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
               );
               blobUrls.presentacionPptx = pptxBlob.url;
-              console.log("[generate/full] PPTX: uploaded successfully");
+              console.log("[generate/full] PPTX: uploaded successfully to blob");
             } catch (e) {
               console.error("[generate/full] PPTX generation error:", e instanceof Error ? e.stack : String(e));
             }
           })()
         );
+      } else {
+        console.log("[generate/full] PPTX: skipped — no informeText available");
       }
 
       await Promise.all(uploadPromises);
