@@ -419,7 +419,7 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
       // Save raw informe markdown so PPTX can be generated on-demand via /api/generate/pptx
       if (informeText) {
         uploadPromises.push(
-          put(`generations/${generation.id}/informe.md`, informeText, { access: "public", contentType: "text/markdown" })
+          put(`generations/${generation.id}/informe.md`, informeText, { access: "private", contentType: "text/markdown" })
             .then((blob) => { blobUrls.informeMarkdown = blob.url; })
         );
       }
@@ -438,7 +438,7 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
           const pptxBlob = await put(
             `generations/${generation.id}/presentacion.pptx`,
             pptxBuffer,
-            { access: "public", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
+            { access: "private", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
           );
           blobUrls.presentacionPptx = pptxBlob.url;
           console.log(`[generate/full] PPTX: uploaded OK`);

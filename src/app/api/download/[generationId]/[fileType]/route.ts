@@ -77,12 +77,8 @@ export async function GET(
 
   // Fetch the blob content — try @vercel/blob get() first, fall back to direct fetch
   try {
-    // Try @vercel/blob get() — try public first (PPTX), fall back to private (HTML)
     const { get } = await import("@vercel/blob");
-    let result = await get(blobUrl, { access: "public" }).catch(() => null);
-    if (!result) {
-      result = await get(blobUrl, { access: "private" }).catch(() => null);
-    }
+    const result = await get(blobUrl, { access: "private" }).catch(() => null);
 
     if (!result) {
       // Fallback: direct fetch for public blobs

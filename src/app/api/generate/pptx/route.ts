@@ -65,13 +65,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No hay informe disponible para generar la presentacion" }, { status: 400 });
     }
 
-    // Fetch the markdown content
+    // Fetch the markdown content from private blob
     console.log(`[generate/pptx] Fetching markdown from: ${markdownUrl}`);
-    const mdResponse = await fetch(markdownUrl);
-    if (!mdResponse.ok) {
+    const { get } = await import("@vercel/blob");
+    const mdBlob = await get(markdownUrl, { access: "private" });
+    if (!mdBlob) {
       return NextResponse.json({ error: "No se pudo leer el informe guardado" }, { status: 500 });
     }
-    const informeText = await mdResponse.text();
+    const informeText = await new Response(mdBlob.stream).text();
     console.log(`[generate/pptx] Markdown fetched: ${informeText.length} chars`);
 
     // Generate period string
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
     const pptxBlob = await put(
       `generations/${generationId}/presentacion.pptx`,
       pptxBuffer,
-      { access: "public", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
+      { access: "private", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
     );
     console.log(`[generate/pptx] Uploaded to: ${pptxBlob.url}`);
 
