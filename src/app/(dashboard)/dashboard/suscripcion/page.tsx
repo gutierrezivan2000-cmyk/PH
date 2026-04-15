@@ -3,9 +3,7 @@
 import { useState, useCallback } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { UsageCard } from "@/components/dashboard/UsageCard";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Check, CreditCard, Loader2, Zap, Star, Shield, Crown } from "lucide-react";
 import Script from "next/script";
 
@@ -93,6 +91,7 @@ export default function SuscripcionPage() {
         "Historial completo",
       ],
       highlighted: false,
+      gradient: "from-gray-600 to-gray-500",
     },
     {
       id: "elite" as const,
@@ -116,6 +115,7 @@ export default function SuscripcionPage() {
         "Generaciones en lote",
       ],
       highlighted: true,
+      gradient: "from-violet-600 to-purple-600",
     },
   ];
 
@@ -129,55 +129,54 @@ export default function SuscripcionPage() {
         />
       )}
 
-      <Header title="Suscripcion" />
-      <div className="p-8 max-w-4xl space-y-6">
+      <Header title="Suscripcion" subtitle="Gestiona tu plan y uso" />
+      <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
         <UsageCard />
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+          <div className="bg-red-50/80 backdrop-blur border border-red-200/50 rounded-2xl px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
         <div className="grid md:grid-cols-2 gap-6">
           {plans.map((plan) => (
-            <Card
+            <div
               key={plan.id}
-              className={`relative overflow-hidden border-2 ${
-                plan.highlighted ? "border-primary/40 glow-primary" : "border-border/40"
+              className={`relative overflow-hidden bg-white/50 backdrop-blur-xl border rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
+                plan.highlighted
+                  ? "border-violet-300/50 shadow-violet-200/20 hover:shadow-violet-200/30"
+                  : "border-white/30 shadow-violet-100/10"
               }`}
             >
+              {/* Badge */}
               <div className="absolute top-0 right-0">
-                <div className={`${
-                  plan.highlighted
-                    ? "bg-gradient-to-r from-primary to-purple-400"
-                    : "bg-gradient-to-r from-gray-600 to-gray-500"
-                } text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl flex items-center gap-1`}>
+                <div className={`bg-gradient-to-r ${plan.gradient} text-white text-xs font-bold px-4 py-1.5 rounded-bl-2xl flex items-center gap-1 shadow-lg`}>
                   <plan.badgeIcon className="h-3 w-3" /> {plan.badge}
                 </div>
               </div>
 
-              <CardContent className="p-8 pt-10">
-                <h3 className="text-xl font-bold mb-0.5">{plan.name}</h3>
-                <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
+              <div className="p-8 pt-10">
+                <h3 className="text-xl font-bold text-gray-900 mb-0.5">{plan.name}</h3>
+                <p className="text-sm text-gray-500 mb-4">{plan.description}</p>
 
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className={`text-4xl font-extrabold ${plan.highlighted ? "text-gradient" : ""}`}>
+                  <span className={`text-4xl font-extrabold ${plan.highlighted ? "bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent" : "text-gray-900"}`}>
                     {plan.price}
                   </span>
-                  <span className="text-muted-foreground">{plan.period} {plan.currency}</span>
+                  <span className="text-gray-400">{plan.period} {plan.currency}</span>
                 </div>
 
                 {IS_DEMO && (
-                  <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 gap-1 mt-2 mb-4">
+                  <div className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100/80 backdrop-blur rounded-lg text-xs font-bold text-amber-700 mt-2 mb-4">
                     <Zap className="h-3 w-3" /> Demo
-                  </Badge>
+                  </div>
                 )}
 
                 <ul className="space-y-2.5 my-6">
                   {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm">
-                      <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                    <li key={f} className="flex items-center gap-2.5 text-sm text-gray-700">
+                      <div className="w-5 h-5 rounded-full bg-emerald-100/80 backdrop-blur flex items-center justify-center flex-shrink-0">
                         <Check className="h-3 w-3 text-emerald-600" />
                       </div>
                       {f}
@@ -186,19 +185,19 @@ export default function SuscripcionPage() {
                 </ul>
 
                 {IS_DEMO ? (
-                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl p-4 text-center">
+                  <div className="bg-amber-50/80 backdrop-blur border border-amber-200/50 rounded-2xl p-4 text-center">
                     <div className="flex items-center justify-center gap-2 mb-1">
                       <Shield className="h-4 w-4 text-amber-600" />
-                      <p className="text-sm text-amber-800 font-semibold">
-                        Demo activo
-                      </p>
+                      <p className="text-sm text-amber-800 font-semibold">Demo activo</p>
                     </div>
                   </div>
                 ) : (
                   <Button
                     onClick={() => handleSubscribe(plan.id)}
-                    className={`w-full gap-2 h-11 rounded-2xl ${
-                      plan.highlighted ? "" : "bg-gray-800 hover:bg-gray-700"
+                    className={`w-full gap-2 h-12 rounded-2xl shadow-lg transition-all duration-300 ${
+                      plan.highlighted
+                        ? "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-violet-500/25 hover:shadow-violet-500/40"
+                        : "bg-gray-800 hover:bg-gray-700 shadow-gray-500/15"
                     }`}
                     size="lg"
                     disabled={loading || !epaycoReady}
@@ -211,12 +210,12 @@ export default function SuscripcionPage() {
                     {loading ? "Procesando..." : "Suscribirse"}
                   </Button>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
 
-        <p className="text-xs text-center text-muted-foreground">
+        <p className="text-xs text-center text-gray-400">
           Pago seguro procesado por ePayco. Acepta tarjetas de credito, debito, PSE y mas.
         </p>
       </div>

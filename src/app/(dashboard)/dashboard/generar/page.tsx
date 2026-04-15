@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/dashboard/Header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -88,7 +87,7 @@ export default function GenerarPage() {
       files.forEach((file) => formData.append("files", file));
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s — server has 60s max
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
 
       const res = await fetch("/api/generate/full", {
         method: "POST",
@@ -102,7 +101,7 @@ export default function GenerarPage() {
         data = await res.json();
       } catch {
         if (res.status === 504) {
-          setError("El servidor tardo mas de 60 segundos. Intenta generar solo un tipo (Informe o Acta) en vez de Completo.");
+          setError("El servidor tardo demasiado. Intenta generar solo un tipo (Informe o Acta).");
         } else {
           setError(`Error del servidor (${res.status}). Intenta de nuevo.`);
         }
@@ -110,26 +109,22 @@ export default function GenerarPage() {
       }
 
       if (!res.ok) {
-        // Show timing data if available for debugging
-        const timingInfo = data.timing ? ` [Timing: ${JSON.stringify(data.timing)}]` : "";
-        setError((data.error || "Error al generar documentos") + timingInfo);
+        setError(data.error || "Error al generar documentos");
         return;
       }
 
-      // Cache the completed generation data so the results page can use it
-      // even if the serverless in-memory store is gone on the next request
       if (data.status === "completed") {
         try {
           sessionStorage.setItem(`gen-${data.id}`, JSON.stringify(data));
         } catch {
-          // sessionStorage unavailable — results page will poll API
+          // sessionStorage unavailable
         }
       }
 
       router.push(`/dashboard/generar/${data.id}`);
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") {
-        setError("La generacion tardo mas de 90 segundos. Intenta con menos archivos o un tipo individual (solo Informe o solo Acta).");
+        setError("La generacion tardo mas de 90 segundos. Intenta con menos archivos.");
       } else {
         setError("Error de conexion. Verifica tu internet e intenta de nuevo.");
       }
@@ -140,57 +135,51 @@ export default function GenerarPage() {
 
   return (
     <div>
-      <Header title="Generar Documentos" />
-      <div className="p-8 max-w-3xl">
+      <Header title="Generar Documentos" subtitle="Crea informes, actas y presentaciones con IA" />
+      <div className="p-6 lg:p-8 max-w-3xl mx-auto">
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-sm">
+            <div className="bg-red-50/80 backdrop-blur border border-red-200/50 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm shadow-sm">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               {error}
             </div>
           )}
 
-          {/* Property selection */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Propiedad</CardTitle>
-              <CardDescription>Selecciona la propiedad para generar documentos</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {properties.length === 0 ? (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
-                  <p className="text-sm text-amber-800">
-                    No tienes propiedades registradas.{" "}
-                    <a href="/dashboard/propiedades" className="text-primary font-medium underline">Agrega una primero</a>.
-                  </p>
-                </div>
-              ) : (
-                <select
-                  value={selectedProperty}
-                  onChange={(e) => setSelectedProperty(e.target.value)}
-                  className="w-full h-10 rounded-xl border border-input bg-transparent px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">Seleccionar propiedad...</option>
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} {p.address ? `— ${p.address}` : ""}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </CardContent>
-          </Card>
+          {/* Property */}
+          <div className="bg-white/50 backdrop-blur-xl border border-white/30 rounded-3xl p-6 shadow-lg shadow-violet-100/10">
+            <h3 className="font-bold text-gray-900 mb-1">Propiedad</h3>
+            <p className="text-xs text-gray-500 mb-4">Selecciona la propiedad para generar documentos</p>
+            {properties.length === 0 ? (
+              <div className="bg-amber-50/80 backdrop-blur border border-amber-200/50 rounded-2xl p-4 text-center">
+                <p className="text-sm text-amber-800">
+                  No tienes propiedades registradas.{" "}
+                  <a href="/dashboard/propiedades" className="text-violet-600 font-semibold underline">Agrega una primero</a>.
+                </p>
+              </div>
+            ) : (
+              <select
+                value={selectedProperty}
+                onChange={(e) => setSelectedProperty(e.target.value)}
+                className="w-full h-11 rounded-2xl border border-white/40 bg-white/50 backdrop-blur px-4 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50 focus:border-violet-300 transition-all duration-300 appearance-none cursor-pointer"
+              >
+                <option value="">Seleccionar propiedad...</option>
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {p.address ? `— ${p.address}` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
 
           {/* Period */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Periodo</CardTitle>
-            </CardHeader>
-            <CardContent className="flex gap-4">
+          <div className="bg-white/50 backdrop-blur-xl border border-white/30 rounded-3xl p-6 shadow-lg shadow-violet-100/10">
+            <h3 className="font-bold text-gray-900 mb-4">Periodo</h3>
+            <div className="flex gap-4">
               <select
                 value={month}
                 onChange={(e) => setMonth(parseInt(e.target.value))}
-                className="flex-1 h-10 rounded-xl border border-input bg-transparent px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="flex-1 h-11 rounded-2xl border border-white/40 bg-white/50 backdrop-blur px-4 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50 transition-all duration-300 appearance-none cursor-pointer"
               >
                 {MONTHS.map((m, i) => (
                   <option key={m} value={i + 1}>{m}</option>
@@ -202,114 +191,98 @@ export default function GenerarPage() {
                 onChange={(e) => setYear(parseInt(e.target.value))}
                 min={2020}
                 max={2030}
-                className="w-28 rounded-xl"
+                className="w-28 rounded-2xl border-white/40 bg-white/50 backdrop-blur"
               />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Generation type */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Tipo de generacion</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-3">
-                {[
-                  { value: "full", label: "Completo", sub: "Informe + Acta + PPTX" },
-                  { value: "informe", label: "Solo Informe", sub: "" },
-                  { value: "acta", label: "Solo Acta", sub: "" },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setType(opt.value)}
-                    className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 ${
-                      type === opt.value
-                        ? "bg-primary/5 text-primary border-primary/30 shadow-sm"
-                        : "bg-white text-muted-foreground border-border/50 hover:bg-secondary hover:border-border"
-                    }`}
-                  >
-                    {opt.label}
-                    {opt.sub && <span className="block text-xs mt-0.5 opacity-70">{opt.sub}</span>}
-                  </button>
+          {/* Type */}
+          <div className="bg-white/50 backdrop-blur-xl border border-white/30 rounded-3xl p-6 shadow-lg shadow-violet-100/10">
+            <h3 className="font-bold text-gray-900 mb-4">Tipo de generacion</h3>
+            <div className="flex gap-3">
+              {[
+                { value: "full", label: "Completo", sub: "Informe + Acta + PPTX" },
+                { value: "informe", label: "Solo Informe", sub: "" },
+                { value: "acta", label: "Solo Acta", sub: "" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setType(opt.value)}
+                  className={`flex-1 px-4 py-3.5 rounded-2xl text-sm font-medium border transition-all duration-300 ${
+                    type === opt.value
+                      ? "bg-violet-500/10 text-violet-700 border-violet-300/50 shadow-md shadow-violet-200/30 backdrop-blur-sm"
+                      : "bg-white/30 text-gray-500 border-white/30 hover:bg-white/50 hover:border-white/50 backdrop-blur-sm"
+                  }`}
+                >
+                  {opt.label}
+                  {opt.sub && <span className="block text-xs mt-0.5 opacity-70">{opt.sub}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Files */}
+          <div className="bg-white/50 backdrop-blur-xl border border-white/30 rounded-3xl p-6 shadow-lg shadow-violet-100/10">
+            <h3 className="font-bold text-gray-900 mb-1">Archivos de soporte</h3>
+            <p className="text-xs text-gray-500 mb-4">Sube textos, fotos, audios, PDFs, Excel o Word</p>
+            <label className="flex flex-col items-center justify-center border-2 border-dashed border-white/40 rounded-2xl p-10 cursor-pointer hover:border-violet-300/50 hover:bg-violet-50/30 transition-all duration-300 backdrop-blur-sm">
+              <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-500 rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-violet-500/20">
+                <Upload className="h-7 w-7 text-white" />
+              </div>
+              <span className="text-sm font-medium text-gray-700">
+                Arrastra archivos o haz clic
+              </span>
+              <span className="text-xs text-gray-400 mt-1">
+                PDF, Word, Excel, imagenes, audio (max 25MB)
+              </span>
+              <input
+                type="file"
+                multiple
+                onChange={handleFileChange}
+                className="hidden"
+                accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.m4a,.webm"
+              />
+            </label>
+
+            {files.length > 0 && (
+              <div className="space-y-2 mt-4">
+                {files.map((file, i) => (
+                  <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-white/40 backdrop-blur-sm rounded-xl px-4 py-2.5 border border-white/30">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <FileText className="h-4 w-4 text-violet-500 flex-shrink-0" />
+                      <span className="text-sm truncate">{file.name}</span>
+                      <Badge variant="secondary" className="text-xs flex-shrink-0 bg-white/50">
+                        {(file.size / 1024 / 1024).toFixed(1)}MB
+                      </Badge>
+                    </div>
+                    <button type="button" onClick={() => removeFile(i)} className="p-1.5 hover:bg-red-100/80 rounded-lg transition-colors">
+                      <X className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                    </button>
+                  </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-
-          {/* File upload */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Archivos de soporte</CardTitle>
-              <CardDescription>
-                Sube textos, fotos, audios, PDFs, Excel o Word
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <label className="flex flex-col items-center justify-center border-2 border-dashed border-border/60 rounded-2xl p-10 cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all duration-200">
-                <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-3">
-                  <Upload className="h-7 w-7 text-primary" />
-                </div>
-                <span className="text-sm font-medium text-foreground">
-                  Arrastra archivos o haz clic para seleccionar
-                </span>
-                <span className="text-xs text-muted-foreground mt-1">
-                  PDF, Word, Excel, imagenes, audio (max 25MB, max 20 archivos)
-                </span>
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileChange}
-                  className="hidden"
-                  accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.m4a,.webm"
-                />
-              </label>
-
-              {files.length > 0 && (
-                <div className="space-y-2">
-                  {files.map((file, i) => (
-                    <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-secondary/50 rounded-xl px-4 py-2.5">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <span className="text-sm truncate">{file.name}</span>
-                        <Badge variant="secondary" className="text-xs flex-shrink-0">
-                          {(file.size / 1024 / 1024).toFixed(1)}MB
-                        </Badge>
-                      </div>
-                      <button type="button" onClick={() => removeFile(i)} className="p-1 hover:bg-red-100 rounded-lg transition-colors">
-                        <X className="h-4 w-4 text-muted-foreground hover:text-red-500" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            )}
+          </div>
 
           {/* Additional text */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Informacion adicional</CardTitle>
-              <CardDescription>
-                Notas o informacion extra que quieras incluir (opcional)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <textarea
-                value={additionalText}
-                onChange={(e) => setAdditionalText(e.target.value)}
-                rows={5}
-                placeholder="Escribe aqui notas, actividades realizadas, novedades del mes..."
-                className="w-full rounded-xl border border-input bg-transparent px-4 py-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-              />
-            </CardContent>
-          </Card>
+          <div className="bg-white/50 backdrop-blur-xl border border-white/30 rounded-3xl p-6 shadow-lg shadow-violet-100/10">
+            <h3 className="font-bold text-gray-900 mb-1">Informacion adicional</h3>
+            <p className="text-xs text-gray-500 mb-4">Notas o informacion extra (opcional)</p>
+            <textarea
+              value={additionalText}
+              onChange={(e) => setAdditionalText(e.target.value)}
+              rows={5}
+              placeholder="Escribe notas, actividades realizadas, novedades del mes..."
+              className="w-full rounded-2xl border border-white/40 bg-white/50 backdrop-blur px-4 py-3 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 resize-none transition-all duration-300"
+            />
+          </div>
 
-          <Button type="submit" size="lg" className="w-full h-14 text-base rounded-2xl gap-2" disabled={loading}>
+          <Button type="submit" size="lg" className="w-full h-14 text-base rounded-2xl gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-xl shadow-violet-500/25 transition-all duration-300 hover:shadow-violet-500/40" disabled={loading}>
             {loading ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Generando documentos...
+                Enviando...
               </>
             ) : (
               <>

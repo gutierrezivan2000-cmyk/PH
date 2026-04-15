@@ -4,6 +4,7 @@ import {
   getProperties,
   createProperty,
   deleteProperty,
+  updateProperty,
   DEMO_USER,
 } from "@/lib/demo-store";
 
@@ -97,6 +98,61 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("[PROPERTIES POST]", error);
     return NextResponse.json({ error: "Error al guardar la propiedad" }, { status: 500 });
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  const body = await req.json();
+  const { id, name, address, city, units } = body;
+
+  if (!id) {
+    return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+  }
+  if (!name) {
+    return NextResponse.json({ error: "El nombre es requerido" }, { status: 400 });
+  }
+
+  if (IS_DEMO) {
+    const updated = updateProperty(id, DEMO_USER.id, {
+      name,
+      address,
+      city,
+      units: units ? parseInt(units) : null,
+    });
+    if (!updated) {
+      return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
+    }
+    return NextResponse.json(updated);
+  }
+
+  try {
+    const db = await getDb();
+    const dbUserId = await ensureUserExists(session as { user: { id: string; email: string; name: string; image: string } });
+
+    // Verify ownership
+    const existing = await db.property.findFirst({ where: { id, userId: dbUserId } });
+    if (!existing) {
+      return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
+    }
+
+    const updated = await db.property.update({
+      where: { id },
+      data: {
+        name,
+        address,
+        city,
+        units: units ? parseInt(units) : null,
+      },
+    });
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("[PROPERTIES PUT]", error);
+    return NextResponse.json({ error: "Error al actualizar la propiedad" }, { status: 500 });
   }
 }
 

@@ -151,6 +151,13 @@ export async function generatePptx(data: PresentationData): Promise<Buffer> {
     align: "center",
   });
 
-  const output = await pptx.write({ outputType: "nodebuffer" });
-  return output as Buffer;
+  // Try nodebuffer first (native Node.js), fall back to uint8array for serverless
+  try {
+    const output = await pptx.write({ outputType: "nodebuffer" });
+    return output as Buffer;
+  } catch {
+    console.warn("[pptx-generator] nodebuffer failed, falling back to uint8array");
+    const output = await pptx.write({ outputType: "uint8array" });
+    return Buffer.from(output as Uint8Array);
+  }
 }

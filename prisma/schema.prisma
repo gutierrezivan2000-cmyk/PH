@@ -17,6 +17,7 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
+  passwordHash  String?
 
   // Profile fields
   cargo         String?
@@ -122,6 +123,7 @@ model Generation {
   propertyId String
   type       String
   status     String  @default("pending")
+  progress   Int     @default(0) // 0-100 percentage
   month      Int
   year       Int
 

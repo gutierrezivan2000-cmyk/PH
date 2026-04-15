@@ -159,6 +159,21 @@ export function getPropertyById(id: string, userId: string): DemoProperty | unde
   return _store.properties.find((p) => p.id === id && p.userId === userId);
 }
 
+export function updateProperty(
+  id: string,
+  userId: string,
+  data: { name?: string; address?: string; city?: string; units?: number | null }
+): DemoProperty | undefined {
+  const idx = _store.properties.findIndex((p) => p.id === id && p.userId === userId);
+  if (idx === -1) return undefined;
+  _store.properties[idx] = {
+    ..._store.properties[idx],
+    ...data,
+    updatedAt: new Date(),
+  };
+  return _store.properties[idx];
+}
+
 // --- Generations ---
 export function getGenerations(userId: string): DemoGeneration[] {
   return _store.generations

@@ -47,6 +47,7 @@ export async function GET(
     // Replace raw blob URLs with proxy download URLs
     return NextResponse.json({
       ...generation,
+      progress: generation.progress ?? 0,
       outputFiles: toProxyUrls(generation.id, generation.outputFiles as Record<string, string> | null),
     });
   } catch (e) {

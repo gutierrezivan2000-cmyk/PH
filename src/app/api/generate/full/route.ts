@@ -302,9 +302,20 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
 
   // ═══ RESPOND IMMEDIATELY — client gets redirected to results page ═══
   // The heavy AI work happens in after() below
+  // Helper to update progress in DB
+  const updateProgress = async (progress: number, status?: string) => {
+    try {
+      await db.generation.update({
+        where: { id: generation.id },
+        data: { progress, ...(status ? { status } : {}) },
+      });
+    } catch { /* ignore progress update failures */ }
+  };
+
   after(async () => {
     try {
       console.log(`[generate/full] Background: starting generation ${generation.id}`);
+      await updateProgress(5);
 
       // Build consolidated content from pre-read files
       const textParts: string[] = [];
@@ -321,6 +332,8 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
         "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
       ];
       const period = `${monthNames[month - 1]} ${year}`;
+
+      await updateProgress(10);
 
       // AI Generation — parallel
       const { generateWithAssistant } = await import("@/lib/ai-client");
@@ -343,6 +356,8 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
           )
         : null;
 
+      await updateProgress(25);
+
       const [informeResult, actaResult] = await Promise.all([informePromise, actaPromise]);
 
       if (informeResult) {
@@ -354,9 +369,9 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
         totalTokens += actaResult.tokensUsed;
       }
 
-      // Generate documents + upload to Blob in parallel
-      const { put } = await import("@vercel/blob");
+      await updateProgress(60);
 
+      // Generate documents
       const informeHtml = informeText ? generatePdfHtml({
         title: "Informe de Gestion",
         propertyName: property.name,
@@ -373,6 +388,10 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
         type: "acta",
       }) : null;
 
+      await updateProgress(70);
+
+      // Upload to Blob in parallel
+      const { put } = await import("@vercel/blob");
       const blobUrls: Record<string, string> = {};
       const uploadPromises: Promise<void>[] = [];
 
@@ -390,27 +409,34 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
         );
       }
 
-      if (informeText) {
+      // PPTX generation — use a local const to avoid closure issues
+      const finalInformeText = informeText;
+      if (finalInformeText) {
         uploadPromises.push(
           (async () => {
             try {
-              const slidesData = parseMarkdownToSlides(informeText, property.name, period);
+              console.log("[generate/full] PPTX: starting generation...");
+              const slidesData = parseMarkdownToSlides(finalInformeText, property.name, period);
+              console.log(`[generate/full] PPTX: parsed ${slidesData.slides.length} slides`);
               const { generatePptx } = await import("@/lib/documents/pptx-generator");
               const pptxBuffer = await generatePptx(slidesData);
+              console.log(`[generate/full] PPTX: generated ${pptxBuffer.length} bytes`);
               const pptxBlob = await put(
                 `generations/${generation.id}/presentacion.pptx`,
                 pptxBuffer,
                 { access: "private", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
               );
               blobUrls.presentacionPptx = pptxBlob.url;
+              console.log("[generate/full] PPTX: uploaded successfully");
             } catch (e) {
-              console.error("[generate/full] PPTX generation error:", e);
+              console.error("[generate/full] PPTX generation error:", e instanceof Error ? e.stack : String(e));
             }
           })()
         );
       }
 
       await Promise.all(uploadPromises);
+      await updateProgress(90);
 
       // Update DB with completed status
       const costUsd = totalTokens * 0.000009;
@@ -418,6 +444,7 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
         where: { id: generation.id },
         data: {
           status: "completed",
+          progress: 100,
           outputFiles: blobUrls,
           tokensUsed: totalTokens,
           costUsd,
@@ -433,7 +460,7 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
       try {
         await db.generation.update({
           where: { id: generation.id },
-          data: { status: "failed", errorMessage: errMsg },
+          data: { status: "failed", progress: 0, errorMessage: errMsg },
         });
       } catch { /* ignore */ }
     }

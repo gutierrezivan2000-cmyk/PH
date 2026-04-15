@@ -203,6 +203,12 @@ body {
   animation-delay: -8s;
 }
 
+/* Shimmer animation for progress bar */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
 /* Focus-visible accessibility styles */
 *:focus-visible {
   outline: 2px solid var(--ring);

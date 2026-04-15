@@ -3,7 +3,9 @@
 import { SessionProvider } from "next-auth/react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { DemoBanner } from "@/components/ui/demo-banner";
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
+
+const ChatBot = lazy(() => import("@/components/dashboard/ChatBot").then(m => ({ default: m.ChatBot })));
 
 export default function DashboardLayout({
   children,
@@ -15,7 +17,14 @@ export default function DashboardLayout({
 
   return (
     <SessionProvider>
-      <div className="flex flex-col min-h-screen bg-gray-50/30">
+      <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-50 via-violet-50/30 to-gray-50 relative">
+        {/* Background orbs */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+          <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-violet-200/20 rounded-full blur-3xl animate-orb" />
+          <div className="absolute bottom-1/4 left-0 w-[500px] h-[500px] bg-purple-200/15 rounded-full blur-3xl animate-orb-delayed" />
+          <div className="absolute top-1/2 right-0 w-[400px] h-[400px] bg-indigo-200/10 rounded-full blur-3xl animate-orb-slow" />
+        </div>
+
         <DemoBanner />
         <div className="flex flex-1 relative">
           <Sidebar
@@ -24,19 +33,17 @@ export default function DashboardLayout({
             collapsed={sidebarCollapsed}
             onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           />
-          {/* Mobile overlay */}
           {sidebarOpen && (
             <div
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 lg:hidden transition-opacity duration-300"
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 lg:hidden transition-opacity duration-300"
               onClick={() => setSidebarOpen(false)}
             />
           )}
           <main className="flex-1 min-h-screen w-full overflow-x-hidden">
-            {/* Mobile header toggle */}
-            <div className="lg:hidden sticky top-0 z-20 bg-white/90 backdrop-blur-xl border-b border-gray-200/50 px-4 py-3.5 flex items-center gap-3 shadow-sm">
+            <div className="lg:hidden sticky top-0 z-20 bg-white/60 backdrop-blur-2xl border-b border-white/30 px-4 py-3.5 flex items-center gap-3 shadow-sm">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="p-2 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-colors"
+                className="p-2 rounded-xl hover:bg-white/50 active:bg-white/70 transition-colors"
                 aria-label="Abrir menu"
               >
                 <svg className="h-5 w-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -57,6 +64,10 @@ export default function DashboardLayout({
             {children}
           </main>
         </div>
+
+        <Suspense fallback={null}>
+          <ChatBot />
+        </Suspense>
       </div>
     </SessionProvider>
   );

@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Clock, CheckCircle2, AlertCircle, Loader2, ArrowRight } from "lucide-react";
+import { FileText, Clock, CheckCircle2, AlertCircle, Loader2, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Generation {
@@ -48,58 +47,51 @@ export default function HistorialPage() {
 
   return (
     <div>
-      <Header title="Historial" />
-      <div className="p-8 max-w-3xl space-y-5">
-        <p className="text-sm text-muted-foreground">
-          Todos los documentos que has generado
-        </p>
+      <Header title="Historial" subtitle="Todos los documentos que has generado" />
+      <div className="p-6 lg:p-8 max-w-3xl mx-auto space-y-5">
 
         {loading && (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+          <div className="flex items-center justify-center py-20">
+            <div className="w-10 h-10 border-[3px] border-violet-200 border-t-violet-600 rounded-full animate-spin" />
           </div>
         )}
 
         {!loading && generations.length === 0 && (
-          <Card className="border-dashed border-2">
-            <CardContent className="flex flex-col items-center py-16 text-center">
-              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
-                <Clock className="h-8 w-8 text-primary" />
-              </div>
-              <p className="font-semibold mb-1">No hay generaciones aun</p>
-              <p className="text-sm text-muted-foreground max-w-xs">
-                Tus documentos generados apareceran aqui
-              </p>
-              <Link href="/dashboard/generar" className="mt-6">
-                <Button className="gap-2">
-                  <FileText className="h-4 w-4" />
-                  Generar documentos
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <div className="bg-white/50 backdrop-blur-xl border border-white/30 rounded-3xl p-12 text-center shadow-lg">
+            <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-violet-500/25">
+              <Clock className="h-8 w-8 text-white" />
+            </div>
+            <p className="font-bold text-lg text-gray-900 mb-1">No hay generaciones aun</p>
+            <p className="text-sm text-gray-500 max-w-xs mx-auto">
+              Tus documentos generados apareceran aqui
+            </p>
+            <Link href="/dashboard/generar" className="inline-block mt-6">
+              <Button className="gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 shadow-lg shadow-violet-500/20">
+                <Sparkles className="h-4 w-4" />
+                Generar documentos
+              </Button>
+            </Link>
+          </div>
         )}
 
         <div className="space-y-3">
-          {generations.map((gen) => (
+          {generations.map((gen, index) => (
             <Link key={gen.id} href={`/dashboard/generar/${gen.id}`}>
-              <Card className="group hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer">
-                <CardContent className="flex items-center gap-4 p-5">
-                  <div className="w-11 h-11 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-                    <FileText className="h-5 w-5 text-primary" />
+              <div
+                className="group bg-white/50 backdrop-blur-xl border border-white/30 rounded-2xl hover:shadow-xl hover:shadow-violet-100/20 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className="flex items-center gap-4 p-5">
+                  <div className="w-11 h-11 bg-gradient-to-br from-violet-100/80 to-purple-100/80 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                    <FileText className="h-5 w-5 text-violet-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">{gen.property.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="font-semibold text-sm text-gray-900 truncate">{gen.property.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
                       {MONTHS[gen.month - 1]} {gen.year} — {TYPE_LABELS[gen.type] ?? gen.type}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    {gen.status === "completed" && (
-                      <span className="text-xs text-muted-foreground hidden sm:block tabular-nums">
-                        {gen.tokensUsed.toLocaleString()} tokens
-                      </span>
-                    )}
                     <Badge
                       variant={
                         gen.status === "completed"
@@ -108,13 +100,11 @@ export default function HistorialPage() {
                           ? "destructive"
                           : "secondary"
                       }
-                      className="gap-1"
+                      className="gap-1 rounded-lg"
                     >
                       {gen.status === "completed" && <CheckCircle2 className="h-3 w-3" />}
                       {gen.status === "failed" && <AlertCircle className="h-3 w-3" />}
-                      {gen.status === "processing" && (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      )}
+                      {gen.status === "processing" && <Loader2 className="h-3 w-3 animate-spin" />}
                       {gen.status === "completed"
                         ? "Listo"
                         : gen.status === "processing"
@@ -123,10 +113,10 @@ export default function HistorialPage() {
                         ? "Error"
                         : gen.status}
                     </Badge>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ArrowRight className="h-4 w-4 text-gray-300 opacity-0 group-hover:opacity-100 group-hover:text-violet-500 transition-all duration-200" />
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </Link>
           ))}
         </div>
