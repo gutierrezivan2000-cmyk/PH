@@ -416,43 +416,35 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
         );
       }
 
-      // PPTX generation — runs AFTER html uploads complete to avoid timeout issues
-      const finalInformeText = informeText;
-      if (finalInformeText) {
-        console.log(`[generate/full] PPTX: informeText length = ${finalInformeText.length}`);
-        console.log(`[generate/full] PPTX: first 300 chars:\n${finalInformeText.substring(0, 300)}`);
+      // Save raw informe markdown so PPTX can be generated on-demand via /api/generate/pptx
+      if (informeText) {
+        uploadPromises.push(
+          put(`generations/${generation.id}/informe.md`, informeText, { access: "public", contentType: "text/markdown" })
+            .then((blob) => { blobUrls.informeMarkdown = blob.url; })
+        );
       }
 
-      // First, upload the HTML files
       await Promise.all(uploadPromises);
 
-      // Then generate and upload PPTX separately (so html uploads are guaranteed)
-      if (finalInformeText) {
+      // Best-effort PPTX in after() — if this fails, client can trigger /api/generate/pptx
+      if (informeText) {
         try {
-          console.log("[generate/full] PPTX: starting slide parsing...");
-          const slidesData = parseMarkdownToSlides(finalInformeText, property.name, period);
-          console.log(`[generate/full] PPTX: parsed ${slidesData.slides.length} slides`);
-          if (slidesData.slides.length > 0) {
-            console.log(`[generate/full] PPTX: slide titles: ${slidesData.slides.map(s => s.title).join(" | ")}`);
-          }
-          console.log("[generate/full] PPTX: importing pptx-generator...");
+          console.log("[generate/full] PPTX: starting...");
+          const slidesData = parseMarkdownToSlides(informeText, property.name, period);
+          console.log(`[generate/full] PPTX: ${slidesData.slides.length} slides parsed`);
           const { generatePptx } = await import("@/lib/documents/pptx-generator");
-          console.log("[generate/full] PPTX: generating buffer...");
           const pptxBuffer = await generatePptx(slidesData);
-          console.log(`[generate/full] PPTX: buffer ready, ${pptxBuffer.length} bytes`);
-          console.log("[generate/full] PPTX: uploading to blob...");
+          console.log(`[generate/full] PPTX: ${pptxBuffer.length} bytes`);
           const pptxBlob = await put(
             `generations/${generation.id}/presentacion.pptx`,
             pptxBuffer,
             { access: "public", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
           );
           blobUrls.presentacionPptx = pptxBlob.url;
-          console.log(`[generate/full] PPTX: uploaded to ${pptxBlob.url}`);
+          console.log(`[generate/full] PPTX: uploaded OK`);
         } catch (e) {
-          console.error("[generate/full] PPTX FAILED:", e instanceof Error ? e.stack : String(e));
+          console.error("[generate/full] PPTX failed in after(), client will use /api/generate/pptx:", e instanceof Error ? e.message : String(e));
         }
-      } else {
-        console.log("[generate/full] PPTX: skipped — no informeText");
       }
 
       await updateProgress(90);

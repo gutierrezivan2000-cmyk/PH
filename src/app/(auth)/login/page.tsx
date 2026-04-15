@@ -41,7 +41,7 @@ function LoginContent() {
 
     try {
       if (mode === "register") {
-        // Register first
+        // Register — creates user + sends verification code
         const res = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -53,9 +53,13 @@ function LoginContent() {
           setLoading(false);
           return;
         }
+        // Redirect to verification page
+        const params = new URLSearchParams({ email, p: password });
+        window.location.href = `/verify?${params.toString()}`;
+        return;
       }
 
-      // Sign in — registration already handled by /api/auth/register above
+      // Sign in — login mode
       const result = await signIn("credentials", {
         email,
         password,

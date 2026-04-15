@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/dashboard/Header";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileText, Presentation, Download, AlertCircle, CheckCircle2, Sparkles, ArrowLeft } from "lucide-react";
+import { FileText, Presentation, Download, AlertCircle, CheckCircle2, Sparkles, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -21,6 +21,7 @@ interface Generation {
   outputFiles?: {
     informeHtml?: string;
     actaHtml?: string;
+    informeMarkdown?: string;
     presentacionPptx?: string;
   };
   property: {
@@ -58,6 +59,9 @@ export default function JobResultPage() {
   const [generation, setGeneration] = useState<Generation | null>(null);
   const [loading, setLoading] = useState(true);
   const [displayProgress, setDisplayProgress] = useState(0);
+  const [pptxLoading, setPptxLoading] = useState(false);
+  const [pptxError, setPptxError] = useState("");
+  const pptxTriggered = useRef(false);
 
   useEffect(() => {
     try {
@@ -101,6 +105,50 @@ export default function JobResultPage() {
       return () => clearTimeout(timer);
     }
   }, [generation?.progress, generation?.status, displayProgress]);
+
+  // Auto-trigger PPTX generation if missing but informe markdown exists
+  const triggerPptx = useCallback(async (genId: string) => {
+    if (pptxTriggered.current) return;
+    pptxTriggered.current = true;
+    setPptxLoading(true);
+    setPptxError("");
+
+    try {
+      const res = await fetch("/api/generate/pptx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generationId: genId }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setPptxError(data.error || "Error al generar presentacion");
+        return;
+      }
+
+      // Refresh generation data to get the new PPTX URL
+      const refreshRes = await fetch(`/api/jobs/${genId}`);
+      if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        setGeneration(refreshData);
+      }
+    } catch {
+      setPptxError("Error de conexion al generar presentacion");
+    } finally {
+      setPptxLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (
+      generation?.status === "completed" &&
+      generation.outputFiles?.informeHtml &&
+      !generation.outputFiles?.presentacionPptx &&
+      (generation.type === "full" || generation.type === "informe")
+    ) {
+      triggerPptx(generation.id);
+    }
+  }, [generation?.status, generation?.outputFiles, generation?.id, generation?.type, triggerPptx]);
 
   if (loading) {
     return (
@@ -148,12 +196,10 @@ export default function JobResultPage() {
         {/* ── Processing: Progress Bar ── */}
         {isProcessing && (
           <div className="relative overflow-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-3xl p-8 lg:p-10 text-white shadow-2xl shadow-violet-500/30">
-            {/* Background effects */}
             <div className="absolute inset-0 overflow-hidden">
               <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-orb" />
               <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-purple-300/10 rounded-full blur-2xl animate-orb-delayed" />
             </div>
-
             <div className="relative space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/15 backdrop-blur rounded-2xl flex items-center justify-center">
@@ -164,8 +210,6 @@ export default function JobResultPage() {
                   <p className="text-violet-200 text-sm">{getProgressLabel(displayProgress)}</p>
                 </div>
               </div>
-
-              {/* Progress bar */}
               <div className="space-y-2">
                 <div className="h-3 bg-white/15 rounded-full overflow-hidden backdrop-blur-sm">
                   <div
@@ -265,7 +309,8 @@ export default function JobResultPage() {
                 </a>
               )}
 
-              {generation.outputFiles.presentacionPptx && (
+              {/* PPTX — show download if available, or loading/retry if generating */}
+              {generation.outputFiles.presentacionPptx ? (
                 <a
                   href={generation.outputFiles.presentacionPptx}
                   download
@@ -282,7 +327,37 @@ export default function JobResultPage() {
                   </div>
                   <Download className="h-5 w-5 text-purple-500 group-hover:translate-y-0.5 transition-transform" />
                 </a>
-              )}
+              ) : (generation.type === "full" || generation.type === "informe") ? (
+                <div className="p-5 bg-gradient-to-r from-purple-50/80 to-violet-50/50 backdrop-blur rounded-2xl border border-purple-100/50">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-purple-100/80 backdrop-blur rounded-xl flex items-center justify-center">
+                      {pptxLoading ? (
+                        <Loader2 className="h-6 w-6 text-purple-600 animate-spin" />
+                      ) : (
+                        <Presentation className="h-6 w-6 text-purple-600" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm text-gray-900">Presentacion PPTX</p>
+                      {pptxLoading ? (
+                        <p className="text-xs text-purple-600">Generando presentacion...</p>
+                      ) : pptxError ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-red-500">{pptxError}</p>
+                          <button
+                            onClick={() => { pptxTriggered.current = false; triggerPptx(generation.id); }}
+                            className="text-xs text-purple-600 font-medium underline hover:text-purple-800"
+                          >
+                            Reintentar
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-400">Preparando...</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         )}

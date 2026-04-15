@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,10 +27,35 @@ export async function POST(req: NextRequest) {
         email,
         name: name || email.split("@")[0],
         passwordHash,
+        // emailVerified stays null until code is confirmed
       },
     });
 
-    return NextResponse.json({ success: true });
+    // Generate 6-digit verification code
+    const code = crypto.randomInt(100000, 999999).toString();
+    const hashedCode = crypto.createHash("sha256").update(code).digest("hex");
+    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Clean up any existing tokens for this email, then create new one
+    await db.verificationToken.deleteMany({ where: { identifier: email } });
+    await db.verificationToken.create({
+      data: {
+        identifier: email,
+        token: hashedCode,
+        expires,
+      },
+    });
+
+    // Send verification email
+    try {
+      const { sendVerificationEmail } = await import("@/lib/email");
+      await sendVerificationEmail(email, code);
+    } catch (emailErr) {
+      console.error("[register] Email send failed:", emailErr);
+      // Don't fail registration if email fails — user can resend
+    }
+
+    return NextResponse.json({ success: true, needsVerification: true });
   } catch (e) {
     console.error("[register] Error:", e);
     const msg = e instanceof Error ? e.message : "Error desconocido";

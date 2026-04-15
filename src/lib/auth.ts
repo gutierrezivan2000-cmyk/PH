@@ -54,6 +54,9 @@ const productionProviders = [
         const isValid = await bcrypt.compare(password, user.passwordHash);
         if (!isValid) return null;
 
+        // Block unverified email accounts
+        if (!user.emailVerified) return null;
+
         return { id: user.id, name: user.name, email: user.email, image: user.image };
       } catch (e) {
         console.error("[AUTH] Credentials authorize error:", e);
