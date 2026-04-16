@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { upload } from "@vercel/blob/client";
 import { Header } from "@/components/dashboard/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,8 @@ import {
   AlertCircle,
   Sparkles,
 } from "lucide-react";
+
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB — big enough for long audio files
 
 interface Property {
   id: string;
@@ -36,6 +39,7 @@ export default function GenerarPage() {
   const [additionalText, setAdditionalText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -50,6 +54,12 @@ export default function GenerarPage() {
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
+      const oversized = newFiles.find((f) => f.size > MAX_FILE_SIZE);
+      if (oversized) {
+        setError(`"${oversized.name}" supera el limite de 500 MB.`);
+        return;
+      }
+      setError("");
       setFiles((prev) => [...prev, ...newFiles].slice(0, 20));
     }
   }, []);
@@ -61,6 +71,7 @@ export default function GenerarPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setUploadStatus("");
 
     if (!selectedProperty) {
       setError("Selecciona una propiedad");
@@ -76,35 +87,48 @@ export default function GenerarPage() {
     setLoading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("propertyId", selectedProperty);
-      formData.append("month", month.toString());
-      formData.append("year", year.toString());
-      formData.append("type", type);
-      if (additionalText.trim()) {
-        formData.append("additionalText", additionalText);
+      // Step 1: Upload each file directly to Vercel Blob from the browser.
+      // This bypasses the 4.5MB Vercel serverless body limit.
+      const blobFiles: { url: string; name: string; type: string; size: number }[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setUploadStatus(`Subiendo archivo ${i + 1} de ${files.length}: ${file.name}`);
+        const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+        const result = await upload(`uploads/${Date.now()}-${safeName}`, file, {
+          access: "private",
+          handleUploadUrl: "/api/upload/token",
+          contentType: file.type || "application/octet-stream",
+          multipart: file.size > 10 * 1024 * 1024,
+        });
+        blobFiles.push({
+          url: result.url,
+          name: file.name,
+          type: file.type || "application/octet-stream",
+          size: file.size,
+        });
       }
-      files.forEach((file) => formData.append("files", file));
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000);
+      setUploadStatus("Iniciando generacion...");
 
+      // Step 2: Submit the generation request with blob URLs (small JSON).
       const res = await fetch("/api/generate/full", {
         method: "POST",
-        body: formData,
-        signal: controller.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propertyId: selectedProperty,
+          month,
+          year,
+          type,
+          additionalText: additionalText.trim() || undefined,
+          blobFiles,
+        }),
       });
-      clearTimeout(timeoutId);
 
       let data;
       try {
         data = await res.json();
       } catch {
-        if (res.status === 504) {
-          setError("El servidor tardo demasiado. Intenta generar solo un tipo (Informe o Acta).");
-        } else {
-          setError(`Error del servidor (${res.status}). Intenta de nuevo.`);
-        }
+        setError(`Error del servidor (${res.status}). Intenta de nuevo.`);
         return;
       }
 
@@ -123,13 +147,17 @@ export default function GenerarPage() {
 
       router.push(`/dashboard/generar/${data.id}`);
     } catch (err: unknown) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        setError("La generacion tardo mas de 90 segundos. Intenta con menos archivos.");
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/No autorizado/i.test(msg)) {
+        setError("Sesion expirada. Recarga la pagina e inicia sesion de nuevo.");
+      } else if (/aborted/i.test(msg)) {
+        setError("La subida fue cancelada. Intenta de nuevo.");
       } else {
-        setError("Error de conexion. Verifica tu internet e intenta de nuevo.");
+        setError(`Error al subir archivos: ${msg}`);
       }
     } finally {
       setLoading(false);
+      setUploadStatus("");
     }
   };
 
@@ -282,7 +310,7 @@ export default function GenerarPage() {
             {loading ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Enviando...
+                {uploadStatus || "Enviando..."}
               </>
             ) : (
               <>

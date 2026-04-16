@@ -22,6 +22,24 @@ import { GRAMMATEUS_SYSTEM_PROMPT, buildGrammatusPrompt } from "@/lib/ai/grammat
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
+type BlobFileRef = { url: string; name: string; type: string; size: number };
+
+/** Fetch a private blob URL and turn it into a File suitable for the parsers. */
+async function blobRefToFile(ref: BlobFileRef): Promise<File> {
+  const { get } = await import("@vercel/blob");
+  const result = await get(ref.url, { access: "private" }).catch(() => null);
+  let buffer: ArrayBuffer;
+  if (result) {
+    buffer = await new Response(result.stream).arrayBuffer();
+  } else {
+    // Fallback: direct fetch (in case the URL is somehow public-accessible)
+    const res = await fetch(ref.url);
+    if (!res.ok) throw new Error(`No se pudo descargar el archivo "${ref.name}" (${res.status})`);
+    buffer = await res.arrayBuffer();
+  }
+  return new File([buffer], ref.name, { type: ref.type || "application/octet-stream" });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -49,13 +67,21 @@ export async function POST(req: NextRequest) {
 
 // ── DEMO MODE ────────────────────────────────────────────────────────────────
 async function handleDemo(req: NextRequest) {
-  const formData = await req.formData();
-  const propertyId = formData.get("propertyId") as string;
-  const month = parseInt(formData.get("month") as string);
-  const year = parseInt(formData.get("year") as string);
-  const type = (formData.get("type") as string) || "full";
-  const additionalText = formData.get("additionalText") as string | null;
-  const files = formData.getAll("files") as File[];
+  const body = await req.json();
+  const propertyId = body.propertyId as string;
+  const month = parseInt(String(body.month));
+  const year = parseInt(String(body.year));
+  const type = (body.type as string) || "full";
+  const additionalText = (body.additionalText as string | undefined) ?? null;
+  const blobFiles: BlobFileRef[] = Array.isArray(body.blobFiles) ? body.blobFiles : [];
+  const files: File[] = [];
+  for (const ref of blobFiles) {
+    try {
+      files.push(await blobRefToFile(ref));
+    } catch (e) {
+      console.error("[generate/full] Demo blob fetch failed:", e);
+    }
+  }
 
   if (!propertyId || !month || !year) {
     return NextResponse.json(
@@ -257,14 +283,30 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     console.error("[generate/full] User sync error:", e);
   }
 
-  // Step 3: Parse form data
-  const formData = await req.formData();
-  const propertyId = formData.get("propertyId") as string;
-  const month = parseInt(formData.get("month") as string);
-  const year = parseInt(formData.get("year") as string);
-  const additionalText = formData.get("additionalText") as string | null;
-  const type = (formData.get("type") as string) || "full";
-  const files = formData.getAll("files") as File[];
+  // Step 3: Parse JSON body with blob URL references
+  let body: {
+    propertyId?: string;
+    month?: number | string;
+    year?: number | string;
+    type?: string;
+    additionalText?: string | null;
+    blobFiles?: BlobFileRef[];
+  };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Cuerpo invalido. Se esperaba JSON con blobFiles." },
+      { status: 400 }
+    );
+  }
+
+  const propertyId = body.propertyId ?? "";
+  const month = parseInt(String(body.month ?? ""));
+  const year = parseInt(String(body.year ?? ""));
+  const additionalText = body.additionalText ?? null;
+  const type = body.type || "full";
+  const blobFiles: BlobFileRef[] = Array.isArray(body.blobFiles) ? body.blobFiles : [];
 
   if (!propertyId || !month || !year) {
     return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
@@ -285,27 +327,10 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
       status: "processing",
       month,
       year,
-      inputFiles: files.map((f) => ({ name: f.name, type: f.type, size: f.size })),
+      inputFiles: blobFiles.map((f) => ({ name: f.name, type: f.type, size: f.size, url: f.url })),
       inputText: additionalText,
     },
   });
-
-  // Step 6: Pre-read file contents before returning response
-  // (File objects from formData are only available in the current request)
-  const fileContents: { name: string; text: string }[] = [];
-  for (const file of files) {
-    try {
-      if (file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".csv")) {
-        fileContents.push({ name: file.name, text: await file.text() });
-      } else {
-        const { consolidateFiles } = await import("@/lib/parsers");
-        const parsed = await consolidateFiles([file]);
-        fileContents.push({ name: file.name, text: parsed });
-      }
-    } catch {
-      fileContents.push({ name: file.name, text: `[Archivo: ${file.name} — no se pudo procesar]` });
-    }
-  }
 
   // ═══ RESPOND IMMEDIATELY — client gets redirected to results page ═══
   // The heavy AI work happens in after() below
@@ -324,7 +349,26 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
       console.log(`[generate/full] Background: starting generation ${generation.id}`);
       await updateProgress(5);
 
-      // Build consolidated content from pre-read files
+      // Fetch each blob from storage and parse it
+      const fileContents: { name: string; text: string }[] = [];
+      for (const ref of blobFiles) {
+        try {
+          const file = await blobRefToFile(ref);
+          if (file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".csv")) {
+            fileContents.push({ name: file.name, text: await file.text() });
+          } else {
+            const { consolidateFiles } = await import("@/lib/parsers");
+            const parsed = await consolidateFiles([file]);
+            fileContents.push({ name: file.name, text: parsed });
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error(`[generate/full] Failed to parse ${ref.name}:`, msg);
+          fileContents.push({ name: ref.name, text: `[Archivo: ${ref.name} — no se pudo procesar: ${msg}]` });
+        }
+      }
+
+      // Build consolidated content from parsed files
       const textParts: string[] = [];
       if (additionalText?.trim()) {
         textParts.push(`[Informacion del administrador]\n${additionalText}`);
