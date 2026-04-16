@@ -378,6 +378,9 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
       }
       const consolidatedContent = textParts.join("\n\n---\n\n") || "[No se proporcionaron archivos ni texto adicional]";
 
+      console.log(`[generate/full] Consolidated content: ${consolidatedContent.length} chars from ${fileContents.length} files`);
+      console.log(`[generate/full] Content preview (first 500 chars):\n${consolidatedContent.substring(0, 500)}`);
+
       const monthNames = [
         "Enero","Febrero","Marzo","Abril","Mayo","Junio",
         "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",

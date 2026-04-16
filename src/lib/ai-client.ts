@@ -24,12 +24,14 @@ export async function generateWithClaude(
   const client = getClient();
 
   try {
+    console.log(`[AI] Sending request: system=${systemPrompt.length} chars, user=${userContent.length} chars, model=${model}`);
+
     const response = await client.messages.create({
       model,
-      max_tokens: 8192,
+      max_tokens: 16384,
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }],
-      temperature: 0.4, // Lower temperature for formal/legal documents
+      temperature: 0.2,
     });
 
     const text = response.content
@@ -39,6 +41,8 @@ export async function generateWithClaude(
 
     const tokensUsed =
       (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+
+    console.log(`[AI] Response: ${text.length} chars, ${tokensUsed} tokens (in=${response.usage?.input_tokens}, out=${response.usage?.output_tokens})`);
 
     return { text, tokensUsed };
   } catch (error: unknown) {

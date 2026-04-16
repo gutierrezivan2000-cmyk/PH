@@ -54,9 +54,10 @@ export async function parseFile(
       const text = await file.text();
       return { text: `[Archivo de texto: ${file.name}]\n${text}`, type: fileType };
     }
-    case "image":
-      // Images are handled separately via OpenAI Vision
-      return { text: `[Imagen: ${file.name}]`, type: fileType };
+    case "image": {
+      const { parseImageFile } = await import("./image");
+      return { text: await parseImageFile(file), type: fileType };
+    }
     default:
       return { text: `[Archivo no soportado: ${file.name}]`, type: fileType };
   }
