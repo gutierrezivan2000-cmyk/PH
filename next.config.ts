@@ -9,6 +9,8 @@ const nextConfig: NextConfig = {
     "@prisma/adapter-pg",
     "pg",
     "epayco-sdk-node",
+    "@ffmpeg-installer/ffmpeg",
+    "fluent-ffmpeg",
   ],
 };
 
