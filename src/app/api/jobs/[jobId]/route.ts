@@ -13,6 +13,8 @@ function toProxyUrls(generationId: string, outputFiles: Record<string, string> |
   if (outputFiles.presentacionPptx) proxy.presentacionPptx = `/api/download/${generationId}/pptx`;
   if (outputFiles.transcripcion) proxy.transcripcion = `/api/download/${generationId}/transcripcion`;
   if (outputFiles.informeMarkdown) proxy.informeMarkdown = "available";
+  if (outputFiles.actaMarkdown) proxy.actaMarkdown = "available";
+  if (outputFiles.actaRequirements) proxy.actaRequirements = outputFiles.actaRequirements;
   return Object.keys(proxy).length > 0 ? proxy : null;
 }
 

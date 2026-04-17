@@ -223,6 +223,17 @@ async function handleDemo(req: NextRequest) {
     if (actaHtml) outputFiles.actaHtml = `/api/demo/files/${generation.id}/acta${fileParams}`;
     if (pptxBuffer) outputFiles.presentacionPptx = `/api/demo/files/${generation.id}/pptx${fileParams}`;
 
+    // Analyze acta for missing legal requirements
+    if (actaText && hasRealAI) {
+      try {
+        const { analyzeActaRequirements } = await import("@/lib/ai/acta-requirements");
+        const requirements = await analyzeActaRequirements(actaText);
+        outputFiles.actaRequirements = JSON.stringify(requirements);
+      } catch (e) {
+        console.error("[generate/full] Demo acta requirements analysis failed:", e);
+      }
+    }
+
     const costUsd = hasRealAI ? tokensUsed * 0.000015 : 0.19;
 
     updateGeneration(generation.id, {
@@ -492,7 +503,26 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
         );
       }
 
+      // Save raw acta markdown for future corrections
+      if (actaText) {
+        uploadPromises.push(
+          put(`generations/${generation.id}/acta.md`, actaText, { access: "private", contentType: "text/markdown" })
+            .then((blob) => { blobUrls.actaMarkdown = blob.url; })
+        );
+      }
+
       await Promise.all(uploadPromises);
+
+      // Analyze acta for missing legal requirements
+      if (actaText) {
+        try {
+          const { analyzeActaRequirements } = await import("@/lib/ai/acta-requirements");
+          const requirements = await analyzeActaRequirements(actaText);
+          blobUrls.actaRequirements = JSON.stringify(requirements);
+        } catch (e) {
+          console.error("[generate/full] Acta requirements analysis failed:", e);
+        }
+      }
 
       // Best-effort PPTX in after() — if this fails, client can trigger /api/generate/pptx
       if (informeText && includePptx) {

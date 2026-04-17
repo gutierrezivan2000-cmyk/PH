@@ -4,9 +4,19 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/dashboard/Header";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileText, Presentation, Download, AlertCircle, CheckCircle2, Sparkles, ArrowLeft, Loader2, Mic, MessageSquarePlus } from "lucide-react";
+import {
+  FileText, Presentation, Download, AlertCircle, CheckCircle2,
+  Sparkles, ArrowLeft, Loader2, Mic, MessageSquarePlus, ClipboardList,
+  CircleCheck, CircleAlert,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+
+interface ActaRequirement {
+  item: string;
+  status: "completo" | "pendiente";
+  detail: string;
+}
 
 interface Generation {
   id: string;
@@ -22,8 +32,10 @@ interface Generation {
     informeHtml?: string;
     actaHtml?: string;
     informeMarkdown?: string;
+    actaMarkdown?: string;
     presentacionPptx?: string;
     transcripcion?: string;
+    actaRequirements?: string;
   };
   property: {
     name: string;
@@ -40,7 +52,7 @@ const MONTHS = [
 const PROGRESS_STEPS = [
   { min: 0, label: "Preparando archivos..." },
   { min: 10, label: "Analizando contenido..." },
-  { min: 25, label: "Generando informe con IA..." },
+  { min: 25, label: "Generando documentos con IA..." },
   { min: 60, label: "Creando documentos..." },
   { min: 70, label: "Generando presentacion..." },
   { min: 90, label: "Finalizando..." },
@@ -52,6 +64,16 @@ function getProgressLabel(progress: number): string {
     if (progress >= step.min) label = step.label;
   }
   return label;
+}
+
+function parseActaRequirements(raw?: string): ActaRequirement[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 export default function JobResultPage() {
@@ -96,7 +118,6 @@ export default function JobResultPage() {
     return () => { cancelled = true; clearInterval(interval); };
   }, [params.jobId]);
 
-  // Smooth progress animation
   useEffect(() => {
     const target = generation?.status === "completed" ? 100 : (generation?.progress ?? 0);
     if (target > displayProgress) {
@@ -107,7 +128,6 @@ export default function JobResultPage() {
     }
   }, [generation?.progress, generation?.status, displayProgress]);
 
-  // Auto-trigger PPTX generation if missing but informe markdown exists
   const triggerPptx = useCallback(async (genId: string) => {
     if (pptxTriggered.current) return;
     pptxTriggered.current = true;
@@ -127,7 +147,6 @@ export default function JobResultPage() {
         return;
       }
 
-      // Refresh generation data to get the new PPTX URL
       const refreshRes = await fetch(`/api/jobs/${genId}`);
       if (refreshRes.ok) {
         const refreshData = await refreshRes.json();
@@ -188,13 +207,14 @@ export default function JobResultPage() {
   const isProcessing = generation.status === "processing" || generation.status === "pending";
   const isCompleted = generation.status === "completed";
   const isFailed = generation.status === "failed";
+  const actaRequirements = parseActaRequirements(generation.outputFiles?.actaRequirements);
 
   return (
     <div>
       <Header title={`${generation.property.name} — ${MONTHS[generation.month - 1]} ${generation.year}`} />
       <div className="p-6 lg:p-8 max-w-3xl mx-auto space-y-6">
 
-        {/* ── Processing: Progress Bar ── */}
+        {/* ── Processing ── */}
         {isProcessing && (
           <div className="relative overflow-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-3xl p-8 lg:p-10 text-white shadow-2xl shadow-violet-500/30">
             <div className="absolute inset-0 overflow-hidden">
@@ -249,7 +269,7 @@ export default function JobResultPage() {
           </div>
         )}
 
-        {/* ── Completed: Success Banner ── */}
+        {/* ── Success Banner ── */}
         {isCompleted && (
           <div className="bg-emerald-50/80 backdrop-blur-xl border border-emerald-200/50 rounded-3xl p-6 shadow-lg">
             <div className="flex items-center gap-4">
@@ -310,7 +330,6 @@ export default function JobResultPage() {
                 </a>
               )}
 
-              {/* PPTX — only show if markdown exists (user opted in) */}
               {generation.outputFiles.presentacionPptx ? (
                 <a
                   href={generation.outputFiles.presentacionPptx}
@@ -359,7 +378,7 @@ export default function JobResultPage() {
                   </div>
                 </div>
               ) : null}
-              {/* Transcription — only if audio/images were processed */}
+
               {generation.outputFiles.transcripcion && (
                 <a
                   href={generation.outputFiles.transcripcion}
@@ -383,13 +402,18 @@ export default function JobResultPage() {
           </Card>
         )}
 
-        {/* ── Correction / Refinement ── */}
+        {/* ── Acta Requirements Checklist ── */}
+        {isCompleted && generation.outputFiles?.actaHtml && actaRequirements.length > 0 && (
+          <ActaRequirementsChecklist requirements={actaRequirements} />
+        )}
+
+        {/* ── Correction Panel ── */}
         {isCompleted && (generation.outputFiles?.informeHtml || generation.outputFiles?.actaHtml) && (
           <CorrectionPanel
             generationId={generation.id}
             hasInforme={!!generation.outputFiles?.informeHtml}
             hasActa={!!generation.outputFiles?.actaHtml}
-            onRefreshed={(data) => setGeneration(data)}
+            onRefreshed={(data) => { pptxTriggered.current = false; setGeneration(data); }}
           />
         )}
 
@@ -411,9 +435,66 @@ export default function JobResultPage() {
   );
 }
 
+function ActaRequirementsChecklist({ requirements }: { requirements: ActaRequirement[] }) {
+  const completed = requirements.filter((r) => r.status === "completo").length;
+  const total = requirements.length;
+  const allComplete = completed === total;
+
+  return (
+    <Card className="bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl rounded-3xl overflow-hidden">
+      <CardContent className="p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${allComplete ? "bg-emerald-100/80" : "bg-amber-100/80"}`}>
+            <ClipboardList className={`h-5 w-5 ${allComplete ? "text-emerald-600" : "text-amber-600"}`} />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-gray-900">Requisitos del Acta Legal</h3>
+            <p className="text-xs text-gray-500">Verificacion segun la Ley 675 de 2001</p>
+          </div>
+          <div className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${allComplete ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+            {completed}/{total}
+          </div>
+        </div>
+
+        {!allComplete && (
+          <div className="bg-amber-50/80 border border-amber-200/40 rounded-xl px-4 py-2.5">
+            <p className="text-xs text-amber-700">
+              Hay {total - completed} requisito{total - completed > 1 ? "s" : ""} pendiente{total - completed > 1 ? "s" : ""}. Puedes completarlos usando el panel de correcciones de abajo, indicando la informacion faltante.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {requirements.map((req, i) => (
+            <div
+              key={i}
+              className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
+                req.status === "completo"
+                  ? "bg-emerald-50/50 border-emerald-100/50"
+                  : "bg-amber-50/50 border-amber-100/50"
+              }`}
+            >
+              {req.status === "completo" ? (
+                <CircleCheck className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+              ) : (
+                <CircleAlert className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+              )}
+              <div className="min-w-0">
+                <p className={`text-sm font-medium ${req.status === "completo" ? "text-emerald-800" : "text-amber-800"}`}>
+                  {req.item}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">{req.detail}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { generationId: string; hasInforme: boolean; hasActa: boolean; onRefreshed: (data: Generation) => void }) {
   const [instruction, setInstruction] = useState("");
-  const [target, setTarget] = useState<"informe" | "acta">(hasInforme ? "informe" : "acta");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -428,15 +509,19 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
       const res = await fetch("/api/generate/refine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ generationId, instruction: instruction.trim(), target }),
+        body: JSON.stringify({ generationId, instruction: instruction.trim() }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Error al corregir");
         return;
       }
-      setSuccess("Documento corregido exitosamente. La presentacion PPTX se actualizara automaticamente.");
+
+      const docs = (data.documentsUpdated as string[]) || [];
+      const docNames = docs.map((d: string) => d === "informe" ? "Informe" : "Acta").join(" y ");
+      setSuccess(`${docNames} corregido${docs.length > 1 ? "s" : ""} exitosamente.${hasInforme ? " La presentacion PPTX se actualizara automaticamente." : ""}`);
       setInstruction("");
+
       const refreshRes = await fetch(`/api/jobs/${generationId}`);
       if (refreshRes.ok) onRefreshed(await refreshRes.json());
     } catch {
@@ -446,10 +531,7 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
     }
   };
 
-  const availableTargets = [
-    ...(hasInforme ? [{ key: "informe" as const, label: "Informe" }] : []),
-    ...(hasActa ? [{ key: "acta" as const, label: "Acta" }] : []),
-  ];
+  const docLabel = hasInforme && hasActa ? "todos los documentos" : hasInforme ? "el informe" : "el acta";
 
   return (
     <Card className="bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl rounded-3xl overflow-hidden">
@@ -459,31 +541,19 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
             <MessageSquarePlus className="h-5 w-5 text-violet-600" />
           </div>
           <div>
-            <h3 className="font-bold text-gray-900">Corregir documento</h3>
-            <p className="text-xs text-gray-500">Indica que informacion falta o debe corregirse</p>
+            <h3 className="font-bold text-gray-900">Corregir documentos</h3>
+            <p className="text-xs text-gray-500">
+              La correccion se aplicara automaticamente a {docLabel}
+              {hasInforme ? " y la presentacion PPTX se regenerara" : ""}
+            </p>
           </div>
         </div>
-
-        {availableTargets.length > 1 && (
-          <div className="flex gap-2">
-            {availableTargets.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setTarget(t.key)}
-                className={`px-4 py-2 rounded-xl text-xs font-medium border transition-all ${target === t.key ? "bg-violet-500/10 text-violet-700 border-violet-300" : "bg-white/30 text-gray-500 border-white/30 hover:bg-white/50"}`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        )}
 
         <textarea
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           rows={3}
-          placeholder="Ej: Agrega que se realizó mantenimiento del ascensor el 15 de marzo. El costo fue de $2.500.000..."
+          placeholder="Ej: Agrega que se realizo mantenimiento del ascensor el 15 de marzo. El costo fue de $2.500.000. Asistieron 15 propietarios con un quorum del 62%..."
           className="w-full rounded-2xl border border-white/40 bg-white/50 backdrop-blur px-4 py-3 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 resize-none"
         />
 
@@ -495,7 +565,7 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
           disabled={loading || !instruction.trim()}
           className="w-full gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
         >
-          {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Corrigiendo...</> : <><MessageSquarePlus className="h-4 w-4" /> Aplicar correccion</>}
+          {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Corrigiendo {docLabel}...</> : <><MessageSquarePlus className="h-4 w-4" /> Aplicar correccion</>}
         </Button>
       </CardContent>
     </Card>
