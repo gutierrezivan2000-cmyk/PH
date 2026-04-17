@@ -71,7 +71,9 @@ async function handleDemo(req: NextRequest) {
   const propertyId = body.propertyId as string;
   const month = parseInt(String(body.month));
   const year = parseInt(String(body.year));
-  const type = (body.type as string) || "full";
+  const type = (body.type as string) || "informe";
+  const demoIncludeActa = body.includeActa === true;
+  const demoIncludePptx = body.includePptx !== false;
   const additionalText = (body.additionalText as string | undefined) ?? null;
   const blobFiles: BlobFileRef[] = Array.isArray(body.blobFiles) ? body.blobFiles : [];
   const files: File[] = [];
@@ -152,16 +154,14 @@ async function handleDemo(req: NextRequest) {
       const content = textParts.join("\n\n---\n\n");
       const { generateWithAssistant } = await import("@/lib/ai-client");
 
-      if (type === "informe" || type === "full") {
+      {
         const prompt = buildStrategosPrompt(property.name, month, year, content);
         const result = await generateWithAssistant(STRATEGOS_SYSTEM_PROMPT, prompt);
         informeText = result.text;
         tokensUsed += result.tokensUsed;
-      } else {
-        informeText = "";
       }
 
-      if (type === "acta" || type === "full") {
+      if (demoIncludeActa) {
         const prompt = buildGrammatusPrompt(property.name, month, year, content);
         const result = await generateWithAssistant(GRAMMATEUS_SYSTEM_PROMPT, prompt);
         actaText = result.text;
@@ -170,8 +170,8 @@ async function handleDemo(req: NextRequest) {
         actaText = "";
       }
     } else {
-      informeText = (type === "informe" || type === "full") ? getMockInforme(property.name, month, year) : "";
-      actaText = (type === "acta" || type === "full") ? getMockActa(property.name, month, year) : "";
+      informeText = getMockInforme(property.name, month, year);
+      actaText = demoIncludeActa ? getMockActa(property.name, month, year) : "";
       tokensUsed = 13840;
     }
 
@@ -192,7 +192,7 @@ async function handleDemo(req: NextRequest) {
     }) : undefined;
 
     let pptxBuffer: Buffer | undefined;
-    if (informeText) {
+    if (informeText && demoIncludePptx) {
       try {
         console.log(`[generate/full] Demo PPTX: informeText length = ${informeText.length}`);
         console.log(`[generate/full] Demo PPTX: first 300 chars:\n${informeText.substring(0, 300)}`);
@@ -289,6 +289,8 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     month?: number | string;
     year?: number | string;
     type?: string;
+    includeActa?: boolean;
+    includePptx?: boolean;
     additionalText?: string | null;
     blobFiles?: BlobFileRef[];
   };
@@ -305,7 +307,9 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
   const month = parseInt(String(body.month ?? ""));
   const year = parseInt(String(body.year ?? ""));
   const additionalText = body.additionalText ?? null;
-  const type = body.type || "full";
+  const type = body.type || "informe";
+  const includeActa = body.includeActa === true;
+  const includePptx = body.includePptx !== false;
   const blobFiles: BlobFileRef[] = Array.isArray(body.blobFiles) ? body.blobFiles : [];
 
   if (!propertyId || !month || !year) {
@@ -370,11 +374,15 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
 
       // Build consolidated content from parsed files
       const textParts: string[] = [];
+      const transcriptionParts: string[] = [];
       if (additionalText?.trim()) {
         textParts.push(`[Informacion del administrador]\n${additionalText}`);
       }
       for (const fc of fileContents) {
         textParts.push(`[Archivo: ${fc.name}]\n${fc.text}`);
+        if (fc.text.startsWith("[Transcripción de audio:") || fc.text.startsWith("[Análisis de imagen:")) {
+          transcriptionParts.push(fc.text);
+        }
       }
       const consolidatedContent = textParts.join("\n\n---\n\n") || "[No se proporcionaron archivos ni texto adicional]";
 
@@ -396,14 +404,13 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
       let actaText: string | undefined;
       let totalTokens = 0;
 
-      const informePromise = (type === "informe" || type === "full")
-        ? generateWithAssistant(
-            STRATEGOS_SYSTEM_PROMPT,
-            buildStrategosPrompt(property.name, month, year, consolidatedContent)
-          )
-        : null;
+      // Informe always generated; acta only if requested
+      const informePromise = generateWithAssistant(
+        STRATEGOS_SYSTEM_PROMPT,
+        buildStrategosPrompt(property.name, month, year, consolidatedContent)
+      );
 
-      const actaPromise = (type === "acta" || type === "full")
+      const actaPromise = includeActa
         ? generateWithAssistant(
             GRAMMATEUS_SYSTEM_PROMPT,
             buildGrammatusPrompt(property.name, month, year, consolidatedContent)
@@ -463,6 +470,15 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
         );
       }
 
+      // Save transcription/image analysis so user can verify the parsed data
+      if (transcriptionParts.length > 0) {
+        const transcriptionContent = transcriptionParts.join("\n\n---\n\n");
+        uploadPromises.push(
+          put(`generations/${generation.id}/transcripcion.txt`, transcriptionContent, { access: "private", contentType: "text/plain; charset=utf-8" })
+            .then((blob) => { blobUrls.transcripcion = blob.url; })
+        );
+      }
+
       // Save raw informe markdown so PPTX can be generated on-demand via /api/generate/pptx
       if (informeText) {
         uploadPromises.push(
@@ -474,7 +490,7 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
       await Promise.all(uploadPromises);
 
       // Best-effort PPTX in after() — if this fails, client can trigger /api/generate/pptx
-      if (informeText) {
+      if (informeText && includePptx) {
         try {
           console.log("[generate/full] PPTX: starting...");
           const slidesData = parseMarkdownToSlides(informeText, property.name, period);

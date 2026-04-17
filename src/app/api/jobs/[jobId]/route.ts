@@ -11,7 +11,7 @@ function toProxyUrls(generationId: string, outputFiles: Record<string, string> |
   if (outputFiles.informeHtml) proxy.informeHtml = `/api/download/${generationId}/informe`;
   if (outputFiles.actaHtml) proxy.actaHtml = `/api/download/${generationId}/acta`;
   if (outputFiles.presentacionPptx) proxy.presentacionPptx = `/api/download/${generationId}/pptx`;
-  // Pass through informeMarkdown flag so client knows PPTX can be generated on-demand
+  if (outputFiles.transcripcion) proxy.transcripcion = `/api/download/${generationId}/transcripcion`;
   if (outputFiles.informeMarkdown) proxy.informeMarkdown = "available";
   return Object.keys(proxy).length > 0 ? proxy : null;
 }

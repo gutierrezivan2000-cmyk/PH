@@ -35,7 +35,9 @@ export default function GenerarPage() {
   const [selectedProperty, setSelectedProperty] = useState("");
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
-  const [type, setType] = useState("full");
+  const [type] = useState("informe");
+  const [includeActa, setIncludeActa] = useState(false);
+  const [includePptx, setIncludePptx] = useState(true);
   const [additionalText, setAdditionalText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
@@ -119,6 +121,8 @@ export default function GenerarPage() {
           month,
           year,
           type,
+          includeActa,
+          includePptx,
           additionalText: additionalText.trim() || undefined,
           blobFiles,
         }),
@@ -224,29 +228,32 @@ export default function GenerarPage() {
             </div>
           </div>
 
-          {/* Type */}
+          {/* Options */}
           <div className="bg-white/50 backdrop-blur-xl border border-white/30 rounded-3xl p-6 shadow-lg shadow-violet-100/10">
-            <h3 className="font-bold text-gray-900 mb-4">Tipo de generacion</h3>
-            <div className="flex gap-3">
-              {[
-                { value: "full", label: "Completo", sub: "Informe + Acta + PPTX" },
-                { value: "informe", label: "Solo Informe", sub: "" },
-                { value: "acta", label: "Solo Acta", sub: "" },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setType(opt.value)}
-                  className={`flex-1 px-4 py-3.5 rounded-2xl text-sm font-medium border transition-all duration-300 ${
-                    type === opt.value
-                      ? "bg-violet-500/10 text-violet-700 border-violet-300/50 shadow-md shadow-violet-200/30 backdrop-blur-sm"
-                      : "bg-white/30 text-gray-500 border-white/30 hover:bg-white/50 hover:border-white/50 backdrop-blur-sm"
-                  }`}
-                >
-                  {opt.label}
-                  {opt.sub && <span className="block text-xs mt-0.5 opacity-70">{opt.sub}</span>}
-                </button>
-              ))}
+            <h3 className="font-bold text-gray-900 mb-1">Documentos a generar</h3>
+            <p className="text-xs text-gray-500 mb-4">El Informe de Gestion siempre se genera. Marca los opcionales:</p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3.5 bg-violet-500/10 rounded-2xl border border-violet-300/50">
+                <input type="checkbox" checked disabled className="h-4 w-4 rounded accent-violet-600" />
+                <div>
+                  <span className="text-sm font-medium text-violet-700">Informe de Gestion</span>
+                  <span className="block text-xs text-violet-500">Siempre incluido</span>
+                </div>
+              </div>
+              <label className={`flex items-center gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all duration-300 ${includePptx ? "bg-purple-500/10 border-purple-300/50" : "bg-white/30 border-white/30 hover:bg-white/50"}`}>
+                <input type="checkbox" checked={includePptx} onChange={(e) => setIncludePptx(e.target.checked)} className="h-4 w-4 rounded accent-purple-600" />
+                <div>
+                  <span className={`text-sm font-medium ${includePptx ? "text-purple-700" : "text-gray-500"}`}>Presentacion PPTX</span>
+                  <span className="block text-xs text-gray-400">PowerPoint basado en el informe</span>
+                </div>
+              </label>
+              <label className={`flex items-center gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all duration-300 ${includeActa ? "bg-emerald-500/10 border-emerald-300/50" : "bg-white/30 border-white/30 hover:bg-white/50"}`}>
+                <input type="checkbox" checked={includeActa} onChange={(e) => setIncludeActa(e.target.checked)} className="h-4 w-4 rounded accent-emerald-600" />
+                <div>
+                  <span className={`text-sm font-medium ${includeActa ? "text-emerald-700" : "text-gray-500"}`}>Acta Legal</span>
+                  <span className="block text-xs text-gray-400">Acta de reunion del Consejo</span>
+                </div>
+              </label>
             </div>
           </div>
 

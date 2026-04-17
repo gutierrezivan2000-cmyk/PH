@@ -22,6 +22,11 @@ const FILE_TYPE_MAP: Record<string, { key: string; contentType: string; filename
     contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     filename: "presentacion.pptx",
   },
+  transcripcion: {
+    key: "transcripcion",
+    contentType: "text/plain; charset=utf-8",
+    filename: "transcripcion-insumos.txt",
+  },
 };
 
 export async function GET(

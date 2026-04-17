@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/dashboard/Header";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileText, Presentation, Download, AlertCircle, CheckCircle2, Sparkles, ArrowLeft, Loader2 } from "lucide-react";
+import { FileText, Presentation, Download, AlertCircle, CheckCircle2, Sparkles, ArrowLeft, Loader2, Mic, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -23,6 +23,7 @@ interface Generation {
     actaHtml?: string;
     informeMarkdown?: string;
     presentacionPptx?: string;
+    transcripcion?: string;
   };
   property: {
     name: string;
@@ -142,13 +143,13 @@ export default function JobResultPage() {
   useEffect(() => {
     if (
       generation?.status === "completed" &&
-      generation.outputFiles?.informeHtml &&
+      generation.outputFiles?.informeMarkdown &&
       !generation.outputFiles?.presentacionPptx &&
-      (generation.type === "full" || generation.type === "informe")
+      generation.outputFiles?.informeHtml
     ) {
       triggerPptx(generation.id);
     }
-  }, [generation?.status, generation?.outputFiles, generation?.id, generation?.type, triggerPptx]);
+  }, [generation?.status, generation?.outputFiles, generation?.id, triggerPptx]);
 
   if (loading) {
     return (
@@ -309,7 +310,7 @@ export default function JobResultPage() {
                 </a>
               )}
 
-              {/* PPTX — show download if available, or loading/retry if generating */}
+              {/* PPTX — only show if markdown exists (user opted in) */}
               {generation.outputFiles.presentacionPptx ? (
                 <a
                   href={generation.outputFiles.presentacionPptx}
@@ -327,7 +328,7 @@ export default function JobResultPage() {
                   </div>
                   <Download className="h-5 w-5 text-purple-500 group-hover:translate-y-0.5 transition-transform" />
                 </a>
-              ) : (generation.type === "full" || generation.type === "informe") ? (
+              ) : generation.outputFiles.informeMarkdown ? (
                 <div className="p-5 bg-gradient-to-r from-purple-50/80 to-violet-50/50 backdrop-blur rounded-2xl border border-purple-100/50">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-purple-100/80 backdrop-blur rounded-xl flex items-center justify-center">
@@ -358,8 +359,33 @@ export default function JobResultPage() {
                   </div>
                 </div>
               ) : null}
+              {/* Transcription — only if audio/images were processed */}
+              {generation.outputFiles.transcripcion && (
+                <a
+                  href={generation.outputFiles.transcripcion}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center justify-between p-5 bg-gradient-to-r from-amber-50/80 to-orange-50/50 backdrop-blur rounded-2xl border border-amber-100/50 hover:border-amber-200 hover:shadow-md transition-all duration-300"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-amber-100/80 backdrop-blur rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                      <Mic className="h-6 w-6 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm text-gray-900">Transcripcion de Insumos</p>
+                      <p className="text-xs text-gray-500">Verifica la transcripcion de audios y analisis de fotos</p>
+                    </div>
+                  </div>
+                  <Download className="h-5 w-5 text-amber-500 group-hover:translate-y-0.5 transition-transform" />
+                </a>
+              )}
             </CardContent>
           </Card>
+        )}
+
+        {/* ── Correction / Refinement ── */}
+        {isCompleted && generation.outputFiles?.informeHtml && (
+          <CorrectionPanel generationId={generation.id} onRefreshed={(data) => setGeneration(data)} />
         )}
 
         {/* ── Back ── */}
@@ -377,5 +403,89 @@ export default function JobResultPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function CorrectionPanel({ generationId, onRefreshed }: { generationId: string; onRefreshed: (data: Generation) => void }) {
+  const [instruction, setInstruction] = useState("");
+  const [target, setTarget] = useState<"informe" | "acta">("informe");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleCorrect = async () => {
+    if (!instruction.trim()) return;
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const res = await fetch("/api/generate/refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generationId, instruction: instruction.trim(), target }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Error al corregir");
+        return;
+      }
+      setSuccess("Documento corregido exitosamente.");
+      setInstruction("");
+      const refreshRes = await fetch(`/api/jobs/${generationId}`);
+      if (refreshRes.ok) onRefreshed(await refreshRes.json());
+    } catch {
+      setError("Error de conexion.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className="bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl rounded-3xl overflow-hidden">
+      <CardContent className="p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-violet-100/80 rounded-xl flex items-center justify-center">
+            <MessageSquarePlus className="h-5 w-5 text-violet-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900">Corregir documento</h3>
+            <p className="text-xs text-gray-500">Indica que informacion falta o debe corregirse</p>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          {(["informe", "acta"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTarget(t)}
+              className={`px-4 py-2 rounded-xl text-xs font-medium border transition-all ${target === t ? "bg-violet-500/10 text-violet-700 border-violet-300" : "bg-white/30 text-gray-500 border-white/30 hover:bg-white/50"}`}
+            >
+              {t === "informe" ? "Informe" : "Acta"}
+            </button>
+          ))}
+        </div>
+
+        <textarea
+          value={instruction}
+          onChange={(e) => setInstruction(e.target.value)}
+          rows={3}
+          placeholder="Ej: Agrega que se realizó mantenimiento del ascensor el 15 de marzo. El costo fue de $2.500.000..."
+          className="w-full rounded-2xl border border-white/40 bg-white/50 backdrop-blur px-4 py-3 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 resize-none"
+        />
+
+        {error && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
+        {success && <p className="text-xs text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />{success}</p>}
+
+        <Button
+          onClick={handleCorrect}
+          disabled={loading || !instruction.trim()}
+          className="w-full gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
+        >
+          {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Corrigiendo...</> : <><MessageSquarePlus className="h-4 w-4" /> Aplicar correccion</>}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
