@@ -71,9 +71,10 @@ async function handleDemo(req: NextRequest) {
   const propertyId = body.propertyId as string;
   const month = parseInt(String(body.month));
   const year = parseInt(String(body.year));
-  const type = (body.type as string) || "informe";
+  const type = (body.type as string) || "custom";
+  const demoIncludeInforme = body.includeInforme !== false;
   const demoIncludeActa = body.includeActa === true;
-  const demoIncludePptx = body.includePptx !== false;
+  const demoIncludePptx = body.includePptx === true;
   const additionalText = (body.additionalText as string | undefined) ?? null;
   const blobFiles: BlobFileRef[] = Array.isArray(body.blobFiles) ? body.blobFiles : [];
   const files: File[] = [];
@@ -128,8 +129,9 @@ async function handleDemo(req: NextRequest) {
     const anthropicKey = process.env.ANTHROPIC_API_KEY;
     const hasRealAI = !!anthropicKey && !anthropicKey.includes("placeholder") && anthropicKey.length > 10;
 
-    let informeText: string;
-    let actaText: string;
+    const needInforme = demoIncludeInforme || demoIncludePptx;
+    let informeText = "";
+    let actaText = "";
     let tokensUsed = 0;
 
     if (hasRealAI && (files.length > 0 || additionalText?.trim())) {
@@ -154,7 +156,7 @@ async function handleDemo(req: NextRequest) {
       const content = textParts.join("\n\n---\n\n");
       const { generateWithAssistant } = await import("@/lib/ai-client");
 
-      {
+      if (needInforme) {
         const prompt = buildStrategosPrompt(property.name, month, year, content);
         const result = await generateWithAssistant(STRATEGOS_SYSTEM_PROMPT, prompt);
         informeText = result.text;
@@ -166,11 +168,9 @@ async function handleDemo(req: NextRequest) {
         const result = await generateWithAssistant(GRAMMATEUS_SYSTEM_PROMPT, prompt);
         actaText = result.text;
         tokensUsed += result.tokensUsed;
-      } else {
-        actaText = "";
       }
     } else {
-      informeText = getMockInforme(property.name, month, year);
+      informeText = needInforme ? getMockInforme(property.name, month, year) : "";
       actaText = demoIncludeActa ? getMockActa(property.name, month, year) : "";
       tokensUsed = 13840;
     }
@@ -289,6 +289,7 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     month?: number | string;
     year?: number | string;
     type?: string;
+    includeInforme?: boolean;
     includeActa?: boolean;
     includePptx?: boolean;
     additionalText?: string | null;
@@ -307,9 +308,10 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
   const month = parseInt(String(body.month ?? ""));
   const year = parseInt(String(body.year ?? ""));
   const additionalText = body.additionalText ?? null;
-  const type = body.type || "informe";
+  const type = body.type || "custom";
+  const includeInforme = body.includeInforme !== false;
   const includeActa = body.includeActa === true;
-  const includePptx = body.includePptx !== false;
+  const includePptx = body.includePptx === true;
   const blobFiles: BlobFileRef[] = Array.isArray(body.blobFiles) ? body.blobFiles : [];
 
   if (!propertyId || !month || !year) {
@@ -404,11 +406,14 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
       let actaText: string | undefined;
       let totalTokens = 0;
 
-      // Informe always generated; acta only if requested
-      const informePromise = generateWithAssistant(
-        STRATEGOS_SYSTEM_PROMPT,
-        buildStrategosPrompt(property.name, month, year, consolidatedContent)
-      );
+      const needInforme = includeInforme || includePptx;
+
+      const informePromise = needInforme
+        ? generateWithAssistant(
+            STRATEGOS_SYSTEM_PROMPT,
+            buildStrategosPrompt(property.name, month, year, consolidatedContent)
+          )
+        : null;
 
       const actaPromise = includeActa
         ? generateWithAssistant(
@@ -432,8 +437,8 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
 
       await updateProgress(60);
 
-      // Generate documents
-      const informeHtml = informeText ? generatePdfHtml({
+      // Generate documents — only produce HTML for documents the user requested
+      const informeHtml = (informeText && includeInforme) ? generatePdfHtml({
         title: "Informe de Gestion",
         propertyName: property.name,
         period,
@@ -479,8 +484,8 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
         );
       }
 
-      // Save raw informe markdown so PPTX can be generated on-demand via /api/generate/pptx
-      if (informeText) {
+      // Save raw informe markdown for PPTX generation and future corrections
+      if (informeText && (includeInforme || includePptx)) {
         uploadPromises.push(
           put(`generations/${generation.id}/informe.md`, informeText, { access: "private", contentType: "text/markdown" })
             .then((blob) => { blobUrls.informeMarkdown = blob.url; })

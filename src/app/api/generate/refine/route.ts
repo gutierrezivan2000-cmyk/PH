@@ -132,13 +132,13 @@ export async function POST(req: NextRequest) {
     const newUrls: Record<string, string> = { ...outputFiles };
 
     uploads.push(
-      put(`generations/${generationId}/${docTarget === "acta" ? "acta" : "informe"}.html`, refinedHtml, { access: "private", contentType: "text/html" })
+      put(`generations/${generationId}/${docTarget === "acta" ? "acta" : "informe"}.html`, refinedHtml, { access: "private", contentType: "text/html", addRandomSuffix: true })
         .then((blob) => { newUrls[blobKey] = blob.url; })
     );
 
     if (docTarget === "informe") {
       uploads.push(
-        put(`generations/${generationId}/informe.md`, refinedText, { access: "private", contentType: "text/markdown" })
+        put(`generations/${generationId}/informe.md`, refinedText, { access: "private", contentType: "text/markdown", addRandomSuffix: true })
           .then((blob) => { newUrls.informeMarkdown = blob.url; })
       );
       // Remove stale PPTX so it can be regenerated from updated markdown
