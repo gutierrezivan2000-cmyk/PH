@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     const pptxBlob = await put(
       `generations/${generationId}/presentacion.pptx`,
       pptxBuffer,
-      { access: "private", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
+      { access: "private", contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", addRandomSuffix: true }
     );
     console.log(`[generate/pptx] Uploaded to: ${pptxBlob.url}`);
 

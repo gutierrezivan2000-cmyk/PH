@@ -384,8 +384,13 @@ export default function JobResultPage() {
         )}
 
         {/* ── Correction / Refinement ── */}
-        {isCompleted && generation.outputFiles?.informeHtml && (
-          <CorrectionPanel generationId={generation.id} onRefreshed={(data) => setGeneration(data)} />
+        {isCompleted && (generation.outputFiles?.informeHtml || generation.outputFiles?.actaHtml) && (
+          <CorrectionPanel
+            generationId={generation.id}
+            hasInforme={!!generation.outputFiles?.informeHtml}
+            hasActa={!!generation.outputFiles?.actaHtml}
+            onRefreshed={(data) => setGeneration(data)}
+          />
         )}
 
         {/* ── Back ── */}
@@ -406,9 +411,9 @@ export default function JobResultPage() {
   );
 }
 
-function CorrectionPanel({ generationId, onRefreshed }: { generationId: string; onRefreshed: (data: Generation) => void }) {
+function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { generationId: string; hasInforme: boolean; hasActa: boolean; onRefreshed: (data: Generation) => void }) {
   const [instruction, setInstruction] = useState("");
-  const [target, setTarget] = useState<"informe" | "acta">("informe");
+  const [target, setTarget] = useState<"informe" | "acta">(hasInforme ? "informe" : "acta");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -430,7 +435,7 @@ function CorrectionPanel({ generationId, onRefreshed }: { generationId: string; 
         setError(data.error || "Error al corregir");
         return;
       }
-      setSuccess("Documento corregido exitosamente.");
+      setSuccess("Documento corregido exitosamente. La presentacion PPTX se actualizara automaticamente.");
       setInstruction("");
       const refreshRes = await fetch(`/api/jobs/${generationId}`);
       if (refreshRes.ok) onRefreshed(await refreshRes.json());
@@ -440,6 +445,11 @@ function CorrectionPanel({ generationId, onRefreshed }: { generationId: string; 
       setLoading(false);
     }
   };
+
+  const availableTargets = [
+    ...(hasInforme ? [{ key: "informe" as const, label: "Informe" }] : []),
+    ...(hasActa ? [{ key: "acta" as const, label: "Acta" }] : []),
+  ];
 
   return (
     <Card className="bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl rounded-3xl overflow-hidden">
@@ -454,18 +464,20 @@ function CorrectionPanel({ generationId, onRefreshed }: { generationId: string; 
           </div>
         </div>
 
-        <div className="flex gap-2">
-          {(["informe", "acta"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTarget(t)}
-              className={`px-4 py-2 rounded-xl text-xs font-medium border transition-all ${target === t ? "bg-violet-500/10 text-violet-700 border-violet-300" : "bg-white/30 text-gray-500 border-white/30 hover:bg-white/50"}`}
-            >
-              {t === "informe" ? "Informe" : "Acta"}
-            </button>
-          ))}
-        </div>
+        {availableTargets.length > 1 && (
+          <div className="flex gap-2">
+            {availableTargets.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTarget(t.key)}
+                className={`px-4 py-2 rounded-xl text-xs font-medium border transition-all ${target === t.key ? "bg-violet-500/10 text-violet-700 border-violet-300" : "bg-white/30 text-gray-500 border-white/30 hover:bg-white/50"}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <textarea
           value={instruction}
