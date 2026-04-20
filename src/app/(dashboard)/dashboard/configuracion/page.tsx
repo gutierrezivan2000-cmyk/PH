@@ -17,7 +17,11 @@ import {
   Check,
   Loader2,
   MessageCircle,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
+import { useTheme } from "@/components/ThemeProvider";
 
 const WHATSAPP_LINK = "https://wa.me/message/PLACEHOLDER";
 
@@ -33,6 +37,7 @@ interface Profile {
 
 export default function ConfiguracionPage() {
   const { data: session } = useSession();
+  const { theme, setTheme } = useTheme();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -206,6 +211,43 @@ export default function ConfiguracionPage() {
                 </Button>
               </>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Theme Card */}
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Sun className="h-5 w-5 text-amber-500" />
+              Apariencia
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Selecciona el tema de la interfaz.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {([
+                { value: "light" as const, label: "Claro", icon: Sun },
+                { value: "dark" as const, label: "Oscuro", icon: Moon },
+                { value: "auto" as const, label: "Auto", icon: Monitor },
+              ]).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setTheme(opt.value)}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
+                    theme === opt.value
+                      ? "border-primary bg-primary/5 dark:bg-primary/10"
+                      : "border-border hover:border-primary/30 hover:bg-secondary/50"
+                  }`}
+                >
+                  <opt.icon className={`h-5 w-5 ${theme === opt.value ? "text-primary" : "text-muted-foreground"}`} />
+                  <span className={`text-sm font-medium ${theme === opt.value ? "text-primary" : "text-muted-foreground"}`}>
+                    {opt.label}
+                  </span>
+                </button>
+              ))}
+            </div>
           </CardContent>
         </Card>
 

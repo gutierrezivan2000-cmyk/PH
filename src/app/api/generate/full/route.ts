@@ -329,13 +329,28 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
   }
 
-  // Step 4: Find property
+  // Step 4: Check usage limits
+  try {
+    const { checkUsageLimits } = await import("@/lib/usage");
+    const usageCheck = await checkUsageLimits(dbUserId);
+    if (!usageCheck.allowed) {
+      return NextResponse.json({
+        error: usageCheck.reason,
+        dailyUsed: usageCheck.dailyUsed,
+        monthlyUsed: usageCheck.monthlyUsed,
+      }, { status: 429 });
+    }
+  } catch (e) {
+    console.error("[generate/full] Usage check failed:", e);
+  }
+
+  // Step 5: Find property
   const property = await db.property.findFirst({ where: { id: propertyId, userId: dbUserId } });
   if (!property) {
     return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
   }
 
-  // Step 5: Create generation record with "processing" status
+  // Step 6: Create generation record with "processing" status
   const generation = await db.generation.create({
     data: {
       userId: dbUserId,
@@ -560,6 +575,14 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
           completedAt: new Date(),
         },
       });
+
+      // Record usage
+      try {
+        const { recordUsage } = await import("@/lib/usage");
+        await recordUsage(dbUserId, totalTokens, costUsd, "generacion");
+      } catch (e) {
+        console.error("[generate/full] Usage recording failed:", e);
+      }
 
       console.log(`[generate/full] Background: completed ${generation.id} (${totalTokens} tokens, $${costUsd.toFixed(4)})`);
     } catch (error) {

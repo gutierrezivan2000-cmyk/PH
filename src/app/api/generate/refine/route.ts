@@ -32,9 +32,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const { generationId, instruction } = await req.json();
+    const body = await req.json();
+    const { generationId, instruction } = body;
+    const blobFiles: { url: string; name: string; type: string; size: number }[] = Array.isArray(body.blobFiles) ? body.blobFiles : [];
+
     if (!generationId || !instruction?.trim()) {
       return NextResponse.json({ error: "generationId e instruccion requeridos" }, { status: 400 });
+    }
+
+    // Parse any additional uploaded files into text context
+    let additionalContent = "";
+    if (blobFiles.length > 0) {
+      const fileParts: string[] = [];
+      for (const ref of blobFiles) {
+        try {
+          const { get: getBlob } = await import("@vercel/blob");
+          const result = await getBlob(ref.url, { access: "private" }).catch(() => null);
+          if (!result) continue;
+          const buffer = await new Response(result.stream).arrayBuffer();
+          const file = new File([buffer], ref.name, { type: ref.type || "application/octet-stream" });
+          if (file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".csv")) {
+            fileParts.push(`[Archivo adicional: ${file.name}]\n${await file.text()}`);
+          } else {
+            const { consolidateFiles } = await import("@/lib/parsers");
+            const parsed = await consolidateFiles([file]);
+            fileParts.push(parsed);
+          }
+        } catch (e) {
+          console.error(`[generate/refine] Failed to parse ${ref.name}:`, e);
+        }
+      }
+      if (fileParts.length > 0) {
+        additionalContent = "\n\nINFORMACION ADICIONAL DE ARCHIVOS SUBIDOS:\n---\n" + fileParts.join("\n\n---\n\n");
+      }
     }
 
     let outputFiles: Record<string, string> | null = null;
@@ -120,7 +150,7 @@ export async function POST(req: NextRequest) {
 
     const results = await Promise.all(docs.map(async (doc) => {
       const docLabel = doc.type === "informe" ? "Informe de Gestion" : "Acta Legal";
-      const userPrompt = `DOCUMENTO ORIGINAL (${doc.sourceType === "markdown" ? "Markdown" : "HTML"}, tipo: ${docLabel}):\n---\n${doc.content}\n---\n\nINSTRUCCION DEL USUARIO:\n${instruction}\n\nSi la instruccion aplica a este documento (${docLabel}), realiza los cambios solicitados. Si NO aplica a este tipo de documento, devuelve el documento exactamente como esta.\n\nDevuelve el documento COMPLETO en formato Markdown.`;
+      const userPrompt = `DOCUMENTO ORIGINAL (${doc.sourceType === "markdown" ? "Markdown" : "HTML"}, tipo: ${docLabel}):\n---\n${doc.content}\n---\n\nINSTRUCCION DEL USUARIO:\n${instruction}${additionalContent}\n\nSi la instruccion o la informacion adicional aplica a este documento (${docLabel}), integra los cambios solicitados. Si NO aplica a este tipo de documento, devuelve el documento exactamente como esta.\n\nDevuelve el documento COMPLETO en formato Markdown.`;
 
       const response = await client.messages.create({
         model: "claude-haiku-4-5-20251001",
@@ -199,13 +229,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Update DB
+    // Update DB + record usage
     if (!IS_DEMO) {
       const { db } = await import("@/lib/db");
       await db.generation.update({
         where: { id: generationId },
         data: { outputFiles: newUrls },
       });
+
+      try {
+        const { recordUsage } = await import("@/lib/usage");
+        const costUsd = totalTokens * 0.000003;
+        await recordUsage(session.user.id, totalTokens, costUsd, "correccion");
+      } catch (e) {
+        console.error("[generate/refine] Usage recording failed:", e);
+      }
     }
 
     return NextResponse.json({

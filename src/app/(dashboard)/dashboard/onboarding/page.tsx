@@ -14,6 +14,13 @@ import {
   ArrowLeft,
   Check,
   Sparkles,
+  FileText,
+  Upload,
+  Wand2,
+  Download,
+  ClipboardList,
+  MessageSquare,
+  GraduationCap,
 } from "lucide-react";
 
 export default function OnboardingPage() {
@@ -93,21 +100,21 @@ export default function OnboardingPage() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-lg space-y-6">
         {/* Progress */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          {[1, 2, 3].map((s) => (
-            <div key={s} className="flex items-center gap-3">
+        <div className="flex items-center justify-center gap-2 mb-8">
+          {[1, 2, 3, 4].map((s) => (
+            <div key={s} className="flex items-center gap-2">
               <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
                   step >= s
                     ? "bg-primary text-white shadow-lg shadow-primary/30"
                     : "bg-secondary text-muted-foreground"
                 }`}
               >
-                {step > s ? <Check className="h-5 w-5" /> : s}
+                {step > s ? <Check className="h-4 w-4" /> : s}
               </div>
-              {s < 3 && (
+              {s < 4 && (
                 <div
-                  className={`w-16 h-1 rounded-full transition-all ${
+                  className={`w-10 h-1 rounded-full transition-all ${
                     step > s ? "bg-primary" : "bg-secondary"
                   }`}
                 />
@@ -282,8 +289,84 @@ export default function OnboardingPage() {
           </Card>
         )}
 
-        {/* Step 3: Ready */}
+        {/* Step 3: Tutorial */}
         {step === 3 && (
+          <Card className="border-border/40 shadow-xl">
+            <CardContent className="p-8">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-500/25">
+                  <GraduationCap className="h-8 w-8 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold">Como usar SOPH.IA</h2>
+                <p className="text-muted-foreground mt-2">
+                  Conoce los pasos para generar tus documentos
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {[
+                  {
+                    icon: Upload,
+                    color: "bg-blue-500",
+                    title: "1. Sube tus insumos",
+                    desc: "Carga actas, estados financieros, grabaciones de juntas, fotos y cualquier documento relevante. La IA extrae la informacion automaticamente.",
+                  },
+                  {
+                    icon: ClipboardList,
+                    color: "bg-violet-500",
+                    title: "2. Selecciona que generar",
+                    desc: "Elige los documentos que necesitas: Informe de Gestion, Acta Legal y/o Presentacion PPTX. Todos son opcionales.",
+                  },
+                  {
+                    icon: Wand2,
+                    color: "bg-purple-500",
+                    title: "3. La IA genera tus documentos",
+                    desc: "SOPH.IA analiza los insumos y genera documentos profesionales con estructura legal colombiana (Ley 675).",
+                  },
+                  {
+                    icon: MessageSquare,
+                    color: "bg-emerald-500",
+                    title: "4. Revisa y corrige con IA",
+                    desc: "Revisa el resultado, solicita correcciones en lenguaje natural y sube archivos adicionales si falta informacion.",
+                  },
+                  {
+                    icon: Download,
+                    color: "bg-amber-500",
+                    title: "5. Descarga y comparte",
+                    desc: "Descarga tus documentos en PDF y PPTX, listos para presentar en la asamblea o entregar al consejo.",
+                  },
+                ].map((item, i) => (
+                  <div key={i} className="flex gap-3.5 items-start">
+                    <div className={`w-9 h-9 rounded-xl ${item.color} flex items-center justify-center flex-shrink-0 shadow-md`}>
+                      <item.icon className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">{item.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <Button variant="outline" onClick={() => setStep(2)} className="h-12 rounded-2xl gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Atras
+                </Button>
+                <Button
+                  onClick={() => setStep(4)}
+                  className="flex-1 h-12 rounded-2xl gap-2"
+                >
+                  Entendido
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 4: Ready */}
+        {step === 4 && (
           <Card className="border-border/40 shadow-xl">
             <CardContent className="p-8 text-center">
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-purple-400 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-primary/25">
@@ -325,7 +408,7 @@ export default function OnboardingPage() {
               )}
 
               <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep(2)} className="h-12 rounded-2xl gap-2">
+                <Button variant="outline" onClick={() => setStep(3)} className="h-12 rounded-2xl gap-2">
                   <ArrowLeft className="h-4 w-4" />
                   Atras
                 </Button>

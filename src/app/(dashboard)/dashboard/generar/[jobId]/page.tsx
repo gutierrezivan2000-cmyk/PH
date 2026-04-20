@@ -4,11 +4,13 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/dashboard/Header";
 import { Card, CardContent } from "@/components/ui/card";
+import { upload } from "@vercel/blob/client";
 import {
   FileText, Presentation, Download, AlertCircle, CheckCircle2,
   Sparkles, ArrowLeft, Loader2, Mic, MessageSquarePlus, ClipboardList,
-  CircleCheck, CircleAlert,
+  CircleCheck, CircleAlert, Upload, X, Paperclip,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -495,21 +497,52 @@ function ActaRequirementsChecklist({ requirements }: { requirements: ActaRequire
 
 function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { generationId: string; hasInforme: boolean; hasActa: boolean; onRefreshed: (data: Generation) => void }) {
   const [instruction, setInstruction] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setFiles((prev) => [...prev, ...newFiles].slice(0, 10));
+    }
+  };
+
   const handleCorrect = async () => {
-    if (!instruction.trim()) return;
+    if (!instruction.trim() && files.length === 0) return;
     setLoading(true);
     setError("");
     setSuccess("");
+    setUploadStatus("");
 
     try {
+      // Upload files if any
+      const blobFiles: { url: string; name: string; type: string; size: number }[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setUploadStatus(`Subiendo ${i + 1}/${files.length}: ${file.name}`);
+        const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+        const result = await upload(`corrections/${Date.now()}-${safeName}`, file, {
+          access: "private",
+          handleUploadUrl: "/api/upload/token",
+          contentType: file.type || "application/octet-stream",
+          multipart: file.size > 10 * 1024 * 1024,
+        });
+        blobFiles.push({ url: result.url, name: file.name, type: file.type, size: file.size });
+      }
+
+      setUploadStatus("Aplicando correccion...");
+
       const res = await fetch("/api/generate/refine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ generationId, instruction: instruction.trim() }),
+        body: JSON.stringify({
+          generationId,
+          instruction: instruction.trim() || "Complementa los documentos con la informacion de los archivos adjuntos.",
+          blobFiles,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -519,8 +552,9 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
 
       const docs = (data.documentsUpdated as string[]) || [];
       const docNames = docs.map((d: string) => d === "informe" ? "Informe" : "Acta").join(" y ");
-      setSuccess(`${docNames} corregido${docs.length > 1 ? "s" : ""} exitosamente.${hasInforme ? " La presentacion PPTX se actualizara automaticamente." : ""}`);
+      setSuccess(`${docNames} actualizado${docs.length > 1 ? "s" : ""} exitosamente.${hasInforme ? " La presentacion PPTX se regenerara." : ""}`);
       setInstruction("");
+      setFiles([]);
 
       const refreshRes = await fetch(`/api/jobs/${generationId}`);
       if (refreshRes.ok) onRefreshed(await refreshRes.json());
@@ -528,10 +562,12 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
       setError("Error de conexion.");
     } finally {
       setLoading(false);
+      setUploadStatus("");
     }
   };
 
   const docLabel = hasInforme && hasActa ? "todos los documentos" : hasInforme ? "el informe" : "el acta";
+  const canSubmit = instruction.trim() || files.length > 0;
 
   return (
     <Card className="bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl rounded-3xl overflow-hidden">
@@ -541,10 +577,9 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
             <MessageSquarePlus className="h-5 w-5 text-violet-600" />
           </div>
           <div>
-            <h3 className="font-bold text-gray-900">Corregir documentos</h3>
+            <h3 className="font-bold text-gray-900">Corregir o complementar documentos</h3>
             <p className="text-xs text-gray-500">
-              La correccion se aplicara automaticamente a {docLabel}
-              {hasInforme ? " y la presentacion PPTX se regenerara" : ""}
+              Escribe instrucciones o sube archivos adicionales. Los cambios se aplican a {docLabel}
             </p>
           </div>
         </div>
@@ -553,19 +588,48 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           rows={3}
-          placeholder="Ej: Agrega que se realizo mantenimiento del ascensor el 15 de marzo. El costo fue de $2.500.000. Asistieron 15 propietarios con un quorum del 62%..."
+          placeholder="Ej: Agrega que se realizo mantenimiento del ascensor el 15 de marzo. El costo fue de $2.500.000..."
           className="w-full rounded-2xl border border-white/40 bg-white/50 backdrop-blur px-4 py-3 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 resize-none"
         />
+
+        {/* File upload area */}
+        <div>
+          <label className="flex items-center gap-3 p-3.5 rounded-2xl border-2 border-dashed border-white/40 cursor-pointer hover:border-violet-300/50 hover:bg-violet-50/30 transition-all">
+            <Upload className="h-5 w-5 text-violet-400" />
+            <div>
+              <span className="text-sm text-gray-600">Subir archivos adicionales</span>
+              <span className="block text-xs text-gray-400">Audios, PDFs, fotos, Excel — para complementar informacion faltante</span>
+            </div>
+            <input type="file" multiple onChange={handleFileChange} className="hidden" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.m4a,.webm" />
+          </label>
+
+          {files.length > 0 && (
+            <div className="space-y-1.5 mt-3">
+              {files.map((file, i) => (
+                <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-white/40 rounded-xl px-3 py-2 border border-white/30">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Paperclip className="h-3.5 w-3.5 text-violet-500 flex-shrink-0" />
+                    <span className="text-xs truncate">{file.name}</span>
+                    <Badge variant="secondary" className="text-[10px] flex-shrink-0 bg-white/50">{(file.size / 1024 / 1024).toFixed(1)}MB</Badge>
+                  </div>
+                  <button type="button" onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))} className="p-1 hover:bg-red-100/80 rounded-lg">
+                    <X className="h-3.5 w-3.5 text-gray-400 hover:text-red-500" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {error && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
         {success && <p className="text-xs text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />{success}</p>}
 
         <Button
           onClick={handleCorrect}
-          disabled={loading || !instruction.trim()}
+          disabled={loading || !canSubmit}
           className="w-full gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
         >
-          {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Corrigiendo {docLabel}...</> : <><MessageSquarePlus className="h-4 w-4" /> Aplicar correccion</>}
+          {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> {uploadStatus || "Corrigiendo..."}</> : <><MessageSquarePlus className="h-4 w-4" /> Aplicar correccion</>}
         </Button>
       </CardContent>
     </Card>

@@ -28,6 +28,28 @@ html {
   --radius: 0.75rem;
 }
 
+.dark {
+  --background: #0b0d14;
+  --foreground: #e4e6f0;
+  --card: #12141f;
+  --card-foreground: #e4e6f0;
+  --popover: #12141f;
+  --popover-foreground: #e4e6f0;
+  --primary: #8b5cf6;
+  --primary-foreground: #faf5ff;
+  --secondary: #1e2030;
+  --secondary-foreground: #c4c7d4;
+  --muted: #1e2030;
+  --muted-foreground: #8b8fa3;
+  --accent: #0f2918;
+  --accent-foreground: #4ade80;
+  --destructive: #dc2626;
+  --destructive-foreground: #fef2f2;
+  --border: #2a2d3e;
+  --input: #2a2d3e;
+  --ring: #8b5cf6;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -229,4 +251,10 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #3a3d50;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #505370;
 }
