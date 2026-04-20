@@ -121,7 +121,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
             rel="noopener noreferrer"
             title={collapsed ? "Soporte" : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-2xl text-[13px] font-medium text-emerald-600 hover:bg-emerald-50 transition-all duration-200",
+              "flex items-center gap-3 rounded-2xl text-[13px] font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all duration-200",
               collapsed ? "px-3 py-3 justify-center" : "px-3.5 py-2.5"
             )}
           >
@@ -136,7 +136,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
             onClick={() => signOut({ callbackUrl: "/" })}
             title={collapsed ? "Cerrar Sesion" : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-2xl text-[13px] font-medium text-gray-400 hover:bg-red-50 hover:text-red-600 w-full transition-all duration-200",
+              "flex items-center gap-3 rounded-2xl text-[13px] font-medium text-gray-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 w-full transition-all duration-200",
               collapsed ? "px-3 py-3 justify-center" : "px-3.5 py-2.5"
             )}
           >
@@ -191,7 +191,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
             href={WHATSAPP_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium text-emerald-600 hover:bg-emerald-50 transition-all duration-200"
+            className="flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all duration-200"
           >
             <MessageCircle className="h-[18px] w-[18px]" />
             Soporte WhatsApp
@@ -202,7 +202,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
         <div className="px-3 py-4 border-t border-gray-100/80 dark:border-white/10 flex-shrink-0">
           <button
             onClick={() => signOut({ callbackUrl: "/" })}
-            className="flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium text-gray-400 hover:bg-red-50 hover:text-red-600 w-full transition-all duration-200"
+            className="flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium text-gray-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 w-full transition-all duration-200"
           >
             <LogOut className="h-[18px] w-[18px]" />
             Cerrar Sesion

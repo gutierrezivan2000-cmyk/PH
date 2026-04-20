@@ -169,11 +169,11 @@ export default function PropiedadesPage() {
         {/* Create Form - Liquid Glass */}
         {showForm && (
           <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="bg-white/60 backdrop-blur-xl border border-white/30 rounded-3xl shadow-lg shadow-violet-500/5 p-6">
+            <div className="bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl shadow-lg shadow-violet-500/5 dark:shadow-black/20 p-6">
               <h3 className="text-base font-semibold mb-4">Nueva Propiedad</h3>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
-                  <div className="bg-red-50/80 backdrop-blur-sm border border-red-200/50 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm text-red-700">
+                  <div className="bg-red-50/80 dark:bg-red-500/10 backdrop-blur-sm border border-red-200/50 dark:border-red-500/20 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
                     <AlertCircle className="h-4 w-4 flex-shrink-0" />
                     {error}
                   </div>
@@ -186,7 +186,7 @@ export default function PropiedadesPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Ej: Conjunto Residencial Los Pinos"
-                    className="rounded-xl border-white/40 bg-white/50 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
+                    className="rounded-xl border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
                     required
                   />
                 </div>
@@ -198,7 +198,7 @@ export default function PropiedadesPage() {
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     placeholder="Ej: Calle 123 #45-67"
-                    className="rounded-xl border-white/40 bg-white/50 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
+                    className="rounded-xl border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -210,7 +210,7 @@ export default function PropiedadesPage() {
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                       placeholder="Ej: Bogota"
-                      className="rounded-xl border-white/40 bg-white/50 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
+                      className="rounded-xl border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
                     />
                   </div>
                   <div>
@@ -222,7 +222,7 @@ export default function PropiedadesPage() {
                       value={units}
                       onChange={(e) => setUnits(e.target.value)}
                       placeholder="Ej: 120"
-                      className="rounded-xl border-white/40 bg-white/50 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
+                      className="rounded-xl border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
                     />
                   </div>
                 </div>
@@ -240,10 +240,10 @@ export default function PropiedadesPage() {
 
         {/* Empty State - Liquid Glass */}
         {properties.length === 0 && !showForm && (
-          <div className="bg-white/60 backdrop-blur-xl border border-dashed border-white/30 rounded-3xl shadow-lg shadow-violet-500/5">
+          <div className="bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-dashed border-white/30 dark:border-white/10 rounded-3xl shadow-lg shadow-violet-500/5 dark:shadow-black/20">
             <div className="flex flex-col items-center py-16 text-center px-6">
               <div className="w-16 h-16 bg-gradient-to-br from-violet-500/20 to-purple-500/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-4">
-                <Building className="h-8 w-8 text-violet-600" />
+                <Building className="h-8 w-8 text-violet-600 dark:text-violet-400" />
               </div>
               <p className="font-semibold mb-1">
                 No tienes propiedades registradas
@@ -268,14 +268,14 @@ export default function PropiedadesPage() {
           {properties.map((property) => (
             <div
               key={property.id}
-              className="group bg-white/60 backdrop-blur-xl border border-white/30 rounded-3xl shadow-lg shadow-violet-500/5 hover:shadow-xl hover:shadow-violet-500/10 transition-all duration-300"
+              className="group bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl shadow-lg shadow-violet-500/5 dark:shadow-black/20 hover:shadow-xl hover:shadow-violet-500/10 dark:hover:shadow-black/30 transition-all duration-300"
             >
               {editingId === property.id ? (
                 /* Inline Edit Form */
                 <div className="p-5 animate-in fade-in duration-200">
                   <form onSubmit={handleEditSubmit} className="space-y-4">
                     {editError && (
-                      <div className="bg-red-50/80 backdrop-blur-sm border border-red-200/50 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm text-red-700">
+                      <div className="bg-red-50/80 dark:bg-red-500/10 backdrop-blur-sm border border-red-200/50 dark:border-red-500/20 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
                         <AlertCircle className="h-4 w-4 flex-shrink-0" />
                         {editError}
                       </div>
@@ -288,7 +288,7 @@ export default function PropiedadesPage() {
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
                         placeholder="Nombre del conjunto/edificio"
-                        className="rounded-xl border-white/40 bg-white/50 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
+                        className="rounded-xl border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
                         required
                       />
                     </div>
@@ -300,7 +300,7 @@ export default function PropiedadesPage() {
                         value={editAddress}
                         onChange={(e) => setEditAddress(e.target.value)}
                         placeholder="Direccion"
-                        className="rounded-xl border-white/40 bg-white/50 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
+                        className="rounded-xl border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -312,7 +312,7 @@ export default function PropiedadesPage() {
                           value={editCity}
                           onChange={(e) => setEditCity(e.target.value)}
                           placeholder="Ciudad"
-                          className="rounded-xl border-white/40 bg-white/50 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
+                          className="rounded-xl border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
                         />
                       </div>
                       <div>
@@ -324,7 +324,7 @@ export default function PropiedadesPage() {
                           value={editUnits}
                           onChange={(e) => setEditUnits(e.target.value)}
                           placeholder="Unidades"
-                          className="rounded-xl border-white/40 bg-white/50 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
+                          className="rounded-xl border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-sm focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
                         />
                       </div>
                     </div>
@@ -341,7 +341,7 @@ export default function PropiedadesPage() {
                         type="button"
                         variant="outline"
                         onClick={cancelEditing}
-                        className="flex-1 gap-2 rounded-xl border-white/40 bg-white/50 backdrop-blur-sm hover:bg-white/70 transition-all duration-200"
+                        className="flex-1 gap-2 rounded-xl border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-sm hover:bg-white/70 dark:hover:bg-white/10 transition-all duration-200"
                       >
                         <X className="h-4 w-4" />
                         Cancelar
@@ -353,7 +353,7 @@ export default function PropiedadesPage() {
                 /* Display Mode */
                 <div className="flex items-center gap-4 p-5">
                   <div className="w-12 h-12 bg-gradient-to-br from-violet-500/20 to-purple-500/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
-                    <Building className="h-6 w-6 text-violet-600" />
+                    <Building className="h-6 w-6 text-violet-600 dark:text-violet-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate">{property.name}</p>
@@ -378,14 +378,14 @@ export default function PropiedadesPage() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => startEditing(property)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 rounded-lg hover:bg-violet-50 text-muted-foreground hover:text-violet-600"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-500/10 text-muted-foreground hover:text-violet-600 dark:hover:text-violet-400"
                       title="Editar propiedad"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(property.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                       title="Eliminar propiedad"
                     >
                       <Trash2 className="h-4 w-4" />

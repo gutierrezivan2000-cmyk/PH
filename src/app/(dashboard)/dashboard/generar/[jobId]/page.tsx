@@ -179,7 +179,7 @@ export default function JobResultPage() {
         <div className="p-8 flex items-center justify-center min-h-[400px]">
           <div className="text-center space-y-4">
             <div className="w-14 h-14 border-[3px] border-violet-200 border-t-violet-600 rounded-full animate-spin mx-auto" />
-            <p className="text-gray-500 text-sm">Cargando...</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Cargando...</p>
           </div>
         </div>
       </div>
@@ -191,10 +191,10 @@ export default function JobResultPage() {
       <div>
         <Header title="Resultado" />
         <div className="p-8 max-w-2xl mx-auto">
-          <div className="bg-white/60 backdrop-blur-xl border border-white/30 rounded-3xl p-12 text-center shadow-lg">
+          <div className="bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-12 text-center shadow-lg dark:shadow-black/20">
             <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="font-semibold text-lg">Generacion no encontrada</p>
-            <p className="text-sm text-gray-500 mt-2">Es posible que haya expirado o no exista.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Es posible que haya expirado o no exista.</p>
             <Link href="/dashboard/historial">
               <Button variant="outline" className="mt-6 gap-2 rounded-xl">
                 <ArrowLeft className="h-4 w-4" /> Ir al historial
@@ -253,14 +253,14 @@ export default function JobResultPage() {
 
         {/* ── Failed ── */}
         {isFailed && (
-          <div className="bg-red-50/80 backdrop-blur-xl border border-red-200/50 rounded-3xl p-8 shadow-lg">
+          <div className="bg-red-50/80 dark:bg-red-500/10 backdrop-blur-xl border border-red-200/50 dark:border-red-500/20 rounded-3xl p-8 shadow-lg dark:shadow-black/20">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center flex-shrink-0">
-                <AlertCircle className="h-6 w-6 text-red-600" />
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-500/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h3 className="font-bold text-red-800 text-lg">Error en la generacion</h3>
-                <p className="text-sm text-red-600 mt-1">{generation.errorMessage || "Ocurrio un error inesperado."}</p>
+                <h3 className="font-bold text-red-800 dark:text-red-300 text-lg">Error en la generacion</h3>
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">{generation.errorMessage || "Ocurrio un error inesperado."}</p>
                 <Link href="/dashboard/generar">
                   <Button className="mt-4 gap-2 rounded-xl" size="sm">
                     <Sparkles className="h-4 w-4" /> Intentar de nuevo
@@ -273,14 +273,14 @@ export default function JobResultPage() {
 
         {/* ── Success Banner ── */}
         {isCompleted && (
-          <div className="bg-emerald-50/80 backdrop-blur-xl border border-emerald-200/50 rounded-3xl p-6 shadow-lg">
+          <div className="bg-emerald-50/80 dark:bg-emerald-500/10 backdrop-blur-xl border border-emerald-200/50 dark:border-emerald-500/20 rounded-3xl p-6 shadow-lg dark:shadow-black/20">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center flex-shrink-0">
-                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+              <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-500/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+                <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <h3 className="font-bold text-emerald-800">Documentos listos</h3>
-                <p className="text-sm text-emerald-600">Tus documentos han sido generados exitosamente.</p>
+                <h3 className="font-bold text-emerald-800 dark:text-emerald-300">Documentos listos</h3>
+                <p className="text-sm text-emerald-600 dark:text-emerald-400">Tus documentos han sido generados exitosamente.</p>
               </div>
             </div>
           </div>
@@ -288,24 +288,24 @@ export default function JobResultPage() {
 
         {/* ── Downloads ── */}
         {isCompleted && generation.outputFiles && (
-          <Card className="bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl rounded-3xl overflow-hidden">
+          <Card className="bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-xl dark:shadow-black/20 rounded-3xl overflow-hidden">
             <CardContent className="p-6 space-y-4">
-              <h3 className="font-bold text-gray-900">Documentos Generados</h3>
+              <h3 className="font-bold text-gray-900 dark:text-white">Documentos Generados</h3>
 
               {generation.outputFiles.informeHtml && (
                 <a
                   href={generation.outputFiles.informeHtml}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-between p-5 bg-gradient-to-r from-blue-50/80 to-indigo-50/50 backdrop-blur rounded-2xl border border-blue-100/50 hover:border-blue-200 hover:shadow-md transition-all duration-300"
+                  className="group flex items-center justify-between p-5 bg-gradient-to-r from-blue-50/80 to-indigo-50/50 dark:from-blue-500/10 dark:to-indigo-500/10 backdrop-blur rounded-2xl border border-blue-100/50 dark:border-blue-500/20 hover:border-blue-200 dark:hover:border-blue-500/30 hover:shadow-md transition-all duration-300"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-100/80 backdrop-blur rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <div className="w-12 h-12 bg-blue-100/80 dark:bg-blue-500/20 backdrop-blur rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                       <FileText className="h-6 w-6 text-blue-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-gray-900">Informe de Gestion</p>
-                      <p className="text-xs text-gray-500">Abrir e imprimir como PDF</p>
+                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Informe de Gestion</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Abrir e imprimir como PDF</p>
                     </div>
                   </div>
                   <Download className="h-5 w-5 text-blue-500 group-hover:translate-y-0.5 transition-transform" />
@@ -317,15 +317,15 @@ export default function JobResultPage() {
                   href={generation.outputFiles.actaHtml}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-between p-5 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 backdrop-blur rounded-2xl border border-emerald-100/50 hover:border-emerald-200 hover:shadow-md transition-all duration-300"
+                  className="group flex items-center justify-between p-5 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 dark:from-emerald-500/10 dark:to-teal-500/10 backdrop-blur rounded-2xl border border-emerald-100/50 dark:border-emerald-500/20 hover:border-emerald-200 dark:hover:border-emerald-500/30 hover:shadow-md transition-all duration-300"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-emerald-100/80 backdrop-blur rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <div className="w-12 h-12 bg-emerald-100/80 dark:bg-emerald-500/20 backdrop-blur rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                       <FileText className="h-6 w-6 text-emerald-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-gray-900">Acta Legal</p>
-                      <p className="text-xs text-gray-500">Abrir e imprimir como PDF</p>
+                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Acta Legal</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Abrir e imprimir como PDF</p>
                     </div>
                   </div>
                   <Download className="h-5 w-5 text-emerald-500 group-hover:translate-y-0.5 transition-transform" />
@@ -336,23 +336,23 @@ export default function JobResultPage() {
                 <a
                   href={generation.outputFiles.presentacionPptx}
                   download
-                  className="group flex items-center justify-between p-5 bg-gradient-to-r from-purple-50/80 to-violet-50/50 backdrop-blur rounded-2xl border border-purple-100/50 hover:border-purple-200 hover:shadow-md transition-all duration-300"
+                  className="group flex items-center justify-between p-5 bg-gradient-to-r from-purple-50/80 to-violet-50/50 dark:from-purple-500/10 dark:to-violet-500/10 backdrop-blur rounded-2xl border border-purple-100/50 dark:border-purple-500/20 hover:border-purple-200 dark:hover:border-purple-500/30 hover:shadow-md transition-all duration-300"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-purple-100/80 backdrop-blur rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <div className="w-12 h-12 bg-purple-100/80 dark:bg-purple-500/20 backdrop-blur rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                       <Presentation className="h-6 w-6 text-purple-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-gray-900">Presentacion PPTX</p>
-                      <p className="text-xs text-gray-500">PowerPoint listo para presentar</p>
+                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Presentacion PPTX</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">PowerPoint listo para presentar</p>
                     </div>
                   </div>
                   <Download className="h-5 w-5 text-purple-500 group-hover:translate-y-0.5 transition-transform" />
                 </a>
               ) : generation.outputFiles.informeMarkdown ? (
-                <div className="p-5 bg-gradient-to-r from-purple-50/80 to-violet-50/50 backdrop-blur rounded-2xl border border-purple-100/50">
+                <div className="p-5 bg-gradient-to-r from-purple-50/80 to-violet-50/50 dark:from-purple-500/10 dark:to-violet-500/10 backdrop-blur rounded-2xl border border-purple-100/50 dark:border-purple-500/20">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-purple-100/80 backdrop-blur rounded-xl flex items-center justify-center">
+                    <div className="w-12 h-12 bg-purple-100/80 dark:bg-purple-500/20 backdrop-blur rounded-xl flex items-center justify-center">
                       {pptxLoading ? (
                         <Loader2 className="h-6 w-6 text-purple-600 animate-spin" />
                       ) : (
@@ -360,7 +360,7 @@ export default function JobResultPage() {
                       )}
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-sm text-gray-900">Presentacion PPTX</p>
+                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Presentacion PPTX</p>
                       {pptxLoading ? (
                         <p className="text-xs text-purple-600">Generando presentacion...</p>
                       ) : pptxError ? (
@@ -386,15 +386,15 @@ export default function JobResultPage() {
                   href={generation.outputFiles.transcripcion}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-between p-5 bg-gradient-to-r from-amber-50/80 to-orange-50/50 backdrop-blur rounded-2xl border border-amber-100/50 hover:border-amber-200 hover:shadow-md transition-all duration-300"
+                  className="group flex items-center justify-between p-5 bg-gradient-to-r from-amber-50/80 to-orange-50/50 dark:from-amber-500/10 dark:to-orange-500/10 backdrop-blur rounded-2xl border border-amber-100/50 dark:border-amber-500/20 hover:border-amber-200 dark:hover:border-amber-500/30 hover:shadow-md transition-all duration-300"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-amber-100/80 backdrop-blur rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <div className="w-12 h-12 bg-amber-100/80 dark:bg-amber-500/20 backdrop-blur rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                       <Mic className="h-6 w-6 text-amber-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-gray-900">Transcripcion de Insumos</p>
-                      <p className="text-xs text-gray-500">Verifica la transcripcion de audios y analisis de fotos</p>
+                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Transcripcion de Insumos</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Verifica la transcripcion de audios y analisis de fotos</p>
                     </div>
                   </div>
                   <Download className="h-5 w-5 text-amber-500 group-hover:translate-y-0.5 transition-transform" />
@@ -443,24 +443,24 @@ function ActaRequirementsChecklist({ requirements }: { requirements: ActaRequire
   const allComplete = completed === total;
 
   return (
-    <Card className="bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl rounded-3xl overflow-hidden">
+    <Card className="bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-xl dark:shadow-black/20 rounded-3xl overflow-hidden">
       <CardContent className="p-6 space-y-4">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${allComplete ? "bg-emerald-100/80" : "bg-amber-100/80"}`}>
-            <ClipboardList className={`h-5 w-5 ${allComplete ? "text-emerald-600" : "text-amber-600"}`} />
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${allComplete ? "bg-emerald-100/80 dark:bg-emerald-500/20" : "bg-amber-100/80 dark:bg-amber-500/20"}`}>
+            <ClipboardList className={`h-5 w-5 ${allComplete ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`} />
           </div>
           <div className="flex-1">
-            <h3 className="font-bold text-gray-900">Requisitos del Acta Legal</h3>
-            <p className="text-xs text-gray-500">Verificacion segun la Ley 675 de 2001</p>
+            <h3 className="font-bold text-gray-900 dark:text-white">Requisitos del Acta Legal</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Verificacion segun la Ley 675 de 2001</p>
           </div>
-          <div className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${allComplete ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+          <div className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${allComplete ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300" : "bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300"}`}>
             {completed}/{total}
           </div>
         </div>
 
         {!allComplete && (
-          <div className="bg-amber-50/80 border border-amber-200/40 rounded-xl px-4 py-2.5">
-            <p className="text-xs text-amber-700">
+          <div className="bg-amber-50/80 dark:bg-amber-500/10 border border-amber-200/40 dark:border-amber-500/20 rounded-xl px-4 py-2.5">
+            <p className="text-xs text-amber-700 dark:text-amber-300">
               Hay {total - completed} requisito{total - completed > 1 ? "s" : ""} pendiente{total - completed > 1 ? "s" : ""}. Puedes completarlos usando el panel de correcciones de abajo, indicando la informacion faltante.
             </p>
           </div>
@@ -472,8 +472,8 @@ function ActaRequirementsChecklist({ requirements }: { requirements: ActaRequire
               key={i}
               className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
                 req.status === "completo"
-                  ? "bg-emerald-50/50 border-emerald-100/50"
-                  : "bg-amber-50/50 border-amber-100/50"
+                  ? "bg-emerald-50/50 dark:bg-emerald-500/10 border-emerald-100/50 dark:border-emerald-500/20"
+                  : "bg-amber-50/50 dark:bg-amber-500/10 border-amber-100/50 dark:border-amber-500/20"
               }`}
             >
               {req.status === "completo" ? (
@@ -482,10 +482,10 @@ function ActaRequirementsChecklist({ requirements }: { requirements: ActaRequire
                 <CircleAlert className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
               )}
               <div className="min-w-0">
-                <p className={`text-sm font-medium ${req.status === "completo" ? "text-emerald-800" : "text-amber-800"}`}>
+                <p className={`text-sm font-medium ${req.status === "completo" ? "text-emerald-800 dark:text-emerald-300" : "text-amber-800 dark:text-amber-300"}`}>
                   {req.item}
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">{req.detail}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{req.detail}</p>
               </div>
             </div>
           ))}
@@ -570,15 +570,15 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
   const canSubmit = instruction.trim() || files.length > 0;
 
   return (
-    <Card className="bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl rounded-3xl overflow-hidden">
+    <Card className="bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-xl dark:shadow-black/20 rounded-3xl overflow-hidden">
       <CardContent className="p-6 space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-violet-100/80 rounded-xl flex items-center justify-center">
-            <MessageSquarePlus className="h-5 w-5 text-violet-600" />
+          <div className="w-10 h-10 bg-violet-100/80 dark:bg-violet-500/20 rounded-xl flex items-center justify-center">
+            <MessageSquarePlus className="h-5 w-5 text-violet-600 dark:text-violet-400" />
           </div>
           <div>
-            <h3 className="font-bold text-gray-900">Corregir o complementar documentos</h3>
-            <p className="text-xs text-gray-500">
+            <h3 className="font-bold text-gray-900 dark:text-white">Corregir o complementar documentos</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               Escribe instrucciones o sube archivos adicionales. Los cambios se aplican a {docLabel}
             </p>
           </div>
@@ -589,16 +589,16 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
           onChange={(e) => setInstruction(e.target.value)}
           rows={3}
           placeholder="Ej: Agrega que se realizo mantenimiento del ascensor el 15 de marzo. El costo fue de $2.500.000..."
-          className="w-full rounded-2xl border border-white/40 bg-white/50 backdrop-blur px-4 py-3 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 resize-none"
+          className="w-full rounded-2xl border border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur px-4 py-3 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 resize-none"
         />
 
         {/* File upload area */}
         <div>
-          <label className="flex items-center gap-3 p-3.5 rounded-2xl border-2 border-dashed border-white/40 cursor-pointer hover:border-violet-300/50 hover:bg-violet-50/30 transition-all">
+          <label className="flex items-center gap-3 p-3.5 rounded-2xl border-2 border-dashed border-white/40 dark:border-white/10 cursor-pointer hover:border-violet-300/50 dark:hover:border-violet-500/30 hover:bg-violet-50/30 dark:hover:bg-violet-500/10 transition-all">
             <Upload className="h-5 w-5 text-violet-400" />
             <div>
-              <span className="text-sm text-gray-600">Subir archivos adicionales</span>
-              <span className="block text-xs text-gray-400">Audios, PDFs, fotos, Excel — para complementar informacion faltante</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">Subir archivos adicionales</span>
+              <span className="block text-xs text-gray-400 dark:text-gray-500">Audios, PDFs, fotos, Excel — para complementar informacion faltante</span>
             </div>
             <input type="file" multiple onChange={handleFileChange} className="hidden" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.m4a,.webm" />
           </label>
@@ -606,7 +606,7 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
           {files.length > 0 && (
             <div className="space-y-1.5 mt-3">
               {files.map((file, i) => (
-                <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-white/40 rounded-xl px-3 py-2 border border-white/30">
+                <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-white/40 dark:bg-white/5 rounded-xl px-3 py-2 border border-white/30 dark:border-white/10">
                   <div className="flex items-center gap-2 min-w-0">
                     <Paperclip className="h-3.5 w-3.5 text-violet-500 flex-shrink-0" />
                     <span className="text-xs truncate">{file.name}</span>

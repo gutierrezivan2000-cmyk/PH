@@ -26,15 +26,15 @@ export function UsageCard() {
 
   if (!usage) {
     return (
-      <div className="bg-white/50 backdrop-blur-xl border border-white/30 rounded-3xl p-6 shadow-lg shadow-violet-100/10">
+      <div className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
             <Activity className="h-5 w-5 text-white" />
           </div>
-          <h3 className="font-bold text-gray-900">Uso del Plan</h3>
+          <h3 className="font-bold text-gray-900 dark:text-white">Uso del Plan</h3>
         </div>
         <div className="h-28 flex items-center justify-center">
-          <div className="w-8 h-8 border-[3px] border-violet-200 border-t-violet-600 rounded-full animate-spin" />
+          <div className="w-8 h-8 border-[3px] border-violet-200 dark:border-violet-800 border-t-violet-600 rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -45,33 +45,33 @@ export function UsageCard() {
   const monthlyRemaining = usage.limits.generationsPerMonth - usage.monthlyGenerations;
 
   const getBarColors = (percent: number) => {
-    if (percent >= 90) return { bar: "from-red-500 to-rose-400", bg: "bg-red-100/50", glow: "shadow-red-500/20" };
-    if (percent >= 70) return { bar: "from-amber-500 to-orange-400", bg: "bg-amber-100/50", glow: "shadow-amber-500/20" };
-    return { bar: "from-violet-500 to-purple-400", bg: "bg-violet-100/50", glow: "shadow-violet-500/20" };
+    if (percent >= 90) return { bar: "from-red-500 to-rose-400", bg: "bg-red-100/50 dark:bg-red-500/10", glow: "shadow-red-500/20" };
+    if (percent >= 70) return { bar: "from-amber-500 to-orange-400", bg: "bg-amber-100/50 dark:bg-amber-500/10", glow: "shadow-amber-500/20" };
+    return { bar: "from-violet-500 to-purple-400", bg: "bg-violet-100/50 dark:bg-violet-500/10", glow: "shadow-violet-500/20" };
   };
 
   const monthly = getBarColors(monthlyPercent);
   const daily = getBarColors(dailyPercent);
 
   return (
-    <div className="bg-white/50 backdrop-blur-xl border border-white/30 rounded-3xl p-6 shadow-lg shadow-violet-100/10 hover:shadow-xl hover:shadow-violet-100/15 transition-all duration-300">
+    <div className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20 hover:shadow-xl hover:shadow-violet-100/15 dark:hover:shadow-black/30 transition-all duration-300">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
             <Activity className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h3 className="font-bold text-gray-900">Uso del Plan</h3>
-            <p className="text-xs text-gray-400">
+            <h3 className="font-bold text-gray-900 dark:text-white">Uso del Plan</h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500">
               {monthlyRemaining > 0
                 ? `${monthlyRemaining} generaciones restantes`
                 : "Limite alcanzado"}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50/80 backdrop-blur rounded-xl">
-          <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-          <span className="text-xs font-bold text-violet-600 tabular-nums">{Math.round(monthlyPercent)}%</span>
+        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50/80 dark:bg-violet-500/10 backdrop-blur rounded-xl">
+          <Sparkles className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
+          <span className="text-xs font-bold text-violet-600 dark:text-violet-300 tabular-nums">{Math.round(monthlyPercent)}%</span>
         </div>
       </div>
 
@@ -80,12 +80,12 @@ export function UsageCard() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-gray-400" />
-              <span className="text-sm font-medium text-gray-600">Mensuales</span>
+              <TrendingUp className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Mensuales</span>
             </div>
-            <span className="text-sm font-bold tabular-nums text-gray-900">
+            <span className="text-sm font-bold tabular-nums text-gray-900 dark:text-white">
               {usage.monthlyGenerations}
-              <span className="text-gray-400 font-normal"> / {usage.limits.generationsPerMonth}</span>
+              <span className="text-gray-400 dark:text-gray-500 font-normal"> / {usage.limits.generationsPerMonth}</span>
             </span>
           </div>
           <div className={`w-full h-2.5 ${monthly.bg} rounded-full overflow-hidden backdrop-blur-sm`}>
@@ -100,12 +100,12 @@ export function UsageCard() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-gray-400" />
-              <span className="text-sm font-medium text-gray-600">Hoy</span>
+              <Calendar className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Hoy</span>
             </div>
-            <span className="text-sm font-bold tabular-nums text-gray-900">
+            <span className="text-sm font-bold tabular-nums text-gray-900 dark:text-white">
               {usage.dailyGenerations}
-              <span className="text-gray-400 font-normal"> / {usage.limits.generationsPerDay}</span>
+              <span className="text-gray-400 dark:text-gray-500 font-normal"> / {usage.limits.generationsPerDay}</span>
             </span>
           </div>
           <div className={`w-full h-2.5 ${daily.bg} rounded-full overflow-hidden backdrop-blur-sm`}>

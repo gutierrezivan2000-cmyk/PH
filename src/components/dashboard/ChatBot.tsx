@@ -101,9 +101,9 @@ export function ChatBot() {
             : "opacity-0 translate-y-4 pointer-events-none"
         }`}
       >
-        <div className="flex flex-col h-[520px] max-h-[70vh] rounded-3xl border border-white/30 bg-white/70 backdrop-blur-xl shadow-2xl shadow-violet-500/10 overflow-hidden">
+        <div className="flex flex-col h-[520px] max-h-[70vh] rounded-3xl border border-white/30 dark:border-white/10 bg-white/70 dark:bg-[#12141f]/90 backdrop-blur-xl shadow-2xl shadow-violet-500/10 dark:shadow-black/30 overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/20 bg-gradient-to-r from-violet-600/90 to-purple-600/90 backdrop-blur-sm">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/20 dark:border-white/10 bg-gradient-to-r from-violet-600/90 to-purple-600/90 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
                 <Sparkles className="w-5 h-5 text-white" />
@@ -130,13 +130,13 @@ export function ChatBot() {
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-thin">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center px-6 gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-100 to-purple-100 flex items-center justify-center">
-                  <Bot className="w-7 h-7 text-violet-600" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-500/20 dark:to-purple-500/20 flex items-center justify-center">
+                  <Bot className="w-7 h-7 text-violet-600 dark:text-violet-400" />
                 </div>
-                <p className="text-sm font-semibold text-gray-700">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                   Hola, soy SOPH.IA
                 </p>
-                <p className="text-xs text-gray-500 leading-relaxed">
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                   Tu asistente de Propiedad Horizontal. Preguntame sobre la Ley
                   675, asambleas, actas, informes de gestion, presupuestos,
                   cartera, mantenimiento y mas.
@@ -155,7 +155,7 @@ export function ChatBot() {
                   className={`max-w-[85%] px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
                     msg.role === "user"
                       ? "bg-violet-600 text-white rounded-2xl rounded-br-md"
-                      : "bg-gray-100/80 text-gray-800 rounded-2xl rounded-bl-md border border-gray-200/50"
+                      : "bg-gray-100/80 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-2xl rounded-bl-md border border-gray-200/50 dark:border-white/10"
                   }`}
                 >
                   {msg.content}
@@ -166,7 +166,7 @@ export function ChatBot() {
             {/* Typing indicator */}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100/80 border border-gray-200/50 rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1.5">
+                <div className="bg-gray-100/80 dark:bg-white/10 border border-gray-200/50 dark:border-white/10 rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1.5">
                   <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:0ms]" />
                   <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:150ms]" />
                   <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:300ms]" />
@@ -178,7 +178,7 @@ export function ChatBot() {
           </div>
 
           {/* Input */}
-          <div className="px-4 py-3 border-t border-white/20 bg-white/50 backdrop-blur-sm">
+          <div className="px-4 py-3 border-t border-white/20 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-sm">
             <div className="flex items-center gap-2">
               <input
                 ref={inputRef}
@@ -187,7 +187,7 @@ export function ChatBot() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Escribe tu pregunta..."
-                className="flex-1 px-4 py-2.5 text-sm bg-white/80 border border-gray-200/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-300 placeholder:text-gray-400 transition-all"
+                className="flex-1 px-4 py-2.5 text-sm bg-white/80 dark:bg-white/10 border border-gray-200/60 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-300 dark:focus:border-violet-500/50 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all"
                 disabled={isLoading}
                 maxLength={2000}
               />

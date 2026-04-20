@@ -49,7 +49,7 @@ export default function DashboardPage() {
       subtitle: "Informe, Acta y PPTX",
       gradient: "from-violet-500 to-purple-500",
       shadow: "shadow-violet-500/20",
-      bgHover: "hover:shadow-violet-200/40",
+      bgHover: "hover:shadow-violet-200/40 dark:hover:shadow-violet-500/20",
     },
     {
       href: "/dashboard/propiedades",
@@ -58,7 +58,7 @@ export default function DashboardPage() {
       subtitle: "Gestionar copropiedades",
       gradient: "from-emerald-500 to-teal-500",
       shadow: "shadow-emerald-500/20",
-      bgHover: "hover:shadow-emerald-200/40",
+      bgHover: "hover:shadow-emerald-200/40 dark:hover:shadow-emerald-500/20",
     },
     {
       href: "/dashboard/historial",
@@ -67,7 +67,7 @@ export default function DashboardPage() {
       subtitle: "Documentos generados",
       gradient: "from-purple-500 to-pink-500",
       shadow: "shadow-purple-500/20",
-      bgHover: "hover:shadow-purple-200/40",
+      bgHover: "hover:shadow-purple-200/40 dark:hover:shadow-purple-500/20",
     },
     {
       href: "/dashboard/suscripcion",
@@ -76,7 +76,7 @@ export default function DashboardPage() {
       subtitle: "Gestionar tu plan",
       gradient: "from-amber-500 to-orange-500",
       shadow: "shadow-amber-500/20",
-      bgHover: "hover:shadow-amber-200/40",
+      bgHover: "hover:shadow-amber-200/40 dark:hover:shadow-amber-500/20",
     },
   ];
 
@@ -126,14 +126,14 @@ export default function DashboardPage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {quickActions.map((item) => (
             <Link key={item.href} href={item.href}>
-              <div className={`group bg-white/50 backdrop-blur-xl border border-white/30 rounded-3xl p-5 hover:shadow-xl ${item.bgHover} hover:-translate-y-1 transition-all duration-300 cursor-pointer h-full`}>
+              <div className={`group bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-5 hover:shadow-xl ${item.bgHover} hover:-translate-y-1 transition-all duration-300 cursor-pointer h-full`}>
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${item.gradient} flex items-center justify-center shadow-lg ${item.shadow} group-hover:scale-110 transition-transform duration-300`}>
                     <item.icon className="h-6 w-6 text-white" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-sm text-gray-900">{item.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{item.subtitle}</p>
+                    <p className="font-semibold text-sm text-gray-900 dark:text-white">{item.title}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{item.subtitle}</p>
                   </div>
                 </div>
               </div>
@@ -146,8 +146,8 @@ export default function DashboardPage() {
           <div className="lg:col-span-2">
             <UsageCard />
           </div>
-          <div className="bg-white/50 backdrop-blur-xl border border-white/30 rounded-3xl p-6 shadow-lg shadow-violet-100/10">
-            <h3 className="font-bold text-gray-900 mb-4">Acciones Rapidas</h3>
+          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-4">Acciones Rapidas</h3>
             <div className="space-y-3">
               <Link href="/dashboard/generar">
                 <Button className="w-full gap-2 justify-start h-11 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-lg shadow-violet-500/20">
@@ -156,13 +156,13 @@ export default function DashboardPage() {
                 </Button>
               </Link>
               <Link href="/dashboard/propiedades">
-                <Button variant="outline" className="w-full gap-2 justify-start h-11 rounded-xl border-white/40 bg-white/30 backdrop-blur hover:bg-white/50">
+                <Button variant="outline" className="w-full gap-2 justify-start h-11 rounded-xl border-white/40 dark:border-white/10 bg-white/30 dark:bg-white/5 backdrop-blur hover:bg-white/50 dark:hover:bg-white/10">
                   <Building className="h-4 w-4" />
                   Agregar Propiedad
                 </Button>
               </Link>
               <Link href="/dashboard/configuracion">
-                <Button variant="outline" className="w-full gap-2 justify-start h-11 rounded-xl border-white/40 bg-white/30 backdrop-blur hover:bg-white/50">
+                <Button variant="outline" className="w-full gap-2 justify-start h-11 rounded-xl border-white/40 dark:border-white/10 bg-white/30 dark:bg-white/5 backdrop-blur hover:bg-white/50 dark:hover:bg-white/10">
                   <Settings className="h-4 w-4" />
                   Configuracion
                 </Button>

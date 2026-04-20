@@ -390,8 +390,8 @@ export default function OnboardingPage() {
                 </div>
                 {propName && (
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                      <Building className="h-4 w-4 text-emerald-600" />
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+                      <Building className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
                       <p className="text-sm font-medium">{propName}</p>
@@ -402,7 +402,7 @@ export default function OnboardingPage() {
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 mb-4 text-left">
+                <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-700 dark:text-red-300 mb-4 text-left">
                   {error}
                 </div>
               )}

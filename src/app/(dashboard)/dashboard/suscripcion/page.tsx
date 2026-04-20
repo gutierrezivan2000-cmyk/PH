@@ -134,7 +134,7 @@ export default function SuscripcionPage() {
         <UsageCard />
 
         {error && (
-          <div className="bg-red-50/80 backdrop-blur border border-red-200/50 rounded-2xl px-4 py-3 text-sm text-red-700">
+          <div className="bg-red-50/80 dark:bg-red-500/10 backdrop-blur border border-red-200/50 dark:border-red-500/20 rounded-2xl px-4 py-3 text-sm text-red-700 dark:text-red-300">
             {error}
           </div>
         )}
@@ -143,10 +143,10 @@ export default function SuscripcionPage() {
           {plans.map((plan) => (
             <div
               key={plan.id}
-              className={`relative overflow-hidden bg-white/50 backdrop-blur-xl border rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
+              className={`relative overflow-hidden bg-white/50 dark:bg-white/5 backdrop-blur-xl border rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
                 plan.highlighted
-                  ? "border-violet-300/50 shadow-violet-200/20 hover:shadow-violet-200/30"
-                  : "border-white/30 shadow-violet-100/10"
+                  ? "border-violet-300/50 dark:border-violet-500/30 shadow-violet-200/20 dark:shadow-violet-500/10 hover:shadow-violet-200/30 dark:hover:shadow-violet-500/20"
+                  : "border-white/30 dark:border-white/10 shadow-violet-100/10 dark:shadow-black/20"
               }`}
             >
               {/* Badge */}
@@ -157,27 +157,27 @@ export default function SuscripcionPage() {
               </div>
 
               <div className="p-8 pt-10">
-                <h3 className="text-xl font-bold text-gray-900 mb-0.5">{plan.name}</h3>
-                <p className="text-sm text-gray-500 mb-4">{plan.description}</p>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-0.5">{plan.name}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{plan.description}</p>
 
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className={`text-4xl font-extrabold ${plan.highlighted ? "bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent" : "text-gray-900"}`}>
+                  <span className={`text-4xl font-extrabold ${plan.highlighted ? "bg-gradient-to-r from-violet-600 to-purple-600 dark:from-violet-400 dark:to-purple-400 bg-clip-text text-transparent" : "text-gray-900 dark:text-white"}`}>
                     {plan.price}
                   </span>
-                  <span className="text-gray-400">{plan.period} {plan.currency}</span>
+                  <span className="text-gray-400 dark:text-gray-500">{plan.period} {plan.currency}</span>
                 </div>
 
                 {IS_DEMO && (
-                  <div className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100/80 backdrop-blur rounded-lg text-xs font-bold text-amber-700 mt-2 mb-4">
+                  <div className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100/80 dark:bg-amber-500/10 backdrop-blur rounded-lg text-xs font-bold text-amber-700 dark:text-amber-300 mt-2 mb-4">
                     <Zap className="h-3 w-3" /> Demo
                   </div>
                 )}
 
                 <ul className="space-y-2.5 my-6">
                   {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm text-gray-700">
-                      <div className="w-5 h-5 rounded-full bg-emerald-100/80 backdrop-blur flex items-center justify-center flex-shrink-0">
-                        <Check className="h-3 w-3 text-emerald-600" />
+                    <li key={f} className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300">
+                      <div className="w-5 h-5 rounded-full bg-emerald-100/80 dark:bg-emerald-500/15 backdrop-blur flex items-center justify-center flex-shrink-0">
+                        <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                       </div>
                       {f}
                     </li>
@@ -185,10 +185,10 @@ export default function SuscripcionPage() {
                 </ul>
 
                 {IS_DEMO ? (
-                  <div className="bg-amber-50/80 backdrop-blur border border-amber-200/50 rounded-2xl p-4 text-center">
+                  <div className="bg-amber-50/80 dark:bg-amber-500/10 backdrop-blur border border-amber-200/50 dark:border-amber-500/20 rounded-2xl p-4 text-center">
                     <div className="flex items-center justify-center gap-2 mb-1">
-                      <Shield className="h-4 w-4 text-amber-600" />
-                      <p className="text-sm text-amber-800 font-semibold">Demo activo</p>
+                      <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      <p className="text-sm text-amber-800 dark:text-amber-300 font-semibold">Demo activo</p>
                     </div>
                   </div>
                 ) : (
@@ -215,7 +215,7 @@ export default function SuscripcionPage() {
           ))}
         </div>
 
-        <p className="text-xs text-center text-gray-400">
+        <p className="text-xs text-center text-gray-400 dark:text-gray-500">
           Pago seguro procesado por ePayco. Acepta tarjetas de credito, debito, PSE y mas.
         </p>
       </div>
