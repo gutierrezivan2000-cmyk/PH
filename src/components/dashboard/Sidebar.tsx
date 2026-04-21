@@ -23,6 +23,7 @@ const WHATSAPP_LINK = "https://wa.me/message/PLACEHOLDER";
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Generar", href: "/dashboard/generar", icon: Sparkles },
+  { name: "Asistente IA", href: "/dashboard/asistente", icon: MessageCircle },
   { name: "Propiedades", href: "/dashboard/propiedades", icon: Building },
   { name: "Historial", href: "/dashboard/historial", icon: History },
   { name: "Suscripcion", href: "/dashboard/suscripcion", icon: CreditCard },
@@ -67,7 +68,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
       <aside
         className={cn(
           "hidden lg:flex flex-col min-h-screen transition-all duration-300 ease-in-out relative group/sidebar",
-          "bg-white/70 dark:bg-[#12141f]/80 backdrop-blur-xl border-r border-gray-200/50 dark:border-white/10",
+          "bg-white dark:bg-[#12141f]/80 dark:backdrop-blur-xl border-r border-gray-200 dark:border-white/10",
           "shadow-lg shadow-violet-100/10 dark:shadow-black/20",
           collapsed ? "w-[76px]" : "w-[264px]"
         )}
@@ -149,7 +150,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
       {/* Mobile sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-[288px] bg-white/80 dark:bg-[#12141f]/95 backdrop-blur-2xl shadow-2xl shadow-black/10 border-r border-gray-200/50 dark:border-white/10 transform transition-transform duration-300 ease-in-out lg:hidden flex flex-col",
+          "fixed inset-y-0 left-0 z-40 w-[288px] bg-white dark:bg-[#12141f]/95 dark:backdrop-blur-2xl shadow-2xl shadow-black/10 border-r border-gray-200 dark:border-white/10 transform transition-transform duration-300 ease-in-out lg:hidden flex flex-col",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >

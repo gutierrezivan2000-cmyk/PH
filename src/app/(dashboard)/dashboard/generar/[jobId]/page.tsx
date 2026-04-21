@@ -191,7 +191,7 @@ export default function JobResultPage() {
       <div>
         <Header title="Resultado" />
         <div className="p-8 max-w-2xl mx-auto">
-          <div className="bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-12 text-center shadow-lg dark:shadow-black/20">
+          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-12 text-center shadow-lg dark:shadow-black/20">
             <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="font-semibold text-lg">Generacion no encontrada</p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Es posible que haya expirado o no exista.</p>
@@ -288,7 +288,7 @@ export default function JobResultPage() {
 
         {/* ── Downloads ── */}
         {isCompleted && generation.outputFiles && (
-          <Card className="bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-xl dark:shadow-black/20 rounded-3xl overflow-hidden">
+          <Card className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-xl dark:shadow-black/20 rounded-3xl overflow-hidden">
             <CardContent className="p-6 space-y-4">
               <h3 className="font-bold text-gray-900 dark:text-white">Documentos Generados</h3>
 
@@ -443,7 +443,7 @@ function ActaRequirementsChecklist({ requirements }: { requirements: ActaRequire
   const allComplete = completed === total;
 
   return (
-    <Card className="bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-xl dark:shadow-black/20 rounded-3xl overflow-hidden">
+    <Card className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-xl dark:shadow-black/20 rounded-3xl overflow-hidden">
       <CardContent className="p-6 space-y-4">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${allComplete ? "bg-emerald-100/80 dark:bg-emerald-500/20" : "bg-amber-100/80 dark:bg-amber-500/20"}`}>
@@ -570,7 +570,7 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
   const canSubmit = instruction.trim() || files.length > 0;
 
   return (
-    <Card className="bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-xl dark:shadow-black/20 rounded-3xl overflow-hidden">
+    <Card className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-xl dark:shadow-black/20 rounded-3xl overflow-hidden">
       <CardContent className="p-6 space-y-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-violet-100/80 dark:bg-violet-500/20 rounded-xl flex items-center justify-center">
@@ -589,12 +589,12 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
           onChange={(e) => setInstruction(e.target.value)}
           rows={3}
           placeholder="Ej: Agrega que se realizo mantenimiento del ascensor el 15 de marzo. El costo fue de $2.500.000..."
-          className="w-full rounded-2xl border border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur px-4 py-3 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 resize-none"
+          className="w-full rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 resize-none"
         />
 
         {/* File upload area */}
         <div>
-          <label className="flex items-center gap-3 p-3.5 rounded-2xl border-2 border-dashed border-white/40 dark:border-white/10 cursor-pointer hover:border-violet-300/50 dark:hover:border-violet-500/30 hover:bg-violet-50/30 dark:hover:bg-violet-500/10 transition-all">
+          <label className="flex items-center gap-3 p-3.5 rounded-2xl border-2 border-dashed border-gray-300 dark:border-white/10 cursor-pointer hover:border-violet-300/50 dark:hover:border-violet-500/30 hover:bg-violet-50/30 dark:hover:bg-violet-500/10 transition-all">
             <Upload className="h-5 w-5 text-violet-400" />
             <div>
               <span className="text-sm text-gray-600 dark:text-gray-300">Subir archivos adicionales</span>
@@ -606,7 +606,7 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
           {files.length > 0 && (
             <div className="space-y-1.5 mt-3">
               {files.map((file, i) => (
-                <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-white/40 dark:bg-white/5 rounded-xl px-3 py-2 border border-white/30 dark:border-white/10">
+                <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-gray-50 dark:bg-white/5 rounded-xl px-3 py-2 border border-gray-200 dark:border-white/10">
                   <div className="flex items-center gap-2 min-w-0">
                     <Paperclip className="h-3.5 w-3.5 text-violet-500 flex-shrink-0" />
                     <span className="text-xs truncate">{file.name}</span>

@@ -17,12 +17,12 @@ export default function DashboardLayout({
 
   return (
     <SessionProvider>
-      <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-50 via-violet-50/30 to-gray-50 dark:from-[#0b0d14] dark:via-[#10122a] dark:to-[#0b0d14] relative">
-        {/* Background orbs */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-          <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-violet-200/20 dark:bg-violet-900/20 rounded-full blur-3xl animate-orb" />
-          <div className="absolute bottom-1/4 left-0 w-[500px] h-[500px] bg-purple-200/15 dark:bg-purple-900/15 rounded-full blur-3xl animate-orb-delayed" />
-          <div className="absolute top-1/2 right-0 w-[400px] h-[400px] bg-indigo-200/10 dark:bg-indigo-900/10 rounded-full blur-3xl animate-orb-slow" />
+      <div className="flex flex-col min-h-screen bg-white dark:bg-gradient-to-br dark:from-[#0b0d14] dark:via-[#10122a] dark:to-[#0b0d14] relative">
+        {/* Background orbs — dark mode only */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10 hidden dark:block">
+          <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-violet-900/20 rounded-full blur-3xl animate-orb" />
+          <div className="absolute bottom-1/4 left-0 w-[500px] h-[500px] bg-purple-900/15 rounded-full blur-3xl animate-orb-delayed" />
+          <div className="absolute top-1/2 right-0 w-[400px] h-[400px] bg-indigo-900/10 rounded-full blur-3xl animate-orb-slow" />
         </div>
 
         <DemoBanner />
@@ -40,7 +40,7 @@ export default function DashboardLayout({
             />
           )}
           <main className="flex-1 min-h-screen w-full overflow-x-hidden">
-            <div className="lg:hidden sticky top-0 z-20 bg-white/60 dark:bg-[#12141f]/80 backdrop-blur-2xl border-b border-white/30 dark:border-white/10 px-4 py-3.5 flex items-center gap-3 shadow-sm">
+            <div className="lg:hidden sticky top-0 z-20 bg-white dark:bg-[#12141f]/80 dark:backdrop-blur-2xl border-b border-gray-200 dark:border-white/10 px-4 py-3.5 flex items-center gap-3 shadow-sm">
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="p-2 rounded-xl hover:bg-white/50 active:bg-white/70 transition-colors"

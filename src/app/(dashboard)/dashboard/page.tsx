@@ -126,7 +126,7 @@ export default function DashboardPage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {quickActions.map((item) => (
             <Link key={item.href} href={item.href}>
-              <div className={`group bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-5 hover:shadow-xl ${item.bgHover} hover:-translate-y-1 transition-all duration-300 cursor-pointer h-full`}>
+              <div className={`group bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-5 hover:shadow-xl ${item.bgHover} hover:-translate-y-1 transition-all duration-300 cursor-pointer h-full`}>
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${item.gradient} flex items-center justify-center shadow-lg ${item.shadow} group-hover:scale-110 transition-transform duration-300`}>
                     <item.icon className="h-6 w-6 text-white" />
@@ -146,7 +146,7 @@ export default function DashboardPage() {
           <div className="lg:col-span-2">
             <UsageCard />
           </div>
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
+          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
             <h3 className="font-bold text-gray-900 dark:text-white mb-4">Acciones Rapidas</h3>
             <div className="space-y-3">
               <Link href="/dashboard/generar">
@@ -156,13 +156,13 @@ export default function DashboardPage() {
                 </Button>
               </Link>
               <Link href="/dashboard/propiedades">
-                <Button variant="outline" className="w-full gap-2 justify-start h-11 rounded-xl border-white/40 dark:border-white/10 bg-white/30 dark:bg-white/5 backdrop-blur hover:bg-white/50 dark:hover:bg-white/10">
+                <Button variant="outline" className="w-full gap-2 justify-start h-11 rounded-xl border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10">
                   <Building className="h-4 w-4" />
                   Agregar Propiedad
                 </Button>
               </Link>
               <Link href="/dashboard/configuracion">
-                <Button variant="outline" className="w-full gap-2 justify-start h-11 rounded-xl border-white/40 dark:border-white/10 bg-white/30 dark:bg-white/5 backdrop-blur hover:bg-white/50 dark:hover:bg-white/10">
+                <Button variant="outline" className="w-full gap-2 justify-start h-11 rounded-xl border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10">
                   <Settings className="h-4 w-4" />
                   Configuracion
                 </Button>

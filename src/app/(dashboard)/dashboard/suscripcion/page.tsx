@@ -143,10 +143,10 @@ export default function SuscripcionPage() {
           {plans.map((plan) => (
             <div
               key={plan.id}
-              className={`relative overflow-hidden bg-white/50 dark:bg-white/5 backdrop-blur-xl border rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
+              className={`relative overflow-hidden bg-white dark:bg-white/5 dark:backdrop-blur-xl border rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
                 plan.highlighted
                   ? "border-violet-300/50 dark:border-violet-500/30 shadow-violet-200/20 dark:shadow-violet-500/10 hover:shadow-violet-200/30 dark:hover:shadow-violet-500/20"
-                  : "border-white/30 dark:border-white/10 shadow-violet-100/10 dark:shadow-black/20"
+                  : "border-gray-200 dark:border-white/10 shadow-violet-100/10 dark:shadow-black/20"
               }`}
             >
               {/* Badge */}

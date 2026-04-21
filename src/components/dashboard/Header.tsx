@@ -13,7 +13,7 @@ export function Header({ title, subtitle, breadcrumbs }: HeaderProps) {
   const { data: session } = useSession();
 
   return (
-    <header className="hidden lg:flex bg-white/50 dark:bg-[#12141f]/60 backdrop-blur-2xl border-b border-white/30 dark:border-white/10 px-8 xl:px-10 py-5 items-center justify-between sticky top-0 z-20 shadow-sm shadow-violet-100/20 dark:shadow-black/10">
+    <header className="hidden lg:flex bg-white dark:bg-[#12141f]/60 dark:backdrop-blur-2xl border-b border-gray-200 dark:border-white/10 px-8 xl:px-10 py-5 items-center justify-between sticky top-0 z-20 shadow-sm shadow-gray-100 dark:shadow-black/10">
       <div className="flex flex-col gap-1">
         {breadcrumbs && breadcrumbs.length > 0 && (
           <nav className="flex items-center gap-1.5 text-xs text-gray-400">

@@ -57,7 +57,7 @@ export default function HistorialPage() {
         )}
 
         {!loading && generations.length === 0 && (
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-12 text-center shadow-lg dark:shadow-black/20">
+          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-12 text-center shadow-lg dark:shadow-black/20">
             <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-violet-500/25">
               <Clock className="h-8 w-8 text-white" />
             </div>
@@ -78,7 +78,7 @@ export default function HistorialPage() {
           {generations.map((gen, index) => (
             <Link key={gen.id} href={`/dashboard/generar/${gen.id}`}>
               <div
-                className="group bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-2xl hover:shadow-xl hover:shadow-violet-100/20 dark:hover:shadow-black/20 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer"
+                className="group bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl hover:shadow-xl hover:shadow-violet-100/20 dark:hover:shadow-black/20 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="flex items-center gap-4 p-5">

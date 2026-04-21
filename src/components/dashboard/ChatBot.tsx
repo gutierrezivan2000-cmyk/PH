@@ -101,7 +101,7 @@ export function ChatBot() {
             : "opacity-0 translate-y-4 pointer-events-none"
         }`}
       >
-        <div className="flex flex-col h-[520px] max-h-[70vh] rounded-3xl border border-white/30 dark:border-white/10 bg-white/70 dark:bg-[#12141f]/90 backdrop-blur-xl shadow-2xl shadow-violet-500/10 dark:shadow-black/30 overflow-hidden">
+        <div className="flex flex-col h-[520px] max-h-[70vh] rounded-3xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#12141f]/90 dark:backdrop-blur-xl shadow-2xl shadow-gray-200/50 dark:shadow-black/30 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-white/20 dark:border-white/10 bg-gradient-to-r from-violet-600/90 to-purple-600/90 backdrop-blur-sm">
             <div className="flex items-center gap-3">
@@ -178,7 +178,7 @@ export function ChatBot() {
           </div>
 
           {/* Input */}
-          <div className="px-4 py-3 border-t border-white/20 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-sm">
+          <div className="px-4 py-3 border-t border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5">
             <div className="flex items-center gap-2">
               <input
                 ref={inputRef}

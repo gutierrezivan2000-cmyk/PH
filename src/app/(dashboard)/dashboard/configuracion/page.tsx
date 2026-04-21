@@ -149,7 +149,7 @@ export default function ConfiguracionPage() {
                   <select
                     value={cargo}
                     onChange={(e) => setCargo(e.target.value)}
-                    className="w-full h-10 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full h-10 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-violet-400/50 appearance-none cursor-pointer transition-all"
                   >
                     <option value="">Selecciona tu cargo</option>
                     {cargos.map((c) => (

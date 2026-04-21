@@ -199,7 +199,7 @@ export default function GenerarPage() {
           )}
 
           {/* Step 1 — Property */}
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
+          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md shadow-violet-500/20">1</div>
               <div>
@@ -218,7 +218,7 @@ export default function GenerarPage() {
               <select
                 value={selectedProperty}
                 onChange={(e) => setSelectedProperty(e.target.value)}
-                className="w-full h-11 rounded-2xl border border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur px-4 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50 focus:border-violet-300 transition-all duration-300 appearance-none cursor-pointer"
+                className="w-full h-11 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50 focus:border-violet-300 transition-all duration-300 appearance-none cursor-pointer"
               >
                 <option value="">Seleccionar propiedad...</option>
                 {properties.map((p) => (
@@ -231,7 +231,7 @@ export default function GenerarPage() {
           </div>
 
           {/* Step 2 — Period */}
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
+          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md shadow-violet-500/20">2</div>
               <div>
@@ -243,7 +243,7 @@ export default function GenerarPage() {
               <select
                 value={month}
                 onChange={(e) => setMonth(parseInt(e.target.value))}
-                className="flex-1 h-11 rounded-2xl border border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur px-4 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50 transition-all duration-300 appearance-none cursor-pointer"
+                className="flex-1 h-11 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50 transition-all duration-300 appearance-none cursor-pointer"
               >
                 {MONTHS.map((m, i) => (
                   <option key={m} value={i + 1}>{m}</option>
@@ -255,13 +255,13 @@ export default function GenerarPage() {
                 onChange={(e) => setYear(parseInt(e.target.value))}
                 min={2020}
                 max={2030}
-                className="w-28 rounded-2xl border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur"
+                className="w-28 rounded-2xl border-gray-200 dark:border-white/10 bg-white dark:bg-white/5"
               />
             </div>
           </div>
 
           {/* Step 3 — Document types */}
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
+          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md shadow-violet-500/20">3</div>
               <div>
@@ -271,7 +271,7 @@ export default function GenerarPage() {
             </div>
 
             <div className="space-y-3 mt-4">
-              <label className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${includeInforme ? "bg-violet-500/10 border-violet-300/50 dark:border-violet-500/20 shadow-sm" : "bg-white/30 dark:bg-white/5 border-white/30 dark:border-white/10 hover:bg-white/50 dark:hover:bg-white/10"}`}>
+              <label className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${includeInforme ? "bg-violet-500/10 border-violet-300/50 dark:border-violet-500/20 shadow-sm" : "bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"}`}>
                 <input type="checkbox" checked={includeInforme} onChange={(e) => handleInformeChange(e.target.checked)} className="h-4 w-4 rounded accent-violet-600" />
                 <FileBarChart className={`h-5 w-5 flex-shrink-0 ${includeInforme ? "text-violet-600 dark:text-violet-300" : "text-gray-400 dark:text-gray-500"}`} />
                 <div className="flex-1">
@@ -280,7 +280,7 @@ export default function GenerarPage() {
                 </div>
               </label>
 
-              <label className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${includeActa ? "bg-emerald-500/10 border-emerald-300/50 dark:border-emerald-500/20 shadow-sm" : "bg-white/30 dark:bg-white/5 border-white/30 dark:border-white/10 hover:bg-white/50 dark:hover:bg-white/10"}`}>
+              <label className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${includeActa ? "bg-emerald-500/10 border-emerald-300/50 dark:border-emerald-500/20 shadow-sm" : "bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"}`}>
                 <input type="checkbox" checked={includeActa} onChange={(e) => setIncludeActa(e.target.checked)} className="h-4 w-4 rounded accent-emerald-600" />
                 <Scale className={`h-5 w-5 flex-shrink-0 ${includeActa ? "text-emerald-600 dark:text-emerald-300" : "text-gray-400 dark:text-gray-500"}`} />
                 <div className="flex-1">
@@ -289,7 +289,7 @@ export default function GenerarPage() {
                 </div>
               </label>
 
-              <label className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${includePptx ? "bg-purple-500/10 border-purple-300/50 dark:border-purple-500/20 shadow-sm" : "bg-white/30 dark:bg-white/5 border-white/30 dark:border-white/10 hover:bg-white/50 dark:hover:bg-white/10"}`}>
+              <label className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${includePptx ? "bg-purple-500/10 border-purple-300/50 dark:border-purple-500/20 shadow-sm" : "bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"}`}>
                 <input type="checkbox" checked={includePptx} onChange={(e) => handlePptxChange(e.target.checked)} className="h-4 w-4 rounded accent-purple-600" />
                 <Presentation className={`h-5 w-5 flex-shrink-0 ${includePptx ? "text-purple-600 dark:text-purple-300" : "text-gray-400 dark:text-gray-500"}`} />
                 <div className="flex-1">
@@ -313,7 +313,7 @@ export default function GenerarPage() {
           </div>
 
           {/* Step 4 — Files + Recommendations */}
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
+          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md shadow-violet-500/20">4</div>
               <div>
@@ -378,7 +378,7 @@ export default function GenerarPage() {
               </div>
             </div>
 
-            <label className="flex flex-col items-center justify-center border-2 border-dashed border-white/40 dark:border-white/10 rounded-2xl p-10 cursor-pointer hover:border-violet-300/50 dark:hover:border-violet-500/30 hover:bg-violet-50/30 dark:hover:bg-violet-500/10 transition-all duration-300 backdrop-blur-sm">
+            <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-white/10 rounded-2xl p-10 cursor-pointer hover:border-violet-300 dark:hover:border-violet-500/30 hover:bg-violet-50/30 dark:hover:bg-violet-500/10 transition-all duration-300">
               <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-500 rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-violet-500/20">
                 <Upload className="h-7 w-7 text-white" />
               </div>
@@ -400,7 +400,7 @@ export default function GenerarPage() {
             {files.length > 0 && (
               <div className="space-y-2 mt-4">
                 {files.map((file, i) => (
-                  <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-white/40 dark:bg-white/5 backdrop-blur-sm rounded-xl px-4 py-2.5 border border-white/30 dark:border-white/10">
+                  <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-gray-50 dark:bg-white/5 rounded-xl px-4 py-2.5 border border-gray-200 dark:border-white/10">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <FileText className="h-4 w-4 text-violet-500 flex-shrink-0" />
                       <span className="text-sm truncate">{file.name}</span>
@@ -418,7 +418,7 @@ export default function GenerarPage() {
           </div>
 
           {/* Step 5 — Additional text */}
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
+          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md shadow-violet-500/20">5</div>
               <div>
@@ -431,7 +431,7 @@ export default function GenerarPage() {
               onChange={(e) => setAdditionalText(e.target.value)}
               rows={5}
               placeholder="Ejemplo: Este mes se realizo el cambio de bombas del cuarto de maquinas. Hubo un corte de agua del 3 al 5 de marzo por obras de la empresa de acueducto..."
-              className="w-full rounded-2xl border border-white/40 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur px-4 py-3 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 resize-none transition-all duration-300"
+              className="w-full rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 resize-none transition-all duration-300"
             />
           </div>
 
