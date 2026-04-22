@@ -126,7 +126,7 @@ export default function AsistentePage() {
             <p>- Puedes crear multiples chats con cada agente para organizar tus consultas por tema.</p>
             <p>- Los agentes pueden recibir imagenes, audios y documentos como parte de la conversacion.</p>
             <p>- La memoria del agente guarda notas importantes que persisten entre sesiones.</p>
-            <p>- Proximo: Los agentes tendran acceso a los documentos de tus propiedades (reglamento, manual de convivencia) para dar respuestas mas precisas.</p>
+            <p>- Los agentes tienen acceso a los documentos de tus propiedades (reglamento, manual de convivencia) para dar respuestas mas precisas.</p>
           </div>
         </div>
       </div>

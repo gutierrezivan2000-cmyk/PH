@@ -1,11 +1,15 @@
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AGENTS, isValidAgentId } from "@/lib/agents";
 import { PLANS } from "@/lib/epayco";
+
+type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: "url"; url: string } };
 
 export async function GET(
   req: NextRequest,
@@ -91,17 +95,14 @@ export async function POST(
 
     const now = new Date();
 
-    // Start of today
     const startOfDay = new Date(now);
     startOfDay.setHours(0, 0, 0, 0);
 
-    // Start of week (Monday)
     const day = now.getDay();
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - ((day + 6) % 7));
     startOfWeek.setHours(0, 0, 0, 0);
 
-    // Count daily messages
     const dailyCount = await db.agentMessage.count({
       where: {
         role: "user",
@@ -119,7 +120,6 @@ export async function POST(
       );
     }
 
-    // Count weekly messages
     const weeklyCount = await db.agentMessage.count({
       where: {
         role: "user",
@@ -163,30 +163,74 @@ export async function POST(
       },
     });
 
-    // ── Build system prompt with memory ─────────────────────────────────────
+    // ── Build system prompt with memory + property docs ─────────────────────
     const agent = AGENTS[agentId];
     let systemPrompt = agent.systemPrompt;
 
-    const memory = await db.agentMemory.findFirst({
-      where: { userId, agentId },
-    });
+    const [memory, properties] = await Promise.all([
+      db.agentMemory.findFirst({ where: { userId, agentId } }),
+      db.property.findMany({
+        where: { userId },
+        include: { documents: true },
+        take: 5,
+      }),
+    ]);
 
     if (memory?.content) {
       systemPrompt += `\n\nContexto del usuario (memoria):\n${memory.content}`;
     }
 
-    // ── Load last 30 messages ───────────────────────────────────────────────
+    if (properties.length > 0) {
+      const propInfo = properties.map((p) => {
+        let info = `- ${p.name}`;
+        if (p.address) info += `, ${p.address}`;
+        if (p.city) info += `, ${p.city}`;
+        if (p.units) info += ` (${p.units} unidades)`;
+        const docs = p.documents.map((d) => {
+          const label = d.type === "manual_convivencia" ? "Manual de Convivencia" : d.type === "reglamento_interno" ? "Reglamento Interno" : d.type;
+          return `  ${label}: ${d.name}`;
+        });
+        if (docs.length > 0) info += `\n  Documentos:\n${docs.join("\n")}`;
+        return info;
+      }).join("\n");
+      systemPrompt += `\n\nPropiedades del usuario:\n${propInfo}`;
+    }
+
+    // ── Load last 30 messages and build Anthropic payload ───────────────────
     const recentMessages = await db.agentMessage.findMany({
       where: { chatId },
       orderBy: { createdAt: "asc" },
       take: 30,
-      select: { role: true, content: true },
+      select: { role: true, content: true, attachments: true },
     });
 
-    const anthropicMessages = recentMessages.map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    }));
+    const anthropicMessages = recentMessages.map((m) => {
+      const atts = m.attachments as { name: string; url: string; type: string; size: number }[] | null;
+      const imageAtts = atts?.filter((a) => a.type.startsWith("image/")) ?? [];
+      const docAtts = atts?.filter((a) => !a.type.startsWith("image/")) ?? [];
+
+      if (m.role === "user" && (imageAtts.length > 0 || docAtts.length > 0)) {
+        const contentBlocks: ContentBlock[] = [];
+
+        for (const img of imageAtts) {
+          contentBlocks.push({
+            type: "image",
+            source: { type: "url", url: img.url },
+          });
+        }
+
+        let textContent = m.content;
+        if (docAtts.length > 0) {
+          const docList = docAtts.map((d) => `[Archivo adjunto: ${d.name} (${d.type})]`).join("\n");
+          textContent = `${docList}\n\n${m.content}`;
+        }
+        contentBlocks.push({ type: "text", text: textContent });
+
+        return { role: "user" as const, content: contentBlocks };
+      }
+
+      return { role: m.role as "user" | "assistant", content: m.content };
+    });
 
     // ── Call Anthropic API ──────────────────────────────────────────────────
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
