@@ -21,7 +21,12 @@ import {
   ClipboardList,
   MessageSquare,
   GraduationCap,
+  X,
+  Loader2,
+  BookOpen,
+  Shield,
 } from "lucide-react";
+import { upload as blobUpload } from "@vercel/blob/client";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -41,6 +46,11 @@ export default function OnboardingPage() {
   const [propAddress, setPropAddress] = useState("");
   const [propCity, setPropCity] = useState("");
   const [propUnits, setPropUnits] = useState("");
+
+  // Step 2.5: Property documents
+  const [manualFile, setManualFile] = useState<File | null>(null);
+  const [reglamentoFile, setReglamentoFile] = useState<File | null>(null);
+  const [uploadingDocs, setUploadingDocs] = useState(false);
 
   const [error, setError] = useState("");
 
@@ -74,7 +84,41 @@ export default function OnboardingPage() {
             units: propUnits,
           }),
         });
-        if (!propRes.ok) {
+        if (propRes.ok) {
+          const propData = await propRes.json();
+          const propertyId = propData.id;
+
+          // Upload property documents
+          const docsToUpload = [
+            { file: manualFile, type: "manual_convivencia" },
+            { file: reglamentoFile, type: "reglamento_interno" },
+          ];
+
+          for (const doc of docsToUpload) {
+            if (!doc.file) continue;
+            try {
+              const safeName = doc.file.name.replace(/[^\w.\-]+/g, "_");
+              const result = await blobUpload(`property-docs/${propertyId}/${Date.now()}-${safeName}`, doc.file, {
+                access: "private",
+                handleUploadUrl: "/api/upload/token",
+                contentType: doc.file.type || "application/octet-stream",
+              });
+              await fetch(`/api/properties/${propertyId}/documents`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  type: doc.type,
+                  name: doc.file.name,
+                  url: result.url,
+                  size: doc.file.size,
+                  mimeType: doc.file.type,
+                }),
+              });
+            } catch (err) {
+              console.error("[ONBOARDING] Doc upload failed:", err);
+            }
+          }
+        } else {
           console.error("[ONBOARDING] Property save failed");
         }
       }
@@ -263,6 +307,69 @@ export default function OnboardingPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Property Documents */}
+              {propName.trim() && (
+                <div className="mt-4 pt-4 border-t border-border/30 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <BookOpen className="h-4 w-4 text-violet-500" />
+                    <span className="text-sm font-semibold">Documentos de la propiedad</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Sube el manual de convivencia y reglamento interno. La IA los usara como contexto para generar informes y actas mas precisos.
+                  </p>
+
+                  <div className="space-y-2">
+                    <div>
+                      <label className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-gray-300 dark:border-white/10 cursor-pointer hover:border-violet-300 dark:hover:border-violet-500/30 hover:bg-violet-50/50 dark:hover:bg-violet-500/5 transition-all">
+                        <Shield className="h-5 w-5 text-violet-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          {manualFile ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-violet-700 dark:text-violet-300 truncate">{manualFile.name}</span>
+                              <button onClick={(e) => { e.preventDefault(); setManualFile(null); }} className="p-0.5 hover:bg-red-100 dark:hover:bg-red-500/10 rounded">
+                                <X className="h-3 w-3 text-gray-400 hover:text-red-500" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="text-sm font-medium">Manual de Convivencia</span>
+                              <span className="block text-xs text-muted-foreground">PDF o Word</span>
+                            </>
+                          )}
+                        </div>
+                        <input type="file" className="hidden" accept=".pdf,.docx,.doc" onChange={(e) => { if (e.target.files?.[0]) setManualFile(e.target.files[0]); }} />
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-gray-300 dark:border-white/10 cursor-pointer hover:border-violet-300 dark:hover:border-violet-500/30 hover:bg-violet-50/50 dark:hover:bg-violet-500/5 transition-all">
+                        <FileText className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          {reglamentoFile ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300 truncate">{reglamentoFile.name}</span>
+                              <button onClick={(e) => { e.preventDefault(); setReglamentoFile(null); }} className="p-0.5 hover:bg-red-100 dark:hover:bg-red-500/10 rounded">
+                                <X className="h-3 w-3 text-gray-400 hover:text-red-500" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="text-sm font-medium">Reglamento Interno</span>
+                              <span className="block text-xs text-muted-foreground">PDF o Word</span>
+                            </>
+                          )}
+                        </div>
+                        <input type="file" className="hidden" accept=".pdf,.docx,.doc" onChange={(e) => { if (e.target.files?.[0]) setReglamentoFile(e.target.files[0]); }} />
+                      </label>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground italic">
+                    Opcional — puedes subirlos despues desde la seccion de Propiedades.
+                  </p>
+                </div>
+              )}
 
               <div className="flex gap-3 mt-6">
                 <Button variant="outline" onClick={() => setStep(1)} className="h-12 rounded-2xl gap-2">

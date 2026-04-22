@@ -26,12 +26,14 @@ model User {
   city          String?
   onboarded     Boolean   @default(false)
 
-  accounts     Account[]
-  sessions     Session[]
-  subscription Subscription?
-  properties   Property[]
-  generations  Generation[]
-  usageRecords UsageRecord[]
+  accounts      Account[]
+  sessions      Session[]
+  subscription  Subscription?
+  properties    Property[]
+  generations   Generation[]
+  usageRecords  UsageRecord[]
+  agentChats    AgentChat[]
+  agentMemories AgentMemory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -108,6 +110,7 @@ model Property {
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   generations Generation[]
+  documents   PropertyDocument[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -139,6 +142,73 @@ model Generation {
 
   createdAt   DateTime  @default(now())
   completedAt DateTime?
+}
+
+// ============================================
+// Property Documents (Manual de convivencia, Reglamento)
+// ============================================
+
+model PropertyDocument {
+  id         String   @id @default(cuid())
+  propertyId String
+  type       String   // "manual_convivencia" | "reglamento_interno" | "otro"
+  name       String
+  url        String
+  size       Int      @default(0)
+  mimeType   String?
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([propertyId])
+}
+
+// ============================================
+// AI Agents — Chats, Messages & Memories
+// ============================================
+
+model AgentChat {
+  id       String @id @default(cuid())
+  userId   String
+  agentId  String // "themis" | "chronos" | "metra" | "nomethes" | "hermes" | "logistes"
+  title    String @default("Nueva conversacion")
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AgentMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, agentId])
+}
+
+model AgentMessage {
+  id     String @id @default(cuid())
+  chatId String
+  role   String // "user" | "assistant"
+  content String @db.Text
+  attachments Json? // [{name, url, type, size}]
+
+  chat AgentChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([chatId])
+}
+
+model AgentMemory {
+  id      String @id @default(cuid())
+  userId  String
+  agentId String
+  content String @db.Text
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, agentId])
 }
 
 // ============================================

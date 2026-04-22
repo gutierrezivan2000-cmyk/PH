@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -25,6 +25,17 @@ function getSystemTheme(): "light" | "dark" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+function applyResolved(r: "light" | "dark") {
+  const el = document.documentElement;
+  if (r === "dark") {
+    el.classList.add("dark");
+    el.style.colorScheme = "dark";
+  } else {
+    el.classList.remove("dark");
+    el.style.colorScheme = "light";
+  }
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("auto");
   const [resolved, setResolved] = useState<"light" | "dark">("light");
@@ -36,23 +47,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    const r = theme === "auto" ? getSystemTheme() : theme;
+  const resolve = useCallback((t: Theme) => {
+    const r = t === "auto" ? getSystemTheme() : t;
     setResolved(r);
-    document.documentElement.classList.toggle("dark", r === "dark");
-  }, [theme]);
+    applyResolved(r);
+  }, []);
+
+  useEffect(() => {
+    resolve(theme);
+  }, [theme, resolve]);
 
   useEffect(() => {
     if (theme !== "auto") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => {
-      const r = getSystemTheme();
-      setResolved(r);
-      document.documentElement.classList.toggle("dark", r === "dark");
-    };
+    const handler = () => resolve("auto");
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
-  }, [theme]);
+  }, [theme, resolve]);
 
   const setTheme = (t: Theme) => {
     setThemeState(t);

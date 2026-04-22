@@ -51,6 +51,8 @@ export const PLANS = {
       maxFileSizeMb: 25,
       maxFilesPerGeneration: 20,
       maxAudioMinutes: 30,
+      agentMessagesPerDay: 30,
+      agentMessagesPerWeek: 150,
     },
   },
   elite: {
@@ -69,6 +71,8 @@ export const PLANS = {
       maxFileSizeMb: 25,
       maxFilesPerGeneration: 20,
       maxAudioMinutes: 60,
+      agentMessagesPerDay: 100,
+      agentMessagesPerWeek: 500,
     },
   },
 } as const;

@@ -15,6 +15,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   X,
+  Bot,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -23,7 +24,7 @@ const WHATSAPP_LINK = "https://wa.me/message/PLACEHOLDER";
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Generar", href: "/dashboard/generar", icon: Sparkles },
-  { name: "Asistente IA", href: "/dashboard/asistente", icon: MessageCircle },
+  { name: "Asistente IA", href: "/dashboard/asistente", icon: Bot },
   { name: "Propiedades", href: "/dashboard/propiedades", icon: Building },
   { name: "Historial", href: "/dashboard/historial", icon: History },
   { name: "Suscripcion", href: "/dashboard/suscripcion", icon: CreditCard },
