@@ -30,32 +30,39 @@ export async function GET() {
       // default to pro
     }
 
-    const chatIds = await db.agentChat.findMany({
-      where: { userId },
-      select: { id: true },
-    });
-    const chatIdList = chatIds.map((c) => c.id);
+    let dailyCount = 0;
+    let weeklyCount = 0;
 
-    const [dailyCount, weeklyCount] = await Promise.all([
-      chatIdList.length > 0
-        ? db.agentMessage.count({
+    try {
+      const chatIds = await db.agentChat.findMany({
+        where: { userId },
+        select: { id: true },
+      });
+      const chatIdList = chatIds.map((c) => c.id);
+
+      if (chatIdList.length > 0) {
+        const [d, w] = await Promise.all([
+          db.agentMessage.count({
             where: {
               chatId: { in: chatIdList },
               role: "user",
               createdAt: { gte: startOfDay },
             },
-          })
-        : 0,
-      chatIdList.length > 0
-        ? db.agentMessage.count({
+          }),
+          db.agentMessage.count({
             where: {
               chatId: { in: chatIdList },
               role: "user",
               createdAt: { gte: startOfWeek },
             },
-          })
-        : 0,
-    ]);
+          }),
+        ]);
+        dailyCount = d;
+        weeklyCount = w;
+      }
+    } catch (err) {
+      console.error("[api/agents/usage] count error (tables may not exist):", err);
+    }
 
     return NextResponse.json({
       daily: dailyCount,
@@ -67,6 +74,16 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[api/agents/usage] Error:", error);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    return NextResponse.json(
+      {
+        daily: 0,
+        weekly: 0,
+        limits: {
+          agentMessagesPerDay: PLANS.pro.limits.agentMessagesPerDay,
+          agentMessagesPerWeek: PLANS.pro.limits.agentMessagesPerWeek,
+        },
+      },
+      { status: 200 }
+    );
   }
 }

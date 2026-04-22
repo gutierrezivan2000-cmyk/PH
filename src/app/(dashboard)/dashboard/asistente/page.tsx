@@ -21,15 +21,21 @@ export default function AsistentePage() {
   useEffect(() => {
     fetch("/api/agents/usage")
       .then((r) => r.json())
-      .then(setUsage)
+      .then((data) => {
+        if (data && typeof data.daily === "number" && data.limits) {
+          setUsage(data);
+        }
+      })
       .catch(console.error);
   }, []);
 
+  const dailyLimit = usage?.limits?.agentMessagesPerDay || 1;
+  const weeklyLimit = usage?.limits?.agentMessagesPerWeek || 1;
   const dailyPercent = usage
-    ? Math.min((usage.daily / usage.limits.agentMessagesPerDay) * 100, 100)
+    ? Math.min(((usage.daily || 0) / dailyLimit) * 100, 100)
     : 0;
   const weeklyPercent = usage
-    ? Math.min((usage.weekly / usage.limits.agentMessagesPerWeek) * 100, 100)
+    ? Math.min(((usage.weekly || 0) / weeklyLimit) * 100, 100)
     : 0;
 
   const getBarColor = (pct: number) => {

@@ -20,14 +20,18 @@ export async function GET(
       return NextResponse.json({ error: "Agente no valido" }, { status: 400 });
     }
 
-    const memory = await db.agentMemory.findUnique({
-      where: { userId_agentId: { userId: session.user.id, agentId } },
-    });
-
-    return NextResponse.json({ content: memory?.content ?? "" });
+    try {
+      const memory = await db.agentMemory.findUnique({
+        where: { userId_agentId: { userId: session.user.id, agentId } },
+      });
+      return NextResponse.json({ content: memory?.content ?? "" });
+    } catch (err) {
+      console.error("[api/agents/memory] table may not exist:", err);
+      return NextResponse.json({ content: "" });
+    }
   } catch (error) {
     console.error("[api/agents/memory] Error:", error);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    return NextResponse.json({ content: "" });
   }
 }
 

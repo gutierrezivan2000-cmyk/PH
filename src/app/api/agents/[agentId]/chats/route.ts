@@ -20,22 +20,26 @@ export async function GET(
       return NextResponse.json({ error: "Agente no valido" }, { status: 400 });
     }
 
-    const chats = await db.agentChat.findMany({
-      where: { userId: session.user.id, agentId },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        title: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: { select: { messages: true } },
-      },
-    });
-
-    return NextResponse.json(chats);
+    try {
+      const chats = await db.agentChat.findMany({
+        where: { userId: session.user.id, agentId },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: { select: { messages: true } },
+        },
+      });
+      return NextResponse.json(chats);
+    } catch (err) {
+      console.error("[api/agents/chats] table may not exist:", err);
+      return NextResponse.json([]);
+    }
   } catch (error) {
     console.error("[api/agents/chats] Error:", error);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    return NextResponse.json([]);
   }
 }
 

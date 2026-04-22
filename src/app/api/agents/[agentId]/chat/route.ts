@@ -167,33 +167,41 @@ export async function POST(
     const agent = AGENTS[agentId];
     let systemPrompt = agent.systemPrompt;
 
-    const [memory, properties] = await Promise.all([
-      db.agentMemory.findFirst({ where: { userId, agentId } }),
-      db.property.findMany({
+    let memoryContent = "";
+    try {
+      const memory = await db.agentMemory.findFirst({ where: { userId, agentId } });
+      memoryContent = memory?.content ?? "";
+    } catch (err) {
+      console.error("[api/agents/chat] memory fetch failed:", err);
+    }
+
+    if (memoryContent) {
+      systemPrompt += `\n\nContexto del usuario (memoria):\n${memoryContent}`;
+    }
+
+    try {
+      const properties = await db.property.findMany({
         where: { userId },
         include: { documents: true },
         take: 5,
-      }),
-    ]);
-
-    if (memory?.content) {
-      systemPrompt += `\n\nContexto del usuario (memoria):\n${memory.content}`;
-    }
-
-    if (properties.length > 0) {
-      const propInfo = properties.map((p) => {
-        let info = `- ${p.name}`;
-        if (p.address) info += `, ${p.address}`;
-        if (p.city) info += `, ${p.city}`;
-        if (p.units) info += ` (${p.units} unidades)`;
-        const docs = p.documents.map((d) => {
-          const label = d.type === "manual_convivencia" ? "Manual de Convivencia" : d.type === "reglamento_interno" ? "Reglamento Interno" : d.type;
-          return `  ${label}: ${d.name}`;
-        });
-        if (docs.length > 0) info += `\n  Documentos:\n${docs.join("\n")}`;
-        return info;
-      }).join("\n");
-      systemPrompt += `\n\nPropiedades del usuario:\n${propInfo}`;
+      });
+      if (properties.length > 0) {
+        const propInfo = properties.map((p) => {
+          let info = `- ${p.name}`;
+          if (p.address) info += `, ${p.address}`;
+          if (p.city) info += `, ${p.city}`;
+          if (p.units) info += ` (${p.units} unidades)`;
+          const docs = p.documents.map((d) => {
+            const label = d.type === "manual_convivencia" ? "Manual de Convivencia" : d.type === "reglamento_interno" ? "Reglamento Interno" : d.type;
+            return `  ${label}: ${d.name}`;
+          });
+          if (docs.length > 0) info += `\n  Documentos:\n${docs.join("\n")}`;
+          return info;
+        }).join("\n");
+        systemPrompt += `\n\nPropiedades del usuario:\n${propInfo}`;
+      }
+    } catch (err) {
+      console.error("[api/agents/chat] properties fetch failed:", err);
     }
 
     // ── Load last 30 messages and build Anthropic payload ───────────────────

@@ -71,18 +71,7 @@ export default function AgentPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isValidAgentId(agentId)) {
-    return (
-      <div className="p-8 text-center">
-        <p className="text-gray-500">Agente no encontrado.</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.push("/dashboard/asistente")}>
-          <ArrowLeft className="h-4 w-4 mr-2" /> Volver
-        </Button>
-      </div>
-    );
-  }
-
-  const agent = AGENTS[agentId as AgentId];
+  const isValid = isValidAgentId(agentId);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -100,6 +89,7 @@ export default function AgentPage() {
 
   // Load chats
   useEffect(() => {
+    if (!isValid) return;
     fetch(`/api/agents/${agentId}/chats`)
       .then((r) => r.json())
       .then((data) => {
@@ -107,15 +97,16 @@ export default function AgentPage() {
       })
       .catch(console.error)
       .finally(() => setLoadingChats(false));
-  }, [agentId]);
+  }, [agentId, isValid]);
 
   // Load memory
   useEffect(() => {
+    if (!isValid) return;
     fetch(`/api/agents/${agentId}/memory`)
       .then((r) => r.json())
-      .then((data) => setMemory(data.content || ""))
+      .then((data) => setMemory(data?.content || ""))
       .catch(console.error);
-  }, [agentId]);
+  }, [agentId, isValid]);
 
   // Load messages for active chat
   useEffect(() => {
@@ -132,6 +123,19 @@ export default function AgentPage() {
       .catch(console.error)
       .finally(() => setLoadingMessages(false));
   }, [activeChatId, agentId]);
+
+  if (!isValid) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-gray-500">Agente no encontrado.</p>
+        <Button variant="outline" className="mt-4" onClick={() => router.push("/dashboard/asistente")}>
+          <ArrowLeft className="h-4 w-4 mr-2" /> Volver
+        </Button>
+      </div>
+    );
+  }
+
+  const agent = AGENTS[agentId as AgentId];
 
   const saveMemory = async () => {
     setSavingMemory(true);
