@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { upload } from "@vercel/blob/client";
 import { Badge } from "@/components/ui/badge";
+import { AudioRecorder } from "@/components/dashboard/AudioRecorder";
 
 interface Chat {
   id: string;
@@ -153,6 +154,10 @@ export default function AgentPage() {
     }
   };
 
+  const handleAudioRecorded = (file: File) => {
+    setAttachments((prev) => [...prev, { file }].slice(0, 5));
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const newFiles = Array.from(e.target.files).slice(0, 5);
@@ -209,6 +214,7 @@ export default function AgentPage() {
       };
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
+      attachments.forEach((a) => a.preview && URL.revokeObjectURL(a.preview));
       setAttachments([]);
       if (textareaRef.current) textareaRef.current.style.height = "auto";
 
@@ -518,6 +524,7 @@ export default function AgentPage() {
                 >
                   <Upload className="h-4 w-4 text-gray-500" />
                 </button>
+                <AudioRecorder onRecorded={handleAudioRecorded} disabled={isLoading} />
                 <div className="flex-1 relative">
                   <textarea
                     ref={textareaRef}

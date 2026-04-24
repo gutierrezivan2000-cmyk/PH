@@ -53,6 +53,9 @@ export const PLANS = {
       maxAudioMinutes: 30,
       agentMessagesPerDay: 30,
       agentMessagesPerWeek: 150,
+      transcriptionMinutesPerDay: 20,
+      transcriptionMinutesPerMonth: 120,
+      transcriptionMaxFileMb: 25,
     },
   },
   elite: {
@@ -73,6 +76,9 @@ export const PLANS = {
       maxAudioMinutes: 60,
       agentMessagesPerDay: 100,
       agentMessagesPerWeek: 500,
+      transcriptionMinutesPerDay: 60,
+      transcriptionMinutesPerMonth: 500,
+      transcriptionMaxFileMb: 25,
     },
   },
 } as const;

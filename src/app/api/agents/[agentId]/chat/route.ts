@@ -1,5 +1,5 @@
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { AGENTS, isValidAgentId } from "@/lib/agents";
 import { PLANS } from "@/lib/epayco";
 import { ensureAgentTables, isMissingRelationError } from "@/lib/ensure-agent-tables";
+import { parseAttachments, type ParsedAttachment } from "@/lib/parse-attachment";
 
 type ContentBlock =
   | { type: "text"; text: string }
@@ -95,6 +96,30 @@ export async function POST(
         { error: "El servicio de IA no esta configurado. Contacta al administrador." },
         { status: 500 }
       );
+    }
+
+    // ── Scriptor-specific guard: size cap and Whisper availability ─────────
+    step = "scriptor-validation";
+    if (agentId === "scriptor") {
+      const audioAtts = (reqAttachments || []).filter(
+        (a) => a.type?.startsWith("audio/") || /\.(mp3|wav|ogg|m4a|webm)$/i.test(a.name)
+      );
+      const MAX_AUDIO_MB = 25;
+      const oversized = audioAtts.find((a) => a.size > MAX_AUDIO_MB * 1024 * 1024);
+      if (oversized) {
+        return NextResponse.json(
+          {
+            error: `El archivo ${oversized.name} excede el limite de ${MAX_AUDIO_MB}MB para transcripcion. Divide el audio o usa una calidad menor.`,
+          },
+          { status: 413 }
+        );
+      }
+      if (!process.env.OPENAI_API_KEY && audioAtts.length > 0) {
+        return NextResponse.json(
+          { error: "La transcripcion no esta configurada (falta OPENAI_API_KEY). Contacta al administrador." },
+          { status: 500 }
+        );
+      }
     }
 
     const userId = session.user.id;
@@ -287,14 +312,27 @@ export async function POST(
       recentMessages = [{ role: "user", content: message, attachments: null }];
     }
 
+    // Parse documents from the current message (extract text from PDFs, DOCX, XLSX, audio)
+    step = "parse-current-attachments";
+    let parsedCurrent: ParsedAttachment[] = [];
+    if (reqAttachments && reqAttachments.length > 0) {
+      try {
+        parsedCurrent = await parseAttachments(reqAttachments);
+      } catch (err) {
+        console.error("[api/agents/chat] parseAttachments failed:", err);
+      }
+    }
+    const parsedByUrl = new Map(parsedCurrent.map((p) => [p.url, p]));
+
     step = "build-anthropic-messages";
-    const anthropicMessages = recentMessages.map((m) => {
+    const anthropicMessages = recentMessages.map((m, idx) => {
       const atts = m.attachments as
         | { name: string; url: string; type: string; size: number }[]
         | null
         | undefined;
       const imageAtts = Array.isArray(atts) ? atts.filter((a) => a.type?.startsWith("image/")) : [];
       const docAtts = Array.isArray(atts) ? atts.filter((a) => !a.type?.startsWith("image/")) : [];
+      const isLastUser = idx === recentMessages.length - 1 && m.role === "user";
 
       if (m.role === "user" && (imageAtts.length > 0 || docAtts.length > 0)) {
         const contentBlocks: ContentBlock[] = [];
@@ -308,10 +346,14 @@ export async function POST(
 
         let textContent = m.content;
         if (docAtts.length > 0) {
-          const docList = docAtts
-            .map((d) => `[Archivo adjunto: ${d.name} (${d.type})]`)
-            .join("\n");
-          textContent = `${docList}\n\n${m.content}`;
+          const docSections = docAtts.map((d) => {
+            const parsed = isLastUser ? parsedByUrl.get(d.url) : undefined;
+            if (parsed && parsed.text) {
+              return `=== Archivo adjunto: ${d.name} (${d.type}) ===\n${parsed.text}\n=== Fin del archivo ===`;
+            }
+            return `[Archivo adjunto: ${d.name} (${d.type})]`;
+          });
+          textContent = `${docSections.join("\n\n")}\n\n${m.content}`;
         }
         contentBlocks.push({ type: "text", text: textContent });
 
