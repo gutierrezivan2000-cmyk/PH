@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AGENTS, isValidAgentId } from "@/lib/agents";
 import { PLANS } from "@/lib/epayco";
+import { ensureAgentTables, isMissingRelationError } from "@/lib/ensure-agent-tables";
 
 type ContentBlock =
   | { type: "text"; text: string }
@@ -174,18 +175,32 @@ export async function POST(
 
     try {
       if (!chatId) {
-        const chat = await db.agentChat.create({
-          data: { userId, agentId, title: "Nuevo chat" },
-        });
-        chatId = chat.id;
-        isNewChat = true;
+        try {
+          const chat = await db.agentChat.create({
+            data: { userId, agentId, title: "Nuevo chat" },
+          });
+          chatId = chat.id;
+          isNewChat = true;
+        } catch (innerErr) {
+          if (isMissingRelationError(innerErr)) {
+            console.warn("[api/agents/chat] tables missing, running auto-migration");
+            await ensureAgentTables();
+            const chat = await db.agentChat.create({
+              data: { userId, agentId, title: "Nuevo chat" },
+            });
+            chatId = chat.id;
+            isNewChat = true;
+          } else {
+            throw innerErr;
+          }
+        }
       }
     } catch (err) {
-      console.error("[api/agents/chat] create chat failed:", err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error("[api/agents/chat] create chat failed:", errMsg, err);
       return NextResponse.json(
         {
-          error:
-            "No se pudo crear el chat. La base de datos puede no estar lista. Intenta en unos minutos.",
+          error: `No se pudo crear el chat: ${errMsg}`,
         },
         { status: 503 }
       );
