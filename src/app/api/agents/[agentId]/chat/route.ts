@@ -122,13 +122,79 @@ export async function POST(
       }
     }
 
+    // ── Audio transcription minute-based rate limits ───────────────────────
+    // Covers ANY agent (not just Scriptor) that receives audio attachments.
+    // Uses UsageRecord where type="transcription", tokens=seconds.
+    step = "transcription-limits";
+    const allAudioAtts = (reqAttachments || []).filter(
+      (a) => a.type?.startsWith("audio/") || /\.(mp3|wav|ogg|m4a|webm)$/i.test(a.name)
+    );
+    let estimatedMinutesForThisRequest = 0;
+    if (allAudioAtts.length > 0) {
+      // Conservative estimate: 1 MB ~ 1 minute for typical compressed voice audio.
+      const totalBytes = allAudioAtts.reduce((sum, a) => sum + a.size, 0);
+      estimatedMinutesForThisRequest = Math.max(1, Math.ceil(totalBytes / (1024 * 1024)));
+
+      try {
+        const subPlan = (await db.subscription.findFirst({ where: { userId: session.user.id } }))?.planId;
+        const tLimits = subPlan === "plan-elite-ph" ? PLANS.elite.limits : PLANS.pro.limits;
+        const dailyCap = tLimits.transcriptionMinutesPerDay;
+        const monthlyCap = tLimits.transcriptionMinutesPerMonth;
+
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const startOfDayT = new Date();
+        startOfDayT.setHours(0, 0, 0, 0);
+
+        const [monthlyAgg, dailyAgg] = await Promise.all([
+          db.usageRecord.aggregate({
+            where: { userId: session.user.id, type: "transcription", date: { gte: startOfMonth } },
+            _sum: { tokens: true },
+          }),
+          db.usageRecord.aggregate({
+            where: { userId: session.user.id, type: "transcription", date: { gte: startOfDayT } },
+            _sum: { tokens: true },
+          }),
+        ]);
+
+        const secondsUsedMonth = monthlyAgg._sum.tokens ?? 0;
+        const secondsUsedDay = dailyAgg._sum.tokens ?? 0;
+        const minutesUsedMonth = Math.ceil(secondsUsedMonth / 60);
+        const minutesUsedDay = Math.ceil(secondsUsedDay / 60);
+
+        if (minutesUsedDay + estimatedMinutesForThisRequest > dailyCap) {
+          return NextResponse.json(
+            {
+              error: `Has alcanzado el limite diario de ${dailyCap} minutos de transcripcion. Intenta manana. (Usado hoy: ${minutesUsedDay} min)`,
+            },
+            { status: 429 }
+          );
+        }
+        if (minutesUsedMonth + estimatedMinutesForThisRequest > monthlyCap) {
+          return NextResponse.json(
+            {
+              error: `Has alcanzado el limite mensual de ${monthlyCap} minutos de transcripcion. (Usado este mes: ${minutesUsedMonth} min)`,
+            },
+            { status: 429 }
+          );
+        }
+      } catch (err) {
+        console.error("[api/agents/chat] transcription limit check failed:", err);
+      }
+    }
+
     const userId = session.user.id;
 
     // ── Usage limits (fail-open if tables missing) ─────────────────────────
     step = "usage-limits";
-    let planLimits: { agentMessagesPerDay: number; agentMessagesPerWeek: number } = {
-      ...PLANS.pro.limits,
-    };
+    let planLimits: {
+      agentMessagesPerDay: number;
+      agentMessagesPerWeek: number;
+      transcriptionMinutesPerDay: number;
+      transcriptionMinutesPerMonth: number;
+    } = { ...PLANS.pro.limits };
 
     try {
       const subscription = await db.subscription.findFirst({ where: { userId } });
@@ -323,6 +389,26 @@ export async function POST(
       }
     }
     const parsedByUrl = new Map(parsedCurrent.map((p) => [p.url, p]));
+
+    // Record transcription usage now that we've actually processed audio
+    // (size-based estimate: 1 MB ~ 1 minute of voice audio).
+    if (estimatedMinutesForThisRequest > 0 && allAudioAtts.length > 0) {
+      try {
+        const seconds = estimatedMinutesForThisRequest * 60;
+        // Whisper pricing ~ $0.006 per minute
+        const costUsd = estimatedMinutesForThisRequest * 0.006;
+        await db.usageRecord.create({
+          data: {
+            userId: session.user.id,
+            type: "transcription",
+            tokens: seconds,
+            costUsd,
+          },
+        });
+      } catch (err) {
+        console.error("[api/agents/chat] record transcription usage failed:", err);
+      }
+    }
 
     step = "build-anthropic-messages";
     const anthropicMessages = recentMessages.map((m, idx) => {

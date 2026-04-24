@@ -19,8 +19,14 @@ export async function GET() {
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - ((day + 6) % 7));
     startOfWeek.setHours(0, 0, 0, 0);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    let limits: { agentMessagesPerDay: number; agentMessagesPerWeek: number } = { ...PLANS.pro.limits };
+    let limits: {
+      agentMessagesPerDay: number;
+      agentMessagesPerWeek: number;
+      transcriptionMinutesPerDay: number;
+      transcriptionMinutesPerMonth: number;
+    } = { ...PLANS.pro.limits };
     try {
       const sub = await db.subscription.findUnique({ where: { userId } });
       if (sub?.planId === "plan-elite-ph") {
@@ -32,6 +38,8 @@ export async function GET() {
 
     let dailyCount = 0;
     let weeklyCount = 0;
+    let transcriptionMinutesDay = 0;
+    let transcriptionMinutesMonth = 0;
 
     try {
       const chatIds = await db.agentChat.findMany({
@@ -64,12 +72,33 @@ export async function GET() {
       console.error("[api/agents/usage] count error (tables may not exist):", err);
     }
 
+    try {
+      const [daySum, monthSum] = await Promise.all([
+        db.usageRecord.aggregate({
+          where: { userId, type: "transcription", date: { gte: startOfDay } },
+          _sum: { tokens: true },
+        }),
+        db.usageRecord.aggregate({
+          where: { userId, type: "transcription", date: { gte: startOfMonth } },
+          _sum: { tokens: true },
+        }),
+      ]);
+      transcriptionMinutesDay = Math.ceil((daySum._sum.tokens ?? 0) / 60);
+      transcriptionMinutesMonth = Math.ceil((monthSum._sum.tokens ?? 0) / 60);
+    } catch (err) {
+      console.error("[api/agents/usage] transcription aggregate error:", err);
+    }
+
     return NextResponse.json({
       daily: dailyCount,
       weekly: weeklyCount,
+      transcriptionMinutesDay,
+      transcriptionMinutesMonth,
       limits: {
         agentMessagesPerDay: limits.agentMessagesPerDay,
         agentMessagesPerWeek: limits.agentMessagesPerWeek,
+        transcriptionMinutesPerDay: limits.transcriptionMinutesPerDay,
+        transcriptionMinutesPerMonth: limits.transcriptionMinutesPerMonth,
       },
     });
   } catch (error) {
@@ -78,9 +107,13 @@ export async function GET() {
       {
         daily: 0,
         weekly: 0,
+        transcriptionMinutesDay: 0,
+        transcriptionMinutesMonth: 0,
         limits: {
           agentMessagesPerDay: PLANS.pro.limits.agentMessagesPerDay,
           agentMessagesPerWeek: PLANS.pro.limits.agentMessagesPerWeek,
+          transcriptionMinutesPerDay: PLANS.pro.limits.transcriptionMinutesPerDay,
+          transcriptionMinutesPerMonth: PLANS.pro.limits.transcriptionMinutesPerMonth,
         },
       },
       { status: 200 }

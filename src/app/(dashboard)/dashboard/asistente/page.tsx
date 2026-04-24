@@ -4,14 +4,18 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
 import { AGENTS, AGENT_IDS } from "@/lib/agents";
-import { ArrowRight, MessageCircle, Activity } from "lucide-react";
+import { ArrowRight, MessageCircle, Activity, Mic } from "lucide-react";
 
 interface AgentUsage {
   daily: number;
   weekly: number;
+  transcriptionMinutesDay: number;
+  transcriptionMinutesMonth: number;
   limits: {
     agentMessagesPerDay: number;
     agentMessagesPerWeek: number;
+    transcriptionMinutesPerDay: number;
+    transcriptionMinutesPerMonth: number;
   };
 }
 
@@ -51,43 +55,87 @@ export default function AsistentePage() {
 
         {/* Usage bar */}
         {usage && (
-          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-md shadow-violet-500/20">
-                <Activity className="h-4 w-4 text-white" />
+          <div className="grid lg:grid-cols-2 gap-4">
+            <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-md shadow-violet-500/20">
+                  <Activity className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">Mensajes a Agentes</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Consumo de mensajes</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">Uso de Agentes IA</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Mensajes enviados a los agentes</p>
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Hoy</span>
+                    <span className="text-xs font-bold tabular-nums text-gray-900 dark:text-white">
+                      {usage.daily}<span className="text-gray-400 dark:text-gray-500 font-normal"> / {usage.limits.agentMessagesPerDay}</span>
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full bg-gradient-to-r ${getBarColor(dailyPercent)} transition-all duration-700`}
+                      style={{ width: `${dailyPercent}%` }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Esta semana</span>
+                    <span className="text-xs font-bold tabular-nums text-gray-900 dark:text-white">
+                      {usage.weekly}<span className="text-gray-400 dark:text-gray-500 font-normal"> / {usage.limits.agentMessagesPerWeek}</span>
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full bg-gradient-to-r ${getBarColor(weeklyPercent)} transition-all duration-700`}
+                      style={{ width: `${weeklyPercent}%` }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Hoy</span>
-                  <span className="text-xs font-bold tabular-nums text-gray-900 dark:text-white">
-                    {usage.daily}<span className="text-gray-400 dark:text-gray-500 font-normal"> / {usage.limits.agentMessagesPerDay}</span>
-                  </span>
+
+            <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-sky-500 flex items-center justify-center shadow-md shadow-cyan-500/20">
+                  <Mic className="h-4 w-4 text-white" />
                 </div>
-                <div className="w-full h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full bg-gradient-to-r ${getBarColor(dailyPercent)} transition-all duration-700`}
-                    style={{ width: `${dailyPercent}%` }}
-                  />
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">Transcripcion de Audio</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Minutos transcritos</p>
                 </div>
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Esta semana</span>
-                  <span className="text-xs font-bold tabular-nums text-gray-900 dark:text-white">
-                    {usage.weekly}<span className="text-gray-400 dark:text-gray-500 font-normal"> / {usage.limits.agentMessagesPerWeek}</span>
-                  </span>
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Hoy</span>
+                    <span className="text-xs font-bold tabular-nums text-gray-900 dark:text-white">
+                      {usage.transcriptionMinutesDay} min<span className="text-gray-400 dark:text-gray-500 font-normal"> / {usage.limits.transcriptionMinutesPerDay}</span>
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full bg-gradient-to-r ${getBarColor(Math.min(100, (usage.transcriptionMinutesDay / (usage.limits.transcriptionMinutesPerDay || 1)) * 100))} transition-all duration-700`}
+                      style={{ width: `${Math.min(100, (usage.transcriptionMinutesDay / (usage.limits.transcriptionMinutesPerDay || 1)) * 100)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full bg-gradient-to-r ${getBarColor(weeklyPercent)} transition-all duration-700`}
-                    style={{ width: `${weeklyPercent}%` }}
-                  />
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Este mes</span>
+                    <span className="text-xs font-bold tabular-nums text-gray-900 dark:text-white">
+                      {usage.transcriptionMinutesMonth} min<span className="text-gray-400 dark:text-gray-500 font-normal"> / {usage.limits.transcriptionMinutesPerMonth}</span>
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full bg-gradient-to-r ${getBarColor(Math.min(100, (usage.transcriptionMinutesMonth / (usage.limits.transcriptionMinutesPerMonth || 1)) * 100))} transition-all duration-700`}
+                      style={{ width: `${Math.min(100, (usage.transcriptionMinutesMonth / (usage.limits.transcriptionMinutesPerMonth || 1)) * 100)}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
