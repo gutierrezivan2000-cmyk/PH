@@ -26,6 +26,7 @@ import {
 import { upload } from "@vercel/blob/client";
 import { Badge } from "@/components/ui/badge";
 import { AudioRecorder } from "@/components/dashboard/AudioRecorder";
+import { saveAudio, getPendingAudios, deleteAudio } from "@/lib/audio-storage";
 
 interface Chat {
   id: string;
@@ -46,6 +47,7 @@ interface ChatMessage {
 interface PendingAttachment {
   file: File;
   preview?: string;
+  persistedId?: string;
 }
 
 export default function AgentPage() {
@@ -109,6 +111,21 @@ export default function AgentPage() {
       .catch(console.error);
   }, [agentId, isValid]);
 
+  // Restore pending audio recordings persisted in IndexedDB
+  useEffect(() => {
+    if (!isValid) return;
+    getPendingAudios(agentId)
+      .then((audios) => {
+        if (audios.length === 0) return;
+        const restored: PendingAttachment[] = audios.map((a) => ({
+          file: new File([a.blob], a.fileName, { type: a.mimeType }),
+          persistedId: a.id,
+        }));
+        setAttachments((prev) => [...prev, ...restored].slice(0, 5));
+      })
+      .catch(() => { /* IndexedDB unavailable, ignore */ });
+  }, [agentId, isValid]);
+
   // Load messages for active chat
   useEffect(() => {
     if (!activeChatId) {
@@ -154,8 +171,14 @@ export default function AgentPage() {
     }
   };
 
-  const handleAudioRecorded = (file: File) => {
-    setAttachments((prev) => [...prev, { file }].slice(0, 5));
+  const handleAudioRecorded = async (file: File) => {
+    let persistedId: string | undefined;
+    try {
+      persistedId = await saveAudio(agentId, file);
+    } catch (err) {
+      console.warn("[audio] persist failed:", err);
+    }
+    setAttachments((prev) => [...prev, { file, persistedId }].slice(0, 5));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,6 +199,7 @@ export default function AgentPage() {
     setAttachments((prev) => {
       const att = prev[idx];
       if (att.preview) URL.revokeObjectURL(att.preview);
+      if (att.persistedId) deleteAudio(att.persistedId).catch(() => {});
       return prev.filter((_, i) => i !== idx);
     });
   };
@@ -214,7 +238,10 @@ export default function AgentPage() {
       };
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
-      attachments.forEach((a) => a.preview && URL.revokeObjectURL(a.preview));
+      attachments.forEach((a) => {
+        if (a.preview) URL.revokeObjectURL(a.preview);
+        if (a.persistedId) deleteAudio(a.persistedId).catch(() => {});
+      });
       setAttachments([]);
       if (textareaRef.current) textareaRef.current.style.height = "auto";
 
