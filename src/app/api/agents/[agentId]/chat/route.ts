@@ -363,19 +363,52 @@ export async function POST(
       console.error("[api/agents/chat] properties fetch failed:", err);
     }
 
-    // ── Load recent messages ───────────────────────────────────────────────
+    // ── Load recent messages with smart context limiting ───────────────────
+    // Pulls the most recent messages, applies a character budget walking from
+    // newest backward, and truncates very long individual messages. This keeps
+    // costs bounded for long conversations and prevents context-window blowup.
     step = "load-messages";
+    const HISTORY_MAX_MESSAGES = 50;
+    const HISTORY_CHAR_BUDGET = 40_000;
+    const PER_MESSAGE_CAP = 4_000;
+
     let recentMessages: { role: string; content: string; attachments: unknown }[] = [];
+    let totalMessageCount = 0;
+    let droppedOlderCount = 0;
+
     try {
-      recentMessages = await db.agentMessage.findMany({
+      totalMessageCount = await db.agentMessage.count({ where: { chatId: chatId! } });
+
+      const desc = await db.agentMessage.findMany({
         where: { chatId: chatId! },
-        orderBy: { createdAt: "asc" },
-        take: 30,
+        orderBy: { createdAt: "desc" },
+        take: HISTORY_MAX_MESSAGES,
         select: { role: true, content: true, attachments: true },
       });
+
+      const kept: typeof recentMessages = [];
+      let totalChars = 0;
+      for (const m of desc) {
+        let content = m.content || "";
+        if (content.length > PER_MESSAGE_CAP) {
+          content =
+            content.slice(0, PER_MESSAGE_CAP) +
+            `\n\n[...mensaje truncado: ${content.length - PER_MESSAGE_CAP} caracteres omitidos]`;
+        }
+        if (totalChars + content.length > HISTORY_CHAR_BUDGET && kept.length >= 4) break;
+        kept.unshift({ role: m.role, content, attachments: m.attachments });
+        totalChars += content.length;
+      }
+
+      recentMessages = kept;
+      droppedOlderCount = Math.max(0, totalMessageCount - recentMessages.length);
     } catch (err) {
       console.error("[api/agents/chat] load messages failed:", err);
       recentMessages = [{ role: "user", content: message, attachments: null }];
+    }
+
+    if (droppedOlderCount > 0) {
+      systemPrompt += `\n\n[Nota de contexto: Esta conversacion tiene ${totalMessageCount} mensajes en total. Por longitud, solo se incluyen los ${recentMessages.length} mensajes mas recientes. Los ${droppedOlderCount} mensajes anteriores fueron omitidos. Si el usuario menciona algo de antes, pidele que te recuerde el contexto.]`;
     }
 
     // Parse documents from the current message (extract text from PDFs, DOCX, XLSX, audio)
