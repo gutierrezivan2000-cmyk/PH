@@ -407,9 +407,13 @@ export async function POST(
       recentMessages = [{ role: "user", content: message, attachments: null }];
     }
 
-    if (droppedOlderCount > 0) {
-      systemPrompt += `\n\n[Nota de contexto: Esta conversacion tiene ${totalMessageCount} mensajes en total. Por longitud, solo se incluyen los ${recentMessages.length} mensajes mas recientes. Los ${droppedOlderCount} mensajes anteriores fueron omitidos. Si el usuario menciona algo de antes, pidele que te recuerde el contexto.]`;
-    }
+    // Volatile addendum kept OUT of systemPrompt so the prefix stays cacheable.
+    // Counts change every request; including them in the cached block would
+    // invalidate the cache on every send.
+    const volatileSystemNote =
+      droppedOlderCount > 0
+        ? `[Nota de contexto: Esta conversacion tiene ${totalMessageCount} mensajes en total. Por longitud, solo se incluyen los ${recentMessages.length} mensajes mas recientes. Los ${droppedOlderCount} mensajes anteriores fueron omitidos. Si el usuario menciona algo de antes, pidele que te recuerde el contexto.]`
+        : null;
 
     // Parse documents from the current message (extract text from PDFs, DOCX, XLSX, audio)
     step = "parse-current-attachments";
@@ -508,11 +512,31 @@ export async function POST(
               encoder.encode(`event: meta\ndata: ${JSON.stringify({ chatId, title })}\n\n`)
             );
 
+            // Stable system prefix is marked cacheable (5-min ephemeral). The
+            // volatile note (if any) is appended as a separate block AFTER the
+            // cache breakpoint so its per-request changes don't invalidate the
+            // cached prefix. Min cacheable prefix on Haiku 4.5 is 4096 tokens —
+            // shorter prompts silently won't cache, but the marker is harmless.
+            const systemBlocks: Array<{
+              type: "text";
+              text: string;
+              cache_control?: { type: "ephemeral" };
+            }> = [
+              {
+                type: "text",
+                text: systemPrompt,
+                cache_control: { type: "ephemeral" },
+              },
+            ];
+            if (volatileSystemNote) {
+              systemBlocks.push({ type: "text", text: volatileSystemNote });
+            }
+
             const stream = anthropic.messages.stream({
               model: "claude-haiku-4-5-20251001",
               max_tokens: 2048,
               temperature: 0.5,
-              system: systemPrompt,
+              system: systemBlocks,
               messages: anthropicMessages,
             });
 
