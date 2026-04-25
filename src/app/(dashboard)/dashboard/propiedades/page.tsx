@@ -235,7 +235,7 @@ export default function PropiedadesPage() {
   return (
     <div>
       <Header title="Mis Propiedades" />
-      <div className="p-8 max-w-3xl space-y-6">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-3xl space-y-6">
         <div className="flex justify-between items-center">
           <p className="text-muted-foreground text-sm">
             Administra las propiedades horizontales que gestionas
@@ -288,7 +288,7 @@ export default function PropiedadesPage() {
                     className="rounded-xl border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-foreground mb-1.5 block">
                       Ciudad
@@ -389,7 +389,7 @@ export default function PropiedadesPage() {
                         className="rounded-xl border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 focus:border-violet-300 focus:ring-violet-200 transition-all duration-200"
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-medium text-foreground mb-1.5 block">
                           Ciudad
@@ -437,9 +437,9 @@ export default function PropiedadesPage() {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center gap-4 p-5">
-                    <div className="w-12 h-12 bg-gradient-to-br from-violet-500/20 to-purple-500/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
-                      <Building className="h-6 w-6 text-violet-600 dark:text-violet-400" />
+                  <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-violet-500/20 to-purple-500/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
+                      <Building className="h-5 w-5 sm:h-6 sm:w-6 text-violet-600 dark:text-violet-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold truncate">{property.name}</p>
@@ -461,7 +461,7 @@ export default function PropiedadesPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 flex-shrink-0">
                       <button
                         onClick={() => toggleExpand(property.id)}
                         className="p-2 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-500/10 text-muted-foreground hover:text-violet-600 dark:hover:text-violet-400 transition-all"
@@ -475,14 +475,14 @@ export default function PropiedadesPage() {
                       </button>
                       <button
                         onClick={() => startEditing(property)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-500/10 text-muted-foreground hover:text-violet-600 dark:hover:text-violet-400"
+                        className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200 p-2 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-500/10 text-muted-foreground hover:text-violet-600 dark:hover:text-violet-400"
                         title="Editar propiedad"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(property.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
+                        className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                         title="Eliminar propiedad"
                       >
                         <Trash2 className="h-4 w-4" />

@@ -154,7 +154,7 @@ export default function LandingPage() {
       </nav>
 
       {/* ── HERO ── */}
-      <section className="relative pt-32 pb-24 px-6">
+      <section className="relative pt-24 sm:pt-32 pb-16 sm:pb-24 px-4 sm:px-6">
         {/* Background orbs */}
         <div className="absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full bg-violet-600/15 blur-[150px] animate-orb" />
         <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-indigo-500/15 blur-[130px] animate-orb-delayed" />

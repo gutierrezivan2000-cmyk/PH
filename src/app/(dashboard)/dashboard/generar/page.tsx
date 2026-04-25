@@ -189,7 +189,7 @@ export default function GenerarPage() {
   return (
     <div>
       <Header title="Generar Documentos" subtitle="Crea informes, actas y presentaciones con IA" />
-      <div className="p-6 lg:p-8 max-w-3xl mx-auto">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-3xl mx-auto">
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <div className="bg-red-50/80 dark:bg-red-500/10 backdrop-blur border border-red-200/50 dark:border-red-500/20 text-red-700 dark:text-red-300 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm shadow-sm">
@@ -239,7 +239,7 @@ export default function GenerarPage() {
                 <p className="text-xs text-gray-500 dark:text-gray-400">Mes y ano que cubriran los documentos generados</p>
               </div>
             </div>
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <select
                 value={month}
                 onChange={(e) => setMonth(parseInt(e.target.value))}
@@ -255,7 +255,7 @@ export default function GenerarPage() {
                 onChange={(e) => setYear(parseInt(e.target.value))}
                 min={2020}
                 max={2030}
-                className="w-28 rounded-2xl border-gray-200 dark:border-white/10 bg-white dark:bg-white/5"
+                className="w-full sm:w-28 rounded-2xl border-gray-200 dark:border-white/10 bg-white dark:bg-white/5"
               />
             </div>
           </div>
@@ -378,7 +378,7 @@ export default function GenerarPage() {
               </div>
             </div>
 
-            <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-white/10 rounded-2xl p-10 cursor-pointer hover:border-violet-300 dark:hover:border-violet-500/30 hover:bg-violet-50/30 dark:hover:bg-violet-500/10 transition-all duration-300">
+            <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-white/10 rounded-2xl p-6 sm:p-10 cursor-pointer hover:border-violet-300 dark:hover:border-violet-500/30 hover:bg-violet-50/30 dark:hover:bg-violet-500/10 transition-all duration-300">
               <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-500 rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-violet-500/20">
                 <Upload className="h-7 w-7 text-white" />
               </div>

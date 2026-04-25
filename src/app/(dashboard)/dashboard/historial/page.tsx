@@ -48,7 +48,7 @@ export default function HistorialPage() {
   return (
     <div>
       <Header title="Historial" subtitle="Todos los documentos que has generado" />
-      <div className="p-6 lg:p-8 max-w-3xl mx-auto space-y-5">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-3xl mx-auto space-y-5">
 
         {loading && (
           <div className="flex items-center justify-center py-20">
@@ -81,7 +81,7 @@ export default function HistorialPage() {
                 className="group bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl hover:shadow-xl hover:shadow-violet-100/20 dark:hover:shadow-black/20 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                <div className="flex items-center gap-4 p-5">
+                <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5">
                   <div className="w-11 h-11 bg-gradient-to-br from-violet-100/80 to-purple-100/80 dark:from-violet-500/20 dark:to-purple-500/20 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
                     <FileText className="h-5 w-5 text-violet-600 dark:text-violet-400" />
                   </div>

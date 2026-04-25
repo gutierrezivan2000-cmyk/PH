@@ -95,7 +95,7 @@ export default function ConfiguracionPage() {
   return (
     <div>
       <Header title="Configuracion" />
-      <div className="p-8 max-w-2xl space-y-6">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-2xl space-y-6">
         {/* Profile Card */}
         <Card>
           <CardHeader className="pb-4">
@@ -170,7 +170,7 @@ export default function ConfiguracionPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium mb-1.5 block flex items-center gap-1.5">
                       <Phone className="h-3.5 w-3.5" /> Telefono

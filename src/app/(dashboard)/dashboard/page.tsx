@@ -103,7 +103,7 @@ export default function DashboardPage() {
   return (
     <div>
       <Header title="Dashboard" subtitle="Bienvenido a tu panel de gestion" />
-      <div className="p-6 lg:p-10 space-y-10 max-w-7xl mx-auto">
+      <div className="px-4 sm:px-6 lg:p-10 py-6 lg:py-10 space-y-8 sm:space-y-10 max-w-7xl mx-auto">
 
         {/* Hero */}
         <div className="relative overflow-hidden rounded-[2rem] shadow-2xl shadow-violet-500/20">
@@ -115,7 +115,7 @@ export default function DashboardPage() {
           </div>
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.08),transparent_60%)]" />
 
-          <div className="relative p-8 lg:p-12">
+          <div className="relative p-5 sm:p-8 lg:p-12">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
               <div className="max-w-2xl">
                 <div className="flex items-center gap-2 mb-4">
@@ -191,7 +191,7 @@ export default function DashboardPage() {
               Ver todos <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
             {AGENT_IDS.map((id) => {
               const agent = AGENTS[id];
               return (

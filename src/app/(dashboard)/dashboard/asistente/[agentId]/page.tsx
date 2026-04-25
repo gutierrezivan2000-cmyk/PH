@@ -476,7 +476,7 @@ export default function AgentPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-[calc(100dvh-52px)] lg:h-screen">
       <Header
         title={agent.name}
         subtitle={agent.title}
@@ -487,93 +487,105 @@ export default function AgentPage() {
       />
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Chat sidebar */}
+        {/* Chat sidebar — overlay on mobile, inline on lg+ */}
         {showSidebar && (
-          <div className="w-64 lg:w-72 border-r border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.02] flex flex-col flex-shrink-0">
-            <div className="p-3 border-b border-gray-200 dark:border-white/10">
-              <Button
-                onClick={startNewChat}
-                className="w-full gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-md shadow-violet-500/20 h-9 text-xs"
-                size="sm"
-              >
-                <Plus className="h-3.5 w-3.5" /> Nuevo chat
-              </Button>
-            </div>
+          <>
+            <div
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 lg:hidden"
+              onClick={() => setShowSidebar(false)}
+            />
+            <div className="fixed inset-y-0 left-0 z-40 w-[280px] sm:w-[300px] lg:relative lg:inset-auto lg:z-auto lg:w-64 xl:w-72 border-r border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#12141f]/95 lg:dark:bg-white/[0.02] flex flex-col flex-shrink-0 lg:backdrop-blur-none dark:backdrop-blur-2xl lg:dark:backdrop-blur-none shadow-2xl lg:shadow-none">
+              <div className="p-3 border-b border-gray-200 dark:border-white/10 flex items-center gap-2">
+                <Button
+                  onClick={startNewChat}
+                  className="flex-1 gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-md shadow-violet-500/20 h-9 text-xs"
+                  size="sm"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Nuevo chat
+                </Button>
+                <button
+                  onClick={() => setShowSidebar(false)}
+                  className="lg:hidden p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                >
+                  <X className="h-4 w-4 text-gray-500" />
+                </button>
+              </div>
 
-            <div className="flex-1 overflow-y-auto py-2">
-              {loadingChats ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                </div>
-              ) : chats.length === 0 ? (
-                <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-8 px-4">
-                  No tienes conversaciones con {agent.name}. Empieza una nueva.
-                </p>
-              ) : (
-                chats.map((chat) => (
-                  <div
-                    key={chat.id}
-                    className={`group flex items-center gap-2 px-3 py-2.5 mx-2 rounded-xl cursor-pointer transition-all text-xs ${
-                      activeChatId === chat.id
-                        ? "bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300"
-                        : "hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300"
-                    }`}
-                    onClick={() => setActiveChatId(chat.id)}
-                  >
-                    <MessageCircle className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
-                    <span className="flex-1 truncate font-medium">{chat.title}</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-500/10 transition-all"
-                    >
-                      <Trash2 className="h-3 w-3 text-gray-400 hover:text-red-500" />
-                    </button>
+              <div className="flex-1 overflow-y-auto py-2">
+                {loadingChats ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                   </div>
-                ))
-              )}
-            </div>
+                ) : chats.length === 0 ? (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-8 px-4">
+                    No tienes conversaciones con {agent.name}. Empieza una nueva.
+                  </p>
+                ) : (
+                  chats.map((chat) => (
+                    <div
+                      key={chat.id}
+                      className={`group flex items-center gap-2 px-3 py-2.5 mx-2 rounded-xl cursor-pointer transition-all text-xs ${
+                        activeChatId === chat.id
+                          ? "bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300"
+                          : "hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300"
+                      }`}
+                      onClick={() => { setActiveChatId(chat.id); if (window.innerWidth < 1024) setShowSidebar(false); }}
+                    >
+                      <MessageCircle className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
+                      <span className="flex-1 truncate font-medium">{chat.title}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-500/10 transition-all"
+                      >
+                        <Trash2 className="h-3 w-3 text-gray-400 hover:text-red-500" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
 
-            {/* Memory */}
-            <div className="border-t border-gray-200 dark:border-white/10 p-3">
-              <button
-                onClick={() => setShowMemory(!showMemory)}
-                className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors w-full"
-              >
-                <Brain className="h-3.5 w-3.5" />
-                Memoria del agente
-                <ChevronRight className={`h-3 w-3 ml-auto transition-transform ${showMemory ? "rotate-90" : ""}`} />
-              </button>
-              {showMemory && (
-                <div className="mt-2 space-y-2">
-                  <textarea
-                    value={memory}
-                    onChange={(e) => setMemory(e.target.value)}
-                    rows={4}
-                    placeholder="Escribe notas que el agente recordara entre sesiones..."
-                    className="w-full text-xs px-3 py-2 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl resize-none focus:outline-none focus:ring-1 focus:ring-violet-400/50"
-                    maxLength={10000}
-                  />
-                  <Button
-                    onClick={saveMemory}
-                    disabled={savingMemory}
-                    size="sm"
-                    className="w-full h-7 text-xs rounded-lg"
-                  >
-                    {savingMemory ? "Guardando..." : "Guardar memoria"}
-                  </Button>
-                </div>
-              )}
+              {/* Memory */}
+              <div className="border-t border-gray-200 dark:border-white/10 p-3">
+                <button
+                  onClick={() => setShowMemory(!showMemory)}
+                  className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors w-full"
+                >
+                  <Brain className="h-3.5 w-3.5" />
+                  Memoria del agente
+                  <ChevronRight className={`h-3 w-3 ml-auto transition-transform ${showMemory ? "rotate-90" : ""}`} />
+                </button>
+                {showMemory && (
+                  <div className="mt-2 space-y-2">
+                    <textarea
+                      value={memory}
+                      onChange={(e) => setMemory(e.target.value)}
+                      rows={4}
+                      placeholder="Escribe notas que el agente recordara entre sesiones..."
+                      className="w-full text-xs px-3 py-2 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl resize-none focus:outline-none focus:ring-1 focus:ring-violet-400/50"
+                      maxLength={10000}
+                    />
+                    <Button
+                      onClick={saveMemory}
+                      disabled={savingMemory}
+                      size="sm"
+                      className="w-full h-7 text-xs rounded-lg"
+                    >
+                      {savingMemory ? "Guardando..." : "Guardar memoria"}
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* Chat area */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Toggle sidebar on mobile */}
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200 dark:border-white/10">
+          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-gray-200 dark:border-white/10">
             <button
               onClick={() => setShowSidebar(!showSidebar)}
-              className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors flex-shrink-0"
             >
               <MessageCircle className="h-4 w-4 text-gray-500" />
             </button>
@@ -581,7 +593,7 @@ export default function AgentPage() {
               {activeChatId ? chats.find((c) => c.id === activeChatId)?.title : "Nueva conversacion"}
             </span>
             {activeChatId && messages.length > 0 && (
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <button
                   onClick={() => setShowExportMenu(!showExportMenu)}
                   disabled={exporting}
@@ -619,14 +631,14 @@ export default function AgentPage() {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto">
             {!activeChatId && messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center px-6">
-                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${agent.gradient} flex items-center justify-center mb-4 shadow-lg`}>
-                  <agent.icon className="h-8 w-8 text-white" />
+              <div className="flex flex-col items-center justify-center h-full text-center px-4 sm:px-6">
+                <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br ${agent.gradient} flex items-center justify-center mb-3 sm:mb-4 shadow-lg`}>
+                  <agent.icon className="h-7 w-7 sm:h-8 sm:w-8 text-white" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-2">
                   {agent.name}
                 </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mb-1">
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 max-w-sm mb-1">
                   {agent.title}
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500 max-w-md leading-relaxed">
@@ -638,7 +650,7 @@ export default function AgentPage() {
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
               </div>
             ) : (
-              <div className="p-6 lg:p-8 max-w-3xl mx-auto space-y-4">
+              <div className="p-3 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-4">
                 {messages.map((msg) => (
                   <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                     {msg.role === "assistant" && (
@@ -646,7 +658,7 @@ export default function AgentPage() {
                         <Bot className="h-4 w-4 text-white" />
                       </div>
                     )}
-                    <div className="max-w-[80%] space-y-2">
+                    <div className="max-w-[85%] sm:max-w-[80%] space-y-2">
                       {msg.attachments && msg.attachments.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 justify-end">
                           {msg.attachments.map((att, i) => (
@@ -690,8 +702,8 @@ export default function AgentPage() {
 
           {/* Attachment previews */}
           {attachments.length > 0 && (
-            <div className="px-4 sm:px-6 lg:px-8 pt-2">
-              <div className="max-w-3xl mx-auto flex flex-wrap gap-2">
+            <div className="px-3 sm:px-6 lg:px-8 pt-2">
+              <div className="max-w-3xl mx-auto flex flex-wrap gap-1.5 sm:gap-2">
                 {attachments.map((att, i) => (
                   <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-white/10 rounded-xl border border-gray-200 dark:border-white/10">
                     {att.preview ? (
@@ -711,7 +723,7 @@ export default function AgentPage() {
           )}
 
           {/* Input area */}
-          <div className="border-t border-gray-200 dark:border-white/10 bg-white dark:bg-[#12141f]/60 dark:backdrop-blur-2xl px-4 sm:px-6 lg:px-8 py-3">
+          <div className="border-t border-gray-200 dark:border-white/10 bg-white dark:bg-[#12141f]/60 dark:backdrop-blur-2xl px-3 sm:px-6 lg:px-8 py-2 sm:py-3">
             <div className="max-w-3xl mx-auto">
               {uploadStatus && (
                 <p className="text-xs text-violet-600 mb-1">{uploadStatus}</p>

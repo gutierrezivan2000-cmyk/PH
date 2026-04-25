@@ -130,7 +130,7 @@ export default function SuscripcionPage() {
       )}
 
       <Header title="Suscripcion" subtitle="Gestiona tu plan y uso" />
-      <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-4xl mx-auto space-y-6">
         <UsageCard />
 
         {error && (
@@ -156,7 +156,7 @@ export default function SuscripcionPage() {
                 </div>
               </div>
 
-              <div className="p-8 pt-10">
+              <div className="p-5 pt-8 sm:p-8 sm:pt-10">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-0.5">{plan.name}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{plan.description}</p>
 
