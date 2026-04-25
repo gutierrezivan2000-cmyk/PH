@@ -564,6 +564,53 @@ export async function POST(
               }
             }
 
+            // Auto-generate a semantic 3-5 word title for new chats. We already
+            // pushed a truncated-message title in the meta event for instant
+            // feedback; this replaces it with something better and emits a
+            // title_update event so the client can refresh its sidebar.
+            if (isNewChat && chatId && fullReply) {
+              try {
+                const titleResp = await anthropic.messages.create({
+                  model: "claude-haiku-4-5-20251001",
+                  max_tokens: 30,
+                  temperature: 0.3,
+                  system:
+                    "Eres un generador de titulos de chat. Dada una conversacion, devuelve UNICAMENTE un titulo conciso de 3 a 5 palabras en espanol que resuma el tema. Sin comillas, sin preambulo, sin punto final. Solo el titulo.",
+                  messages: [
+                    {
+                      role: "user",
+                      content: `USUARIO: ${message.slice(0, 500)}\n\nASISTENTE: ${fullReply.slice(0, 500)}`,
+                    },
+                  ],
+                });
+                const raw =
+                  titleResp.content[0]?.type === "text"
+                    ? titleResp.content[0].text
+                    : "";
+                const generatedTitle = raw
+                  .trim()
+                  .replace(/^["'`]+|["'`.\s]+$/g, "")
+                  .slice(0, 80);
+                if (generatedTitle && generatedTitle.length >= 3) {
+                  try {
+                    await db.agentChat.update({
+                      where: { id: chatId },
+                      data: { title: generatedTitle },
+                    });
+                    controller.enqueue(
+                      encoder.encode(
+                        `event: title_update\ndata: ${JSON.stringify({ title: generatedTitle })}\n\n`
+                      )
+                    );
+                  } catch (err) {
+                    console.error("[api/agents/chat] semantic title update failed:", err);
+                  }
+                }
+              } catch (err) {
+                console.error("[api/agents/chat] semantic title generation failed:", err);
+              }
+            }
+
             controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
             controller.close();
           } catch (err) {

@@ -349,6 +349,18 @@ export default function AgentPage() {
                   );
                 }
               } catch { /* ignore */ }
+            } else if (eventType === "title_update") {
+              try {
+                const { title: newTitle } = JSON.parse(data);
+                const targetChatId = newChatId || activeChatId;
+                if (newTitle && targetChatId) {
+                  setChats((prev) =>
+                    prev.map((c) =>
+                      c.id === targetChatId ? { ...c, title: newTitle } : c
+                    )
+                  );
+                }
+              } catch { /* ignore */ }
             }
           }
         }
