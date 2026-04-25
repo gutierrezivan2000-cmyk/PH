@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { MessageCircle, Send, X, Sparkles, Bot } from "lucide-react";
 
 interface ChatMessage {
@@ -11,6 +12,7 @@ interface ChatMessage {
 
 export function ChatBot() {
   const { data: session } = useSession();
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -88,6 +90,8 @@ export function ChatBot() {
     }
   };
 
+  const isAgentChat = /^\/dashboard\/asistente\/[^/]+$/.test(pathname);
+
   // Don't render if not authenticated
   if (!session?.user) return null;
 
@@ -99,7 +103,7 @@ export function ChatBot() {
           isOpen
             ? "opacity-100 translate-y-0 pointer-events-auto"
             : "opacity-0 translate-y-4 pointer-events-none"
-        }`}
+        } ${isAgentChat ? "hidden lg:block" : ""}`}
       >
         <div className="flex flex-col h-[520px] max-h-[70vh] rounded-3xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#12141f]/90 dark:backdrop-blur-xl shadow-2xl shadow-gray-200/50 dark:shadow-black/30 overflow-hidden">
           {/* Header */}
@@ -207,7 +211,7 @@ export function ChatBot() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-4 sm:right-6 z-50 w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 shadow-lg ${
+        className={`fixed bottom-6 right-4 sm:right-6 z-50 w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 shadow-lg ${isAgentChat ? "hidden lg:flex" : ""} ${
           isOpen
             ? "bg-gray-700 hover:bg-gray-800 shadow-gray-500/20 rotate-0"
             : "bg-gradient-to-br from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-violet-500/30 animate-subtle-pulse"
