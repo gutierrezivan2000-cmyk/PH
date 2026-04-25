@@ -449,50 +449,7 @@ export async function POST(
       return { role: m.role as "user" | "assistant", content: m.content };
     });
 
-    // ── Call Anthropic API ──────────────────────────────────────────────────
-    step = "call-anthropic";
-    let reply = "";
-    try {
-      const { default: Anthropic } = await import("@anthropic-ai/sdk");
-      const anthropic = new Anthropic();
-
-      const response = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 2048,
-        temperature: 0.5,
-        system: systemPrompt,
-        messages: anthropicMessages,
-      });
-
-      reply =
-        response.content[0]?.type === "text" ? response.content[0].text : "";
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      console.error("[api/agents/chat] Anthropic API error:", errMsg, err);
-      return NextResponse.json(
-        { error: `Error del servicio de IA: ${errMsg}` },
-        { status: 502 }
-      );
-    }
-
-    if (!reply) {
-      return NextResponse.json(
-        { error: "El agente no pudo generar una respuesta." },
-        { status: 500 }
-      );
-    }
-
-    // ── Save assistant message ──────────────────────────────────────────────
-    step = "save-assistant-message";
-    try {
-      await db.agentMessage.create({
-        data: { chatId: chatId!, role: "assistant", content: reply },
-      });
-    } catch (err) {
-      console.error("[api/agents/chat] save assistant message failed:", err);
-    }
-
-    // ── Update chat title for new chats ─────────────────────────────────────
+    // ── Update chat title for new chats (before stream) ───────────────────
     step = "update-title";
     let title: string | undefined;
     if (isNewChat) {
@@ -504,7 +461,82 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ chatId, reply, title });
+    // ── Stream response from Anthropic API ─────────────────────────────────
+    step = "stream-anthropic";
+    try {
+      const { default: Anthropic } = await import("@anthropic-ai/sdk");
+      const anthropic = new Anthropic();
+      const encoder = new TextEncoder();
+
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            controller.enqueue(
+              encoder.encode(`event: meta\ndata: ${JSON.stringify({ chatId, title })}\n\n`)
+            );
+
+            const stream = anthropic.messages.stream({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 2048,
+              temperature: 0.5,
+              system: systemPrompt,
+              messages: anthropicMessages,
+            });
+
+            let fullReply = "";
+
+            for await (const event of stream) {
+              if (
+                event.type === "content_block_delta" &&
+                event.delta.type === "text_delta"
+              ) {
+                fullReply += event.delta.text;
+                controller.enqueue(
+                  encoder.encode(`event: delta\ndata: ${JSON.stringify({ text: event.delta.text })}\n\n`)
+                );
+              }
+            }
+
+            if (fullReply) {
+              try {
+                await db.agentMessage.create({
+                  data: { chatId: chatId!, role: "assistant", content: fullReply },
+                });
+              } catch (err) {
+                console.error("[api/agents/chat] save assistant message failed:", err);
+              }
+            }
+
+            controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
+            controller.close();
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            console.error("[api/agents/chat] stream error:", errMsg);
+            try {
+              controller.enqueue(
+                encoder.encode(`event: error\ndata: ${JSON.stringify({ error: `Error del servicio de IA: ${errMsg}` })}\n\n`)
+              );
+            } catch { /* controller may already be errored */ }
+            try { controller.close(); } catch { /* ignore */ }
+          }
+        },
+      });
+
+      return new Response(readable, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error("[api/agents/chat] Anthropic init error:", errMsg, err);
+      return NextResponse.json(
+        { error: `Error del servicio de IA: ${errMsg}` },
+        { status: 502 }
+      );
+    }
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
     console.error(`[api/agents/chat] Error at step '${step}':`, errMsg, error);

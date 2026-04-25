@@ -204,7 +204,7 @@ export default function AgentPage() {
 
       setUploadStatus("");
 
-      // Optimistic message
+      // Optimistic user message
       const userMsg: ChatMessage = {
         id: `temp-${Date.now()}`,
         role: "user",
@@ -228,37 +228,135 @@ export default function AgentPage() {
         }),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
+        let errorMsg = "Error al enviar.";
+        try {
+          const data = await res.json();
+          errorMsg = data.error || errorMsg;
+        } catch { /* ignore parse error */ }
         setMessages((prev) => [
           ...prev,
-          { id: `err-${Date.now()}`, role: "assistant", content: data.error || "Error al enviar.", createdAt: new Date().toISOString() },
+          { id: `err-${Date.now()}`, role: "assistant", content: errorMsg, createdAt: new Date().toISOString() },
         ]);
         return;
       }
 
-      // Set active chat if new
-      if (!activeChatId && data.chatId) {
-        setActiveChatId(data.chatId);
-        setChats((prev) => [
-          { id: data.chatId, title: data.title || "Nueva conversacion", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), _count: { messages: 2 } },
-          ...prev,
-        ]);
-      } else {
-        setChats((prev) =>
-          prev.map((c) =>
-            c.id === activeChatId
-              ? { ...c, updatedAt: new Date().toISOString(), _count: { messages: c._count.messages + 2 } }
-              : c
-          )
-        );
-      }
+      const contentType = res.headers.get("content-type") || "";
 
-      setMessages((prev) => [
-        ...prev,
-        { id: `asst-${Date.now()}`, role: "assistant", content: data.reply, createdAt: new Date().toISOString() },
-      ]);
+      if (contentType.includes("text/event-stream") && res.body) {
+        const assistantMsgId = `asst-${Date.now()}`;
+        let assistantMsgAdded = false;
+        let newChatId: string | null = null;
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() || "";
+
+          for (const part of parts) {
+            if (!part.trim()) continue;
+            let eventType = "message";
+            let data = "";
+            for (const line of part.split("\n")) {
+              if (line.startsWith("event: ")) eventType = line.slice(7);
+              else if (line.startsWith("data: ")) data = line.slice(6);
+            }
+            if (!data) continue;
+
+            if (eventType === "meta") {
+              try {
+                const meta = JSON.parse(data);
+                newChatId = meta.chatId;
+                if (meta.chatId && !activeChatId) {
+                  setActiveChatId(meta.chatId);
+                  setChats((prev) => [
+                    {
+                      id: meta.chatId,
+                      title: meta.title || "Nueva conversacion",
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                      _count: { messages: 2 },
+                    },
+                    ...prev,
+                  ]);
+                }
+              } catch { /* ignore */ }
+            } else if (eventType === "delta") {
+              try {
+                const { text } = JSON.parse(data);
+                if (!assistantMsgAdded) {
+                  setMessages((prev) => [
+                    ...prev,
+                    { id: assistantMsgId, role: "assistant", content: text, createdAt: new Date().toISOString() },
+                  ]);
+                  assistantMsgAdded = true;
+                } else {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantMsgId ? { ...m, content: m.content + text } : m
+                    )
+                  );
+                }
+              } catch { /* ignore */ }
+            } else if (eventType === "error") {
+              try {
+                const { error } = JSON.parse(data);
+                if (!assistantMsgAdded) {
+                  setMessages((prev) => [
+                    ...prev,
+                    { id: assistantMsgId, role: "assistant", content: error || "Error del agente.", createdAt: new Date().toISOString() },
+                  ]);
+                  assistantMsgAdded = true;
+                } else {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantMsgId ? { ...m, content: m.content + "\n\n" + error } : m
+                    )
+                  );
+                }
+              } catch { /* ignore */ }
+            }
+          }
+        }
+
+        if (activeChatId) {
+          setChats((prev) =>
+            prev.map((c) =>
+              c.id === activeChatId
+                ? { ...c, updatedAt: new Date().toISOString(), _count: { messages: c._count.messages + 2 } }
+                : c
+            )
+          );
+        }
+      } else {
+        const data = await res.json();
+        if (!activeChatId && data.chatId) {
+          setActiveChatId(data.chatId);
+          setChats((prev) => [
+            { id: data.chatId, title: data.title || "Nueva conversacion", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), _count: { messages: 2 } },
+            ...prev,
+          ]);
+        } else {
+          setChats((prev) =>
+            prev.map((c) =>
+              c.id === activeChatId
+                ? { ...c, updatedAt: new Date().toISOString(), _count: { messages: c._count.messages + 2 } }
+                : c
+            )
+          );
+        }
+        setMessages((prev) => [
+          ...prev,
+          { id: `asst-${Date.now()}`, role: "assistant", content: data.reply, createdAt: new Date().toISOString() },
+        ]);
+      }
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -462,7 +560,7 @@ export default function AgentPage() {
                   </div>
                 ))}
 
-                {isLoading && (
+                {isLoading && (messages.length === 0 || messages[messages.length - 1]?.role === "user") && (
                   <div className="flex justify-start">
                     <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${agent.gradient} flex items-center justify-center mr-3 mt-1 flex-shrink-0`}>
                       <Bot className="h-4 w-4 text-white" />
