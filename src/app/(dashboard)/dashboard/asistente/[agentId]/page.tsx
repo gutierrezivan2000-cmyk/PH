@@ -22,6 +22,7 @@ import {
   Image as ImageIcon,
   Mic,
   FileText,
+  Download,
 } from "lucide-react";
 import { upload } from "@vercel/blob/client";
 import { Badge } from "@/components/ui/badge";
@@ -69,6 +70,8 @@ export default function AgentPage() {
   const [savingMemory, setSavingMemory] = useState(false);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [uploadStatus, setUploadStatus] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -81,6 +84,13 @@ export default function AgentPage() {
   }, []);
 
   useEffect(() => { scrollToBottom(); }, [messages, isLoading, scrollToBottom]);
+
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const close = () => setShowExportMenu(false);
+    document.addEventListener("click", close, { once: true });
+    return () => document.removeEventListener("click", close);
+  }, [showExportMenu]);
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
@@ -432,6 +442,33 @@ export default function AgentPage() {
     }
   };
 
+  const exportChat = async (format: "txt" | "pdf") => {
+    if (!activeChatId || exporting) return;
+    setExporting(true);
+    setShowExportMenu(false);
+    try {
+      const res = await fetch(
+        `/api/agents/${agentId}/chat/export?chatId=${activeChatId}&format=${format}`
+      );
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const disposition = res.headers.get("content-disposition") || "";
+      const match = disposition.match(/filename="(.+)"/);
+      a.download = match ? match[1] : `chat.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      // ignore
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const getFileIcon = (type: string) => {
     if (type.startsWith("image/")) return <ImageIcon className="h-3.5 w-3.5" />;
     if (type.startsWith("audio/")) return <Mic className="h-3.5 w-3.5" />;
@@ -533,16 +570,50 @@ export default function AgentPage() {
         {/* Chat area */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Toggle sidebar on mobile */}
-          <div className="lg:hidden flex items-center gap-2 px-4 py-2 border-b border-gray-200 dark:border-white/10">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200 dark:border-white/10">
             <button
               onClick={() => setShowSidebar(!showSidebar)}
-              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+              className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
             >
               <MessageCircle className="h-4 w-4 text-gray-500" />
             </button>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-gray-500 flex-1 truncate">
               {activeChatId ? chats.find((c) => c.id === activeChatId)?.title : "Nueva conversacion"}
             </span>
+            {activeChatId && messages.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  disabled={exporting}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors disabled:opacity-40"
+                  title="Exportar conversacion"
+                >
+                  {exporting ? (
+                    <Loader2 className="h-4 w-4 text-gray-500 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 text-gray-500" />
+                  )}
+                </button>
+                {showExportMenu && (
+                  <div className="absolute right-0 top-full mt-1 bg-white dark:bg-[#1e2030] border border-gray-200 dark:border-white/10 rounded-xl shadow-lg z-50 py-1 min-w-[140px]">
+                    <button
+                      onClick={() => exportChat("txt")}
+                      className="w-full px-3 py-2 text-left text-xs hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-gray-400" />
+                      Exportar TXT
+                    </button>
+                    <button
+                      onClick={() => exportChat("pdf")}
+                      className="w-full px-3 py-2 text-left text-xs hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-red-400" />
+                      Exportar PDF
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Messages */}
