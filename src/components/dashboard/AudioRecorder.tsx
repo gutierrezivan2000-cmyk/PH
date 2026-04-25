@@ -20,7 +20,29 @@ export function AudioRecorder({ onRecorded, disabled, maxSeconds = 300 }: AudioR
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cancelledRef = useRef(false);
 
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const stopWaveform = () => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    try { sourceRef.current?.disconnect(); } catch { /* ignore */ }
+    try { analyserRef.current?.disconnect(); } catch { /* ignore */ }
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+      audioContextRef.current.close().catch(() => {});
+    }
+    audioContextRef.current = null;
+    analyserRef.current = null;
+    sourceRef.current = null;
+  };
+
   const cleanupStream = () => {
+    stopWaveform();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (timerRef.current) {
@@ -30,6 +52,71 @@ export function AudioRecorder({ onRecorded, disabled, maxSeconds = 300 }: AudioR
   };
 
   useEffect(() => () => cleanupStream(), []);
+
+  const startWaveform = (stream: MediaStream) => {
+    type WindowWithWebkitAC = Window & { webkitAudioContext?: typeof AudioContext };
+    const w = window as WindowWithWebkitAC;
+    const ACtor: typeof AudioContext | undefined = window.AudioContext ?? w.webkitAudioContext;
+    if (!ACtor) return;
+    const ctx = new ACtor();
+    audioContextRef.current = ctx;
+    const source = ctx.createMediaStreamSource(stream);
+    sourceRef.current = source;
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.6;
+    analyserRef.current = analyser;
+    source.connect(analyser);
+
+    const draw = () => {
+      const canvas = canvasRef.current;
+      const a = analyserRef.current;
+      if (!canvas || !a) {
+        rafRef.current = requestAnimationFrame(draw);
+        return;
+      }
+      const dpr = window.devicePixelRatio || 1;
+      const cssWidth = canvas.clientWidth;
+      const cssHeight = canvas.clientHeight;
+      if (canvas.width !== cssWidth * dpr || canvas.height !== cssHeight * dpr) {
+        canvas.width = cssWidth * dpr;
+        canvas.height = cssHeight * dpr;
+      }
+      const ctx2d = canvas.getContext("2d");
+      if (!ctx2d) {
+        rafRef.current = requestAnimationFrame(draw);
+        return;
+      }
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx2d.clearRect(0, 0, cssWidth, cssHeight);
+
+      const buf = new Uint8Array(a.frequencyBinCount);
+      a.getByteTimeDomainData(buf);
+
+      const bars = 24;
+      const samplesPerBar = Math.max(1, Math.floor(buf.length / bars));
+      const gap = 2;
+      const barWidth = Math.max(1, (cssWidth - gap * (bars - 1)) / bars);
+      const mid = cssHeight / 2;
+
+      ctx2d.fillStyle = "#ef4444";
+      for (let i = 0; i < bars; i++) {
+        let sum = 0;
+        for (let j = 0; j < samplesPerBar; j++) {
+          const v = (buf[i * samplesPerBar + j] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / samplesPerBar);
+        const h = Math.max(2, Math.min(cssHeight, rms * cssHeight * 4));
+        const x = i * (barWidth + gap);
+        ctx2d.fillRect(x, mid - h / 2, barWidth, h);
+      }
+
+      rafRef.current = requestAnimationFrame(draw);
+    };
+
+    rafRef.current = requestAnimationFrame(draw);
+  };
 
   const pickMimeType = (): string => {
     const candidates = [
@@ -97,6 +184,7 @@ export function AudioRecorder({ onRecorded, disabled, maxSeconds = 300 }: AudioR
       mr.start();
       setIsRecording(true);
       setSeconds(0);
+      try { startWaveform(stream); } catch (waveErr) { console.warn("waveform start failed:", waveErr); }
 
       timerRef.current = setInterval(() => {
         setSeconds((s) => {
@@ -148,12 +236,13 @@ export function AudioRecorder({ onRecorded, disabled, maxSeconds = 300 }: AudioR
           <Trash2 className="h-4 w-4 text-red-500" />
         </button>
         <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
-          </span>
+          <canvas
+            ref={canvasRef}
+            className="h-5 w-[88px]"
+            aria-label="Onda de audio en vivo"
+          />
           <span className="text-xs font-medium text-red-700 dark:text-red-300 tabular-nums">
-            Grabando {formatTime(seconds)}
+            {formatTime(seconds)}
           </span>
         </div>
         <button
