@@ -98,32 +98,8 @@ export async function POST(
       );
     }
 
-    // ── Scriptor-specific guard: size cap and Whisper availability ─────────
-    step = "scriptor-validation";
-    if (agentId === "scriptor") {
-      const audioAtts = (reqAttachments || []).filter(
-        (a) => a.type?.startsWith("audio/") || /\.(mp3|wav|ogg|m4a|webm)$/i.test(a.name)
-      );
-      const MAX_AUDIO_MB = 25;
-      const oversized = audioAtts.find((a) => a.size > MAX_AUDIO_MB * 1024 * 1024);
-      if (oversized) {
-        return NextResponse.json(
-          {
-            error: `El archivo ${oversized.name} excede el limite de ${MAX_AUDIO_MB}MB para transcripcion. Divide el audio o usa una calidad menor.`,
-          },
-          { status: 413 }
-        );
-      }
-      if (!process.env.OPENAI_API_KEY && audioAtts.length > 0) {
-        return NextResponse.json(
-          { error: "La transcripcion no esta configurada (falta OPENAI_API_KEY). Contacta al administrador." },
-          { status: 500 }
-        );
-      }
-    }
-
     // ── Audio transcription minute-based rate limits ───────────────────────
-    // Covers ANY agent (not just Scriptor) that receives audio attachments.
+    // Covers any agent that receives audio attachments.
     // Uses UsageRecord where type="transcription", tokens=seconds.
     step = "transcription-limits";
     const allAudioAtts = (reqAttachments || []).filter(
