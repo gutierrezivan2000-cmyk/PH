@@ -11,15 +11,12 @@ import {
   LogOut,
   Sparkles,
   Settings,
-  MessageCircle,
   ChevronsLeft,
   ChevronsRight,
   X,
   Bot,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
-
-const WHATSAPP_LINK = "https://wa.me/message/PLACEHOLDER";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -115,23 +112,6 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
           })}
         </nav>
 
-        {/* WhatsApp */}
-        <div className={cn("py-2", collapsed ? "px-2" : "px-3")}>
-          <a
-            href={WHATSAPP_LINK}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={collapsed ? "Soporte" : undefined}
-            className={cn(
-              "flex items-center gap-3 rounded-2xl text-[13px] font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all duration-200",
-              collapsed ? "px-3 py-3 justify-center" : "px-3.5 py-2.5"
-            )}
-          >
-            <MessageCircle className="h-[18px] w-[18px] flex-shrink-0" />
-            {!collapsed && <span>Soporte WhatsApp</span>}
-          </a>
-        </div>
-
         {/* Logout */}
         <div className={cn("py-4 border-t border-gray-100/80 dark:border-white/10", collapsed ? "px-2" : "px-3")}>
           <button
@@ -186,19 +166,6 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
             return navItem(item, isActive, true);
           })}
         </nav>
-
-        {/* Mobile WhatsApp */}
-        <div className="px-3 py-2 flex-shrink-0">
-          <a
-            href={WHATSAPP_LINK}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all duration-200"
-          >
-            <MessageCircle className="h-[18px] w-[18px]" />
-            Soporte WhatsApp
-          </a>
-        </div>
 
         {/* Mobile Logout */}
         <div className="px-3 py-4 border-t border-gray-100/80 dark:border-white/10 flex-shrink-0">

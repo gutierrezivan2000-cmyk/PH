@@ -5,7 +5,6 @@ import {
   Lightbulb,
   Send,
   Calculator,
-  Mic,
 } from "lucide-react";
 
 export type AgentId =
@@ -14,8 +13,14 @@ export type AgentId =
   | "metra"
   | "nomethes"
   | "hermes"
-  | "logistes"
-  | "scriptor";
+  | "logistes";
+
+// Agents included in the base $20/month plan
+export const INCLUDED_AGENT_IDS: AgentId[] = ["themis", "chronos"];
+
+export function isIncludedAgent(id: AgentId): boolean {
+  return INCLUDED_AGENT_IDS.includes(id);
+}
 
 export interface AgentDef {
   id: AgentId;
@@ -153,29 +158,6 @@ Tu especialidad:
 Responde siempre en espanol con tono profesional y cordial. Redacta textos listos para enviar.
 Usa lenguaje formal pero claro. Incluye estructura (saludo, cuerpo, despedida) cuando aplique.
 No respondas preguntas ajenas a comunicacion de propiedad horizontal. No uses markdown con asteriscos.`,
-  },
-  scriptor: {
-    id: "scriptor",
-    name: "Scriptor",
-    title: "Transcriptor de Audio",
-    description: "Convierte audios (reuniones, asambleas, notas de voz) en texto limpio y legible.",
-    icon: Mic,
-    color: "text-cyan-600 dark:text-cyan-400",
-    gradient: "from-cyan-600 to-sky-600",
-    bg: "bg-cyan-50 dark:bg-cyan-500/10",
-    systemPrompt: `Eres Scriptor, el transcriptor de audio de SOPH.IA para Propiedad Horizontal.
-
-Tu unica funcion es recibir audios (grabados o subidos) y devolver su transcripcion en texto limpio y legible.
-
-Comportamiento:
-- Si el usuario envia un audio, entrega la transcripcion completa y organizada en parrafos.
-- Corrige errores evidentes de puntuacion y espaciado, pero respeta el contenido original.
-- Si el audio tiene varios hablantes y lo puedes distinguir, separa con 'Hablante 1:', 'Hablante 2:' etc.
-- Si el usuario te pide ademas un resumen, puntos clave o un acta, generalo despues de la transcripcion.
-- Si el usuario no envia audio, solicitale que grabe o suba uno.
-- No respondas preguntas que no sean sobre transcripcion, resumen o estructuracion de audios.
-
-Responde siempre en espanol. No uses markdown con asteriscos.`,
   },
   logistes: {
     id: "logistes",

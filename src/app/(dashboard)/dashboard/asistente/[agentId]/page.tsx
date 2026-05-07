@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/dashboard/Header";
 import { Button } from "@/components/ui/button";
-import { AGENTS, isValidAgentId, type AgentId } from "@/lib/agents";
+import { AGENTS, isValidAgentId, isIncludedAgent, type AgentId } from "@/lib/agents";
 import {
   Send,
   Plus,
@@ -23,6 +23,7 @@ import {
   Mic,
   FileText,
   Download,
+  Lock,
 } from "lucide-react";
 import { upload } from "@vercel/blob/client";
 import { Badge } from "@/components/ui/badge";
@@ -164,6 +165,45 @@ export default function AgentPage() {
   }
 
   const agent = AGENTS[agentId as AgentId];
+
+  if (!isIncludedAgent(agentId as AgentId)) {
+    return (
+      <div className="flex flex-col h-[calc(100dvh-52px)] lg:h-screen">
+        <Header
+          title={agent.name}
+          subtitle={agent.title}
+          breadcrumbs={[
+            { label: "Asistente IA", href: "/dashboard/asistente" },
+            { label: agent.name },
+          ]}
+        />
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-6">
+          <div className={`w-20 h-20 rounded-3xl bg-gradient-to-br ${agent.gradient} flex items-center justify-center shadow-xl opacity-50`}>
+            <agent.icon className="h-10 w-10 text-white" />
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2 mb-1">
+              <Lock className="h-5 w-5 text-gray-400" />
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">{agent.name} — Complemento</h2>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm leading-relaxed">
+              {agent.description}
+            </p>
+            <div className="mt-2 px-5 py-2 rounded-2xl bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/20">
+              <p className="text-sm font-bold text-violet-700 dark:text-violet-300">+$5 USD / mes</p>
+              <p className="text-xs text-violet-500 dark:text-violet-400 mt-0.5">Se agrega como complemento a tu plan actual</p>
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 max-w-xs">
+              Contacta a soporte desde el chatbot o desde Configuracion para activar este agente.
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => router.push("/dashboard/asistente")}>
+            <ArrowLeft className="h-4 w-4 mr-2" /> Volver a agentes
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const saveMemory = async () => {
     setSavingMemory(true);

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
 import { UsageCard } from "@/components/dashboard/UsageCard";
 import { Button } from "@/components/ui/button";
-import { AGENTS, AGENT_IDS } from "@/lib/agents";
+import { AGENTS, AGENT_IDS, INCLUDED_AGENT_IDS } from "@/lib/agents";
 import {
   FileText,
   Building,
@@ -19,6 +19,7 @@ import {
   Zap,
   Bot,
   ChevronRight,
+  Lock,
 } from "lucide-react";
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
@@ -191,24 +192,44 @@ export default function DashboardPage() {
               Ver todos <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
             {AGENT_IDS.map((id) => {
               const agent = AGENTS[id];
-              return (
-                <Link key={id} href={`/dashboard/asistente/${id}`}>
-                  <div className="group relative bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-4 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 h-full cursor-pointer overflow-hidden">
-                    <div className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${agent.gradient}`} />
-                    <div className={`w-10 h-10 rounded-xl ${agent.bg} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-                      <agent.icon className={`h-5 w-5 ${agent.color}`} />
+              const included = INCLUDED_AGENT_IDS.includes(id);
+              if (included) {
+                return (
+                  <Link key={id} href={`/dashboard/asistente/${id}`}>
+                    <div className="group relative bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-4 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 h-full cursor-pointer overflow-hidden">
+                      <div className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${agent.gradient}`} />
+                      <div className={`w-10 h-10 rounded-xl ${agent.bg} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
+                        <agent.icon className={`h-5 w-5 ${agent.color}`} />
+                      </div>
+                      <h3 className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                        {agent.name}
+                      </h3>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2 leading-snug">
+                        {agent.title}
+                      </p>
                     </div>
-                    <h3 className="text-xs font-bold text-gray-900 dark:text-white truncate">
-                      {agent.name}
-                    </h3>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2 leading-snug">
-                      {agent.title}
-                    </p>
+                  </Link>
+                );
+              }
+              return (
+                <div key={id} className="relative bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-4 h-full overflow-hidden opacity-50 cursor-not-allowed select-none">
+                  <div className={`absolute inset-x-0 top-0 h-0.5 bg-gray-200 dark:bg-white/10`} />
+                  <div className="absolute inset-0 flex items-center justify-center z-10">
+                    <Lock className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                   </div>
-                </Link>
+                  <div className={`w-10 h-10 rounded-xl ${agent.bg} flex items-center justify-center mb-3`}>
+                    <agent.icon className={`h-5 w-5 ${agent.color}`} />
+                  </div>
+                  <h3 className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                    {agent.name}
+                  </h3>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2 leading-snug">
+                    {agent.title}
+                  </p>
+                </div>
               );
             })}
           </div>
