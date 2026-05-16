@@ -4,7 +4,7 @@ export const maxDuration = 30;
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
-const WHATSAPP_SUPPORT_URL = process.env.WHATSAPP_SUPPORT_URL || "https://wa.me/message/PLACEHOLDER";
+const WHATSAPP_SUPPORT_URL = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_URL || "https://wa.me/message/PLACEHOLDER";
 
 const SOPHIA_SYSTEM_PROMPT = `Eres SOPH.IA Soporte, el asistente tecnico oficial de la plataforma SOPH.IA.
 

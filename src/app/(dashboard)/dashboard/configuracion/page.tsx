@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 
-const WHATSAPP_LINK = "https://wa.me/message/PLACEHOLDER";
+const WHATSAPP_LINK = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_URL || "https://wa.me/message/PLACEHOLDER";
 
 interface Profile {
   name: string;
