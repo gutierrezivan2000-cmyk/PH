@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, TrendingUp, Calendar, Sparkles } from "lucide-react";
+import { Activity, TrendingUp, Calendar } from "lucide-react";
 
 interface UsageData {
   monthlyGenerations: number;
@@ -26,15 +26,18 @@ export function UsageCard() {
 
   if (!usage) {
     return (
-      <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
+      <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
-            <Activity className="h-5 w-5 text-white" />
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center"
+            style={{ background: "rgba(124,92,255,0.10)", color: "#9a7fff" }}
+          >
+            <Activity className="h-4 w-4" />
           </div>
-          <h3 className="font-bold text-gray-900 dark:text-white">Uso del Plan</h3>
+          <h3 className="text-sm font-semibold text-foreground">Uso del plan</h3>
         </div>
-        <div className="h-28 flex items-center justify-center">
-          <div className="w-8 h-8 border-[3px] border-violet-200 dark:border-violet-800 border-t-violet-600 rounded-full animate-spin" />
+        <div className="h-24 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-border border-t-[#7c5cff] rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -44,54 +47,67 @@ export function UsageCard() {
   const dailyPercent = Math.min((usage.dailyGenerations / usage.limits.generationsPerDay) * 100, 100);
   const monthlyRemaining = usage.limits.generationsPerMonth - usage.monthlyGenerations;
 
-  const getBarColors = (percent: number) => {
-    if (percent >= 90) return { bar: "from-red-500 to-rose-400", bg: "bg-red-100/50 dark:bg-red-500/10", glow: "shadow-red-500/20" };
-    if (percent >= 70) return { bar: "from-amber-500 to-orange-400", bg: "bg-amber-100/50 dark:bg-amber-500/10", glow: "shadow-amber-500/20" };
-    return { bar: "from-violet-500 to-purple-400", bg: "bg-violet-100/50 dark:bg-violet-500/10", glow: "shadow-violet-500/20" };
+  const getBarColor = (percent: number) => {
+    if (percent >= 90) return "#ff6f6f";
+    if (percent >= 70) return "#ffb958";
+    return "#7c5cff";
   };
 
-  const monthly = getBarColors(monthlyPercent);
-  const daily = getBarColors(dailyPercent);
+  const monthlyColor = getBarColor(monthlyPercent);
+  const dailyColor = getBarColor(dailyPercent);
 
   return (
-    <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20 hover:shadow-xl hover:shadow-violet-100/15 dark:hover:shadow-black/30 transition-all duration-300">
+    <div className="rounded-2xl border border-border bg-card p-6 transition-all duration-200">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
-            <Activity className="h-5 w-5 text-white" />
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center"
+            style={{ background: "rgba(124,92,255,0.10)", color: "#9a7fff" }}
+          >
+            <Activity className="h-4 w-4" />
           </div>
           <div>
-            <h3 className="font-bold text-gray-900 dark:text-white">Uso del Plan</h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <h3 className="text-sm font-semibold text-foreground">Uso del plan</h3>
+            <p
+              className="text-[10px] uppercase text-muted-foreground/70 mt-0.5"
+              style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.14em" }}
+            >
               {monthlyRemaining > 0
                 ? `${monthlyRemaining} generaciones restantes`
-                : "Limite alcanzado"}
+                : "Límite alcanzado"}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50/80 dark:bg-violet-500/10 backdrop-blur rounded-xl">
-          <Sparkles className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
-          <span className="text-xs font-bold text-violet-600 dark:text-violet-300 tabular-nums">{Math.round(monthlyPercent)}%</span>
+        <div
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium"
+          style={{
+            background: "rgba(124,92,255,0.10)",
+            borderColor: "rgba(124,92,255,0.40)",
+            color: "#9a7fff",
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          <span className="tabular-nums">{Math.round(monthlyPercent)}%</span>
         </div>
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-4">
         {/* Monthly */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Mensuales</span>
+              <TrendingUp className="h-3.5 w-3.5 text-muted-foreground/60" />
+              <span className="text-xs font-medium text-muted-foreground">Mensuales</span>
             </div>
-            <span className="text-sm font-bold tabular-nums text-gray-900 dark:text-white">
+            <span className="text-xs font-medium tabular-nums text-foreground" style={{ fontFamily: "var(--font-mono)" }}>
               {usage.monthlyGenerations}
-              <span className="text-gray-400 dark:text-gray-500 font-normal"> / {usage.limits.generationsPerMonth}</span>
+              <span className="text-muted-foreground/60"> / {usage.limits.generationsPerMonth}</span>
             </span>
           </div>
-          <div className={`w-full h-2.5 ${monthly.bg} rounded-full overflow-hidden backdrop-blur-sm`}>
+          <div className="w-full h-1.5 rounded-full overflow-hidden bg-secondary">
             <div
-              className={`h-full rounded-full bg-gradient-to-r ${monthly.bar} transition-all duration-1000 ease-out shadow-sm ${monthly.glow}`}
-              style={{ width: `${monthlyPercent}%` }}
+              className="h-full rounded-full transition-all duration-700 ease-out"
+              style={{ width: `${monthlyPercent}%`, background: monthlyColor }}
             />
           </div>
         </div>
@@ -100,18 +116,18 @@ export function UsageCard() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Hoy</span>
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground/60" />
+              <span className="text-xs font-medium text-muted-foreground">Hoy</span>
             </div>
-            <span className="text-sm font-bold tabular-nums text-gray-900 dark:text-white">
+            <span className="text-xs font-medium tabular-nums text-foreground" style={{ fontFamily: "var(--font-mono)" }}>
               {usage.dailyGenerations}
-              <span className="text-gray-400 dark:text-gray-500 font-normal"> / {usage.limits.generationsPerDay}</span>
+              <span className="text-muted-foreground/60"> / {usage.limits.generationsPerDay}</span>
             </span>
           </div>
-          <div className={`w-full h-2.5 ${daily.bg} rounded-full overflow-hidden backdrop-blur-sm`}>
+          <div className="w-full h-1.5 rounded-full overflow-hidden bg-secondary">
             <div
-              className={`h-full rounded-full bg-gradient-to-r ${daily.bar} transition-all duration-1000 ease-out shadow-sm ${daily.glow}`}
-              style={{ width: `${dailyPercent}%` }}
+              className="h-full rounded-full transition-all duration-700 ease-out"
+              style={{ width: `${dailyPercent}%`, background: dailyColor }}
             />
           </div>
         </div>

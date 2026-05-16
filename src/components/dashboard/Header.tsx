@@ -13,36 +13,45 @@ export function Header({ title, subtitle, breadcrumbs }: HeaderProps) {
   const { data: session } = useSession();
 
   return (
-    <header className="bg-white dark:bg-[#12141f]/60 dark:backdrop-blur-2xl border-b border-gray-200 dark:border-white/10 px-4 sm:px-6 lg:px-8 xl:px-10 py-3 sm:py-4 lg:py-5 flex items-center justify-between sticky top-0 z-20 shadow-sm shadow-gray-100 dark:shadow-black/10">
-      <div className="flex flex-col gap-0.5 sm:gap-1 min-w-0">
+    <header
+      className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-background/80 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 backdrop-blur-xl"
+      style={{ WebkitBackdropFilter: "blur(20px)" }}
+    >
+      <div className="flex flex-col gap-0.5 min-w-0">
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <nav className="hidden sm:flex items-center gap-1.5 text-xs text-gray-400">
+          <nav
+            className="hidden sm:flex items-center gap-1.5 text-[10px] uppercase text-muted-foreground/70"
+            style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.16em" }}
+          >
             <span>SOPH.IA</span>
             {breadcrumbs.map((crumb, i) => (
               <span key={i} className="flex items-center gap-1.5">
                 <ChevronRight className="h-3 w-3" />
                 {crumb.href ? (
-                  <a href={crumb.href} className="hover:text-violet-600 transition-colors">
+                  <a href={crumb.href} className="hover:text-foreground transition-colors">
                     {crumb.label}
                   </a>
                 ) : (
-                  <span className="text-gray-600 dark:text-gray-300 font-medium">{crumb.label}</span>
+                  <span className="text-foreground/80">{crumb.label}</span>
                 )}
               </span>
             ))}
           </nav>
         )}
-        <h1 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white tracking-tight truncate">{title}</h1>
-        {subtitle && (
-          <p className="text-xs sm:text-sm text-gray-500 truncate">{subtitle}</p>
-        )}
+        <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground truncate">
+          {title}
+        </h1>
+        {subtitle && <p className="text-xs sm:text-sm text-muted-foreground truncate">{subtitle}</p>}
       </div>
       <div className="hidden sm:flex items-center gap-4 flex-shrink-0">
         <div className="hidden md:flex flex-col items-end">
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+          <span className="text-sm font-medium text-foreground">
             {session?.user?.name}
           </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span
+            className="text-[10px] uppercase text-muted-foreground/70"
+            style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.14em" }}
+          >
             {session?.user?.email}
           </span>
         </div>
@@ -50,11 +59,19 @@ export function Header({ title, subtitle, breadcrumbs }: HeaderProps) {
           <img
             src={session.user.image}
             alt=""
-            className="h-9 w-9 lg:h-10 lg:w-10 rounded-xl ring-2 ring-white/50 dark:ring-white/20 shadow-lg shadow-violet-200/30 dark:shadow-black/20 object-cover"
+            className="h-9 w-9 rounded-xl border border-border object-cover"
           />
         ) : (
-          <div className="h-9 w-9 lg:h-10 lg:w-10 rounded-xl bg-gradient-to-br from-violet-100 to-purple-100 flex items-center justify-center ring-2 ring-white/50 shadow-lg shadow-violet-200/30">
-            <User className="h-4 w-4 text-violet-600" />
+          <div
+            className="h-9 w-9 rounded-xl flex items-center justify-center text-xs font-medium"
+            style={{
+              background: "rgba(124,92,255,0.10)",
+              border: "1px solid rgba(124,92,255,0.30)",
+              color: "#9a7fff",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            <User className="h-4 w-4" />
           </div>
         )}
       </div>

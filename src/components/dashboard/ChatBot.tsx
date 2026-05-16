@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
-import { MessageCircle, Send, X, Sparkles, Bot } from "lucide-react";
+import { MessageCircle, Send, X, Sparkles } from "lucide-react";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -20,7 +20,6 @@ export function ChatBot() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
@@ -29,7 +28,6 @@ export function ChatBot() {
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
-  // Focus input when chat opens
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 300);
@@ -52,7 +50,7 @@ export function ChatBot() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: trimmed,
-          history: updatedMessages.slice(0, -1), // exclude the current message — API adds it
+          history: updatedMessages.slice(0, -1),
         }),
       });
 
@@ -60,22 +58,16 @@ export function ChatBot() {
 
       if (!res.ok) {
         const errorMsg = data.error || "Error al enviar el mensaje.";
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: errorMsg },
-        ]);
+        setMessages((prev) => [...prev, { role: "assistant", content: errorMsg }]);
       } else {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: data.reply },
-        ]);
+        setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
       }
     } catch {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Error de conexion. Verifica tu internet e intenta de nuevo.",
+          content: "Error de conexión. Verifica tu internet e intenta de nuevo.",
         },
       ]);
     } finally {
@@ -92,7 +84,6 @@ export function ChatBot() {
 
   const isAgentChat = /^\/dashboard\/asistente\/[^/]+$/.test(pathname);
 
-  // Don't render if not authenticated
   if (!session?.user) return null;
 
   return (
@@ -105,45 +96,72 @@ export function ChatBot() {
             : "opacity-0 translate-y-4 pointer-events-none"
         } ${isAgentChat ? "hidden lg:block" : ""}`}
       >
-        <div className="flex flex-col h-[520px] max-h-[70vh] rounded-3xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#12141f]/90 dark:backdrop-blur-xl shadow-2xl shadow-gray-200/50 dark:shadow-black/30 overflow-hidden">
+        <div
+          className="flex flex-col h-[520px] max-h-[70vh] rounded-2xl border border-border bg-card overflow-hidden"
+          style={{
+            boxShadow:
+              "0 30px 60px -20px rgba(0,0,0,0.5), 0 0 60px -20px rgba(124,92,255,0.18)",
+          }}
+        >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/20 dark:border-white/10 bg-gradient-to-r from-violet-600/90 to-purple-600/90 backdrop-blur-sm">
+          <div
+            className="flex items-center justify-between px-5 py-4 border-b border-border"
+            style={{
+              background:
+                "radial-gradient(120% 100% at 0% 0%, rgba(124,92,255,0.16), transparent 70%), var(--card)",
+            }}
+          >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                <Sparkles className="w-5 h-5 text-white" />
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-white"
+                style={{
+                  background: "linear-gradient(135deg, #7c5cff, #5a3cf0)",
+                  boxShadow: "0 0 14px rgba(124,92,255,0.40)",
+                }}
+              >
+                <Sparkles className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white tracking-wide">
-                  SOPH.IA Asistente
+                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                  Soporte SOPH.IA
                 </h3>
-                <p className="text-[11px] text-white/70">
-                  Propiedad Horizontal
+                <p
+                  className="text-[10px] uppercase text-muted-foreground/70"
+                  style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.14em" }}
+                >
+                  Asistente · en línea
                 </p>
               </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-2 rounded-xl hover:bg-white/20 transition-colors"
+              className="p-2 rounded-lg hover:bg-secondary transition-colors"
               aria-label="Cerrar chat"
             >
-              <X className="w-5 h-5 text-white" />
+              <X className="w-4 h-4 text-muted-foreground" />
             </button>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-thin">
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center px-6 gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-500/20 dark:to-purple-500/20 flex items-center justify-center">
-                  <Bot className="w-7 h-7 text-violet-600 dark:text-violet-400" />
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center"
+                  style={{
+                    background: "rgba(124,92,255,0.10)",
+                    border: "1px solid rgba(124,92,255,0.40)",
+                    color: "#9a7fff",
+                  }}
+                >
+                  <Sparkles className="w-6 h-6" />
                 </div>
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                  Hola, soy SOPH.IA
+                <p className="text-sm font-semibold text-foreground">
+                  Hola, soy el soporte de SOPH.IA
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                  Tu asistente de Propiedad Horizontal. Preguntame sobre la Ley
-                  675, asambleas, actas, informes de gestion, presupuestos,
-                  cartera, mantenimiento y mas.
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Te ayudo con el uso de la plataforma: cómo generar documentos,
+                  subir archivos, gestionar propiedades y activar agentes.
                 </p>
               </div>
             )}
@@ -151,29 +169,46 @@ export function ChatBot() {
             {messages.map((msg, i) => (
               <div
                 key={i}
-                className={`flex ${
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                }`}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[85%] px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                  className={`max-w-[85%] px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap ${
                     msg.role === "user"
-                      ? "bg-violet-600 text-white rounded-2xl rounded-br-md"
-                      : "bg-gray-100/80 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-2xl rounded-bl-md border border-gray-200/50 dark:border-white/10"
+                      ? "text-white"
+                      : "text-foreground border border-border"
                   }`}
+                  style={{
+                    background:
+                      msg.role === "user" ? "#7c5cff" : "var(--secondary)",
+                    borderRadius:
+                      msg.role === "user"
+                        ? "14px 14px 4px 14px"
+                        : "14px 14px 14px 4px",
+                  }}
                 >
                   {msg.content}
                 </div>
               </div>
             ))}
 
-            {/* Typing indicator */}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100/80 dark:bg-white/10 border border-gray-200/50 dark:border-white/10 rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1.5">
-                  <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                  <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                  <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                <div
+                  className="border border-border px-4 py-3 flex items-center gap-1.5"
+                  style={{ background: "var(--secondary)", borderRadius: "14px 14px 14px 4px" }}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full hifi-typing-dot"
+                    style={{ background: "#7c5cff" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full hifi-typing-dot"
+                    style={{ background: "#7c5cff" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full hifi-typing-dot"
+                    style={{ background: "#7c5cff" }}
+                  />
                 </div>
               </div>
             )}
@@ -182,7 +217,7 @@ export function ChatBot() {
           </div>
 
           {/* Input */}
-          <div className="px-4 py-3 border-t border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5">
+          <div className="px-4 py-3 border-t border-border bg-background/40">
             <div className="flex items-center gap-2">
               <input
                 ref={inputRef}
@@ -190,15 +225,19 @@ export function ChatBot() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Escribe tu pregunta..."
-                className="flex-1 px-4 py-2.5 text-sm bg-white/80 dark:bg-white/10 border border-gray-200/60 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-300 dark:focus:border-violet-500/50 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all"
+                placeholder="Escribe tu pregunta…"
+                className="flex-1 px-3.5 py-2.5 text-[13px] rounded-lg border border-border bg-secondary text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-[#7c5cff] focus:ring-[3px] focus:ring-[rgba(124,92,255,0.15)] transition-all"
                 disabled={isLoading}
                 maxLength={2000}
               />
               <button
                 onClick={sendMessage}
                 disabled={isLoading || !input.trim()}
-                className="p-2.5 rounded-xl bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shadow-md shadow-violet-500/20"
+                className="p-2.5 rounded-lg text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                style={{
+                  background: "#7c5cff",
+                  boxShadow: "0 6px 18px -6px rgba(124,92,255,0.50)",
+                }}
                 aria-label="Enviar mensaje"
               >
                 <Send className="w-4 h-4" />
@@ -211,35 +250,23 @@ export function ChatBot() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-4 sm:right-6 z-50 w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 shadow-lg ${isAgentChat ? "hidden lg:flex" : ""} ${
-          isOpen
-            ? "bg-gray-700 hover:bg-gray-800 shadow-gray-500/20 rotate-0"
-            : "bg-gradient-to-br from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-violet-500/30 animate-subtle-pulse"
+        className={`fixed bottom-6 right-4 sm:right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 ${
+          isAgentChat ? "hidden lg:flex" : ""
         }`}
+        style={{
+          background: isOpen
+            ? "var(--card)"
+            : "linear-gradient(135deg, #7c5cff, #5a3cf0)",
+          border: isOpen ? "1px solid var(--border)" : "none",
+          color: isOpen ? "var(--foreground)" : "white",
+          boxShadow: isOpen
+            ? "0 8px 24px -8px rgba(0,0,0,0.3)"
+            : "0 12px 32px -8px rgba(124,92,255,0.50)",
+        }}
         aria-label={isOpen ? "Cerrar asistente" : "Abrir asistente SOPH.IA"}
       >
-        {isOpen ? (
-          <X className="w-6 h-6 text-white" />
-        ) : (
-          <MessageCircle className="w-6 h-6 text-white" />
-        )}
+        {isOpen ? <X className="w-5 h-5" /> : <MessageCircle className="w-5 h-5" />}
       </button>
-
-      {/* Pulse animation styles */}
-      <style jsx global>{`
-        @keyframes subtle-pulse {
-          0%,
-          100% {
-            box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4);
-          }
-          50% {
-            box-shadow: 0 0 0 8px rgba(139, 92, 246, 0);
-          }
-        }
-        .animate-subtle-pulse {
-          animation: subtle-pulse 3s ease-in-out infinite;
-        }
-      `}</style>
     </>
   );
 }

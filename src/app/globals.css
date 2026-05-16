@@ -7,48 +7,50 @@ html {
 }
 
 :root {
-  --background: #fafbfc;
-  --foreground: #0c0e16;
+  /* Light mode — editorial cream like the hi-fi design */
+  --background: #f6f4ef;
+  --foreground: #0a0a0a;
   --card: #ffffff;
-  --card-foreground: #0c0e16;
+  --card-foreground: #0a0a0a;
   --popover: #ffffff;
-  --popover-foreground: #0c0e16;
-  --primary: #6d28d9;
-  --primary-foreground: #faf5ff;
-  --secondary: #f3f4f6;
-  --secondary-foreground: #1f2937;
-  --muted: #f3f4f6;
-  --muted-foreground: #6b7280;
-  --accent: #f0fdf4;
-  --accent-foreground: #166534;
-  --destructive: #ef4444;
-  --destructive-foreground: #fef2f2;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-  --ring: #6d28d9;
+  --popover-foreground: #0a0a0a;
+  --primary: #7c5cff;
+  --primary-foreground: #ffffff;
+  --secondary: #f0eee8;
+  --secondary-foreground: #0a0a0a;
+  --muted: #f0eee8;
+  --muted-foreground: rgba(10,10,10,0.62);
+  --accent: #f0eee8;
+  --accent-foreground: #0a0a0a;
+  --destructive: #ff6f6f;
+  --destructive-foreground: #ffffff;
+  --border: rgba(10,10,10,0.08);
+  --input: rgba(10,10,10,0.08);
+  --ring: #7c5cff;
   --radius: 0.75rem;
 }
 
 .dark {
-  --background: #0b0d14;
-  --foreground: #e4e6f0;
-  --card: #12141f;
-  --card-foreground: #e4e6f0;
-  --popover: #12141f;
-  --popover-foreground: #e4e6f0;
-  --primary: #8b5cf6;
-  --primary-foreground: #faf5ff;
-  --secondary: #1e2030;
-  --secondary-foreground: #c4c7d4;
-  --muted: #1e2030;
-  --muted-foreground: #8b8fa3;
-  --accent: #0f2918;
-  --accent-foreground: #4ade80;
-  --destructive: #dc2626;
-  --destructive-foreground: #fef2f2;
-  --border: #2a2d3e;
-  --input: #2a2d3e;
-  --ring: #8b5cf6;
+  /* Dark mode — pure black hi-fi editorial */
+  --background: #0a0a0a;
+  --foreground: #f6f5f7;
+  --card: #15151a;
+  --card-foreground: #f6f5f7;
+  --popover: #15151a;
+  --popover-foreground: #f6f5f7;
+  --primary: #7c5cff;
+  --primary-foreground: #ffffff;
+  --secondary: #1d1d24;
+  --secondary-foreground: #f6f5f7;
+  --muted: #1d1d24;
+  --muted-foreground: rgba(246,245,247,0.66);
+  --accent: #1d1d24;
+  --accent-foreground: #f6f5f7;
+  --destructive: #ff6f6f;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255,255,255,0.07);
+  --input: rgba(255,255,255,0.14);
+  --ring: #7c5cff;
 }
 
 @theme inline {
@@ -69,8 +71,8 @@ html {
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Geist", "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
 }
 
 /* Base styles */
