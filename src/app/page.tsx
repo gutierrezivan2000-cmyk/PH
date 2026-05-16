@@ -44,7 +44,7 @@ const FEATURES = [
   {
     icon: Upload,
     title: "Procesamiento de Archivos",
-    desc: "Sube PDF, Excel, Word, imagenes y audios. SOPH.IA extrae y analiza toda la informacion automaticamente.",
+    desc: "Sube PDF, Excel, Word e imagenes. SOPH.IA extrae y analiza toda la informacion automaticamente.",
     color: "from-amber-500 to-orange-600",
     bg: "bg-amber-500/10",
   },
@@ -68,7 +68,7 @@ const STEPS = [
   {
     num: "01",
     title: "Sube tu informacion",
-    desc: "Carga textos, fotos, audios, Excel, PDF o Word con la informacion del mes.",
+    desc: "Carga textos, fotos, Excel, PDF o Word con la informacion del mes.",
     icon: Upload,
   },
   {
@@ -96,7 +96,7 @@ const FAQS = [
   },
   {
     q: "Que formatos de archivo puedo subir?",
-    a: "Puedes subir PDF, Word (.docx), Excel (.xlsx, .csv), imagenes (.jpg, .png), archivos de texto (.txt) y audios (.mp3, .wav, .m4a). SOPH.IA extrae y procesa la informacion de cada formato automaticamente.",
+    a: "Puedes subir PDF, Word (.docx), Excel (.xlsx, .csv), imagenes (.jpg, .png) y archivos de texto (.txt). SOPH.IA extrae y procesa la informacion de cada formato automaticamente.",
   },
   {
     q: "Cuanto tiempo tarda en generar los documentos?",
@@ -306,7 +306,7 @@ export default function LandingPage() {
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">
             Simple y accesible
           </h2>
-          <p className="text-white/50 mb-12">Un solo plan con todo incluido. Sin sorpresas.</p>
+          <p className="text-white/50 mb-12">Planes flexibles. Comienza con lo basico y agrega lo que necesites.</p>
 
           <div className="liquid-glass rounded-3xl p-8 sm:p-10 text-left">
             <div className="flex items-baseline gap-2 mb-2">
