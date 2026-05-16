@@ -4,25 +4,100 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
-import { UsageCard } from "@/components/dashboard/UsageCard";
-import { Button } from "@/components/ui/button";
 import { AGENTS, AGENT_IDS, INCLUDED_AGENT_IDS } from "@/lib/agents";
 import {
-  FileText,
-  Building,
+  FilePlus2,
+  Scale,
+  Building2,
   History,
   Sparkles,
   ArrowRight,
   Loader2,
   CreditCard,
-  Settings,
-  Zap,
-  Bot,
+  Settings2,
+  FileText,
+  FileCheck2,
+  Presentation,
+  LayoutGrid,
+  BarChart,
+  Search,
+  Bell,
   ChevronRight,
   Lock,
+  AlertCircle,
+  Calendar,
+  Eye,
+  Download,
+  ArrowUpRight,
+  MessageSquare,
 } from "lucide-react";
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
+// Per-agent display data (monogram, accent color, gradient)
+const AGENT_META: Record<
+  string,
+  { monogram: string; accentColor: string; gradientFrom: string; gradientTo: string }
+> = {
+  themis:   { monogram: "T", accentColor: "#a78bff", gradientFrom: "#7c5cff", gradientTo: "#a78bff" },
+  chronos:  { monogram: "C", accentColor: "#5fb4ff", gradientFrom: "#3b82f6", gradientTo: "#5fb4ff" },
+  metra:    { monogram: "M", accentColor: "#4cd6a0", gradientFrom: "#10b981", gradientTo: "#4cd6a0" },
+  nomethes: { monogram: "N", accentColor: "#ffb958", gradientFrom: "#f59e0b", gradientTo: "#ffb958" },
+  hermes:   { monogram: "H", accentColor: "#ff6fa8", gradientFrom: "#ec4899", gradientTo: "#ff6fa8" },
+  logistes: { monogram: "L", accentColor: "#8a92ff", gradientFrom: "#6366f1", gradientTo: "#8a92ff" },
+};
+
+// Placeholder recent docs
+const RECENT_DOCS = [
+  {
+    type: "PDF",
+    title: "Informe de gestión · febrero 2026",
+    property: "Conjunto Mirador",
+    date: "17 feb",
+    meta: "24 págs",
+  },
+  {
+    type: "DOCX",
+    title: "Acta Consejo · ordinaria",
+    property: "Edificio Altavista",
+    date: "12 feb",
+    meta: "8 págs",
+  },
+  {
+    type: "PPTX",
+    title: "Asamblea ordinaria 2026",
+    property: "Conjunto Reservas",
+    date: "02 feb",
+    meta: "18 slides",
+  },
+  {
+    type: "PDF",
+    title: "Informe de gestión · enero 2026",
+    property: "Conjunto Lumière",
+    date: "14 ene",
+    meta: "21 págs",
+  },
+];
+
+function docTypeBadge(type: string) {
+  if (type === "PDF")
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">
+        PDF
+      </span>
+    );
+  if (type === "DOCX")
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+        DOCX
+      </span>
+    );
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+      PPTX
+    </span>
+  );
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -57,120 +132,203 @@ export default function DashboardPage() {
     );
   }
 
-  const primaryActions = [
+  const firstName = userName || "Administrador";
+
+  const quickActions = [
     {
       href: "/dashboard/generar",
-      icon: FileText,
-      title: "Generar Documentos",
-      subtitle: "Informe, Acta y Presentacion",
-      gradient: "from-violet-500 to-purple-500",
-      iconBg: "bg-violet-500/15",
-      iconColor: "text-violet-600 dark:text-violet-400",
+      icon: FilePlus2,
+      title: "Generar documentos",
+      desc: "Informe, acta y presentación",
+      iconBg: "#7c5cff",
+      tint: "rgba(124,92,255,0.08)",
+      tintDark: "rgba(124,92,255,0.12)",
     },
     {
-      href: "/dashboard/asistente",
-      icon: Bot,
-      title: "Asistentes IA",
-      subtitle: "7 agentes especializados",
-      gradient: "from-fuchsia-500 to-pink-500",
-      iconBg: "bg-fuchsia-500/15",
-      iconColor: "text-fuchsia-600 dark:text-fuchsia-400",
+      href: "/dashboard/asistente/themis",
+      icon: Scale,
+      title: "Hablar con Themis",
+      desc: "Asesora legal especializada",
+      iconBg: "#a78bff",
+      tint: "rgba(167,139,255,0.08)",
+      tintDark: "rgba(167,139,255,0.12)",
     },
     {
       href: "/dashboard/propiedades",
-      icon: Building,
-      title: "Mis Propiedades",
-      subtitle: "Gestionar copropiedades",
-      gradient: "from-emerald-500 to-teal-500",
-      iconBg: "bg-emerald-500/15",
-      iconColor: "text-emerald-600 dark:text-emerald-400",
+      icon: Building2,
+      title: "Nueva propiedad",
+      desc: "Agregar copropiedad",
+      iconBg: "#4cd6a0",
+      tint: "rgba(76,214,160,0.08)",
+      tintDark: "rgba(76,214,160,0.12)",
     },
     {
       href: "/dashboard/historial",
       icon: History,
-      title: "Historial",
-      subtitle: "Tus documentos generados",
-      gradient: "from-blue-500 to-indigo-500",
-      iconBg: "bg-blue-500/15",
-      iconColor: "text-blue-600 dark:text-blue-400",
+      title: "Ver historial",
+      desc: "Documentos generados",
+      iconBg: "#5fb4ff",
+      tint: "rgba(95,180,255,0.08)",
+      tintDark: "rgba(95,180,255,0.12)",
     },
-  ];
-
-  const secondaryActions = [
-    { href: "/dashboard/suscripcion", icon: CreditCard, label: "Mi suscripcion" },
-    { href: "/dashboard/configuracion", icon: Settings, label: "Configuracion" },
   ];
 
   return (
     <div>
-      <Header title="Dashboard" subtitle="Bienvenido a tu panel de gestion" />
-      <div className="px-4 sm:px-6 lg:p-10 py-6 lg:py-10 space-y-8 sm:space-y-10 max-w-7xl mx-auto">
+      <Header title="Dashboard" />
 
-        {/* Hero */}
-        <div className="relative overflow-hidden rounded-[2rem] shadow-2xl shadow-violet-500/20">
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-700" />
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-32 -right-20 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-orb" />
-            <div className="absolute -bottom-24 -left-20 w-80 h-80 bg-fuchsia-300/20 rounded-full blur-3xl animate-orb-delayed" />
-            <div className="absolute top-1/2 right-1/3 w-40 h-40 bg-white/5 rounded-full blur-2xl" />
-          </div>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.08),transparent_60%)]" />
+      <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 space-y-8 max-w-7xl mx-auto">
 
-          <div className="relative p-5 sm:p-8 lg:p-12">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-              <div className="max-w-2xl">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold text-white border border-white/20 flex items-center gap-1.5">
-                    <Zap className="h-3 w-3" />
-                    IA Avanzada para PH
-                  </div>
-                </div>
-                <h1 className="text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight tracking-tight">
-                  {userName ? `Hola, ${userName}` : "Bienvenido a SOPH.IA"}
-                </h1>
-                <p className="text-violet-100/90 text-base lg:text-lg max-w-xl leading-relaxed">
-                  Tu plataforma completa para administrar Propiedad Horizontal. Genera documentos, consulta a agentes especializados y gestiona tus copropiedades.
-                </p>
+        {/* ── Hero Generate Card ───────────────────────────────────────── */}
+        <div
+          className="relative overflow-hidden rounded-2xl border"
+          style={{
+            background: "linear-gradient(135deg, rgba(124,92,255,0.13) 0%, rgba(124,92,255,0.04) 100%)",
+            borderColor: "rgba(124,92,255,0.35)",
+          }}
+        >
+          {/* subtle radial glow */}
+          <div
+            className="pointer-events-none absolute -top-20 -left-20 h-64 w-64 rounded-full blur-3xl"
+            style={{ background: "rgba(124,92,255,0.18)" }}
+          />
+
+          <div className="relative flex flex-col lg:flex-row lg:items-center gap-8 p-6 sm:p-8">
+            {/* Left content */}
+            <div className="flex-1 min-w-0">
+              {/* Chips row */}
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                  style={{
+                    background: "rgba(124,92,255,0.15)",
+                    color: "#a78bff",
+                    border: "1px solid rgba(124,92,255,0.3)",
+                  }}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  todo listo para mar 2026
+                </span>
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                  style={{
+                    background: "rgba(251,146,60,0.12)",
+                    color: "#fb923c",
+                    border: "1px solid rgba(251,146,60,0.25)",
+                  }}
+                >
+                  <AlertCircle className="h-3 w-3" />
+                  2 vencimientos esta semana
+                </span>
               </div>
-              <div className="flex flex-col sm:flex-row lg:flex-col gap-3 flex-shrink-0">
+
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2 leading-tight tracking-tight">
+                ¿Generamos los documentos?
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                Promedio del último mes: <span className="text-gray-700 dark:text-gray-200 font-medium">3 minutos</span> · <span className="text-gray-700 dark:text-gray-200 font-medium">3 documentos</span> por copropiedad.
+              </p>
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap gap-3">
                 <Link href="/dashboard/generar">
-                  <Button className="bg-white text-violet-700 hover:bg-violet-50 shadow-xl shadow-black/10 gap-2 h-12 px-6 text-sm font-semibold rounded-2xl w-full sm:w-auto lg:w-full">
-                    <Sparkles className="h-4 w-4" />
-                    Nueva Generacion
-                  </Button>
+                  <button
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 hover:-translate-y-0.5 active:translate-y-0 shadow-lg"
+                    style={{ background: "#7c5cff", boxShadow: "0 4px 16px rgba(124,92,255,0.4)" }}
+                  >
+                    <FilePlus2 className="h-4 w-4" />
+                    Generar ahora
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
                 </Link>
-                <Link href="/dashboard/asistente">
-                  <Button variant="outline" className="bg-white/10 backdrop-blur-md border-white/30 text-white hover:bg-white/20 hover:text-white gap-2 h-12 px-6 text-sm font-semibold rounded-2xl w-full sm:w-auto lg:w-full">
-                    <Bot className="h-4 w-4" />
-                    Chatear con IA
-                  </Button>
+                <Link href="/dashboard/historial">
+                  <button className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:bg-gray-50 dark:hover:bg-white/5 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-white/10">
+                    <History className="h-4 w-4" />
+                    Ver historial
+                  </button>
                 </Link>
+              </div>
+            </div>
+
+            {/* Right: mini doc stack (hidden on mobile) */}
+            <div className="hidden lg:flex items-center justify-center flex-shrink-0 w-48 h-36 relative">
+              {/* Card 3 — background */}
+              <div
+                className="absolute right-4 top-4 w-28 h-36 rounded-xl border flex items-end pb-3 justify-center"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  borderColor: "rgba(255,255,255,0.07)",
+                  transform: "rotate(8deg)",
+                }}
+              >
+                <Presentation className="h-6 w-6 text-amber-400/60" />
+              </div>
+              {/* Card 2 — mid */}
+              <div
+                className="absolute right-8 top-2 w-28 h-36 rounded-xl border flex items-end pb-3 justify-center"
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  borderColor: "rgba(255,255,255,0.09)",
+                  transform: "rotate(3deg)",
+                }}
+              >
+                <FileCheck2 className="h-6 w-6 text-blue-400/60" />
+              </div>
+              {/* Card 1 — front */}
+              <div
+                className="absolute right-12 top-0 w-28 h-36 rounded-xl border shadow-xl flex items-end pb-3 justify-center"
+                style={{
+                  background: "rgba(124,92,255,0.15)",
+                  borderColor: "rgba(124,92,255,0.35)",
+                  transform: "rotate(-2deg)",
+                }}
+              >
+                <FileText className="h-6 w-6 text-violet-400" />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Primary quick actions */}
+        {/* ── Quick Actions Grid ───────────────────────────────────────── */}
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Accesos Directos</h2>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {primaryActions.map((item) => (
-              <Link key={item.href} href={item.href}>
-                <div className="group relative bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-5 hover:border-transparent hover:shadow-2xl hover:shadow-violet-500/10 hover:-translate-y-1 transition-all duration-300 cursor-pointer h-full overflow-hidden">
-                  <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none`} />
-                  <div className="relative">
-                    <div className={`w-12 h-12 rounded-2xl ${item.iconBg} group-hover:bg-white/20 flex items-center justify-center mb-4 transition-all`}>
-                      <item.icon className={`h-6 w-6 ${item.iconColor} group-hover:text-white transition-colors`} />
+          <h2 className="text-base font-bold text-gray-900 dark:text-white mb-4">Accesos rápidos</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {quickActions.map((action) => (
+              <Link key={action.href} href={action.href}>
+                <div
+                  className="group relative rounded-2xl border p-5 flex flex-col gap-3 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30 bg-white dark:bg-[#15151a]"
+                  style={{ borderColor: "rgba(255,255,255,0.07)" }}
+                >
+                  {/* Tint overlay on hover */}
+                  <div
+                    className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: action.tintDark }}
+                  />
+
+                  {/* Top row: icon + arrow */}
+                  <div className="relative flex items-start justify-between">
+                    <div
+                      className="w-[38px] h-[38px] rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: action.tint }}
+                    >
+                      <action.icon
+                        className="h-5 w-5"
+                        style={{ color: action.iconBg }}
+                      />
                     </div>
-                    <h3 className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-white transition-colors">
-                      {item.title}
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-white/80 mt-1 transition-colors">
-                      {item.subtitle}
+                    <ArrowUpRight
+                      className="h-3.5 w-3.5 text-gray-300 dark:text-white/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                    />
+                  </div>
+
+                  {/* Labels */}
+                  <div className="relative">
+                    <p className="text-[14px] font-bold text-gray-900 dark:text-white leading-snug">
+                      {action.title}
                     </p>
-                    <ArrowRight className="h-4 w-4 text-gray-300 dark:text-gray-600 group-hover:text-white mt-4 opacity-60 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <p className="text-[12px] text-gray-400 dark:text-gray-500 mt-0.5">
+                      {action.desc}
+                    </p>
                   </div>
                 </div>
               </Link>
@@ -178,87 +336,197 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Agents showcase */}
+        {/* ── Agents Showcase ──────────────────────────────────────────── */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Tus Asistentes IA</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Agentes especializados listos para ayudarte</p>
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">Tus agentes</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Especialistas IA para Propiedad Horizontal</p>
             </div>
             <Link
               href="/dashboard/asistente"
-              className="text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 flex items-center gap-1"
+              className="text-xs font-semibold flex items-center gap-1 hover:opacity-80 transition-opacity"
+              style={{ color: "#a78bff" }}
             >
-              Ver todos <ChevronRight className="h-3.5 w-3.5" />
+              Ver todos <ChevronRight className="h-3 w-3" />
             </Link>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {AGENT_IDS.map((id) => {
               const agent = AGENTS[id];
+              const meta = AGENT_META[id];
               const included = INCLUDED_AGENT_IDS.includes(id);
-              if (included) {
-                return (
-                  <Link key={id} href={`/dashboard/asistente/${id}`}>
-                    <div className="group relative bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-4 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 h-full cursor-pointer overflow-hidden">
-                      <div className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${agent.gradient}`} />
-                      <div className={`w-10 h-10 rounded-xl ${agent.bg} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-                        <agent.icon className={`h-5 w-5 ${agent.color}`} />
-                      </div>
-                      <h3 className="text-xs font-bold text-gray-900 dark:text-white truncate">
-                        {agent.name}
-                      </h3>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2 leading-snug">
-                        {agent.title}
-                      </p>
-                    </div>
-                  </Link>
-                );
-              }
+
               return (
-                <div key={id} className="relative bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-4 h-full overflow-hidden opacity-50 cursor-not-allowed select-none">
-                  <div className={`absolute inset-x-0 top-0 h-0.5 bg-gray-200 dark:bg-white/10`} />
-                  <div className="absolute inset-0 flex items-center justify-center z-10">
-                    <Lock className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                  </div>
-                  <div className={`w-10 h-10 rounded-xl ${agent.bg} flex items-center justify-center mb-3`}>
-                    <agent.icon className={`h-5 w-5 ${agent.color}`} />
-                  </div>
-                  <h3 className="text-xs font-bold text-gray-900 dark:text-white truncate">
-                    {agent.name}
-                  </h3>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2 leading-snug">
-                    {agent.title}
-                  </p>
+                <div key={id} className="relative group">
+                  {included ? (
+                    <Link href={`/dashboard/asistente/${id}`}>
+                      <div
+                        className="relative overflow-hidden rounded-2xl border p-4 flex flex-col gap-3 cursor-pointer transition-all duration-200 hover:-translate-y-1 bg-white dark:bg-[#15151a]"
+                        style={{
+                          borderColor: "rgba(255,255,255,0.07)",
+                        }}
+                      >
+                        {/* Hover border glow via box-shadow */}
+                        <div
+                          className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                          style={{
+                            boxShadow: `inset 0 0 0 1px ${meta.accentColor}50`,
+                          }}
+                        />
+
+                        {/* Top row: monogram + status chip */}
+                        <div className="flex items-start justify-between">
+                          {/* Monogram circle */}
+                          <div
+                            className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                            style={{
+                              background: `linear-gradient(135deg, ${meta.gradientFrom}, ${meta.gradientTo})`,
+                            }}
+                          >
+                            {meta.monogram}
+                          </div>
+                          {/* Active pulse chip */}
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                            </span>
+                            <span className="text-[9px] font-semibold text-emerald-500">activo</span>
+                          </div>
+                        </div>
+
+                        {/* Agent name */}
+                        <div>
+                          <p className="text-[15px] font-bold text-gray-900 dark:text-white leading-none">
+                            {agent.name}
+                          </p>
+                          <p
+                            className="text-[10px] font-mono uppercase mt-1 leading-none"
+                            style={{ color: "rgba(255,255,255,0.3)" }}
+                          >
+                            {agent.title}
+                          </p>
+                        </div>
+
+                        {/* Last used row */}
+                        <div className="flex items-center gap-1.5 mt-auto">
+                          <MessageSquare className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                          <span className="text-[10px] text-gray-400">Última: hace 2h</span>
+                        </div>
+                      </div>
+                    </Link>
+                  ) : (
+                    <div
+                      className="relative overflow-hidden rounded-2xl border p-4 flex flex-col gap-3 cursor-default"
+                      style={{
+                        borderColor: "rgba(255,255,255,0.07)",
+                        background: "#15151a",
+                        opacity: 0.75,
+                      }}
+                    >
+                      {/* Top row: monogram + lock chip */}
+                      <div className="flex items-start justify-between">
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white/50 flex-shrink-0"
+                          style={{
+                            background: "rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          {meta.monogram}
+                        </div>
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10">
+                          <Lock className="h-2.5 w-2.5 text-gray-500" />
+                          <span className="text-[9px] font-semibold text-gray-500">bloq.</span>
+                        </div>
+                      </div>
+
+                      {/* Agent name */}
+                      <div>
+                        <p className="text-[15px] font-bold text-gray-500 leading-none">
+                          {agent.name}
+                        </p>
+                        <p className="text-[10px] font-mono uppercase mt-1 leading-none text-gray-600">
+                          {agent.title}
+                        </p>
+                      </div>
+
+                      {/* Activate CTA */}
+                      <div className="mt-auto">
+                        <button
+                          className="w-full text-[10px] font-semibold py-1.5 rounded-lg border transition-colors"
+                          style={{
+                            borderColor: "rgba(124,92,255,0.3)",
+                            color: "#a78bff",
+                            background: "rgba(124,92,255,0.08)",
+                          }}
+                          onClick={() => {}}
+                        >
+                          Activar · $5/mes
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Usage + Quick links */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <UsageCard />
+        {/* ── Recent Docs ──────────────────────────────────────────────── */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-bold text-gray-900 dark:text-white">Documentos recientes</h2>
+            <Link
+              href="/dashboard/historial"
+              className="text-xs font-semibold flex items-center gap-1 hover:opacity-80 transition-opacity"
+              style={{ color: "#a78bff" }}
+            >
+              Ver todos <ArrowRight className="h-3 w-3" />
+            </Link>
           </div>
-          <div className="bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6">
-            <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-sm">Mi Cuenta</h3>
-            <div className="space-y-2">
-              {secondaryActions.map((item) => (
-                <Link key={item.href} href={item.href}>
-                  <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 text-left transition-colors group">
-                    <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
-                      <item.icon className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200 flex-1">
-                      {item.label}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors" />
-                  </button>
-                </Link>
+
+          <div
+            className="rounded-2xl border overflow-hidden bg-white dark:bg-[#15151a]"
+            style={{ borderColor: "rgba(255,255,255,0.07)" }}
+          >
+            <div className="divide-y divide-gray-100 dark:divide-white/[0.06]">
+              {RECENT_DOCS.map((doc, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors group"
+                >
+                  {/* Badge */}
+                  <div className="flex-shrink-0">{docTypeBadge(doc.type)}</div>
+
+                  {/* Title + property */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {doc.title}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">
+                      {doc.property} · {doc.date} · {doc.meta}
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+                      <Eye className="h-3 w-3" />
+                      Ver
+                    </button>
+                    <button className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+                      <Download className="h-3 w-3" />
+                      Descargar
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );

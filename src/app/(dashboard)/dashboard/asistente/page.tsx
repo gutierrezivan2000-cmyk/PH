@@ -4,15 +4,30 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
 import { AGENTS, AGENT_IDS, INCLUDED_AGENT_IDS } from "@/lib/agents";
-import { ArrowRight, MessageCircle, Activity, Lock } from "lucide-react";
+import { Lock, ArrowRight, MessageSquare, Zap } from "lucide-react";
+
+const AGENT_COLORS: Record<string, string> = {
+  themis: "#a78bff",
+  chronos: "#5fb4ff",
+  metra: "#4cd6a0",
+  nomethes: "#ffb958",
+  hermes: "#ff6fa8",
+  logistes: "#8a92ff",
+};
+
+const AGENT_MONOGRAMS: Record<string, string> = {
+  themis: "T",
+  chronos: "C",
+  metra: "M",
+  nomethes: "N",
+  hermes: "H",
+  logistes: "L",
+};
 
 interface AgentUsage {
   daily: number;
   weekly: number;
-  limits: {
-    agentMessagesPerDay: number;
-    agentMessagesPerWeek: number;
-  };
+  limits: { agentMessagesPerDay: number; agentMessagesPerWeek: number };
 }
 
 export default function AsistentePage() {
@@ -29,146 +44,234 @@ export default function AsistentePage() {
       .catch(console.error);
   }, []);
 
-  const dailyLimit = usage?.limits?.agentMessagesPerDay || 1;
-  const weeklyLimit = usage?.limits?.agentMessagesPerWeek || 1;
-  const dailyPercent = usage
-    ? Math.min(((usage.daily || 0) / dailyLimit) * 100, 100)
-    : 0;
-  const weeklyPercent = usage
-    ? Math.min(((usage.weekly || 0) / weeklyLimit) * 100, 100)
-    : 0;
-
-  const getBarColor = (pct: number) => {
-    if (pct >= 90) return "from-red-500 to-rose-400";
-    if (pct >= 70) return "from-amber-500 to-orange-400";
-    return "from-violet-500 to-purple-400";
-  };
-
   return (
     <div>
       <Header title="Asistente IA" subtitle="Tus agentes inteligentes de Propiedad Horizontal" />
-      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-5xl mx-auto space-y-8">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-5xl mx-auto space-y-6">
 
-        {/* Usage bar */}
+        {/* Usage row */}
         {usage && (
-          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-5 shadow-sm max-w-md">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-md shadow-violet-500/20">
-                <Activity className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">Mensajes a Agentes</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Consumo de mensajes</p>
-              </div>
+          <div
+            className="rounded-2xl p-4 border flex items-center gap-4"
+            style={{
+              background: "var(--hifi-surface-1, #15151a)",
+              borderColor: "var(--hifi-hairline-strong, rgba(255,255,255,0.14))",
+            }}
+          >
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "var(--hifi-accent-soft)", color: "var(--hifi-accent-hi)" }}
+            >
+              <Zap className="h-5 w-5" />
             </div>
-            <div className="space-y-3">
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Hoy</span>
-                  <span className="text-xs font-bold tabular-nums text-gray-900 dark:text-white">
-                    {usage.daily}<span className="text-gray-400 dark:text-gray-500 font-normal"> / {usage.limits.agentMessagesPerDay}</span>
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full bg-gradient-to-r ${getBarColor(dailyPercent)} transition-all duration-700`}
-                    style={{ width: `${dailyPercent}%` }}
-                  />
-                </div>
+            <div className="flex-1 min-w-0">
+              <div
+                className="text-xs font-medium mb-1"
+                style={{ fontFamily: "var(--hifi-mono)", letterSpacing: "0.1em", color: "var(--hifi-ink-faint)" }}
+              >
+                USO DE MENSAJES
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Esta semana</span>
-                  <span className="text-xs font-bold tabular-nums text-gray-900 dark:text-white">
-                    {usage.weekly}<span className="text-gray-400 dark:text-gray-500 font-normal"> / {usage.limits.agentMessagesPerWeek}</span>
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full bg-gradient-to-r ${getBarColor(weeklyPercent)} transition-all duration-700`}
-                    style={{ width: `${weeklyPercent}%` }}
-                  />
-                </div>
+              <div className="flex items-center gap-4 text-sm" style={{ color: "var(--hifi-ink-dim)" }}>
+                <span>
+                  Hoy:{" "}
+                  <strong style={{ color: "var(--hifi-ink)" }}>
+                    {usage.daily}
+                  </strong>
+                  <span style={{ color: "var(--hifi-ink-faint)" }}> / {usage.limits.agentMessagesPerDay}</span>
+                </span>
+                <span
+                  style={{ width: 1, height: 14, background: "var(--hifi-hairline-strong)", display: "inline-block" }}
+                />
+                <span>
+                  Semana:{" "}
+                  <strong style={{ color: "var(--hifi-ink)" }}>
+                    {usage.weekly}
+                  </strong>
+                  <span style={{ color: "var(--hifi-ink-faint)" }}> / {usage.limits.agentMessagesPerWeek}</span>
+                </span>
               </div>
             </div>
           </div>
         )}
 
         {/* Agents grid */}
-        <div>
-          <div className="flex items-start justify-between mb-5">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Agentes Especializados</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Cada agente esta entrenado para un area especifica de la gestion de Propiedad Horizontal.</p>
-            </div>
-          </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {AGENT_IDS.map((id) => {
+            const agent = AGENTS[id];
+            const included = INCLUDED_AGENT_IDS.includes(id);
+            const color = AGENT_COLORS[id] || "#7c5cff";
+            const monogram = AGENT_MONOGRAMS[id] || id[0].toUpperCase();
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {AGENT_IDS.map((id) => {
-              const agent = AGENTS[id];
-              const included = INCLUDED_AGENT_IDS.includes(id);
-              if (included) {
-                return (
-                  <Link key={id} href={`/dashboard/asistente/${id}`}>
-                    <div className="group bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-5 hover:border-violet-300 dark:hover:border-violet-500/30 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 h-full cursor-pointer">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className={`w-11 h-11 rounded-xl ${agent.bg} flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
-                          <agent.icon className={`h-5 w-5 ${agent.color}`} />
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-500/20">
-                            Incluido
-                          </span>
-                          <ArrowRight className="h-4 w-4 text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100 group-hover:text-violet-500 dark:group-hover:text-violet-400 transition-all duration-200" />
-                        </div>
-                      </div>
-                      <h3 className="text-sm font-bold text-gray-900 dark:text-white">{agent.name}</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{agent.title}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">{agent.description}</p>
-                    </div>
-                  </Link>
-                );
-              }
+            if (included) {
               return (
-                <div key={id} className="relative bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-5 h-full opacity-60 cursor-not-allowed select-none">
-                  <div className="absolute inset-0 rounded-2xl bg-white/40 dark:bg-black/20 flex flex-col items-center justify-center z-10 gap-2">
-                    <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center">
-                      <Lock className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                <Link key={id} href={`/dashboard/asistente/${id}`}>
+                  <div
+                    className="hifi-agent-tile group relative rounded-2xl p-5 border cursor-pointer overflow-hidden h-full"
+                    style={{
+                      background: `radial-gradient(120% 100% at 100% 0%, color-mix(in oklab, ${color} 18%, transparent) 0%, transparent 70%), var(--hifi-surface-1, #15151a)`,
+                      borderColor: "var(--hifi-hairline, rgba(255,255,255,0.07))",
+                      minHeight: 180,
+                    }}
+                  >
+                    {/* Included badge */}
+                    <div className="flex items-center justify-between mb-4">
+                      {/* Agent monogram */}
+                      <div
+                        className="flex items-center justify-center rounded-xl flex-shrink-0"
+                        style={{
+                          width: 44,
+                          height: 44,
+                          background: `radial-gradient(120% 100% at 30% 20%, color-mix(in oklab, ${color} 70%, transparent) 0%, transparent 60%), var(--hifi-surface-2, #1d1d24)`,
+                          border: `1px solid color-mix(in oklab, ${color} 50%, rgba(255,255,255,0.07))`,
+                          color,
+                          fontFamily: "var(--hifi-mono)",
+                          fontWeight: 600,
+                          fontSize: 16,
+                        }}
+                      >
+                        {monogram}
+                      </div>
+                      <span
+                        className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full"
+                        style={{
+                          fontFamily: "var(--hifi-mono)",
+                          letterSpacing: "0.06em",
+                          background: "rgba(76,214,160,0.12)",
+                          border: "1px solid rgba(76,214,160,0.25)",
+                          color: "var(--hifi-ok)",
+                        }}
+                      >
+                        <span
+                          className="hifi-pulse-ok"
+                          style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", display: "inline-block" }}
+                        />
+                        incluido
+                      </span>
                     </div>
-                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Complemento</span>
-                    <span className="text-[11px] font-bold text-violet-600 dark:text-violet-400">+$5 USD / mes</span>
-                  </div>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className={`w-11 h-11 rounded-xl ${agent.bg} flex items-center justify-center`}>
-                      <agent.icon className={`h-5 w-5 ${agent.color}`} />
-                    </div>
-                  </div>
-                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">{agent.name}</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{agent.title}</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">{agent.description}</p>
-                </div>
-              );
-            })}
-          </div>
 
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
-            Los agentes bloqueados son complementos adicionales al plan base. Contacta a soporte para activarlos.
-          </p>
+                    <div
+                      className="text-base font-semibold mb-0.5 tracking-tight"
+                      style={{ color: "var(--hifi-ink, #f6f5f7)" }}
+                    >
+                      {agent.name}
+                    </div>
+                    <div
+                      className="text-[10px] mb-3"
+                      style={{
+                        fontFamily: "var(--hifi-mono)",
+                        letterSpacing: "0.1em",
+                        color: "var(--hifi-ink-faint)",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {agent.title}
+                    </div>
+                    <p className="text-xs leading-relaxed" style={{ color: "var(--hifi-ink-dim)" }}>
+                      {agent.description}
+                    </p>
+
+                    {/* Arrow on hover */}
+                    <div
+                      className="absolute bottom-5 right-5 opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:translate-x-0 -translate-x-1"
+                      style={{ color: "var(--hifi-accent-hi)" }}
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </div>
+                  </div>
+                </Link>
+              );
+            }
+
+            return (
+              <div
+                key={id}
+                className="relative rounded-2xl p-5 border overflow-hidden h-full select-none"
+                style={{
+                  background: `radial-gradient(120% 100% at 100% 0%, color-mix(in oklab, ${color} 10%, transparent) 0%, transparent 70%), var(--hifi-surface-1, #15151a)`,
+                  borderColor: "var(--hifi-hairline, rgba(255,255,255,0.07))",
+                  minHeight: 180,
+                  opacity: 0.75,
+                }}
+              >
+                {/* Lock overlay */}
+                <div
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10 rounded-2xl"
+                  style={{ background: "rgba(10,10,10,0.45)", backdropFilter: "blur(2px)" }}
+                >
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center"
+                    style={{ background: "var(--hifi-surface-2)", border: "1px solid var(--hifi-hairline-strong)" }}
+                  >
+                    <Lock className="h-4 w-4" style={{ color: "var(--hifi-ink-faint)" }} />
+                  </div>
+                  <span
+                    className="text-[10px] font-semibold"
+                    style={{ fontFamily: "var(--hifi-mono)", letterSpacing: "0.1em", color: "var(--hifi-ink-dim)" }}
+                  >
+                    COMPLEMENTO
+                  </span>
+                  <span
+                    className="text-xs font-bold"
+                    style={{ color: "var(--hifi-accent-hi)", fontFamily: "var(--hifi-mono)" }}
+                  >
+                    + $5 USD / mes
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between mb-4">
+                  <div
+                    className="flex items-center justify-center rounded-xl flex-shrink-0"
+                    style={{
+                      width: 44,
+                      height: 44,
+                      background: `radial-gradient(120% 100% at 30% 20%, color-mix(in oklab, ${color} 70%, transparent) 0%, transparent 60%), var(--hifi-surface-2, #1d1d24)`,
+                      border: `1px solid color-mix(in oklab, ${color} 50%, rgba(255,255,255,0.07))`,
+                      color,
+                      fontFamily: "var(--hifi-mono)",
+                      fontWeight: 600,
+                      fontSize: 16,
+                    }}
+                  >
+                    {monogram}
+                  </div>
+                </div>
+                <div className="text-base font-semibold mb-0.5 tracking-tight" style={{ color: "var(--hifi-ink)" }}>
+                  {agent.name}
+                </div>
+                <div
+                  className="text-[10px] mb-3"
+                  style={{ fontFamily: "var(--hifi-mono)", letterSpacing: "0.1em", color: "var(--hifi-ink-faint)", textTransform: "uppercase" }}
+                >
+                  {agent.title}
+                </div>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--hifi-ink-dim)" }}>
+                  {agent.description}
+                </p>
+              </div>
+            );
+          })}
         </div>
 
         {/* Info section */}
-        <div className="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl p-5">
+        <div
+          className="rounded-2xl p-5 border"
+          style={{
+            background: "var(--hifi-surface-1, #15151a)",
+            borderColor: "var(--hifi-hairline, rgba(255,255,255,0.07))",
+          }}
+        >
           <div className="flex items-center gap-2 mb-3">
-            <MessageCircle className="h-4 w-4 text-violet-500" />
-            <span className="text-sm font-semibold text-gray-900 dark:text-white">Como funcionan los agentes?</span>
+            <MessageSquare className="h-4 w-4" style={{ color: "var(--hifi-accent)" }} />
+            <span className="text-sm font-semibold" style={{ color: "var(--hifi-ink)" }}>
+              ¿Cómo funcionan los agentes?
+            </span>
           </div>
-          <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-            <p>- Cada agente tiene su propia especialidad y recuerda el contexto de tus conversaciones anteriores.</p>
-            <p>- Puedes crear multiples chats con cada agente para organizar tus consultas por tema.</p>
-            <p>- Los agentes pueden recibir imagenes y documentos como parte de la conversacion.</p>
-            <p>- La memoria del agente guarda notas importantes que persisten entre sesiones.</p>
-            <p>- Los agentes tienen acceso a los documentos de tus propiedades (reglamento, manual de convivencia) para dar respuestas mas precisas.</p>
-            <p>- Tu plan incluye Themis y Chronos. Los demas agentes son complementos adicionales por $5 USD/mes cada uno.</p>
+          <div className="space-y-2 text-xs leading-relaxed" style={{ color: "var(--hifi-ink-dim)" }}>
+            <p>— Cada agente tiene su propia especialidad y recuerda el contexto de tus conversaciones anteriores.</p>
+            <p>— Puedes crear múltiples chats con cada agente para organizar tus consultas por tema.</p>
+            <p>— Los agentes pueden recibir imágenes y documentos como parte de la conversación.</p>
+            <p>— La memoria del agente guarda notas importantes que persisten entre sesiones.</p>
+            <p>— Tu plan incluye <strong style={{ color: "var(--hifi-themis)" }}>Themis</strong> y <strong style={{ color: "var(--hifi-chronos)" }}>Chronos</strong>. Los demás agentes son complementos adicionales por $5 USD/mes cada uno.</p>
           </div>
         </div>
       </div>
