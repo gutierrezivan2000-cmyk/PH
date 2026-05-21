@@ -11,9 +11,9 @@ interface ThemeCtx {
 }
 
 const ThemeContext = createContext<ThemeCtx>({
-  theme: "auto",
+  theme: "dark",
   setTheme: () => {},
-  resolved: "light",
+  resolved: "dark",
 });
 
 export function useTheme() {
@@ -37,8 +37,8 @@ function applyResolved(r: "light" | "dark") {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("auto");
-  const [resolved, setResolved] = useState<"light" | "dark">("light");
+  const [theme, setThemeState] = useState<Theme>("dark");
+  const [resolved, setResolved] = useState<"light" | "dark">("dark");
 
   useEffect(() => {
     const stored = localStorage.getItem("sophia-theme") as Theme | null;
