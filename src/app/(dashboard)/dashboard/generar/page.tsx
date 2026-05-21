@@ -6,12 +6,10 @@ import { upload } from "@vercel/blob/client";
 import { Header } from "@/components/dashboard/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Upload,
   FileText,
   X,
-  Loader2,
   AlertCircle,
   Sparkles,
   Lightbulb,
@@ -20,6 +18,8 @@ import {
   Scale,
   ChevronRight,
   Info,
+  ArrowRight,
+  CheckCircle2,
 } from "lucide-react";
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
@@ -35,6 +35,30 @@ const MONTHS = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
+// Stepper step data
+const STEPS = [
+  { num: 1, label: "Propiedad" },
+  { num: 2, label: "Periodo" },
+  { num: 3, label: "Documentos" },
+  { num: 4, label: "Archivos" },
+  { num: 5, label: "Notas" },
+];
+
+// Geist Mono label style
+const monoLabel: React.CSSProperties = {
+  fontFamily: "'Geist Mono', 'GeistMono', monospace",
+  fontSize: "10px",
+  letterSpacing: "0.16em",
+  textTransform: "uppercase",
+};
+
+const monoLabelSm: React.CSSProperties = {
+  fontFamily: "'Geist Mono', 'GeistMono', monospace",
+  fontSize: "11px",
+  letterSpacing: "0.16em",
+  textTransform: "uppercase",
+};
+
 export default function GenerarPage() {
   const router = useRouter();
   const [properties, setProperties] = useState<Property[]>([]);
@@ -49,6 +73,7 @@ export default function GenerarPage() {
   const [loading, setLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [error, setError] = useState("");
+  const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     fetch("/api/properties")
@@ -80,6 +105,19 @@ export default function GenerarPage() {
       setError("");
       setFiles((prev) => [...prev, ...newFiles].slice(0, 20));
     }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    const oversized = droppedFiles.find((f) => f.size > MAX_FILE_SIZE);
+    if (oversized) {
+      setError(`"${oversized.name}" supera el limite de 500 MB.`);
+      return;
+    }
+    setError("");
+    setFiles((prev) => [...prev, ...droppedFiles].slice(0, 20));
   }, []);
 
   const removeFile = useCallback((index: number) => {
@@ -186,118 +224,363 @@ export default function GenerarPage() {
     }
   };
 
+  // Card shared style
+  const cardStyle: React.CSSProperties = {
+    background: "#15151a",
+    border: "1px solid rgba(255,255,255,0.07)",
+  };
+
   return (
     <div>
       <Header title="Generar Documentos" subtitle="Crea informes, actas y presentaciones con IA" />
+
       <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-3xl mx-auto">
-        <form onSubmit={handleSubmit} className="space-y-6">
+
+        {/* Horizontal stepper */}
+        <div className="flex items-center gap-0 mb-8 overflow-x-auto pb-1">
+          {STEPS.map((step, idx) => (
+            <div key={step.num} className="flex items-center flex-shrink-0">
+              <div className="flex flex-col items-center gap-1.5">
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+                  style={{
+                    background: idx < 4 ? "rgba(124,92,255,0.10)" : "rgba(255,255,255,0.04)",
+                    border: idx === 0 ? "1.5px solid #7c5cff" : idx < 4 ? "1.5px solid rgba(76,214,160,0.50)" : "1.5px solid rgba(255,255,255,0.12)",
+                    color: idx === 0 ? "#9a7fff" : idx < 4 ? "#4cd6a0" : "rgba(246,245,247,0.42)",
+                  }}
+                >
+                  <span style={{ ...monoLabel, fontSize: "11px" }}>{step.num}</span>
+                </div>
+                <span
+                  style={{
+                    ...monoLabel,
+                    color: idx === 0 ? "#9a7fff" : idx < 4 ? "#4cd6a0" : "rgba(246,245,247,0.42)",
+                  }}
+                >
+                  {step.label}
+                </span>
+              </div>
+              {idx < STEPS.length - 1 && (
+                <div
+                  className="h-px w-8 sm:w-12 mx-1 flex-shrink-0 mt-[-18px]"
+                  style={{ background: "rgba(255,255,255,0.07)" }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-50/80 dark:bg-red-500/10 backdrop-blur border border-red-200/50 dark:border-red-500/20 text-red-700 dark:text-red-300 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm shadow-sm">
+            <div
+              className="flex items-center gap-2.5 px-4 py-3 rounded-2xl text-sm"
+              style={{
+                background: "rgba(255,111,111,0.08)",
+                border: "1px solid rgba(255,111,111,0.25)",
+                color: "#ff6f6f",
+              }}
+            >
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               {error}
             </div>
           )}
 
           {/* Step 1 — Property */}
-          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md shadow-violet-500/20">1</div>
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-white">Selecciona tu propiedad</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Escoge el conjunto o edificio para el cual vas a generar documentos</p>
-              </div>
+          <div className="rounded-2xl p-6" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-4">
+              <span
+                style={{
+                  ...monoLabelSm,
+                  color: "#7c5cff",
+                  background: "rgba(124,92,255,0.10)",
+                  border: "1px solid rgba(124,92,255,0.40)",
+                  padding: "3px 8px",
+                  borderRadius: "6px",
+                }}
+              >
+                01
+              </span>
+              <span style={{ ...monoLabelSm, color: "rgba(246,245,247,0.66)" }}>
+                Propiedad
+              </span>
             </div>
+            <h3
+              className="font-medium mb-4"
+              style={{ color: "#f6f5f7", fontSize: "16px", fontWeight: 500 }}
+            >
+              Selecciona tu propiedad
+            </h3>
             {properties.length === 0 ? (
-              <div className="bg-amber-50/80 dark:bg-amber-500/10 backdrop-blur border border-amber-200/50 dark:border-amber-500/20 rounded-2xl p-4 text-center">
-                <p className="text-sm text-amber-800 dark:text-amber-300">
+              <div
+                className="rounded-xl p-4 text-center"
+                style={{
+                  background: "rgba(255,185,88,0.07)",
+                  border: "1px solid rgba(255,185,88,0.25)",
+                }}
+              >
+                <p className="text-sm" style={{ color: "#ffb958" }}>
                   No tienes propiedades registradas.{" "}
-                  <a href="/dashboard/propiedades" className="text-violet-600 dark:text-violet-300 font-semibold underline">Agrega una primero</a>.
+                  <a
+                    href="/dashboard/propiedades"
+                    style={{ color: "#9a7fff", fontWeight: 600, textDecoration: "underline" }}
+                  >
+                    Agrega una primero
+                  </a>
+                  .
                 </p>
               </div>
             ) : (
-              <select
-                value={selectedProperty}
-                onChange={(e) => setSelectedProperty(e.target.value)}
-                className="w-full h-11 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50 focus:border-violet-300 transition-all duration-300 appearance-none cursor-pointer"
-              >
-                <option value="">Seleccionar propiedad...</option>
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} {p.address ? `— ${p.address}` : ""}
+              <div className="relative">
+                <select
+                  value={selectedProperty}
+                  onChange={(e) => setSelectedProperty(e.target.value)}
+                  className="w-full h-11 rounded-xl px-4 text-sm appearance-none cursor-pointer transition-all outline-none"
+                  style={{
+                    background: "#1d1d24",
+                    border: selectedProperty
+                      ? "1px solid rgba(124,92,255,0.40)"
+                      : "1px solid rgba(255,255,255,0.07)",
+                    color: selectedProperty ? "#f6f5f7" : "rgba(246,245,247,0.42)",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.border = "1px solid #7c5cff";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.border = selectedProperty
+                      ? "1px solid rgba(124,92,255,0.40)"
+                      : "1px solid rgba(255,255,255,0.07)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                >
+                  <option value="" style={{ background: "#1d1d24", color: "rgba(246,245,247,0.42)" }}>
+                    Seleccionar propiedad...
                   </option>
-                ))}
-              </select>
+                  {properties.map((p) => (
+                    <option key={p.id} value={p.id} style={{ background: "#1d1d24", color: "#f6f5f7" }}>
+                      {p.name} {p.address ? `— ${p.address}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <ChevronRight
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none h-4 w-4"
+                  style={{ color: "rgba(246,245,247,0.42)" }}
+                />
+              </div>
             )}
           </div>
 
           {/* Step 2 — Period */}
-          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md shadow-violet-500/20">2</div>
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-white">Periodo del documento</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Mes y ano que cubriran los documentos generados</p>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-              <select
-                value={month}
-                onChange={(e) => setMonth(parseInt(e.target.value))}
-                className="flex-1 h-11 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50 transition-all duration-300 appearance-none cursor-pointer"
+          <div className="rounded-2xl p-6" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-4">
+              <span
+                style={{
+                  ...monoLabelSm,
+                  color: "#7c5cff",
+                  background: "rgba(124,92,255,0.10)",
+                  border: "1px solid rgba(124,92,255,0.40)",
+                  padding: "3px 8px",
+                  borderRadius: "6px",
+                }}
               >
-                {MONTHS.map((m, i) => (
-                  <option key={m} value={i + 1}>{m}</option>
-                ))}
-              </select>
-              <Input
+                02
+              </span>
+              <span style={{ ...monoLabelSm, color: "rgba(246,245,247,0.66)" }}>
+                Periodo
+              </span>
+            </div>
+            <h3
+              className="font-medium mb-4"
+              style={{ color: "#f6f5f7", fontSize: "16px", fontWeight: 500 }}
+            >
+              Periodo del documento
+            </h3>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 relative">
+                <select
+                  value={month}
+                  onChange={(e) => setMonth(parseInt(e.target.value))}
+                  className="w-full h-11 rounded-xl px-4 text-sm appearance-none cursor-pointer transition-all outline-none"
+                  style={{
+                    background: "#1d1d24",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    color: "#f6f5f7",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.border = "1px solid #7c5cff";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                >
+                  {MONTHS.map((m, i) => (
+                    <option key={m} value={i + 1} style={{ background: "#1d1d24" }}>{m}</option>
+                  ))}
+                </select>
+                <ChevronRight
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none h-4 w-4"
+                  style={{ color: "rgba(246,245,247,0.42)" }}
+                />
+              </div>
+              <input
                 type="number"
                 value={year}
                 onChange={(e) => setYear(parseInt(e.target.value))}
                 min={2020}
                 max={2030}
-                className="w-full sm:w-28 rounded-2xl border-gray-200 dark:border-white/10 bg-white dark:bg-white/5"
+                className="w-full sm:w-28 h-11 rounded-xl px-4 text-sm outline-none transition-all"
+                style={{
+                  background: "#1d1d24",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  color: "#f6f5f7",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.border = "1px solid #7c5cff";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </div>
           </div>
 
           {/* Step 3 — Document types */}
-          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md shadow-violet-500/20">3</div>
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-white">Que documentos necesitas?</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Selecciona los que quieras generar. Puedes elegir uno o varios</p>
-              </div>
+          <div className="rounded-2xl p-6" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-4">
+              <span
+                style={{
+                  ...monoLabelSm,
+                  color: "#7c5cff",
+                  background: "rgba(124,92,255,0.10)",
+                  border: "1px solid rgba(124,92,255,0.40)",
+                  padding: "3px 8px",
+                  borderRadius: "6px",
+                }}
+              >
+                03
+              </span>
+              <span style={{ ...monoLabelSm, color: "rgba(246,245,247,0.66)" }}>
+                Documentos
+              </span>
             </div>
+            <h3
+              className="font-medium mb-4"
+              style={{ color: "#f6f5f7", fontSize: "16px", fontWeight: 500 }}
+            >
+              Que documentos necesitas?
+            </h3>
 
-            <div className="space-y-3 mt-4">
-              <label className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${includeInforme ? "bg-violet-500/10 border-violet-300/50 dark:border-violet-500/20 shadow-sm" : "bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"}`}>
-                <input type="checkbox" checked={includeInforme} onChange={(e) => handleInformeChange(e.target.checked)} className="h-4 w-4 rounded accent-violet-600" />
-                <FileBarChart className={`h-5 w-5 flex-shrink-0 ${includeInforme ? "text-violet-600 dark:text-violet-300" : "text-gray-400 dark:text-gray-500"}`} />
+            <div className="space-y-2">
+              {/* Informe */}
+              <label
+                className="flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all"
+                style={{
+                  background: includeInforme ? "rgba(124,92,255,0.10)" : "#1d1d24",
+                  border: includeInforme
+                    ? "1px solid rgba(124,92,255,0.40)"
+                    : "1px solid rgba(255,255,255,0.07)",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={includeInforme}
+                  onChange={(e) => handleInformeChange(e.target.checked)}
+                  className="h-4 w-4 rounded"
+                  style={{ accentColor: "#7c5cff" }}
+                />
+                <FileBarChart
+                  className="h-5 w-5 flex-shrink-0"
+                  style={{ color: includeInforme ? "#9a7fff" : "rgba(246,245,247,0.42)" }}
+                />
                 <div className="flex-1">
-                  <span className={`text-sm font-medium ${includeInforme ? "text-violet-700 dark:text-violet-300" : "text-gray-600 dark:text-gray-300"}`}>Informe de Gestion</span>
-                  <span className="block text-xs text-gray-400 dark:text-gray-500">Resumen ejecutivo de la gestion mensual de la copropiedad</span>
+                  <span
+                    className="text-sm font-medium block"
+                    style={{ color: includeInforme ? "#9a7fff" : "#f6f5f7" }}
+                  >
+                    Informe de Gestion
+                  </span>
+                  <span className="text-xs block mt-0.5" style={{ color: "rgba(246,245,247,0.42)" }}>
+                    Resumen ejecutivo de la gestion mensual de la copropiedad
+                  </span>
                 </div>
               </label>
 
-              <label className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${includeActa ? "bg-emerald-500/10 border-emerald-300/50 dark:border-emerald-500/20 shadow-sm" : "bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"}`}>
-                <input type="checkbox" checked={includeActa} onChange={(e) => setIncludeActa(e.target.checked)} className="h-4 w-4 rounded accent-emerald-600" />
-                <Scale className={`h-5 w-5 flex-shrink-0 ${includeActa ? "text-emerald-600 dark:text-emerald-300" : "text-gray-400 dark:text-gray-500"}`} />
+              {/* Acta */}
+              <label
+                className="flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all"
+                style={{
+                  background: includeActa ? "rgba(76,214,160,0.07)" : "#1d1d24",
+                  border: includeActa
+                    ? "1px solid rgba(76,214,160,0.30)"
+                    : "1px solid rgba(255,255,255,0.07)",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={includeActa}
+                  onChange={(e) => setIncludeActa(e.target.checked)}
+                  className="h-4 w-4 rounded"
+                  style={{ accentColor: "#4cd6a0" }}
+                />
+                <Scale
+                  className="h-5 w-5 flex-shrink-0"
+                  style={{ color: includeActa ? "#4cd6a0" : "rgba(246,245,247,0.42)" }}
+                />
                 <div className="flex-1">
-                  <span className={`text-sm font-medium ${includeActa ? "text-emerald-700 dark:text-emerald-300" : "text-gray-600 dark:text-gray-300"}`}>Acta Legal</span>
-                  <span className="block text-xs text-gray-400 dark:text-gray-500">Acta de reunion del Consejo de Administracion con formato legal</span>
+                  <span
+                    className="text-sm font-medium block"
+                    style={{ color: includeActa ? "#4cd6a0" : "#f6f5f7" }}
+                  >
+                    Acta Legal
+                  </span>
+                  <span className="text-xs block mt-0.5" style={{ color: "rgba(246,245,247,0.42)" }}>
+                    Acta de reunion del Consejo de Administracion con formato legal
+                  </span>
                 </div>
               </label>
 
-              <label className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${includePptx ? "bg-purple-500/10 border-purple-300/50 dark:border-purple-500/20 shadow-sm" : "bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"}`}>
-                <input type="checkbox" checked={includePptx} onChange={(e) => handlePptxChange(e.target.checked)} className="h-4 w-4 rounded accent-purple-600" />
-                <Presentation className={`h-5 w-5 flex-shrink-0 ${includePptx ? "text-purple-600 dark:text-purple-300" : "text-gray-400 dark:text-gray-500"}`} />
+              {/* PPTX */}
+              <label
+                className="flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all"
+                style={{
+                  background: includePptx ? "rgba(255,185,88,0.07)" : "#1d1d24",
+                  border: includePptx
+                    ? "1px solid rgba(255,185,88,0.30)"
+                    : "1px solid rgba(255,255,255,0.07)",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={includePptx}
+                  onChange={(e) => handlePptxChange(e.target.checked)}
+                  className="h-4 w-4 rounded"
+                  style={{ accentColor: "#ffb958" }}
+                />
+                <Presentation
+                  className="h-5 w-5 flex-shrink-0"
+                  style={{ color: includePptx ? "#ffb958" : "rgba(246,245,247,0.42)" }}
+                />
                 <div className="flex-1">
-                  <span className={`text-sm font-medium ${includePptx ? "text-purple-700 dark:text-purple-300" : "text-gray-600 dark:text-gray-300"}`}>Presentacion PPTX</span>
-                  <span className="block text-xs text-gray-400 dark:text-gray-500">Diapositivas PowerPoint basadas en el informe de gestion</span>
+                  <span
+                    className="text-sm font-medium block"
+                    style={{ color: includePptx ? "#ffb958" : "#f6f5f7" }}
+                  >
+                    Presentacion PPTX
+                  </span>
+                  <span className="text-xs block mt-0.5" style={{ color: "rgba(246,245,247,0.42)" }}>
+                    Diapositivas PowerPoint basadas en el informe de gestion
+                  </span>
                   {!includeInforme && (
-                    <span className="block text-xs text-amber-500 dark:text-amber-300 mt-0.5 flex items-center gap-1">
-                      <Info className="h-3 w-3" /> Al seleccionar PPTX se incluira el informe automaticamente
+                    <span
+                      className="flex items-center gap-1 text-xs mt-1"
+                      style={{ color: "#ffb958" }}
+                    >
+                      <Info className="h-3 w-3" />
+                      Al seleccionar PPTX se incluira el informe automaticamente
                     </span>
                   )}
                 </div>
@@ -305,43 +588,86 @@ export default function GenerarPage() {
             </div>
 
             {nothingSelected && (
-              <div className="mt-3 bg-amber-50/80 dark:bg-amber-500/10 border border-amber-200/50 dark:border-amber-500/20 rounded-xl px-4 py-2.5 flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-amber-500 dark:text-amber-300 flex-shrink-0" />
-                <span className="text-xs text-amber-700 dark:text-amber-300">Selecciona al menos un tipo de documento para continuar</span>
+              <div
+                className="mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl"
+                style={{
+                  background: "rgba(255,185,88,0.07)",
+                  border: "1px solid rgba(255,185,88,0.25)",
+                }}
+              >
+                <AlertCircle className="h-4 w-4 flex-shrink-0" style={{ color: "#ffb958" }} />
+                <span className="text-xs" style={{ color: "#ffb958" }}>
+                  Selecciona al menos un tipo de documento para continuar
+                </span>
               </div>
             )}
           </div>
 
-          {/* Step 4 — Files + Recommendations */}
-          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md shadow-violet-500/20">4</div>
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-white">Sube tus archivos de soporte</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">La IA analizara todo lo que subas para generar documentos fieles a tu informacion</p>
-              </div>
+          {/* Step 4 — Files */}
+          <div className="rounded-2xl p-6" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-4">
+              <span
+                style={{
+                  ...monoLabelSm,
+                  color: "#7c5cff",
+                  background: "rgba(124,92,255,0.10)",
+                  border: "1px solid rgba(124,92,255,0.40)",
+                  padding: "3px 8px",
+                  borderRadius: "6px",
+                }}
+              >
+                04
+              </span>
+              <span style={{ ...monoLabelSm, color: "rgba(246,245,247,0.66)" }}>
+                Archivos
+              </span>
             </div>
+            <h3
+              className="font-medium mb-4"
+              style={{ color: "#f6f5f7", fontSize: "16px", fontWeight: 500 }}
+            >
+              Sube tus archivos de soporte
+            </h3>
 
             {/* Recommendations panel */}
-            <div className="mt-4 mb-5 bg-gradient-to-br from-violet-50/80 to-purple-50/60 dark:from-violet-500/10 dark:to-purple-500/10 border border-violet-200/40 dark:border-violet-500/20 rounded-2xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Lightbulb className="h-4 w-4 text-violet-500 dark:text-violet-400" />
-                <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">Que deberia subir para obtener buenos resultados?</span>
+            <div
+              className="mb-5 rounded-xl p-4"
+              style={{
+                background: "rgba(124,92,255,0.06)",
+                border: "1px solid rgba(124,92,255,0.18)",
+              }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Lightbulb className="h-4 w-4" style={{ color: "#9a7fff" }} />
+                <span className="text-sm font-medium" style={{ color: "#9a7fff" }}>
+                  Que deberia subir para obtener buenos resultados?
+                </span>
               </div>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">No es obligatorio subir todo, pero entre mas informacion le des a la IA, mejores seran los documentos. Aqui algunas recomendaciones:</p>
+              <p className="text-xs mb-3" style={{ color: "rgba(246,245,247,0.66)" }}>
+                No es obligatorio subir todo, pero entre mas informacion le des a la IA, mejores seran los documentos.
+              </p>
 
               {includeInforme && (
                 <div className="mb-3">
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <FileBarChart className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
-                    <span className="text-xs font-semibold text-violet-600 dark:text-violet-300">Para el Informe de Gestion:</span>
+                    <FileBarChart className="h-3.5 w-3.5" style={{ color: "#9a7fff" }} />
+                    <span className="text-xs font-semibold" style={{ color: "#9a7fff" }}>
+                      Para el Informe de Gestion:
+                    </span>
                   </div>
-                  <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1 ml-5">
-                    <li className="flex items-start gap-1.5"><ChevronRight className="h-3 w-3 text-violet-400 mt-0.5 flex-shrink-0" />Estados financieros del mes (Excel o PDF)</li>
-                    <li className="flex items-start gap-1.5"><ChevronRight className="h-3 w-3 text-violet-400 mt-0.5 flex-shrink-0" />Reporte de cartera y recaudos</li>
-                    <li className="flex items-start gap-1.5"><ChevronRight className="h-3 w-3 text-violet-400 mt-0.5 flex-shrink-0" />Registros de mantenimientos realizados</li>
-                    <li className="flex items-start gap-1.5"><ChevronRight className="h-3 w-3 text-violet-400 mt-0.5 flex-shrink-0" />Fotos de obras, mejoras o danos</li>
-                    <li className="flex items-start gap-1.5"><ChevronRight className="h-3 w-3 text-violet-400 mt-0.5 flex-shrink-0" />Novedades de seguridad, personal o proveedores</li>
+                  <ul className="space-y-1 ml-5">
+                    {[
+                      "Estados financieros del mes (Excel o PDF)",
+                      "Reporte de cartera y recaudos",
+                      "Registros de mantenimientos realizados",
+                      "Fotos de obras, mejoras o danos",
+                      "Novedades de seguridad, personal o proveedores",
+                    ].map((item) => (
+                      <li key={item} className="flex items-start gap-1.5">
+                        <ChevronRight className="h-3 w-3 mt-0.5 flex-shrink-0" style={{ color: "#9a7fff" }} />
+                        <span className="text-xs" style={{ color: "rgba(246,245,247,0.66)" }}>{item}</span>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}
@@ -349,14 +675,23 @@ export default function GenerarPage() {
               {includeActa && (
                 <div className="mb-3">
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <Scale className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
-                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-300">Para el Acta Legal:</span>
+                    <Scale className="h-3.5 w-3.5" style={{ color: "#4cd6a0" }} />
+                    <span className="text-xs font-semibold" style={{ color: "#4cd6a0" }}>
+                      Para el Acta Legal:
+                    </span>
                   </div>
-                  <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1 ml-5">
-                    <li className="flex items-start gap-1.5"><ChevronRight className="h-3 w-3 text-emerald-400 mt-0.5 flex-shrink-0" />Grabacion de audio de la reunion (MP3, M4A, WAV)</li>
-                    <li className="flex items-start gap-1.5"><ChevronRight className="h-3 w-3 text-emerald-400 mt-0.5 flex-shrink-0" />Orden del dia o agenda de la reunion</li>
-                    <li className="flex items-start gap-1.5"><ChevronRight className="h-3 w-3 text-emerald-400 mt-0.5 flex-shrink-0" />Lista de asistentes</li>
-                    <li className="flex items-start gap-1.5"><ChevronRight className="h-3 w-3 text-emerald-400 mt-0.5 flex-shrink-0" />Actas anteriores como referencia de formato</li>
+                  <ul className="space-y-1 ml-5">
+                    {[
+                      "Grabacion de audio de la reunion (MP3, M4A, WAV)",
+                      "Orden del dia o agenda de la reunion",
+                      "Lista de asistentes",
+                      "Actas anteriores como referencia de formato",
+                    ].map((item) => (
+                      <li key={item} className="flex items-start gap-1.5">
+                        <ChevronRight className="h-3 w-3 mt-0.5 flex-shrink-0" style={{ color: "#4cd6a0" }} />
+                        <span className="text-xs" style={{ color: "rgba(246,245,247,0.66)" }}>{item}</span>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}
@@ -364,52 +699,124 @@ export default function GenerarPage() {
               {!includeInforme && !includeActa && includePptx && (
                 <div className="mb-3">
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <Presentation className="h-3.5 w-3.5 text-purple-500 dark:text-purple-400" />
-                    <span className="text-xs font-semibold text-purple-600 dark:text-purple-300">Para la Presentacion:</span>
+                    <Presentation className="h-3.5 w-3.5" style={{ color: "#ffb958" }} />
+                    <span className="text-xs font-semibold" style={{ color: "#ffb958" }}>
+                      Para la Presentacion:
+                    </span>
                   </div>
-                  <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1 ml-5">
-                    <li className="flex items-start gap-1.5"><ChevronRight className="h-3 w-3 text-purple-400 mt-0.5 flex-shrink-0" />Los mismos insumos del informe de gestion</li>
+                  <ul className="space-y-1 ml-5">
+                    <li className="flex items-start gap-1.5">
+                      <ChevronRight className="h-3 w-3 mt-0.5 flex-shrink-0" style={{ color: "#ffb958" }} />
+                      <span className="text-xs" style={{ color: "rgba(246,245,247,0.66)" }}>
+                        Los mismos insumos del informe de gestion
+                      </span>
+                    </li>
                   </ul>
                 </div>
               )}
 
-              <div className="mt-2 pt-2 border-t border-violet-200/30 dark:border-violet-500/20">
-                <p className="text-xs text-gray-500 dark:text-gray-400 italic">Tambien puedes subir: PDFs, documentos Word, archivos de texto, hojas de calculo, imagenes y audios de hasta 500 MB.</p>
+              <div
+                className="mt-2 pt-2"
+                style={{ borderTop: "1px solid rgba(124,92,255,0.15)" }}
+              >
+                <p className="text-xs italic" style={{ color: "rgba(246,245,247,0.42)" }}>
+                  Tambien puedes subir: PDFs, documentos Word, archivos de texto, hojas de calculo, imagenes y audios de hasta 500 MB.
+                </p>
               </div>
             </div>
 
-            <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-white/10 rounded-2xl p-6 sm:p-10 cursor-pointer hover:border-violet-300 dark:hover:border-violet-500/30 hover:bg-violet-50/30 dark:hover:bg-violet-500/10 transition-all duration-300">
-              <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-500 rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-violet-500/20">
-                <Upload className="h-7 w-7 text-white" />
-              </div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                Arrastra archivos o haz clic para seleccionar
-              </span>
-              <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                PDF, Word, Excel, imagenes, audio — hasta 20 archivos
-              </span>
-              <input
-                type="file"
-                multiple
-                onChange={handleFileChange}
-                className="hidden"
-                accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.m4a,.webm"
-              />
-            </label>
+            {/* Drop zone */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              className="relative"
+            >
+              <label
+                className="flex flex-col items-center justify-center rounded-xl p-8 sm:p-12 cursor-pointer transition-all"
+                style={{
+                  border: dragOver
+                    ? "1.5px dashed #7c5cff"
+                    : "1.5px dashed rgba(255,255,255,0.12)",
+                  background: dragOver ? "rgba(124,92,255,0.08)" : "rgba(255,255,255,0.02)",
+                }}
+              >
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+                  style={{
+                    background: dragOver ? "rgba(124,92,255,0.20)" : "rgba(124,92,255,0.10)",
+                    border: "1px solid rgba(124,92,255,0.30)",
+                  }}
+                >
+                  <Upload className="h-7 w-7" style={{ color: "#9a7fff" }} />
+                </div>
+                <span className="text-sm font-medium" style={{ color: "#f6f5f7" }}>
+                  Arrastra archivos o haz clic para seleccionar
+                </span>
+                <span className="text-xs mt-1" style={{ color: "rgba(246,245,247,0.42)" }}>
+                  PDF, Word, Excel, imagenes, audio — hasta 20 archivos
+                </span>
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleFileChange}
+                  className="hidden"
+                  accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.m4a,.webm"
+                />
+              </label>
+            </div>
 
+            {/* File pills */}
             {files.length > 0 && (
               <div className="space-y-2 mt-4">
                 {files.map((file, i) => (
-                  <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-gray-50 dark:bg-white/5 rounded-xl px-4 py-2.5 border border-gray-200 dark:border-white/10">
+                  <div
+                    key={`${file.name}-${i}`}
+                    className="flex items-center justify-between rounded-xl px-4 py-2.5"
+                    style={{
+                      background: "#1d1d24",
+                      border: "1px solid rgba(255,255,255,0.07)",
+                    }}
+                  >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <FileText className="h-4 w-4 text-violet-500 flex-shrink-0" />
-                      <span className="text-sm truncate">{file.name}</span>
-                      <Badge variant="secondary" className="text-xs flex-shrink-0 bg-white/50 dark:bg-white/10">
+                      <FileText className="h-4 w-4 flex-shrink-0" style={{ color: "#9a7fff" }} />
+                      <span
+                        className="text-sm truncate"
+                        style={{
+                          fontFamily: "'Geist Mono', monospace",
+                          fontSize: "12px",
+                          color: "#f6f5f7",
+                        }}
+                      >
+                        {file.name}
+                      </span>
+                      <span
+                        className="flex-shrink-0 px-2 py-0.5 rounded"
+                        style={{
+                          ...monoLabel,
+                          background: "rgba(255,255,255,0.06)",
+                          color: "rgba(246,245,247,0.66)",
+                          border: "1px solid rgba(255,255,255,0.07)",
+                        }}
+                      >
                         {(file.size / 1024 / 1024).toFixed(1)}MB
-                      </Badge>
+                      </span>
                     </div>
-                    <button type="button" onClick={() => removeFile(i)} className="p-1.5 hover:bg-red-100/80 dark:hover:bg-red-500/10 rounded-lg transition-colors">
-                      <X className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="p-1.5 rounded-lg transition-colors ml-2 flex-shrink-0"
+                      style={{ color: "rgba(246,245,247,0.42)" }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "rgba(255,111,111,0.10)";
+                        e.currentTarget.style.color = "#ff6f6f";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "transparent";
+                        e.currentTarget.style.color = "rgba(246,245,247,0.42)";
+                      }}
+                    >
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
@@ -418,41 +825,95 @@ export default function GenerarPage() {
           </div>
 
           {/* Step 5 — Additional text */}
-          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-lg shadow-violet-100/10 dark:shadow-black/20">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md shadow-violet-500/20">5</div>
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-white">Informacion adicional</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Si quieres, puedes agregar notas o datos que la IA deba tener en cuenta</p>
-              </div>
+          <div className="rounded-2xl p-6" style={cardStyle}>
+            <div className="flex items-center gap-2 mb-4">
+              <span
+                style={{
+                  ...monoLabelSm,
+                  color: "#7c5cff",
+                  background: "rgba(124,92,255,0.10)",
+                  border: "1px solid rgba(124,92,255,0.40)",
+                  padding: "3px 8px",
+                  borderRadius: "6px",
+                }}
+              >
+                05
+              </span>
+              <span style={{ ...monoLabelSm, color: "rgba(246,245,247,0.66)" }}>
+                Notas
+              </span>
             </div>
+            <h3
+              className="font-medium mb-4"
+              style={{ color: "#f6f5f7", fontSize: "16px", fontWeight: 500 }}
+            >
+              Informacion adicional
+            </h3>
             <textarea
               value={additionalText}
               onChange={(e) => setAdditionalText(e.target.value)}
               rows={5}
               placeholder="Ejemplo: Este mes se realizo el cambio de bombas del cuarto de maquinas. Hubo un corte de agua del 3 al 5 de marzo por obras de la empresa de acueducto..."
-              className="w-full rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 resize-none transition-all duration-300"
+              className="w-full rounded-xl px-4 py-3 text-sm resize-none outline-none transition-all"
+              style={{
+                background: "#1d1d24",
+                border: "1px solid rgba(255,255,255,0.07)",
+                color: "#f6f5f7",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.border = "1px solid #7c5cff";
+                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
             />
           </div>
 
-          <Button
+          {/* Submit button */}
+          <button
             type="submit"
-            size="lg"
-            className="w-full h-14 text-base rounded-2xl gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-xl shadow-violet-500/25 transition-all duration-300 hover:shadow-violet-500/40"
             disabled={loading || nothingSelected}
+            className="w-full h-14 rounded-xl flex items-center justify-center gap-2.5 text-base font-medium transition-all"
+            style={{
+              background: loading || nothingSelected ? "rgba(124,92,255,0.40)" : "#7c5cff",
+              color: "#ffffff",
+              cursor: loading || nothingSelected ? "not-allowed" : "pointer",
+              boxShadow: loading || nothingSelected ? "none" : "0 4px 24px rgba(124,92,255,0.35)",
+              border: "none",
+            }}
+            onMouseEnter={(e) => {
+              if (!loading && !nothingSelected) {
+                e.currentTarget.style.background = "#9a7fff";
+                e.currentTarget.style.boxShadow = "0 6px 32px rgba(124,92,255,0.50)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!loading && !nothingSelected) {
+                e.currentTarget.style.background = "#7c5cff";
+                e.currentTarget.style.boxShadow = "0 4px 24px rgba(124,92,255,0.35)";
+              }
+            }}
           >
             {loading ? (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                {uploadStatus || "Enviando..."}
+                <span
+                  className="w-2.5 h-2.5 rounded-full animate-pulse"
+                  style={{ background: "#fff", opacity: 0.9 }}
+                />
+                <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: "13px", letterSpacing: "0.08em" }}>
+                  {uploadStatus || "Enviando..."}
+                </span>
               </>
             ) : (
               <>
                 <Sparkles className="h-5 w-5" />
-                Generar Documentos
+                <span>Generar Documentos</span>
+                <ArrowRight className="h-4 w-4 ml-1" />
               </>
             )}
-          </Button>
+          </button>
         </form>
       </div>
     </div>

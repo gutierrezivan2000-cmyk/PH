@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap');
 
 /* Smooth scroll */
 html {
@@ -6,48 +7,50 @@ html {
 }
 
 :root {
-  --background: #fafbfc;
-  --foreground: #0c0e16;
+  /* Light mode — editorial cream like the hi-fi design */
+  --background: #f6f4ef;
+  --foreground: #0a0a0a;
   --card: #ffffff;
-  --card-foreground: #0c0e16;
+  --card-foreground: #0a0a0a;
   --popover: #ffffff;
-  --popover-foreground: #0c0e16;
-  --primary: #6d28d9;
-  --primary-foreground: #faf5ff;
-  --secondary: #f3f4f6;
-  --secondary-foreground: #1f2937;
-  --muted: #f3f4f6;
-  --muted-foreground: #6b7280;
-  --accent: #f0fdf4;
-  --accent-foreground: #166534;
-  --destructive: #ef4444;
-  --destructive-foreground: #fef2f2;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-  --ring: #6d28d9;
+  --popover-foreground: #0a0a0a;
+  --primary: #7c5cff;
+  --primary-foreground: #ffffff;
+  --secondary: #f0eee8;
+  --secondary-foreground: #0a0a0a;
+  --muted: #f0eee8;
+  --muted-foreground: rgba(10,10,10,0.62);
+  --accent: #f0eee8;
+  --accent-foreground: #0a0a0a;
+  --destructive: #ff6f6f;
+  --destructive-foreground: #ffffff;
+  --border: rgba(10,10,10,0.08);
+  --input: rgba(10,10,10,0.08);
+  --ring: #7c5cff;
   --radius: 0.75rem;
 }
 
 .dark {
-  --background: #0b0d14;
-  --foreground: #e4e6f0;
-  --card: #12141f;
-  --card-foreground: #e4e6f0;
-  --popover: #12141f;
-  --popover-foreground: #e4e6f0;
-  --primary: #8b5cf6;
-  --primary-foreground: #faf5ff;
-  --secondary: #1e2030;
-  --secondary-foreground: #c4c7d4;
-  --muted: #1e2030;
-  --muted-foreground: #8b8fa3;
-  --accent: #0f2918;
-  --accent-foreground: #4ade80;
-  --destructive: #dc2626;
-  --destructive-foreground: #fef2f2;
-  --border: #2a2d3e;
-  --input: #2a2d3e;
-  --ring: #8b5cf6;
+  /* Dark mode — pure black hi-fi editorial */
+  --background: #0a0a0a;
+  --foreground: #f6f5f7;
+  --card: #15151a;
+  --card-foreground: #f6f5f7;
+  --popover: #15151a;
+  --popover-foreground: #f6f5f7;
+  --primary: #7c5cff;
+  --primary-foreground: #ffffff;
+  --secondary: #1d1d24;
+  --secondary-foreground: #f6f5f7;
+  --muted: #1d1d24;
+  --muted-foreground: rgba(246,245,247,0.66);
+  --accent: #1d1d24;
+  --accent-foreground: #f6f5f7;
+  --destructive: #ff6f6f;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255,255,255,0.07);
+  --input: rgba(255,255,255,0.14);
+  --ring: #7c5cff;
 }
 
 @theme inline {
@@ -68,8 +71,8 @@ html {
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Geist", "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
 }
 
 /* Base styles */
@@ -274,4 +277,122 @@ select option {
 }
 .dark ::-webkit-scrollbar-thumb:hover {
   background: #505370;
+}
+
+/* ── SOPH.IA Hi-fi Design System ─────────────────────────────── */
+
+/* HiFi design tokens — used by landing page + dashboard */
+:root {
+  --hifi-bg: #0a0a0a;
+  --hifi-bg-elev: #111114;
+  --hifi-surface-1: #15151a;
+  --hifi-surface-2: #1d1d24;
+  --hifi-surface-3: #25252e;
+  --hifi-hairline: rgba(255,255,255,0.07);
+  --hifi-hairline-strong: rgba(255,255,255,0.14);
+  --hifi-hairline-bold: rgba(255,255,255,0.28);
+  --hifi-ink: #f6f5f7;
+  --hifi-ink-dim: rgba(246,245,247,0.66);
+  --hifi-ink-faint: rgba(246,245,247,0.42);
+  --hifi-accent: #7c5cff;
+  --hifi-accent-hi: #9a7fff;
+  --hifi-accent-lo: #5a3cf0;
+  --hifi-accent-glow: rgba(124,92,255,0.20);
+  --hifi-accent-soft: rgba(124,92,255,0.10);
+  --hifi-accent-line: rgba(124,92,255,0.40);
+  --hifi-ok: #4cd6a0;
+  --hifi-warn: #ffb958;
+  --hifi-danger: #ff6f6f;
+  --hifi-legal: #f4c780;
+  --hifi-legal-bg: rgba(244,199,128,0.10);
+  --hifi-sans: 'Geist', system-ui, -apple-system, sans-serif;
+  --hifi-mono: 'Geist Mono', ui-monospace, monospace;
+  /* Agent colors */
+  --hifi-themis: #a78bff;
+  --hifi-chronos: #5fb4ff;
+  --hifi-metra: #4cd6a0;
+  --hifi-nomethes: #ffb958;
+  --hifi-hermes: #ff6fa8;
+  --hifi-logistes: #8a92ff;
+}
+
+/* Keyframes for landing page animations */
+@keyframes hifi-orb-drift {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  50% { transform: translate(30px,-20px) scale(1.05); }
+}
+@keyframes hifi-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes hifi-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes hifi-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30%           { transform: translateY(-3px); opacity: 1; }
+}
+@keyframes hifi-pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(124,92,255,0.20); }
+  50%      { box-shadow: 0 0 0 8px transparent; }
+}
+@keyframes hifi-pulse-ok {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(76,214,160,0.30); }
+  50%      { box-shadow: 0 0 0 6px transparent; }
+}
+
+/* Landing page utility classes */
+.hifi-fade-up { animation: hifi-fade-up 600ms cubic-bezier(0.16,1,0.3,1) both; }
+.hifi-fade-up-d1 { animation-delay: 80ms; }
+.hifi-fade-up-d2 { animation-delay: 160ms; }
+.hifi-fade-up-d3 { animation-delay: 240ms; }
+.hifi-fade-up-d4 { animation-delay: 320ms; }
+
+.hifi-orb-drift { animation: hifi-orb-drift 16s cubic-bezier(0.16,1,0.3,1) infinite; }
+
+.hifi-marquee-track { animation: hifi-marquee 36s linear infinite; }
+
+.hifi-typing-dot { animation: hifi-typing 1.2s cubic-bezier(0.4,0,0.2,1) infinite; }
+.hifi-typing-dot:nth-child(2) { animation-delay: 150ms; }
+.hifi-typing-dot:nth-child(3) { animation-delay: 300ms; }
+
+.hifi-pulse-dot { animation: hifi-pulse-dot 2s cubic-bezier(0.4,0,0.2,1) infinite; }
+.hifi-pulse-ok  { animation: hifi-pulse-ok  2s cubic-bezier(0.4,0,0.2,1) infinite; }
+
+/* Ring glow border */
+.hifi-ring-glow {
+  position: relative;
+}
+.hifi-ring-glow::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(135deg, var(--hifi-accent-line), transparent 50%, var(--hifi-accent-line));
+  opacity: 0.6;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  padding: 1px;
+}
+
+/* HiFi Marquee fade mask */
+.hifi-marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+          mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+}
+
+/* Agent tile hover (used in landing) */
+.hifi-agent-tile {
+  transition: transform 240ms cubic-bezier(0.4,0,0.2,1), border-color 240ms cubic-bezier(0.4,0,0.2,1), box-shadow 240ms cubic-bezier(0.4,0,0.2,1);
+}
+.hifi-agent-tile:hover { transform: translateY(-3px); }
+
+/* Invert band (before/after stats) */
+.hifi-invert-band {
+  background: #0e0e12 !important;
+  color: #f6f5f7 !important;
 }

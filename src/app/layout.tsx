@@ -69,7 +69,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
         <script
@@ -78,7 +78,7 @@ export default function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("sophia-theme");var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme:dark)").matches);var el=document.documentElement;if(d){el.classList.add("dark");el.style.colorScheme="dark"}else{el.classList.remove("dark");el.style.colorScheme="light"}}catch(e){}})()`,
+            __html: `(function(){try{var t=localStorage.getItem("sophia-theme");var d=t!=="light";var el=document.documentElement;if(d){el.classList.add("dark");el.style.colorScheme="dark"}else{el.classList.remove("dark");el.style.colorScheme="light"}}catch(e){var el=document.documentElement;el.classList.add("dark");el.style.colorScheme="dark"}})()`,
           }}
         />
       </head>

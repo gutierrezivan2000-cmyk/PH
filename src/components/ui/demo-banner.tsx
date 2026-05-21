@@ -4,11 +4,19 @@ export function DemoBanner() {
   if (process.env.NEXT_PUBLIC_DEMO_MODE !== "true") return null;
 
   return (
-    <div className="bg-gradient-to-r from-amber-400 to-orange-400 text-white text-sm font-medium px-4 py-2 flex items-center justify-center gap-2 shadow-sm">
-      <Zap className="h-4 w-4" />
-      <span>
-        MODO DEMO — Datos simulados. Documentos generados reales y descargables.
-      </span>
+    <div
+      className="flex items-center justify-center gap-2 px-4 py-1.5 text-[11px] font-medium border-b"
+      style={{
+        background: "rgba(244,199,128,0.10)",
+        borderColor: "rgba(244,199,128,0.30)",
+        color: "#f4c780",
+        fontFamily: "var(--font-mono)",
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+      }}
+    >
+      <Zap className="h-3 w-3" />
+      <span>MODO DEMO · datos simulados · documentos reales descargables</span>
     </div>
   );
 }

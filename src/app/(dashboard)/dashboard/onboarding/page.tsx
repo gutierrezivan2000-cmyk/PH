@@ -54,11 +54,12 @@ export default function OnboardingPage() {
 
   const [error, setError] = useState("");
 
+  const TOTAL_STEPS = 4;
+
   const handleFinish = async () => {
     setLoading(true);
     setError("");
     try {
-      // Save profile
       const profileRes = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -72,7 +73,6 @@ export default function OnboardingPage() {
         return;
       }
 
-      // Save property if filled
       if (propName.trim()) {
         const propRes = await fetch("/api/properties", {
           method: "POST",
@@ -88,7 +88,6 @@ export default function OnboardingPage() {
           const propData = await propRes.json();
           const propertyId = propData.id;
 
-          // Upload property documents
           const docsToUpload = [
             { file: manualFile, type: "manual_convivencia" },
             { file: reglamentoFile, type: "reglamento_interno" },
@@ -123,7 +122,6 @@ export default function OnboardingPage() {
         }
       }
 
-      // Force navigation with window.location to avoid client cache
       window.location.href = "/dashboard";
     } catch {
       setError("Error de conexion. Intenta de nuevo.");
@@ -140,402 +138,941 @@ export default function OnboardingPage() {
     "Otro",
   ];
 
+  /* ── shared input style ── */
+  const inputBase: React.CSSProperties = {
+    background: "#1d1d24",
+    border: "1px solid rgba(255,255,255,0.07)",
+    color: "#f6f5f7",
+    fontFamily: "'Geist', system-ui, sans-serif",
+    borderRadius: 10,
+    fontSize: 14,
+    padding: "10px 14px",
+    width: "100%",
+    outline: "none",
+    transition: "border 0.15s, box-shadow 0.15s",
+  };
+
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    e.currentTarget.style.border = "1px solid rgba(124,92,255,0.50)";
+    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.12)";
+  };
+  const handleInputBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+    e.currentTarget.style.boxShadow = "none";
+  };
+
+  const stepLabels = [
+    "Tu perfil",
+    "Primera propiedad",
+    "Como funciona",
+    "Listo",
+  ];
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-lg space-y-6">
-        {/* Progress */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          {[1, 2, 3, 4].map((s) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                  step >= s
-                    ? "bg-primary text-white shadow-lg shadow-primary/30"
-                    : "bg-secondary text-muted-foreground"
-                }`}
-              >
-                {step > s ? <Check className="h-4 w-4" /> : s}
-              </div>
-              {s < 4 && (
-                <div
-                  className={`w-10 h-1 rounded-full transition-all ${
-                    step > s ? "bg-primary" : "bg-secondary"
-                  }`}
-                />
-              )}
-            </div>
-          ))}
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
+      style={{ background: "#0a0a0a" }}
+    >
+      {/* Background orbs */}
+      <div
+        className="hifi-orb-drift pointer-events-none absolute"
+        style={{
+          width: 560,
+          height: 560,
+          top: "-20%",
+          left: "-10%",
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(124,92,255,0.12) 0%, transparent 70%)",
+          filter: "blur(60px)",
+        }}
+      />
+      <div
+        className="hifi-orb-drift pointer-events-none absolute"
+        style={{
+          width: 400,
+          height: 400,
+          bottom: "-15%",
+          right: "-8%",
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(95,180,255,0.08) 0%, transparent 70%)",
+          filter: "blur(60px)",
+          animationDelay: "-9s",
+        }}
+      />
+
+      <div className="relative z-10 w-full max-w-[600px] space-y-6">
+
+        {/* Top: logo + step indicator */}
+        <div className="flex flex-col items-center gap-3">
+          {/* Logo glyph */}
+          <div
+            className="flex items-center justify-center rounded-2xl"
+            style={{
+              width: 44,
+              height: 44,
+              background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
+              boxShadow: "0 0 28px rgba(124,92,255,0.30)",
+              flexShrink: 0,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "'Geist', system-ui, sans-serif",
+                fontWeight: 700,
+                fontSize: 20,
+                color: "#fff",
+                letterSpacing: "-0.03em",
+              }}
+            >
+              S
+            </span>
+          </div>
+
+          {/* Brand */}
+          <span
+            style={{
+              fontFamily: "'Geist', system-ui, sans-serif",
+              fontWeight: 500,
+              fontSize: 18,
+              letterSpacing: "-0.02em",
+              color: "#f6f5f7",
+            }}
+          >
+            SOPH
+            <span style={{ color: "rgba(246,245,247,0.35)" }}>.</span>
+            <span style={{ color: "#7c5cff" }}>IA</span>
+          </span>
+
+          {/* Step indicator */}
+          <p
+            style={{
+              fontFamily: "'Geist Mono', ui-monospace, monospace",
+              fontSize: 10,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              color: "rgba(246,245,247,0.42)",
+            }}
+          >
+            Paso {step} de {TOTAL_STEPS} &mdash; {stepLabels[step - 1]}
+          </p>
         </div>
 
-        {/* Step 1: Welcome + Profile */}
+        {/* Progress bar */}
+        <div
+          style={{
+            height: 2,
+            borderRadius: 2,
+            background: "rgba(255,255,255,0.07)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              borderRadius: 2,
+              background: "linear-gradient(90deg, #7c5cff, #9a7fff)",
+              width: `${(step / TOTAL_STEPS) * 100}%`,
+              transition: "width 0.4s cubic-bezier(0.16,1,0.3,1)",
+            }}
+          />
+        </div>
+
+        {/* ── STEP 1: Profile ── */}
         {step === 1 && (
-          <Card className="border-border/40 shadow-xl">
-            <CardContent className="p-8">
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-400 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/25">
-                  <User className="h-8 w-8 text-white" />
+          <div
+            className="rounded-2xl p-8 hifi-ring-glow"
+            style={{
+              background: "linear-gradient(145deg, #15151a 0%, #18181f 100%)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              boxShadow: "0 0 60px rgba(124,92,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
+            }}
+          >
+            {/* Eyebrow */}
+            <p
+              className="mb-2"
+              style={{
+                fontFamily: "'Geist Mono', ui-monospace, monospace",
+                fontSize: 10,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: "rgba(246,245,247,0.42)",
+              }}
+            >
+              Bienvenido
+            </p>
+
+            {/* Heading */}
+            <h1
+              className="mb-1"
+              style={{
+                fontFamily: "'Geist', system-ui, sans-serif",
+                fontWeight: 500,
+                fontSize: 32,
+                letterSpacing: "-0.025em",
+                color: "#f6f5f7",
+                lineHeight: 1.1,
+              }}
+            >
+              Cuentanos sobre ti.
+            </h1>
+            <p
+              className="mb-8"
+              style={{ fontSize: 14, color: "rgba(246,245,247,0.66)", lineHeight: 1.6 }}
+            >
+              Personaliza tu experiencia en SOPH.IA con tu informacion profesional.
+            </p>
+
+            <div className="space-y-4">
+              {/* Name */}
+              <div>
+                <label
+                  className="block mb-1.5"
+                  style={{
+                    fontFamily: "'Geist Mono', ui-monospace, monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "rgba(246,245,247,0.42)",
+                  }}
+                >
+                  Nombre completo *
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Tu nombre"
+                  style={inputBase}
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                />
+              </div>
+
+              {/* Cargo */}
+              <div>
+                <label
+                  className="block mb-1.5"
+                  style={{
+                    fontFamily: "'Geist Mono', ui-monospace, monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "rgba(246,245,247,0.42)",
+                  }}
+                >
+                  Cargo *
+                </label>
+                <select
+                  value={cargo}
+                  onChange={(e) => setCargo(e.target.value)}
+                  style={{ ...inputBase, paddingRight: 36 }}
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                >
+                  <option value="">Selecciona tu cargo</option>
+                  {cargos.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Company */}
+              <div>
+                <label
+                  className="block mb-1.5"
+                  style={{
+                    fontFamily: "'Geist Mono', ui-monospace, monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "rgba(246,245,247,0.42)",
+                  }}
+                >
+                  Empresa / Razon Social
+                </label>
+                <input
+                  type="text"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="Nombre de tu empresa"
+                  style={inputBase}
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                />
+              </div>
+
+              {/* Phone + City row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label
+                    className="block mb-1.5"
+                    style={{
+                      fontFamily: "'Geist Mono', ui-monospace, monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "rgba(246,245,247,0.42)",
+                    }}
+                  >
+                    Telefono
+                  </label>
+                  <input
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+57 300 123 4567"
+                    style={inputBase}
+                    onFocus={handleInputFocus}
+                    onBlur={handleInputBlur}
+                  />
                 </div>
-                <h2 className="text-2xl font-bold">Bienvenido a SOPH.IA</h2>
-                <p className="text-muted-foreground mt-2">
-                  Cuentanos sobre ti para personalizar tu experiencia
+                <div>
+                  <label
+                    className="block mb-1.5"
+                    style={{
+                      fontFamily: "'Geist Mono', ui-monospace, monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "rgba(246,245,247,0.42)",
+                    }}
+                  >
+                    Ciudad
+                  </label>
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="Bogota"
+                    style={inputBase}
+                    onFocus={handleInputFocus}
+                    onBlur={handleInputBlur}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setStep(2)}
+              disabled={!name.trim() || !cargo}
+              className="w-full mt-8 flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              style={{
+                background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
+                boxShadow: "0 4px 20px rgba(124,92,255,0.25)",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#fff",
+                fontFamily: "'Geist', system-ui, sans-serif",
+              }}
+            >
+              Continuar
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* ── STEP 2: First Property ── */}
+        {step === 2 && (
+          <div
+            className="rounded-2xl p-8 hifi-ring-glow"
+            style={{
+              background: "linear-gradient(145deg, #15151a 0%, #18181f 100%)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              boxShadow: "0 0 60px rgba(124,92,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
+            }}
+          >
+            <p
+              className="mb-2"
+              style={{
+                fontFamily: "'Geist Mono', ui-monospace, monospace",
+                fontSize: 10,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: "rgba(246,245,247,0.42)",
+              }}
+            >
+              Bienvenido
+            </p>
+            <h1
+              className="mb-1"
+              style={{
+                fontFamily: "'Geist', system-ui, sans-serif",
+                fontWeight: 500,
+                fontSize: 32,
+                letterSpacing: "-0.025em",
+                color: "#f6f5f7",
+                lineHeight: 1.1,
+              }}
+            >
+              Tu primera propiedad.
+            </h1>
+            <p
+              className="mb-8"
+              style={{ fontSize: 14, color: "rgba(246,245,247,0.66)", lineHeight: 1.6 }}
+            >
+              Agrega el conjunto o edificio que administras. Podras agregar mas desde el panel.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label
+                  className="block mb-1.5"
+                  style={{
+                    fontFamily: "'Geist Mono', ui-monospace, monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "rgba(246,245,247,0.42)",
+                  }}
+                >
+                  Nombre del conjunto / edificio *
+                </label>
+                <input
+                  type="text"
+                  value={propName}
+                  onChange={(e) => setPropName(e.target.value)}
+                  placeholder="Ej: Conjunto Residencial Los Pinos"
+                  style={inputBase}
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                />
+              </div>
+
+              <div>
+                <label
+                  className="block mb-1.5"
+                  style={{
+                    fontFamily: "'Geist Mono', ui-monospace, monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "rgba(246,245,247,0.42)",
+                  }}
+                >
+                  Direccion
+                </label>
+                <input
+                  type="text"
+                  value={propAddress}
+                  onChange={(e) => setPropAddress(e.target.value)}
+                  placeholder="Ej: Carrera 45 #23-67"
+                  style={inputBase}
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label
+                    className="block mb-1.5"
+                    style={{
+                      fontFamily: "'Geist Mono', ui-monospace, monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "rgba(246,245,247,0.42)",
+                    }}
+                  >
+                    Ciudad
+                  </label>
+                  <input
+                    type="text"
+                    value={propCity}
+                    onChange={(e) => setPropCity(e.target.value)}
+                    placeholder="Bogota"
+                    style={inputBase}
+                    onFocus={handleInputFocus}
+                    onBlur={handleInputBlur}
+                  />
+                </div>
+                <div>
+                  <label
+                    className="block mb-1.5"
+                    style={{
+                      fontFamily: "'Geist Mono', ui-monospace, monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "rgba(246,245,247,0.42)",
+                    }}
+                  >
+                    Num. unidades
+                  </label>
+                  <input
+                    type="number"
+                    value={propUnits}
+                    onChange={(e) => setPropUnits(e.target.value)}
+                    placeholder="120"
+                    style={inputBase}
+                    onFocus={handleInputFocus}
+                    onBlur={handleInputBlur}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Property Documents */}
+            {propName.trim() && (
+              <div
+                className="mt-6 pt-5 space-y-3"
+                style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <BookOpen className="h-4 w-4" style={{ color: "#7c5cff" }} />
+                  <span
+                    style={{
+                      fontFamily: "'Geist Mono', ui-monospace, monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "rgba(246,245,247,0.42)",
+                    }}
+                  >
+                    Documentos de la propiedad
+                  </span>
+                </div>
+                <p style={{ fontSize: 12, color: "rgba(246,245,247,0.42)", lineHeight: 1.6 }}>
+                  Sube el manual de convivencia y reglamento interno. La IA los usara como contexto para generar informes mas precisos.
+                </p>
+
+                <div className="space-y-2">
+                  {/* Manual */}
+                  <label
+                    className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-150"
+                    style={{
+                      border: "1px dashed rgba(255,255,255,0.10)",
+                      background: "transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(124,92,255,0.30)";
+                      e.currentTarget.style.background = "rgba(124,92,255,0.05)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)";
+                      e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    <Shield className="h-5 w-5 flex-shrink-0" style={{ color: "#7c5cff" }} />
+                    <div className="flex-1 min-w-0">
+                      {manualFile ? (
+                        <div className="flex items-center gap-2">
+                          <span style={{ fontSize: 13, color: "#9a7fff" }} className="truncate">{manualFile.name}</span>
+                          <button
+                            onClick={(e) => { e.preventDefault(); setManualFile(null); }}
+                            className="p-0.5 rounded hover:opacity-70 transition-opacity"
+                          >
+                            <X className="h-3 w-3" style={{ color: "rgba(246,245,247,0.4)" }} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <span style={{ fontSize: 13, color: "rgba(246,245,247,0.66)", fontWeight: 500 }}>Manual de Convivencia</span>
+                          <span className="block" style={{ fontSize: 11, color: "rgba(246,245,247,0.35)" }}>PDF o Word</span>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.docx,.doc"
+                      onChange={(e) => { if (e.target.files?.[0]) setManualFile(e.target.files[0]); }}
+                    />
+                  </label>
+
+                  {/* Reglamento */}
+                  <label
+                    className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-150"
+                    style={{
+                      border: "1px dashed rgba(255,255,255,0.10)",
+                      background: "transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(76,214,160,0.30)";
+                      e.currentTarget.style.background = "rgba(76,214,160,0.05)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)";
+                      e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    <FileText className="h-5 w-5 flex-shrink-0" style={{ color: "#4cd6a0" }} />
+                    <div className="flex-1 min-w-0">
+                      {reglamentoFile ? (
+                        <div className="flex items-center gap-2">
+                          <span style={{ fontSize: 13, color: "#4cd6a0" }} className="truncate">{reglamentoFile.name}</span>
+                          <button
+                            onClick={(e) => { e.preventDefault(); setReglamentoFile(null); }}
+                            className="p-0.5 rounded hover:opacity-70 transition-opacity"
+                          >
+                            <X className="h-3 w-3" style={{ color: "rgba(246,245,247,0.4)" }} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <span style={{ fontSize: 13, color: "rgba(246,245,247,0.66)", fontWeight: 500 }}>Reglamento Interno</span>
+                          <span className="block" style={{ fontSize: 11, color: "rgba(246,245,247,0.35)" }}>PDF o Word</span>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.docx,.doc"
+                      onChange={(e) => { if (e.target.files?.[0]) setReglamentoFile(e.target.files[0]); }}
+                    />
+                  </label>
+                </div>
+
+                <p style={{ fontSize: 11, color: "rgba(246,245,247,0.28)", fontStyle: "italic" }}>
+                  Opcional &mdash; puedes subirlos despues desde Propiedades.
                 </p>
               </div>
+            )}
 
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-1.5 block">Nombre completo *</label>
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Tu nombre"
-                    className="rounded-xl"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-1.5 block">Cargo *</label>
-                  <select
-                    value={cargo}
-                    onChange={(e) => setCargo(e.target.value)}
-                    className="w-full h-10 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-violet-400/50 appearance-none cursor-pointer transition-all"
-                  >
-                    <option value="">Selecciona tu cargo</option>
-                    {cargos.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-1.5 block">Empresa / Razon Social</label>
-                  <Input
-                    value={company}
-                    onChange={(e) => setCompany(e.target.value)}
-                    placeholder="Nombre de tu empresa"
-                    className="rounded-xl"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium mb-1.5 block">Telefono</label>
-                    <Input
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+57 300 123 4567"
-                      className="rounded-xl"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1.5 block">Ciudad</label>
-                    <Input
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      placeholder="Bogota"
-                      className="rounded-xl"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Button
-                onClick={() => setStep(2)}
-                disabled={!name.trim() || !cargo}
-                className="w-full mt-6 h-12 rounded-2xl gap-2"
+            <div className="flex gap-3 mt-8">
+              <button
+                onClick={() => setStep(1)}
+                className="flex items-center gap-2 rounded-xl px-5 py-3 transition-all duration-150 hover:opacity-80 active:scale-[0.98] cursor-pointer"
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: "rgba(246,245,247,0.66)",
+                }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Atras
+              </button>
+              <button
+                onClick={() => setStep(3)}
+                disabled={!propName.trim()}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                style={{
+                  background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
+                  boxShadow: "0 4px 20px rgba(124,92,255,0.25)",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#fff",
+                }}
               >
                 Continuar
                 <ArrowRight className="h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setStep(3)}
+              className="w-full mt-3 text-center transition-colors"
+              style={{ fontSize: 12, color: "rgba(246,245,247,0.35)" }}
+            >
+              Omitir por ahora
+            </button>
+          </div>
         )}
 
-        {/* Step 2: First Property */}
-        {step === 2 && (
-          <Card className="border-border/40 shadow-xl">
-            <CardContent className="p-8">
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/25">
-                  <Building className="h-8 w-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold">Tu primera propiedad</h2>
-                <p className="text-muted-foreground mt-2">
-                  Agrega la propiedad horizontal que administras
-                </p>
-              </div>
+        {/* ── STEP 3: Tutorial ── */}
+        {step === 3 && (
+          <div
+            className="rounded-2xl p-8 hifi-ring-glow"
+            style={{
+              background: "linear-gradient(145deg, #15151a 0%, #18181f 100%)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              boxShadow: "0 0 60px rgba(124,92,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
+            }}
+          >
+            <p
+              className="mb-2"
+              style={{
+                fontFamily: "'Geist Mono', ui-monospace, monospace",
+                fontSize: 10,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: "rgba(246,245,247,0.42)",
+              }}
+            >
+              Bienvenido
+            </p>
+            <h1
+              className="mb-1"
+              style={{
+                fontFamily: "'Geist', system-ui, sans-serif",
+                fontWeight: 500,
+                fontSize: 32,
+                letterSpacing: "-0.025em",
+                color: "#f6f5f7",
+                lineHeight: 1.1,
+              }}
+            >
+              Como usar SOPH.IA.
+            </h1>
+            <p
+              className="mb-8"
+              style={{ fontSize: 14, color: "rgba(246,245,247,0.66)", lineHeight: 1.6 }}
+            >
+              Genera documentos profesionales en minutos con el poder de la IA.
+            </p>
 
-              <div className="space-y-4">
+            <div className="space-y-4">
+              {[
+                {
+                  icon: Upload,
+                  color: "#5fb4ff",
+                  bg: "rgba(95,180,255,0.10)",
+                  title: "1. Sube tus insumos",
+                  desc: "Carga actas, estados financieros, grabaciones de juntas, fotos y cualquier documento relevante. La IA extrae la informacion automaticamente.",
+                },
+                {
+                  icon: ClipboardList,
+                  color: "#7c5cff",
+                  bg: "rgba(124,92,255,0.10)",
+                  title: "2. Selecciona que generar",
+                  desc: "Elige los documentos que necesitas: Informe de Gestion, Acta Legal y/o Presentacion PPTX. Todos son opcionales.",
+                },
+                {
+                  icon: Wand2,
+                  color: "#9a7fff",
+                  bg: "rgba(154,127,255,0.10)",
+                  title: "3. La IA genera tus documentos",
+                  desc: "SOPH.IA analiza los insumos y genera documentos profesionales con estructura legal colombiana (Ley 675).",
+                },
+                {
+                  icon: MessageSquare,
+                  color: "#4cd6a0",
+                  bg: "rgba(76,214,160,0.10)",
+                  title: "4. Revisa y corrige con IA",
+                  desc: "Revisa el resultado, solicita correcciones en lenguaje natural y sube archivos adicionales si falta informacion.",
+                },
+                {
+                  icon: Download,
+                  color: "#ffb958",
+                  bg: "rgba(255,185,88,0.10)",
+                  title: "5. Descarga y comparte",
+                  desc: "Descarga tus documentos en PDF y PPTX, listos para presentar en la asamblea o entregar al consejo.",
+                },
+              ].map((item, i) => (
+                <div key={i} className="flex gap-4 items-start">
+                  <div
+                    className="flex items-center justify-center rounded-xl flex-shrink-0"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      background: item.bg,
+                      border: `1px solid ${item.color}30`,
+                    }}
+                  >
+                    <item.icon className="h-4 w-4" style={{ color: item.color }} />
+                  </div>
+                  <div className="min-w-0">
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "#f6f5f7" }}>{item.title}</p>
+                    <p style={{ fontSize: 12, color: "rgba(246,245,247,0.55)", marginTop: 3, lineHeight: 1.6 }}>{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button
+                onClick={() => setStep(2)}
+                className="flex items-center gap-2 rounded-xl px-5 py-3 transition-all duration-150 hover:opacity-80 active:scale-[0.98] cursor-pointer"
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: "rgba(246,245,247,0.66)",
+                }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Atras
+              </button>
+              <button
+                onClick={() => setStep(4)}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] cursor-pointer"
+                style={{
+                  background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
+                  boxShadow: "0 4px 20px rgba(124,92,255,0.25)",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#fff",
+                }}
+              >
+                Entendido
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 4: Ready ── */}
+        {step === 4 && (
+          <div
+            className="rounded-2xl p-8 hifi-ring-glow"
+            style={{
+              background: "linear-gradient(145deg, #15151a 0%, #18181f 100%)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              boxShadow: "0 0 60px rgba(124,92,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
+            }}
+          >
+            {/* Icon */}
+            <div
+              className="flex items-center justify-center rounded-2xl mx-auto mb-6"
+              style={{
+                width: 64,
+                height: 64,
+                background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
+                boxShadow: "0 0 40px rgba(124,92,255,0.30)",
+              }}
+            >
+              <Check className="h-8 w-8" style={{ color: "#fff" }} />
+            </div>
+
+            <p
+              className="text-center mb-2"
+              style={{
+                fontFamily: "'Geist Mono', ui-monospace, monospace",
+                fontSize: 10,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: "rgba(246,245,247,0.42)",
+              }}
+            >
+              Configuracion completa
+            </p>
+
+            <h1
+              className="text-center mb-2"
+              style={{
+                fontFamily: "'Geist', system-ui, sans-serif",
+                fontWeight: 500,
+                fontSize: 32,
+                letterSpacing: "-0.025em",
+                color: "#f6f5f7",
+              }}
+            >
+              Todo listo.
+            </h1>
+            <p
+              className="text-center mb-8"
+              style={{ fontSize: 14, color: "rgba(246,245,247,0.66)", lineHeight: 1.6, maxWidth: 360, margin: "0 auto 32px" }}
+            >
+              Tu cuenta esta configurada. Ya puedes empezar a generar informes de gestion,
+              actas legales y presentaciones con inteligencia artificial.
+            </p>
+
+            {/* Summary card */}
+            <div
+              className="rounded-xl p-5 mb-6 space-y-3"
+              style={{
+                background: "#1d1d24",
+                border: "1px solid rgba(255,255,255,0.07)",
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex items-center justify-center rounded-lg flex-shrink-0"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    background: "rgba(124,92,255,0.10)",
+                    border: "1px solid rgba(124,92,255,0.20)",
+                  }}
+                >
+                  <User className="h-4 w-4" style={{ color: "#7c5cff" }} />
+                </div>
                 <div>
-                  <label className="text-sm font-medium mb-1.5 block">Nombre del conjunto/edificio *</label>
-                  <Input
-                    value={propName}
-                    onChange={(e) => setPropName(e.target.value)}
-                    placeholder="Ej: Conjunto Residencial Los Pinos"
-                    className="rounded-xl"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-1.5 block">Direccion</label>
-                  <Input
-                    value={propAddress}
-                    onChange={(e) => setPropAddress(e.target.value)}
-                    placeholder="Ej: Carrera 45 #23-67"
-                    className="rounded-xl"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium mb-1.5 block">Ciudad</label>
-                    <Input
-                      value={propCity}
-                      onChange={(e) => setPropCity(e.target.value)}
-                      placeholder="Bogota"
-                      className="rounded-xl"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1.5 block">Num. unidades</label>
-                    <Input
-                      type="number"
-                      value={propUnits}
-                      onChange={(e) => setPropUnits(e.target.value)}
-                      placeholder="120"
-                      className="rounded-xl"
-                    />
-                  </div>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: "#f6f5f7" }}>{name}</p>
+                  <p style={{ fontSize: 11, color: "rgba(246,245,247,0.42)" }}>{cargo}</p>
                 </div>
               </div>
-
-              {/* Property Documents */}
-              {propName.trim() && (
-                <div className="mt-4 pt-4 border-t border-border/30 space-y-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <BookOpen className="h-4 w-4 text-violet-500" />
-                    <span className="text-sm font-semibold">Documentos de la propiedad</span>
+              {propName && (
+                <div className="flex items-center gap-3">
+                  <div
+                    className="flex items-center justify-center rounded-lg flex-shrink-0"
+                    style={{
+                      width: 32,
+                      height: 32,
+                      background: "rgba(76,214,160,0.10)",
+                      border: "1px solid rgba(76,214,160,0.20)",
+                    }}
+                  >
+                    <Building className="h-4 w-4" style={{ color: "#4cd6a0" }} />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Sube el manual de convivencia y reglamento interno. La IA los usara como contexto para generar informes y actas mas precisos.
-                  </p>
-
-                  <div className="space-y-2">
-                    <div>
-                      <label className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-gray-300 dark:border-white/10 cursor-pointer hover:border-violet-300 dark:hover:border-violet-500/30 hover:bg-violet-50/50 dark:hover:bg-violet-500/5 transition-all">
-                        <Shield className="h-5 w-5 text-violet-500 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          {manualFile ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-violet-700 dark:text-violet-300 truncate">{manualFile.name}</span>
-                              <button onClick={(e) => { e.preventDefault(); setManualFile(null); }} className="p-0.5 hover:bg-red-100 dark:hover:bg-red-500/10 rounded">
-                                <X className="h-3 w-3 text-gray-400 hover:text-red-500" />
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <span className="text-sm font-medium">Manual de Convivencia</span>
-                              <span className="block text-xs text-muted-foreground">PDF o Word</span>
-                            </>
-                          )}
-                        </div>
-                        <input type="file" className="hidden" accept=".pdf,.docx,.doc" onChange={(e) => { if (e.target.files?.[0]) setManualFile(e.target.files[0]); }} />
-                      </label>
-                    </div>
-
-                    <div>
-                      <label className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-gray-300 dark:border-white/10 cursor-pointer hover:border-violet-300 dark:hover:border-violet-500/30 hover:bg-violet-50/50 dark:hover:bg-violet-500/5 transition-all">
-                        <FileText className="h-5 w-5 text-emerald-500 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          {reglamentoFile ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300 truncate">{reglamentoFile.name}</span>
-                              <button onClick={(e) => { e.preventDefault(); setReglamentoFile(null); }} className="p-0.5 hover:bg-red-100 dark:hover:bg-red-500/10 rounded">
-                                <X className="h-3 w-3 text-gray-400 hover:text-red-500" />
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <span className="text-sm font-medium">Reglamento Interno</span>
-                              <span className="block text-xs text-muted-foreground">PDF o Word</span>
-                            </>
-                          )}
-                        </div>
-                        <input type="file" className="hidden" accept=".pdf,.docx,.doc" onChange={(e) => { if (e.target.files?.[0]) setReglamentoFile(e.target.files[0]); }} />
-                      </label>
-                    </div>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 500, color: "#f6f5f7" }}>{propName}</p>
+                    <p style={{ fontSize: 11, color: "rgba(246,245,247,0.42)" }}>{propCity || "Sin ciudad"} &mdash; {propUnits || "?"} unidades</p>
                   </div>
-
-                  <p className="text-xs text-muted-foreground italic">
-                    Opcional — puedes subirlos despues desde la seccion de Propiedades.
-                  </p>
                 </div>
               )}
+            </div>
 
-              <div className="flex gap-3 mt-6">
-                <Button variant="outline" onClick={() => setStep(1)} className="h-12 rounded-2xl gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  Atras
-                </Button>
-                <Button
-                  onClick={() => setStep(3)}
-                  disabled={!propName.trim()}
-                  className="flex-1 h-12 rounded-2xl gap-2"
-                >
-                  Continuar
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
+            {error && (
+              <div
+                className="rounded-xl px-4 py-3 mb-4"
+                style={{
+                  background: "rgba(255,111,111,0.10)",
+                  border: "1px solid rgba(255,111,111,0.25)",
+                }}
+              >
+                <p style={{ fontSize: 13, color: "#ff6f6f" }}>{error}</p>
               </div>
+            )}
 
+            <div className="flex gap-3">
               <button
                 onClick={() => setStep(3)}
-                className="w-full text-sm text-muted-foreground hover:text-foreground mt-3 transition-colors"
+                className="flex items-center gap-2 rounded-xl px-5 py-3 transition-all duration-150 hover:opacity-80 active:scale-[0.98] cursor-pointer"
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: "rgba(246,245,247,0.66)",
+                }}
               >
-                Omitir por ahora
+                <ArrowLeft className="h-4 w-4" />
+                Atras
               </button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step 3: Tutorial */}
-        {step === 3 && (
-          <Card className="border-border/40 shadow-xl">
-            <CardContent className="p-8">
-              <div className="text-center mb-6">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-500/25">
-                  <GraduationCap className="h-8 w-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold">Como usar SOPH.IA</h2>
-                <p className="text-muted-foreground mt-2">
-                  Conoce los pasos para generar tus documentos
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                {[
-                  {
-                    icon: Upload,
-                    color: "bg-blue-500",
-                    title: "1. Sube tus insumos",
-                    desc: "Carga actas, estados financieros, grabaciones de juntas, fotos y cualquier documento relevante. La IA extrae la informacion automaticamente.",
-                  },
-                  {
-                    icon: ClipboardList,
-                    color: "bg-violet-500",
-                    title: "2. Selecciona que generar",
-                    desc: "Elige los documentos que necesitas: Informe de Gestion, Acta Legal y/o Presentacion PPTX. Todos son opcionales.",
-                  },
-                  {
-                    icon: Wand2,
-                    color: "bg-purple-500",
-                    title: "3. La IA genera tus documentos",
-                    desc: "SOPH.IA analiza los insumos y genera documentos profesionales con estructura legal colombiana (Ley 675).",
-                  },
-                  {
-                    icon: MessageSquare,
-                    color: "bg-emerald-500",
-                    title: "4. Revisa y corrige con IA",
-                    desc: "Revisa el resultado, solicita correcciones en lenguaje natural y sube archivos adicionales si falta informacion.",
-                  },
-                  {
-                    icon: Download,
-                    color: "bg-amber-500",
-                    title: "5. Descarga y comparte",
-                    desc: "Descarga tus documentos en PDF y PPTX, listos para presentar en la asamblea o entregar al consejo.",
-                  },
-                ].map((item, i) => (
-                  <div key={i} className="flex gap-3.5 items-start">
-                    <div className={`w-9 h-9 rounded-xl ${item.color} flex items-center justify-center flex-shrink-0 shadow-md`}>
-                      <item.icon className="h-4 w-4 text-white" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold">{item.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <Button variant="outline" onClick={() => setStep(2)} className="h-12 rounded-2xl gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  Atras
-                </Button>
-                <Button
-                  onClick={() => setStep(4)}
-                  className="flex-1 h-12 rounded-2xl gap-2"
-                >
-                  Entendido
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step 4: Ready */}
-        {step === 4 && (
-          <Card className="border-border/40 shadow-xl">
-            <CardContent className="p-8 text-center">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-purple-400 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-primary/25">
-                <Sparkles className="h-10 w-10 text-white" />
-              </div>
-              <h2 className="text-2xl font-bold mb-2">Todo listo!</h2>
-              <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
-                Tu cuenta esta configurada. Ya puedes empezar a generar informes de gestion,
-                actas legales y presentaciones con inteligencia artificial.
-              </p>
-
-              <div className="bg-secondary/50 rounded-2xl p-5 mb-8 text-left space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <User className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{name}</p>
-                    <p className="text-xs text-muted-foreground">{cargo}</p>
-                  </div>
-                </div>
-                {propName && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
-                      <Building className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{propName}</p>
-                      <p className="text-xs text-muted-foreground">{propCity || "Sin ciudad"} - {propUnits || "?"} unidades</p>
-                    </div>
-                  </div>
+              <button
+                onClick={handleFinish}
+                disabled={loading}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                style={{
+                  background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
+                  boxShadow: "0 4px 20px rgba(124,92,255,0.25)",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#fff",
+                }}
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    Ir al Dashboard
+                    <ArrowRight className="h-4 w-4" />
+                  </>
                 )}
-              </div>
-
-              {error && (
-                <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-700 dark:text-red-300 mb-4 text-left">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep(3)} className="h-12 rounded-2xl gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  Atras
-                </Button>
-                <Button
-                  onClick={handleFinish}
-                  disabled={loading}
-                  className="flex-1 h-12 rounded-2xl gap-2"
-                >
-                  {loading ? "Guardando..." : "Ir al Dashboard"}
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </button>
+            </div>
+          </div>
         )}
 
-        <div className="flex items-center justify-center gap-2 text-muted-foreground">
-          <Sparkles className="h-4 w-4" />
-          <span className="text-sm font-medium">SOPH.IA</span>
-        </div>
+        {/* Footer */}
+        <p
+          className="text-center"
+          style={{
+            fontFamily: "'Geist Mono', ui-monospace, monospace",
+            fontSize: 9,
+            letterSpacing: "0.20em",
+            textTransform: "uppercase",
+            color: "rgba(246,245,247,0.15)",
+            userSelect: "none",
+          }}
+        >
+          SOPH.IA &middot; Propiedad Horizontal
+        </p>
       </div>
     </div>
   );
