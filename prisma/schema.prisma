@@ -26,6 +26,9 @@ model User {
   city          String?
   onboarded     Boolean   @default(false)
 
+  // Admin role
+  role          String    @default("user") // "user" | "admin"
+
   accounts      Account[]
   sessions      Session[]
   subscription  Subscription?
@@ -34,6 +37,8 @@ model User {
   usageRecords  UsageRecord[]
   agentChats    AgentChat[]
   agentMemories AgentMemory[]
+  tickets       Ticket[]
+  adminActions  AdminAuditLog[] @relation("AdminActor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -89,6 +94,12 @@ model Subscription {
   status              String    @default("inactive") // active, inactive, canceled, past_due
   currentPeriodStart  DateTime?
   currentPeriodEnd    DateTime?
+
+  // Add-on agents activated for this user (e.g. ["metra","hermes"])
+  addonAgents         String[]  @default([])
+
+  // Admin notes (free-form, used by support)
+  adminNotes          String?   @db.Text
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -226,4 +237,66 @@ model UsageRecord {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, date])
+}
+
+// ============================================
+// Support Tickets
+// ============================================
+
+model Ticket {
+  id          String   @id @default(cuid())
+  userId      String
+  subject     String
+  category    String   @default("general") // "general" | "billing" | "technical" | "feature" | "bug"
+  priority    String   @default("normal")  // "low" | "normal" | "high" | "urgent"
+  status      String   @default("open")    // "open" | "pending" | "resolved" | "closed"
+  assignedTo  String?  // Admin userId who picked it up
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages TicketMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([assignedTo])
+}
+
+model TicketMessage {
+  id        String  @id @default(cuid())
+  ticketId  String
+  fromAdmin Boolean @default(false) // false = from user, true = from admin/support
+  authorId  String  // userId who wrote it (admin or user)
+  content   String  @db.Text
+  attachments Json? // [{name, url, size}]
+  internal  Boolean @default(false) // internal admin-only notes not shown to user
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+// ============================================
+// Admin Audit Log
+// ============================================
+
+model AdminAuditLog {
+  id        String   @id @default(cuid())
+  adminId   String   // userId of admin who did the action
+  action    String   // "subscription.cancel" | "addon.activate" | "ticket.resolve" | etc.
+  targetType String? // "user" | "subscription" | "ticket"
+  targetId  String?
+  metadata  Json?    // any extra context (before/after values etc.)
+  ipAddress String?
+
+  admin User @relation("AdminActor", fields: [adminId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+  @@index([action])
+  @@index([createdAt])
 }

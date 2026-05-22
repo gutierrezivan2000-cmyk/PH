@@ -99,6 +99,111 @@ const STATEMENTS: { name: string; sql: string }[] = [
         FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
     EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
   },
+  // ── Admin / Tickets / Add-ons additions ──────────────────────────
+  {
+    name: "User.role column",
+    sql: `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "role" TEXT NOT NULL DEFAULT 'user'`,
+  },
+  {
+    name: "Subscription.addonAgents column",
+    sql: `ALTER TABLE "Subscription" ADD COLUMN IF NOT EXISTS "addonAgents" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`,
+  },
+  {
+    name: "Subscription.adminNotes column",
+    sql: `ALTER TABLE "Subscription" ADD COLUMN IF NOT EXISTS "adminNotes" TEXT`,
+  },
+  {
+    name: "Ticket table",
+    sql: `CREATE TABLE IF NOT EXISTS "Ticket" (
+      "id" TEXT NOT NULL,
+      "userId" TEXT NOT NULL,
+      "subject" TEXT NOT NULL,
+      "category" TEXT NOT NULL DEFAULT 'general',
+      "priority" TEXT NOT NULL DEFAULT 'normal',
+      "status" TEXT NOT NULL DEFAULT 'open',
+      "assignedTo" TEXT,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "Ticket_pkey" PRIMARY KEY ("id")
+    )`,
+  },
+  {
+    name: "Ticket userId index",
+    sql: `CREATE INDEX IF NOT EXISTS "Ticket_userId_idx" ON "Ticket"("userId")`,
+  },
+  {
+    name: "Ticket status index",
+    sql: `CREATE INDEX IF NOT EXISTS "Ticket_status_idx" ON "Ticket"("status")`,
+  },
+  {
+    name: "Ticket assignedTo index",
+    sql: `CREATE INDEX IF NOT EXISTS "Ticket_assignedTo_idx" ON "Ticket"("assignedTo")`,
+  },
+  {
+    name: "Ticket FK to User",
+    sql: `DO $$ BEGIN
+      ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_userId_fkey"
+        FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  },
+  {
+    name: "TicketMessage table",
+    sql: `CREATE TABLE IF NOT EXISTS "TicketMessage" (
+      "id" TEXT NOT NULL,
+      "ticketId" TEXT NOT NULL,
+      "fromAdmin" BOOLEAN NOT NULL DEFAULT false,
+      "authorId" TEXT NOT NULL,
+      "content" TEXT NOT NULL,
+      "attachments" JSONB,
+      "internal" BOOLEAN NOT NULL DEFAULT false,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "TicketMessage_pkey" PRIMARY KEY ("id")
+    )`,
+  },
+  {
+    name: "TicketMessage ticketId index",
+    sql: `CREATE INDEX IF NOT EXISTS "TicketMessage_ticketId_idx" ON "TicketMessage"("ticketId")`,
+  },
+  {
+    name: "TicketMessage FK",
+    sql: `DO $$ BEGIN
+      ALTER TABLE "TicketMessage" ADD CONSTRAINT "TicketMessage_ticketId_fkey"
+        FOREIGN KEY ("ticketId") REFERENCES "Ticket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  },
+  {
+    name: "AdminAuditLog table",
+    sql: `CREATE TABLE IF NOT EXISTS "AdminAuditLog" (
+      "id" TEXT NOT NULL,
+      "adminId" TEXT NOT NULL,
+      "action" TEXT NOT NULL,
+      "targetType" TEXT,
+      "targetId" TEXT,
+      "metadata" JSONB,
+      "ipAddress" TEXT,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "AdminAuditLog_pkey" PRIMARY KEY ("id")
+    )`,
+  },
+  {
+    name: "AdminAuditLog adminId index",
+    sql: `CREATE INDEX IF NOT EXISTS "AdminAuditLog_adminId_idx" ON "AdminAuditLog"("adminId")`,
+  },
+  {
+    name: "AdminAuditLog action index",
+    sql: `CREATE INDEX IF NOT EXISTS "AdminAuditLog_action_idx" ON "AdminAuditLog"("action")`,
+  },
+  {
+    name: "AdminAuditLog createdAt index",
+    sql: `CREATE INDEX IF NOT EXISTS "AdminAuditLog_createdAt_idx" ON "AdminAuditLog"("createdAt")`,
+  },
+  {
+    name: "AdminAuditLog FK to User",
+    sql: `DO $$ BEGIN
+      ALTER TABLE "AdminAuditLog" ADD CONSTRAINT "AdminAuditLog_adminId_fkey"
+        FOREIGN KEY ("adminId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  },
 ];
 
 export async function POST(req: NextRequest) {
