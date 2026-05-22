@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/dashboard/Header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   User,
   Building2,
@@ -19,8 +18,14 @@ import {
   Sun,
   Moon,
   Monitor,
+  LifeBuoy,
+  Plus,
+  X,
+  ChevronRight,
+  Send,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
+import Link from "next/link";
 
 const WHATSAPP_LINK = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_URL || "https://wa.me/message/PLACEHOLDER";
 
@@ -32,6 +37,16 @@ interface Profile {
   phone: string;
   company: string;
   city: string;
+}
+
+interface Ticket {
+  id: string;
+  subject: string;
+  status: string;
+  category: string;
+  priority: string;
+  updatedAt: string;
+  _count?: { messages: number };
 }
 
 // Mono label style
@@ -59,6 +74,37 @@ const hiInput = {
   fontSize: 14,
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  open: "Abierto",
+  pending: "Pendiente",
+  resolved: "Resuelto",
+  closed: "Cerrado",
+};
+
+function statusStyle(status: string): React.CSSProperties {
+  switch (status) {
+    case "open":
+      return { background: "rgba(255,111,111,0.10)", color: "#ff8585", border: "1px solid rgba(255,111,111,0.25)" };
+    case "pending":
+      return { background: "rgba(255,185,88,0.10)", color: "#ffb958", border: "1px solid rgba(255,185,88,0.25)" };
+    case "resolved":
+      return { background: "rgba(76,214,160,0.10)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.25)" };
+    default:
+      return { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.40)", border: "1px solid rgba(255,255,255,0.10)" };
+  }
+}
+
+function relativeTime(date: string): string {
+  const diff = Date.now() - new Date(date).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "ahora";
+  if (mins < 60) return `hace ${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `hace ${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  return `hace ${days}d`;
+}
+
 export default function ConfiguracionPage() {
   const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
@@ -73,6 +119,18 @@ export default function ConfiguracionPage() {
   const [company, setCompany] = useState("");
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
+
+  // Tickets section
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [showTicketForm, setShowTicketForm] = useState(false);
+  const [ticketSubject, setTicketSubject] = useState("");
+  const [ticketCategory, setTicketCategory] = useState("general");
+  const [ticketPriority, setTicketPriority] = useState("normal");
+  const [ticketContent, setTicketContent] = useState("");
+  const [ticketSubmitting, setTicketSubmitting] = useState(false);
+  const [ticketError, setTicketError] = useState<string | null>(null);
+  const [ticketSuccess, setTicketSuccess] = useState(false);
 
   useEffect(() => {
     fetch("/api/profile")
@@ -89,6 +147,19 @@ export default function ConfiguracionPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const loadTickets = useCallback(() => {
+    setTicketsLoading(true);
+    fetch("/api/tickets")
+      .then((r) => r.json())
+      .then((data) => setTickets(data.tickets || []))
+      .catch(console.error)
+      .finally(() => setTicketsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    loadTickets();
+  }, [loadTickets]);
+
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
@@ -104,6 +175,40 @@ export default function ConfiguracionPage() {
       // ignore
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTicketSubmit = async () => {
+    if (!ticketSubject.trim() || !ticketContent.trim()) return;
+    setTicketSubmitting(true);
+    setTicketError(null);
+    try {
+      const res = await fetch("/api/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: ticketSubject.trim(),
+          category: ticketCategory,
+          priority: ticketPriority,
+          content: ticketContent.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Error al crear el ticket");
+      }
+      setTicketSubject("");
+      setTicketCategory("general");
+      setTicketPriority("normal");
+      setTicketContent("");
+      setShowTicketForm(false);
+      setTicketSuccess(true);
+      setTimeout(() => setTicketSuccess(false), 4000);
+      loadTickets();
+    } catch (e) {
+      setTicketError(e instanceof Error ? e.message : "Error desconocido");
+    } finally {
+      setTicketSubmitting(false);
     }
   };
 
@@ -350,7 +455,7 @@ export default function ConfiguracionPage() {
           </div>
         </div>
 
-        {/* ── Soporte ─────────────────────────────────────────────────── */}
+        {/* ── WhatsApp Soporte ─────────────────────────────────────────── */}
         <div style={hiCard}>
           <div className="flex items-center gap-3 mb-6">
             <div
@@ -384,6 +489,242 @@ export default function ConfiguracionPage() {
               Contactar por WhatsApp
             </button>
           </a>
+        </div>
+
+        {/* ── Tickets de soporte ──────────────────────────────────────── */}
+        <div style={hiCard}>
+          <div className="flex items-center justify-between gap-3 mb-6">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(124,92,255,0.12)" }}
+              >
+                <LifeBuoy className="h-4.5 w-4.5" style={{ color: "#7c5cff" }} />
+              </div>
+              <div>
+                <p style={{ ...monoLabel, color: "var(--muted-foreground)" }}>04 · Tickets</p>
+                <h2 className="text-base font-medium text-foreground leading-snug">
+                  Centro de soporte
+                </h2>
+              </div>
+            </div>
+
+            {!showTicketForm && (
+              <button
+                onClick={() => setShowTicketForm(true)}
+                className="h-9 px-4 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:opacity-90"
+                style={{
+                  background: "#7c5cff",
+                  color: "white",
+                  boxShadow: "0 4px 14px rgba(124,92,255,0.25)",
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Crear ticket
+              </button>
+            )}
+          </div>
+
+          {/* Success banner */}
+          {ticketSuccess && (
+            <div
+              className="flex items-center gap-2 px-4 py-3 rounded-xl mb-4"
+              style={{
+                background: "rgba(76,214,160,0.08)",
+                border: "1px solid rgba(76,214,160,0.20)",
+              }}
+            >
+              <Check className="h-4 w-4 flex-shrink-0" style={{ color: "#4cd6a0" }} />
+              <p className="text-sm" style={{ color: "#4cd6a0" }}>
+                Ticket creado exitosamente. Nuestro equipo te responderá pronto.
+              </p>
+            </div>
+          )}
+
+          {/* Create ticket form */}
+          {showTicketForm && (
+            <div
+              className="rounded-xl p-4 mb-5 space-y-4"
+              style={{
+                background: "rgba(124,92,255,0.05)",
+                border: "1px solid rgba(124,92,255,0.15)",
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">Nuevo ticket</p>
+                <button
+                  onClick={() => {
+                    setShowTicketForm(false);
+                    setTicketError(null);
+                  }}
+                  className="p-1 rounded-lg transition-colors hover:bg-white/5"
+                >
+                  <X className="h-4 w-4" style={{ color: "rgba(255,255,255,0.40)" }} />
+                </button>
+              </div>
+
+              {/* Subject */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                  Asunto *
+                </label>
+                <Input
+                  value={ticketSubject}
+                  onChange={(e) => setTicketSubject(e.target.value)}
+                  placeholder="Describe brevemente tu problema"
+                  style={hiInput}
+                  className="rounded-xl focus:ring-2 focus:ring-[#7c5cff]/40 focus:border-[#7c5cff]"
+                />
+              </div>
+
+              {/* Category + Priority */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                    Categoría
+                  </label>
+                  <select
+                    value={ticketCategory}
+                    onChange={(e) => setTicketCategory(e.target.value)}
+                    style={{
+                      ...hiInput,
+                      width: "100%",
+                      height: 40,
+                      paddingLeft: 12,
+                      paddingRight: 12,
+                      appearance: "none",
+                      cursor: "pointer",
+                      outline: "none",
+                    }}
+                  >
+                    <option value="general">General</option>
+                    <option value="billing">Facturación</option>
+                    <option value="technical">Técnico</option>
+                    <option value="feature">Función</option>
+                    <option value="bug">Bug</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                    Prioridad
+                  </label>
+                  <select
+                    value={ticketPriority}
+                    onChange={(e) => setTicketPriority(e.target.value)}
+                    style={{
+                      ...hiInput,
+                      width: "100%",
+                      height: 40,
+                      paddingLeft: 12,
+                      paddingRight: 12,
+                      appearance: "none",
+                      cursor: "pointer",
+                      outline: "none",
+                    }}
+                  >
+                    <option value="low">Baja</option>
+                    <option value="normal">Normal</option>
+                    <option value="high">Alta</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                  Descripción *
+                </label>
+                <textarea
+                  value={ticketContent}
+                  onChange={(e) => setTicketContent(e.target.value)}
+                  placeholder="Describe tu problema con el mayor detalle posible..."
+                  rows={4}
+                  className="w-full px-3 py-2.5 text-sm resize-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7c5cff]/40 focus:border-[#7c5cff] placeholder:text-muted-foreground/40"
+                  style={{
+                    background: "var(--secondary)",
+                    border: "1px solid var(--border)",
+                    color: "var(--foreground)",
+                  }}
+                />
+              </div>
+
+              {ticketError && (
+                <p className="text-xs" style={{ color: "#ff8585", fontFamily: "var(--font-mono)" }}>
+                  {ticketError}
+                </p>
+              )}
+
+              <button
+                onClick={handleTicketSubmit}
+                disabled={ticketSubmitting || !ticketSubject.trim() || !ticketContent.trim()}
+                className="w-full h-10 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  background: "#7c5cff",
+                  color: "white",
+                  boxShadow: "0 4px 14px rgba(124,92,255,0.25)",
+                }}
+              >
+                {ticketSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                {ticketSubmitting ? "Enviando..." : "Enviar ticket"}
+              </button>
+            </div>
+          )}
+
+          {/* Ticket list */}
+          {ticketsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin" style={{ color: "rgba(255,255,255,0.30)" }} />
+            </div>
+          ) : tickets.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-8">
+              <LifeBuoy className="h-7 w-7" style={{ color: "rgba(255,255,255,0.15)" }} />
+              <p className="text-sm text-center" style={{ color: "rgba(255,255,255,0.35)" }}>
+                No tienes tickets de soporte aún.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {tickets.map((ticket) => (
+                <Link
+                  key={ticket.id}
+                  href={`/dashboard/soporte/${ticket.id}`}
+                  className="group flex items-center gap-3 px-3 py-3 rounded-xl transition-colors hover:bg-white/[0.03]"
+                  style={{ border: "1px solid var(--border)" }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium text-foreground truncate">
+                      {ticket.subject}
+                    </p>
+                    <p
+                      className="text-[11px] mt-0.5"
+                      style={{ fontFamily: "'Geist Mono', monospace", color: "rgba(255,255,255,0.30)" }}
+                    >
+                      {relativeTime(ticket.updatedAt)}
+                    </p>
+                  </div>
+                  <span
+                    className="flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-medium"
+                    style={{
+                      fontFamily: "'Geist Mono', monospace",
+                      letterSpacing: "0.10em",
+                      textTransform: "uppercase",
+                      ...statusStyle(ticket.status),
+                    }}
+                  >
+                    {STATUS_LABELS[ticket.status] ?? ticket.status}
+                  </span>
+                  <ChevronRight
+                    className="h-4 w-4 flex-shrink-0 opacity-0 group-hover:opacity-50 transition-opacity"
+                    style={{ color: "rgba(255,255,255,0.40)" }}
+                  />
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>
