@@ -80,6 +80,19 @@ export default function DashboardPage() {
   const router = useRouter();
   const [checking, setChecking] = useState(!IS_DEMO);
   const [userName, setUserName] = useState<string>("");
+  const [clock, setClock] = useState<{ dateLabel: string; greeting: string } | null>(null);
+
+  // Compute date + greeting on the client only, to avoid SSR/client hydration
+  // mismatch from server vs browser time.
+  useEffect(() => {
+    const now = new Date();
+    const dias = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
+    const meses = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
+    const dateLabel = `${dias[now.getDay()]} · ${now.getDate()} ${meses[now.getMonth()]} ${now.getFullYear()}`;
+    const hour = now.getHours();
+    const greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+    setClock({ dateLabel, greeting });
+  }, []);
 
   useEffect(() => {
     if (IS_DEMO) return;
@@ -110,16 +123,8 @@ export default function DashboardPage() {
   }
 
   const firstName = userName || "Administrador";
-
-  // Current date formatted in Spanish
-  const now = new Date();
-  const dias = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
-  const meses = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
-  const dateLabel = `${dias[now.getDay()]} · ${now.getDate()} ${meses[now.getMonth()]} ${now.getFullYear()}`;
-
-  // Hour-based greeting
-  const hour = now.getHours();
-  const greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+  const dateLabel = clock?.dateLabel ?? "";
+  const greeting = clock?.greeting ?? "Hola";
 
   const quickActions = [
     {
@@ -500,7 +505,7 @@ export default function DashboardPage() {
                         color: "#9a7fff",
                         background: "rgba(124,92,255,0.10)",
                       }}
-                      onClick={() => {}}
+                      onClick={() => router.push("/dashboard/suscripcion")}
                     >
                       + Activar · $5/mes
                     </button>

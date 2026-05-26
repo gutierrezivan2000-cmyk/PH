@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { validateConfirmationSignature, verifyTransaction } from "@/lib/epayco";
+import { normalizePlanId, planFromAmount } from "@/lib/plan";
 
 // ePayco sends a POST (or GET) to this endpoint after each transaction.
 // This is the server-to-server callback — NOT user-facing.
@@ -19,8 +20,8 @@ export async function POST(req: NextRequest) {
       x_currency_code,
       x_signature,
       x_cod_response,
-      x_id_invoice,
       x_extra1, // userId
+      x_extra2, // plan idPlan (e.g. "plan-elite-ph")
     } = params as Record<string, string>;
 
     if (!x_ref_payco || !x_transaction_id) {
@@ -59,19 +60,24 @@ export async function POST(req: NextRequest) {
 
     if (codResponse === "1") {
       // ── APPROVED ──
+      // Resolve the canonical plan ("pro"/"elite") from the idPlan we passed in
+      // extra2, falling back to the charged amount. This is what admin MRR,
+      // usage limits, and the UI all read.
+      const plan = normalizePlanId(x_extra2) || planFromAmount(x_amount) || "pro";
       await db.subscription.upsert({
         where: { userId },
         create: {
           userId,
           status: "active",
           epaycoRef: x_ref_payco,
-          planId: String(x_id_invoice ?? "plan-profesional-ph"),
+          planId: plan,
           currentPeriodStart: now,
           currentPeriodEnd: periodEnd,
         },
         update: {
           status: "active",
           epaycoRef: x_ref_payco,
+          planId: plan,
           currentPeriodStart: now,
           currentPeriodEnd: periodEnd,
         },

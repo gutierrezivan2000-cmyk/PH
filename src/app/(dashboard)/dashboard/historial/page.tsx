@@ -309,7 +309,7 @@ export default function HistorialPage() {
                         className="font-medium truncate"
                         style={{ color: "#f6f5f7", fontSize: "14px", fontWeight: 500 }}
                       >
-                        {TYPE_LABELS[gen.type] ?? gen.type} — {gen.property.name}
+                        {TYPE_LABELS[gen.type] ?? gen.type} — {gen.property?.name ?? "Propiedad eliminada"}
                       </p>
                       <p
                         className="mt-0.5 truncate"
@@ -318,7 +318,7 @@ export default function HistorialPage() {
                           color: "rgba(246,245,247,0.42)",
                         }}
                       >
-                        {gen.property.name} · {MONTHS[gen.month - 1]} {gen.year}
+                        {gen.property?.name ?? "—"} · {MONTHS[gen.month - 1]} {gen.year}
                       </p>
                     </div>
 
