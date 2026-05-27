@@ -358,7 +358,6 @@ export default function HistorialPage() {
                         <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           <button
                             type="button"
-                            onClick={(e) => { e.preventDefault(); }}
                             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all"
                             style={{
                               color: "rgba(246,245,247,0.66)",
@@ -379,7 +378,6 @@ export default function HistorialPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={(e) => { e.preventDefault(); }}
                             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all"
                             style={{
                               color: "rgba(246,245,247,0.66)",
