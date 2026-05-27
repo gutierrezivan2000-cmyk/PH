@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ensureAdminSchema } from "@/lib/ensure-admin-schema";
 
 export async function GET(_req: NextRequest) {
   const session = await auth();
@@ -10,6 +11,7 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
+  await ensureAdminSchema();
   const tickets = await db.ticket.findMany({
     where: { userId: session.user.id },
     include: {
@@ -58,6 +60,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Prioridad inválida" }, { status: 400 });
   }
 
+  await ensureAdminSchema();
   const ticket = await db.ticket.create({
     data: {
       userId: session.user.id,
