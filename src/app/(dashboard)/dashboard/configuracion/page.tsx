@@ -15,16 +15,13 @@ import {
   Check,
   Loader2,
   MessageCircle,
-  Sun,
   Moon,
-  Monitor,
   LifeBuoy,
   Plus,
   X,
   ChevronRight,
   Send,
 } from "lucide-react";
-import { useTheme } from "@/components/ThemeProvider";
 import Link from "next/link";
 
 const WHATSAPP_LINK = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_URL || "https://wa.me/message/PLACEHOLDER";
@@ -107,7 +104,6 @@ function relativeTime(date: string): string {
 
 export default function ConfiguracionPage() {
   const { data: session } = useSession();
-  const { theme, setTheme } = useTheme();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -408,9 +404,9 @@ export default function ConfiguracionPage() {
           <div className="flex items-center gap-3 mb-6">
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgba(255,185,88,0.12)" }}
+              style={{ background: "rgba(124,92,255,0.12)" }}
             >
-              <Sun className="h-4.5 w-4.5" style={{ color: "#ffb958" }} />
+              <Moon className="h-4.5 w-4.5" style={{ color: "#7c5cff" }} />
             </div>
             <div>
               <p style={{ ...monoLabel, color: "var(--muted-foreground)" }}>Tema</p>
@@ -418,40 +414,18 @@ export default function ConfiguracionPage() {
             </div>
           </div>
 
-          <p className="text-sm mb-5" style={{ color: "var(--muted-foreground)" }}>
-            Selecciona el tema de la interfaz.
-          </p>
-
-          <div className="grid grid-cols-3 gap-3">
-            {([
-              { value: "light" as const, label: "Claro",  icon: Sun },
-              { value: "dark"  as const, label: "Oscuro", icon: Moon },
-              { value: "auto"  as const, label: "Auto",   icon: Monitor },
-            ]).map((opt) => {
-              const active = theme === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => setTheme(opt.value)}
-                  className="flex flex-col items-center gap-2 p-4 rounded-2xl transition-all"
-                  style={{
-                    background: active ? "rgba(124,92,255,0.10)" : "var(--secondary)",
-                    border: active ? "1px solid rgba(124,92,255,0.40)" : "1px solid var(--border)",
-                  }}
-                >
-                  <opt.icon
-                    className="h-5 w-5"
-                    style={{ color: active ? "#7c5cff" : "var(--muted-foreground)" }}
-                  />
-                  <span
-                    className="text-sm font-medium"
-                    style={{ color: active ? "#7c5cff" : "var(--muted-foreground)" }}
-                  >
-                    {opt.label}
-                  </span>
-                </button>
-              );
-            })}
+          <div
+            className="flex items-center gap-3 p-4 rounded-2xl"
+            style={{
+              background: "rgba(124,92,255,0.08)",
+              border: "1px solid rgba(124,92,255,0.30)",
+            }}
+          >
+            <Moon className="h-5 w-5 flex-shrink-0" style={{ color: "#7c5cff" }} />
+            <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+              SOPH.IA usa un tema oscuro editorial optimizado para largas jornadas de
+              trabajo. El modo claro llegará en una próxima versión.
+            </p>
           </div>
         </div>
 
