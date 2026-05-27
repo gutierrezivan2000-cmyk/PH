@@ -129,6 +129,37 @@ export async function PATCH(
     updateData.planId = planId || null;
   }
 
+  // If we're canceling, try to stop ePayco recurring billing too. The onpage
+  // checkout flow may not have stored an epaycoSubscriptionId — in that case
+  // there's no recurring subscription object to cancel (charges are one-off),
+  // so we just update local state and report that to the admin.
+  let epaycoCancel: { attempted: boolean; ok: boolean; note: string } = {
+    attempted: false,
+    ok: false,
+    note: "",
+  };
+  if (
+    status === "canceled" &&
+    existing.status !== "canceled"
+  ) {
+    if (existing.epaycoSubscriptionId) {
+      epaycoCancel.attempted = true;
+      try {
+        const { cancelSubscription } = await import("@/lib/epayco");
+        const res = await cancelSubscription(existing.epaycoSubscriptionId);
+        epaycoCancel.ok = res?.success !== false;
+        epaycoCancel.note = epaycoCancel.ok
+          ? "Suscripción cancelada en ePayco."
+          : "ePayco rechazó la cancelación; revisa el panel de ePayco.";
+      } catch (e) {
+        epaycoCancel.note = `Error al cancelar en ePayco: ${e instanceof Error ? e.message : "desconocido"}. Cancela manualmente en el panel de ePayco.`;
+      }
+    } else {
+      epaycoCancel.note =
+        "No hay subscription id de ePayco guardado (checkout onpage). Si el cobro es recurrente, cancélalo manualmente en el panel de ePayco.";
+    }
+  }
+
   const updated = await db.subscription.update({
     where: { id },
     data: updateData,
@@ -136,6 +167,18 @@ export async function PATCH(
 
   // Log each distinct change separately
   const logPromises: Promise<void>[] = [];
+
+  if (epaycoCancel.attempted || epaycoCancel.note) {
+    logPromises.push(
+      logAdminAction({
+        adminId: admin.userId,
+        action: "subscription.epayco_cancel",
+        targetType: "subscription",
+        targetId: id,
+        metadata: { ...epaycoCancel },
+      })
+    );
+  }
 
   if (status !== undefined && status !== existing.status) {
     logPromises.push(
@@ -193,5 +236,8 @@ export async function PATCH(
 
   await Promise.all(logPromises);
 
-  return NextResponse.json({ subscription: updated });
+  return NextResponse.json({
+    subscription: updated,
+    ...(epaycoCancel.note ? { epaycoCancel } : {}),
+  });
 }

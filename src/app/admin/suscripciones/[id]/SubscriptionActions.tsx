@@ -15,6 +15,7 @@ export function SubscriptionActions({ subscriptionId, status }: Props) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function handleCancel() {
     setError(null);
@@ -29,6 +30,7 @@ export function SubscriptionActions({ subscriptionId, status }: Props) {
       return;
     }
     setShowConfirm(false);
+    if (data.epaycoCancel?.note) setNotice(data.epaycoCancel.note);
     startTransition(() => router.refresh());
   }
 
@@ -52,6 +54,9 @@ export function SubscriptionActions({ subscriptionId, status }: Props) {
       <div className="flex items-center gap-2 flex-wrap">
         {error && (
           <span className="text-[11px] text-[#ff6f6f]">{error}</span>
+        )}
+        {notice && (
+          <span className="text-[11px] text-[#ffb958] max-w-xs">{notice}</span>
         )}
         {status === "canceled" && (
           <Button
@@ -107,9 +112,10 @@ export function SubscriptionActions({ subscriptionId, status }: Props) {
               ¿Cancelar suscripción?
             </h2>
             <p className="text-sm text-muted-foreground mb-6">
-              Este cambio solo actualiza el estado en la base de datos local.{" "}
-              <strong className="text-foreground/80">No</strong> cancela el cobro en
-              ePayco. Confirma que ya gestionaste el pago antes de continuar.
+              Intentaremos cancelar el cobro recurrente en ePayco si hay una
+              suscripción vinculada. Si el checkout fue de pago único (onpage),
+              deberás confirmarlo manualmente en el panel de ePayco — te lo
+              indicaremos tras confirmar.
             </p>
 
             <div className="flex items-center gap-3 justify-end">
