@@ -18,13 +18,13 @@ const MONO: React.CSSProperties = {
 
 const ACTION_LABELS: Record<string, string> = {
   "user.role_change": "Cambió rol",
-  "subscription.cancel": "Canceló suscripción",
-  "subscription.reactivate": "Reactivó suscripción",
-  "subscription.addons_update": "Actualizó add-ons",
+  "subscription.status_change": "Cambió estado de suscripción",
+  "subscription.plan_change": "Cambió plan",
+  "subscription.addons_change": "Actualizó add-ons",
   "subscription.notes_update": "Actualizó notas",
-  "ticket.status_change": "Cambió estado de ticket",
-  "ticket.priority_change": "Cambió prioridad",
-  "ticket.assign": "Asignó ticket",
+  "subscription.epayco_cancel": "Cancelación ePayco",
+  "ticket.create": "Creó ticket",
+  "ticket.update": "Actualizó ticket",
   "addon.toggle": "Activó/desactivó add-on",
 };
 

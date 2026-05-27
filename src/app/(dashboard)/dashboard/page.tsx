@@ -17,8 +17,6 @@ import {
   Presentation,
   Lock,
   AlertCircle,
-  Eye,
-  Download,
   ArrowUpRight,
   MessageSquare,
   ChevronRight,
@@ -39,33 +37,37 @@ const AGENT_META: Record<
   logistes: { monogram: "L", accentColor: "#8a92ff" },
 };
 
-// Placeholder recent docs
-const RECENT_DOCS = [
-  { type: "PDF",  title: "Informe de gestión · febrero 2026", property: "Conjunto Mirador",   date: "17 feb", meta: "24 págs" },
-  { type: "DOCX", title: "Acta Consejo · ordinaria",         property: "Edificio Altavista",  date: "12 feb", meta: "8 págs" },
-  { type: "PPTX", title: "Asamblea ordinaria 2026",          property: "Conjunto Reservas",   date: "02 feb", meta: "18 slides" },
-  { type: "PDF",  title: "Informe de gestión · enero 2026",  property: "Conjunto Lumière",    date: "14 ene", meta: "21 págs" },
-];
+interface RecentDoc {
+  id: string;
+  type: string;
+  status: string;
+  month: number;
+  year: number;
+  property?: { name: string } | null;
+  createdAt: string;
+}
 
+const DOC_TYPE_LABELS: Record<string, string> = {
+  full: "Generación completa",
+  informe: "Informe de gestión",
+  acta: "Acta de Consejo",
+  presentacion: "Presentación asamblea",
+};
+
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+// Maps a generation type to a document badge.
 function DocTypeBadge({ type }: { type: string }) {
-  if (type === "PDF") return (
-    <span style={{ fontFamily: "'Geist Mono', monospace", letterSpacing: "0.16em", fontSize: 10 }}
-      className="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold uppercase bg-rose-500/15 text-rose-400 dark:bg-rose-500/15 dark:text-rose-400 border border-rose-500/20">
-      PDF
-    </span>
-  );
-  if (type === "DOCX") return (
-    <span style={{ fontFamily: "'Geist Mono', monospace", letterSpacing: "0.16em", fontSize: 10 }}
-      className="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold uppercase bg-blue-500/15 text-blue-400 dark:bg-blue-500/15 dark:text-blue-400 border border-blue-500/20">
-      DOCX
-    </span>
-  );
-  return (
-    <span style={{ fontFamily: "'Geist Mono', monospace", letterSpacing: "0.16em", fontSize: 10 }}
-      className="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold uppercase bg-amber-500/15 text-amber-400 dark:bg-amber-500/15 dark:text-amber-400 border border-amber-500/20">
-      PPTX
-    </span>
-  );
+  const base = "inline-flex items-center px-2 py-1 rounded text-[10px] font-bold uppercase border";
+  const monoStyle = { fontFamily: "'Geist Mono', monospace", letterSpacing: "0.16em", fontSize: 10 };
+  // acta → DOCX, presentacion → PPTX, informe/full → PDF
+  if (type === "presentacion") {
+    return <span style={monoStyle} className={`${base} bg-amber-500/15 text-amber-400 border-amber-500/20`}>PPTX</span>;
+  }
+  if (type === "acta") {
+    return <span style={monoStyle} className={`${base} bg-blue-500/15 text-blue-400 border-blue-500/20`}>DOCX</span>;
+  }
+  return <span style={monoStyle} className={`${base} bg-rose-500/15 text-rose-400 border-rose-500/20`}>PDF</span>;
 }
 
 // Mono label helper
@@ -80,6 +82,29 @@ export default function DashboardPage() {
   const router = useRouter();
   const [checking, setChecking] = useState(!IS_DEMO);
   const [userName, setUserName] = useState<string>("");
+  const [clock, setClock] = useState<{ dateLabel: string; greeting: string } | null>(null);
+  const [recentDocs, setRecentDocs] = useState<RecentDoc[]>([]);
+
+  useEffect(() => {
+    fetch("/api/generations")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setRecentDocs(data.slice(0, 4));
+      })
+      .catch(() => {});
+  }, []);
+
+  // Compute date + greeting on the client only, to avoid SSR/client hydration
+  // mismatch from server vs browser time.
+  useEffect(() => {
+    const now = new Date();
+    const dias = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
+    const meses = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
+    const dateLabel = `${dias[now.getDay()]} · ${now.getDate()} ${meses[now.getMonth()]} ${now.getFullYear()}`;
+    const hour = now.getHours();
+    const greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+    setClock({ dateLabel, greeting });
+  }, []);
 
   useEffect(() => {
     if (IS_DEMO) return;
@@ -110,16 +135,8 @@ export default function DashboardPage() {
   }
 
   const firstName = userName || "Administrador";
-
-  // Current date formatted in Spanish
-  const now = new Date();
-  const dias = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
-  const meses = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
-  const dateLabel = `${dias[now.getDay()]} · ${now.getDate()} ${meses[now.getMonth()]} ${now.getFullYear()}`;
-
-  // Hour-based greeting
-  const hour = now.getHours();
-  const greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+  const dateLabel = clock?.dateLabel ?? "";
+  const greeting = clock?.greeting ?? "Hola";
 
   const quickActions = [
     {
@@ -500,7 +517,7 @@ export default function DashboardPage() {
                         color: "#9a7fff",
                         background: "rgba(124,92,255,0.10)",
                       }}
-                      onClick={() => {}}
+                      onClick={() => router.push("/dashboard/suscripcion")}
                     >
                       + Activar · $5/mes
                     </button>
@@ -536,69 +553,67 @@ export default function DashboardPage() {
               border: "1px solid var(--border)",
             }}
           >
-            <div className="divide-y" style={{ borderColor: "var(--border)" }}>
-              {RECENT_DOCS.map((doc, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-4 px-5 py-4 transition-colors group"
-                  style={{}}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.025)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            {recentDocs.length === 0 ? (
+              <div className="px-5 py-10 text-center">
+                <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+                  Aún no has generado documentos.
+                </p>
+                <Link
+                  href="/dashboard/generar"
+                  className="inline-flex items-center gap-1 mt-3 text-xs font-semibold hover:opacity-80 transition-opacity"
+                  style={{ color: "#a78bff" }}
                 >
-                  {/* Badge */}
-                  <div className="flex-shrink-0">
-                    <DocTypeBadge type={doc.type} />
-                  </div>
-
-                  {/* Title + meta */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-foreground truncate">{doc.title}</p>
-                    <p
-                      className="text-xs mt-0.5 truncate"
-                      style={{ ...monoLabel, fontSize: 9, color: "var(--muted-foreground)" }}
+                  Generar el primero <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
+            ) : (
+              <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+                {recentDocs.map((doc) => {
+                  const d = new Date(doc.createdAt);
+                  const dateLabel = `${d.getDate()} ${MESES_CORTOS[d.getMonth()]}`;
+                  return (
+                    <Link
+                      key={doc.id}
+                      href={`/dashboard/generar/${doc.id}`}
+                      className="flex items-center gap-4 px-5 py-4 transition-colors group hover:bg-secondary"
                     >
-                      {doc.property} · {doc.date} · {doc.meta}
-                    </p>
-                  </div>
+                      <div className="flex-shrink-0">
+                        <DocTypeBadge type={doc.type} />
+                      </div>
 
-                  {/* Themis chip */}
-                  <div
-                    className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full flex-shrink-0"
-                    style={{
-                      background: "rgba(167,139,255,0.10)",
-                      border: "1px solid rgba(167,139,255,0.20)",
-                    }}
-                  >
-                    <Scale className="h-2.5 w-2.5" style={{ color: "#a78bff" }} />
-                    <span style={{ ...monoLabel, fontSize: 9, color: "#a78bff" }}>Themis</span>
-                  </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-foreground truncate">
+                          {DOC_TYPE_LABELS[doc.type] ?? doc.type} · {MESES_CORTOS[doc.month - 1]} {doc.year}
+                        </p>
+                        <p
+                          className="text-xs mt-0.5 truncate"
+                          style={{ ...monoLabel, fontSize: 9, color: "var(--muted-foreground)" }}
+                        >
+                          {doc.property?.name ?? "Propiedad eliminada"} · {dateLabel}
+                        </p>
+                      </div>
 
-                  {/* Action buttons */}
-                  <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors"
-                      style={{
-                        border: "1px solid var(--border)",
-                        color: "var(--muted-foreground)",
-                      }}
-                    >
-                      <Eye className="h-3 w-3" />
-                      Ver
-                    </button>
-                    <button
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors"
-                      style={{
-                        border: "1px solid var(--border)",
-                        color: "var(--muted-foreground)",
-                      }}
-                    >
-                      <Download className="h-3 w-3" />
-                      Descargar
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                      {doc.status === "completed" && (
+                        <div
+                          className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full flex-shrink-0"
+                          style={{
+                            background: "rgba(76,214,160,0.10)",
+                            border: "1px solid rgba(76,214,160,0.25)",
+                          }}
+                        >
+                          <span style={{ ...monoLabel, fontSize: 9, color: "#4cd6a0" }}>Listo</span>
+                        </div>
+                      )}
+
+                      <ArrowRight
+                        className="h-4 w-4 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-0.5"
+                        style={{ color: "#9a7fff" }}
+                      />
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/dashboard/Header";
 import { Button } from "@/components/ui/button";
-import { AGENTS, isValidAgentId, isIncludedAgent, type AgentId } from "@/lib/agents";
+import { AGENTS, isValidAgentId, isIncludedAgent, INCLUDED_AGENT_IDS, type AgentId } from "@/lib/agents";
 import {
   Send,
   Plus,
@@ -112,6 +112,7 @@ export default function AgentPage() {
   const [exporting, setExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [sidebarSearch, setSidebarSearch] = useState("");
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -139,6 +140,20 @@ export default function AgentPage() {
       el.style.height = Math.min(el.scrollHeight, 160) + "px";
     }
   }, []);
+
+  // Resolve agent access (included agents + active add-ons)
+  useEffect(() => {
+    if (!isValid) return;
+    fetch("/api/agents/usage")
+      .then((r) => r.json())
+      .then((data) => {
+        const list = Array.isArray(data?.accessibleAgents)
+          ? data.accessibleAgents
+          : [...INCLUDED_AGENT_IDS];
+        setHasAccess(list.includes(agentId));
+      })
+      .catch(() => setHasAccess(isIncludedAgent(agentId as AgentId)));
+  }, [agentId, isValid]);
 
   // Load chats
   useEffect(() => {
@@ -198,8 +213,19 @@ export default function AgentPage() {
 
   const agent = AGENTS[agentId as AgentId];
   const agentColor = AGENT_COLORS[agentId] || "#7c5cff";
+  const includedByDefault = isIncludedAgent(agentId as AgentId);
 
-  if (!isIncludedAgent(agentId as AgentId)) {
+  // Checking add-on access for a non-included agent — show a brief loader so we
+  // don't flash the upgrade screen at a user who actually has the add-on.
+  if (hasAccess === null && !includedByDefault) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100dvh-52px)] lg:h-screen">
+        <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#7c5cff" }} />
+      </div>
+    );
+  }
+
+  if (hasAccess === false) {
     return (
       <div className="flex flex-col h-[calc(100dvh-52px)] lg:h-screen">
         <Header

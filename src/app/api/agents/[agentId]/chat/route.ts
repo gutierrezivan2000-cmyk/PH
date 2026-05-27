@@ -6,8 +6,11 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AGENTS, isValidAgentId } from "@/lib/agents";
 import { PLANS } from "@/lib/epayco";
+import { normalizePlanId, canAccessAgent } from "@/lib/plan";
 import { ensureAgentTables, isMissingRelationError } from "@/lib/ensure-agent-tables";
 import { parseAttachments, type ParsedAttachment } from "@/lib/parse-attachment";
+
+const IS_DEMO = process.env.DEMO_MODE === "true";
 
 type ContentBlock =
   | { type: "text"; text: string }
@@ -77,6 +80,31 @@ export async function POST(
       return NextResponse.json({ error: "Agente no valido" }, { status: 400 });
     }
 
+    // ── Access control: included agents are open; add-on agents require the
+    // user's subscription to have them in addonAgents (set by admin/billing).
+    step = "check-agent-access";
+    if (!IS_DEMO) {
+      let accessSub: { addonAgents: string[] } | null = null;
+      try {
+        accessSub = await db.subscription.findUnique({
+          where: { userId: session.user.id },
+          select: { addonAgents: true },
+        });
+      } catch {
+        // If we can't read the subscription, fall back to included-only.
+      }
+      if (!canAccessAgent(agentId, accessSub)) {
+        return NextResponse.json(
+          {
+            error:
+              "Este agente es un complemento que aun no tienes activo. Actualiza tu plan para usarlo.",
+            code: "agent_locked",
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     step = "parse-body";
     const body = await req.json();
     const { chatId: existingChatId, message, attachments: reqAttachments } = body as {
@@ -113,7 +141,7 @@ export async function POST(
 
       try {
         const subPlan = (await db.subscription.findFirst({ where: { userId: session.user.id } }))?.planId;
-        const tLimits = subPlan === "plan-elite-ph" ? PLANS.elite.limits : PLANS.pro.limits;
+        const tLimits = normalizePlanId(subPlan) === "elite" ? PLANS.elite.limits : PLANS.pro.limits;
         const dailyCap = tLimits.transcriptionMinutesPerDay;
         const monthlyCap = tLimits.transcriptionMinutesPerMonth;
 
@@ -174,7 +202,7 @@ export async function POST(
 
     try {
       const subscription = await db.subscription.findFirst({ where: { userId } });
-      if (subscription?.planId === "plan-elite-ph") {
+      if (normalizePlanId(subscription?.planId) === "elite") {
         planLimits = { ...PLANS.elite.limits };
       }
     } catch (err) {

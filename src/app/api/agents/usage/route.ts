@@ -4,6 +4,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { PLANS } from "@/lib/epayco";
+import { normalizePlanId, accessibleAgents } from "@/lib/plan";
+import { INCLUDED_AGENT_IDS } from "@/lib/agents";
+
+const IS_DEMO = process.env.DEMO_MODE === "true";
 
 export async function GET() {
   try {
@@ -27,13 +31,20 @@ export async function GET() {
       transcriptionMinutesPerDay: number;
       transcriptionMinutesPerMonth: number;
     } = { ...PLANS.pro.limits };
+    // In demo mode every agent is unlocked; otherwise compute from subscription.
+    let accessible: string[] = IS_DEMO
+      ? ["themis", "chronos", "metra", "nomethes", "hermes", "logistes"]
+      : [...INCLUDED_AGENT_IDS];
     try {
       const sub = await db.subscription.findUnique({ where: { userId } });
-      if (sub?.planId === "plan-elite-ph") {
+      if (normalizePlanId(sub?.planId) === "elite") {
         limits = { ...PLANS.elite.limits };
       }
+      if (!IS_DEMO) {
+        accessible = accessibleAgents(sub);
+      }
     } catch {
-      // default to pro
+      // default to pro limits + included agents
     }
 
     let dailyCount = 0;
@@ -94,6 +105,7 @@ export async function GET() {
       weekly: weeklyCount,
       transcriptionMinutesDay,
       transcriptionMinutesMonth,
+      accessibleAgents: accessible,
       limits: {
         agentMessagesPerDay: limits.agentMessagesPerDay,
         agentMessagesPerWeek: limits.agentMessagesPerWeek,

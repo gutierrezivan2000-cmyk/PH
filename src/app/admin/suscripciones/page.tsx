@@ -7,16 +7,9 @@ import { db } from "@/lib/db";
 import Link from "next/link";
 import { CreditCard, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { SuscripcionesFilters } from "./SuscripcionesFilters";
+import { calcMrr } from "@/lib/plan";
 
 const PAGE_SIZE = 50;
-
-function calcMrr(planId: string | null | undefined, addonAgents: string[]): number {
-  let mrr = 0;
-  if (planId === "elite") mrr += 200;
-  else if (planId === "pro") mrr += 20;
-  mrr += (addonAgents?.length || 0) * 5;
-  return mrr;
-}
 
 interface SearchParams {
   q?: string;

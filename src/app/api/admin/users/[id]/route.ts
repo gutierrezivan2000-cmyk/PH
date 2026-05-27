@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminOr401, logAdminAction } from "@/lib/admin-auth";
+import { requireAdminOr401, logAdminAction, isEnvAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 
 export async function GET(
@@ -91,11 +91,23 @@ export async function PATCH(
 
   const existing = await db.user.findUnique({
     where: { id },
-    select: { id: true, role: true },
+    select: { id: true, role: true, email: true },
   });
 
   if (!existing) {
     return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+  }
+
+  // Env-configured admins (ADMIN_EMAILS) are permanent — a demotion here would
+  // be silently reverted on their next login, so reject it with a clear message.
+  if (role === "user" && isEnvAdmin(existing.email)) {
+    return NextResponse.json(
+      {
+        error:
+          "Este usuario es administrador permanente (configurado en ADMIN_EMAILS). Quítalo de esa variable de entorno para poder degradarlo.",
+      },
+      { status: 400 }
+    );
   }
 
   const updated = await db.user.update({

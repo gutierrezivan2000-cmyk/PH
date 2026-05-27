@@ -97,31 +97,17 @@ export default function SoporteTicketPage() {
 
   const loadTicket = useCallback(async () => {
     try {
-      // We use the admin API here but validate ownership client-side
-      // Actually use the user-side: GET /api/tickets returns owned tickets
-      // For single ticket detail we'll build a small helper below
-      const res = await fetch(`/api/tickets`);
-      if (!res.ok) throw new Error("Error al cargar tickets");
-      const data = await res.json();
-      const found = (data.tickets as TicketData[]).find((t) => t.id === ticketId);
-      if (!found) {
+      // GET /api/tickets/[id] returns the full ticket with messages and
+      // enforces ownership server-side (403 if not the owner; internal admin
+      // notes are filtered out).
+      const res = await fetch(`/api/tickets/${ticketId}`);
+      if (res.status === 403 || res.status === 404) {
         setError("Ticket no encontrado o no tienes acceso.");
         return;
       }
-      // Now fetch full messages via admin-adjacent pattern — we need a user endpoint
-      // Since we only have /api/tickets (list) and /api/tickets/[id]/messages (POST),
-      // we load the full ticket from the list which only has preview. We need GET /api/tickets/[id]
-      // That route doesn't exist yet in user-land, so we use the list messages approach below.
-      // Workaround: if the tickets list includes messages preview, we need full messages.
-      // We'll create a lightweight fetch directly
-      const msgRes = await fetch(`/api/tickets/${ticketId}`);
-      if (msgRes.ok) {
-        const msgData = await msgRes.json();
-        setTicket(msgData.ticket);
-      } else {
-        // Fallback: use what we have from the list (may only have preview)
-        setTicket(found);
-      }
+      if (!res.ok) throw new Error("Error al cargar el ticket");
+      const data = await res.json();
+      setTicket(data.ticket);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error desconocido");
     } finally {

@@ -3,16 +3,9 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401 } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { calcMrr, normalizePlanId } from "@/lib/plan";
 
 const ADDON_AGENTS = ["metra", "nomethes", "hermes", "logistes"] as const;
-
-function calcMrr(planId: string | null | undefined, addonAgents: string[]): number {
-  let mrr = 0;
-  if (planId === "elite") mrr += 200;
-  else if (planId === "pro") mrr += 20;
-  mrr += (addonAgents?.length || 0) * 5;
-  return mrr;
-}
 
 function monthKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -147,8 +140,10 @@ export async function GET(req: NextRequest) {
   let proCount = 0, eliteCount = 0, noSubCount = 0;
   for (const s of allSubs) {
     if (s.status !== "active") continue;
-    if (s.planId === "elite") eliteCount++;
-    else proCount++;
+    const p = normalizePlanId(s.planId);
+    if (p === "elite") eliteCount++;
+    else if (p === "pro") proCount++;
+    // active sub with no recognizable plan → counted in neither (falls to noSub)
   }
   noSubCount = totalUsers - (proCount + eliteCount);
 

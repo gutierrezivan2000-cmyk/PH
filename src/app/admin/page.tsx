@@ -1,6 +1,7 @@
 import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { db } from "@/lib/db";
+import { calcMrr } from "@/lib/plan";
 import Link from "next/link";
 import {
   Users,
@@ -50,12 +51,7 @@ async function loadOverview() {
     select: { planId: true, addonAgents: true },
   });
 
-  let mrr = 0;
-  for (const s of allActive) {
-    if (s.planId === "elite") mrr += 200;
-    else if (s.planId === "pro") mrr += 20;
-    mrr += (s.addonAgents?.length || 0) * 5;
-  }
+  const mrr = allActive.reduce((sum, s) => sum + calcMrr(s.planId, s.addonAgents), 0);
 
   // Recent tickets to surface in the panel
   const recentTickets = await db.ticket.findMany({

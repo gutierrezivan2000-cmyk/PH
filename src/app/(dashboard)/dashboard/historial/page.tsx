@@ -309,7 +309,7 @@ export default function HistorialPage() {
                         className="font-medium truncate"
                         style={{ color: "#f6f5f7", fontSize: "14px", fontWeight: 500 }}
                       >
-                        {TYPE_LABELS[gen.type] ?? gen.type} — {gen.property.name}
+                        {TYPE_LABELS[gen.type] ?? gen.type} — {gen.property?.name ?? "Propiedad eliminada"}
                       </p>
                       <p
                         className="mt-0.5 truncate"
@@ -318,7 +318,7 @@ export default function HistorialPage() {
                           color: "rgba(246,245,247,0.42)",
                         }}
                       >
-                        {gen.property.name} · {MONTHS[gen.month - 1]} {gen.year}
+                        {gen.property?.name ?? "—"} · {MONTHS[gen.month - 1]} {gen.year}
                       </p>
                     </div>
 
@@ -358,7 +358,6 @@ export default function HistorialPage() {
                         <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           <button
                             type="button"
-                            onClick={(e) => { e.preventDefault(); }}
                             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all"
                             style={{
                               color: "rgba(246,245,247,0.66)",
@@ -379,7 +378,6 @@ export default function HistorialPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={(e) => { e.preventDefault(); }}
                             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all"
                             style={{
                               color: "rgba(246,245,247,0.66)",

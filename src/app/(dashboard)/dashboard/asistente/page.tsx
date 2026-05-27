@@ -32,6 +32,7 @@ interface AgentUsage {
 
 export default function AsistentePage() {
   const [usage, setUsage] = useState<AgentUsage | null>(null);
+  const [accessible, setAccessible] = useState<string[]>([...INCLUDED_AGENT_IDS]);
 
   useEffect(() => {
     fetch("/api/agents/usage")
@@ -39,6 +40,9 @@ export default function AsistentePage() {
       .then((data) => {
         if (data && typeof data.daily === "number" && data.limits) {
           setUsage({ daily: data.daily, weekly: data.weekly, limits: data.limits });
+        }
+        if (Array.isArray(data?.accessibleAgents)) {
+          setAccessible(data.accessibleAgents);
         }
       })
       .catch(console.error);
@@ -98,7 +102,7 @@ export default function AsistentePage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {AGENT_IDS.map((id) => {
             const agent = AGENTS[id];
-            const included = INCLUDED_AGENT_IDS.includes(id);
+            const included = accessible.includes(id);
             const color = AGENT_COLORS[id] || "#7c5cff";
             const monogram = AGENT_MONOGRAMS[id] || id[0].toUpperCase();
 

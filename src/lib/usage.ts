@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { PLANS } from "@/lib/epayco";
+import { normalizePlanId } from "@/lib/plan";
 
 type PlanLimits = {
   generationsPerDay: number;
@@ -10,7 +11,7 @@ type PlanLimits = {
 };
 
 function getPlanLimits(planId?: string | null): PlanLimits {
-  if (planId === "plan-elite-ph") return { ...PLANS.elite.limits };
+  if (normalizePlanId(planId) === "elite") return { ...PLANS.elite.limits };
   return { ...PLANS.pro.limits };
 }
 
