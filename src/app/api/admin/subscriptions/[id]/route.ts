@@ -119,7 +119,14 @@ export async function PATCH(
   }
 
   if (planId !== undefined) {
-    updateData.planId = planId;
+    const validPlans = ["pro", "elite"];
+    if (planId !== null && !validPlans.includes(planId)) {
+      return NextResponse.json(
+        { error: "Plan inválido. Debe ser 'pro', 'elite' o vacío." },
+        { status: 400 }
+      );
+    }
+    updateData.planId = planId || null;
   }
 
   const updated = await db.subscription.update({

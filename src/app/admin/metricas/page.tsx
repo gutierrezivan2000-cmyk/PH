@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/admin/PageHeader";
 import { db } from "@/lib/db";
 import Link from "next/link";
 import { TrendingUp, Users, BarChart2, XCircle } from "lucide-react";
+import { calcMrr, normalizePlanId } from "@/lib/plan";
 
 // ---- Helpers ----
 const MONO: React.CSSProperties = {
@@ -22,14 +23,6 @@ const AGENT_COLORS: Record<string, string> = {
   hermes: "#ff6fa8",
   logistes: "#8a92ff",
 };
-
-function calcMrr(planId: string | null | undefined, addonAgents: string[]): number {
-  let mrr = 0;
-  if (planId === "elite") mrr += 200;
-  else if (planId === "pro") mrr += 20;
-  mrr += (addonAgents?.length || 0) * 5;
-  return mrr;
-}
 
 // ---- Data loading ----
 async function loadMetrics() {
@@ -145,8 +138,9 @@ async function loadMetrics() {
   // Plan distribution
   let proCount = 0, eliteCount = 0;
   for (const s of allActiveSubs) {
-    if (s.planId === "elite") eliteCount++;
-    else proCount++;
+    const p = normalizePlanId(s.planId);
+    if (p === "elite") eliteCount++;
+    else if (p === "pro") proCount++;
   }
   const noSubCount = Math.max(0, totalUsers - proCount - eliteCount);
 

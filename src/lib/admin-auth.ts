@@ -10,6 +10,21 @@ export interface AdminSession {
 }
 
 /**
+ * Whether an email is a permanent (env-configured) admin. These accounts are
+ * always promoted to admin on login and CANNOT be demoted from the UI — they
+ * are the platform owners. UI-promoted admins (not in ADMIN_EMAILS) can be
+ * demoted normally.
+ */
+export function isEnvAdmin(email?: string | null): boolean {
+  if (!email) return false;
+  const list = (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return list.includes(email.toLowerCase());
+}
+
+/**
  * Resolves the current session and returns it if the user is an admin.
  * Returns null otherwise. Use in server components / API routes.
  */

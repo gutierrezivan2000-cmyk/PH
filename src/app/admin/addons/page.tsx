@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Search, ToggleLeft, Users } from "lucide-react";
+import { calcMrr } from "@/lib/plan";
 
 // ---- Types ----
 type AddonAgent = "metra" | "nomethes" | "hermes" | "logistes";
@@ -299,14 +300,6 @@ function AddonsContent() {
     } finally {
       setToggling((t) => ({ ...t, [key]: false }));
     }
-  }
-
-  function calcMrr(planId: string | null, addons: string[]): number {
-    let m = 0;
-    if (planId === "elite") m += 200;
-    else if (planId === "pro") m += 20;
-    m += (addons?.length || 0) * 5;
-    return m;
   }
 
   const users = data?.users ?? [];

@@ -68,6 +68,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const validCategories = ["general", "billing", "technical", "feature", "bug"];
+  const validPriorities = ["low", "normal", "high", "urgent"];
+  if (!validCategories.includes(category)) {
+    return NextResponse.json({ error: "Categoría inválida." }, { status: 400 });
+  }
+  if (!validPriorities.includes(priority)) {
+    return NextResponse.json({ error: "Prioridad inválida." }, { status: 400 });
+  }
+
   const user = await db.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!user) {
     return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });

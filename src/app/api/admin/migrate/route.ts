@@ -210,16 +210,18 @@ export async function POST(req: NextRequest) {
   const providedSecret =
     req.headers.get("x-admin-secret") || new URL(req.url).searchParams.get("secret");
 
-  const expectedSecret = process.env.ADMIN_MIGRATE_SECRET || process.env.AUTH_SECRET;
+  // Require a DEDICATED secret. Never fall back to AUTH_SECRET — that's the
+  // JWT signing key, and this endpoint runs raw DDL ($executeRawUnsafe).
+  const expectedSecret = process.env.ADMIN_MIGRATE_SECRET;
 
   if (!expectedSecret) {
     return NextResponse.json(
-      { error: "ADMIN_MIGRATE_SECRET (o AUTH_SECRET) no configurado en el servidor" },
+      { error: "ADMIN_MIGRATE_SECRET no configurado en el servidor" },
       { status: 500 }
     );
   }
 
-  if (providedSecret !== expectedSecret) {
+  if (!providedSecret || providedSecret !== expectedSecret) {
     return NextResponse.json({ error: "Secret invalido o faltante" }, { status: 401 });
   }
 

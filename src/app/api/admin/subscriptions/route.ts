@@ -3,16 +3,9 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401 } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { calcMrr } from "@/lib/plan";
 
 const PAGE_SIZE = 50;
-
-function calcMrr(planId: string | null | undefined, addonAgents: string[]): number {
-  let mrr = 0;
-  if (planId === "elite") mrr += 200;
-  else if (planId === "pro") mrr += 20;
-  mrr += (addonAgents?.length || 0) * 5;
-  return mrr;
-}
 
 export async function GET(req: NextRequest) {
   const r = await requireAdminOr401();

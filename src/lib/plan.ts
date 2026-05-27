@@ -36,6 +36,19 @@ export function planFromAmount(amount?: number | string | null): CanonicalPlan |
   return n >= 100 ? "elite" : "pro";
 }
 
+/** Monthly base price (USD) of a plan. Unknown/null plans contribute $0. */
+export function planBaseMrr(planId?: string | null): number {
+  const p = normalizePlanId(planId);
+  if (p === "elite") return 200;
+  if (p === "pro") return 20;
+  return 0;
+}
+
+/** Full monthly recurring revenue for a subscription: base plan + $5/add-on. */
+export function calcMrr(planId?: string | null, addonAgents?: string[] | null): number {
+  return planBaseMrr(planId) + (addonAgents?.length || 0) * 5;
+}
+
 interface SubLike {
   status?: string | null;
   planId?: string | null;
