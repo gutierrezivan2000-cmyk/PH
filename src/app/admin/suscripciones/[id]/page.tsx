@@ -333,12 +333,12 @@ async function SuscripcionDetail({ id }: { id: string }) {
                           >
                             {log.admin.name || log.admin.email}
                           </p>
-                          {meta && (meta.from || meta.to) && (
+                          {meta && Boolean(meta.from ?? meta.to) && (
                             <p
                               className="text-[10px] text-muted-foreground/50 mt-1"
                               style={{ fontFamily: "var(--font-mono)" }}
                             >
-                              {meta.from as string} → {meta.to as string}
+                              {String(meta.from ?? "—")} → {String(meta.to ?? "—")}
                             </p>
                           )}
                         </div>
