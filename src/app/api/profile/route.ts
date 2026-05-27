@@ -24,6 +24,8 @@ export async function GET() {
 
   try {
     const { db } = await import("@/lib/db");
+    const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+    await ensureAdminSchema();
     const user = await db.user.findUnique({
       where: { email: session.user.email! },
     });
@@ -79,6 +81,8 @@ export async function PUT(req: NextRequest) {
 
   try {
     const { db } = await import("@/lib/db");
+    const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+    await ensureAdminSchema();
 
     // Find or create user by email
     let user = await db.user.findUnique({ where: { email: session.user.email! } });

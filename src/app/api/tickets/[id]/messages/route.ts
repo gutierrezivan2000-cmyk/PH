@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ensureAdminSchema } from "@/lib/ensure-admin-schema";
 
 export async function POST(
   req: NextRequest,
@@ -13,6 +14,7 @@ export async function POST(
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
+  await ensureAdminSchema();
   const { id } = await params;
 
   const ticket = await db.ticket.findUnique({ where: { id } });

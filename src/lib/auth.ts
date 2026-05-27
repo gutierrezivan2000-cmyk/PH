@@ -47,6 +47,8 @@ const productionProviders = [
 
         const { db } = await import("@/lib/db");
         const bcrypt = await import("bcryptjs");
+        const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+        await ensureAdminSchema();
 
         const user = await db.user.findUnique({ where: { email } });
         if (!user || !user.passwordHash) return null;
@@ -117,6 +119,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider === "google" && user?.email) {
         try {
           const { db } = await import("@/lib/db");
+          const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+          await ensureAdminSchema();
           const existing = await db.user.findUnique({
             where: { email: user.email },
           });

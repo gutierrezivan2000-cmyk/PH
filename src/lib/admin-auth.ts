@@ -32,6 +32,10 @@ export async function requireAdmin(): Promise<AdminSession | null> {
   const session = await auth();
   if (!session?.user?.id || !session.user.email) return null;
 
+  // Self-heal schema drift (role column etc.) before reading it.
+  const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+  await ensureAdminSchema();
+
   // Double-check the role from DB (don't trust JWT alone for sensitive ops)
   const user = await db.user.findUnique({
     where: { id: session.user.id },
