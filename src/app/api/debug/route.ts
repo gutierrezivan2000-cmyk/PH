@@ -1,9 +1,21 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Diagnostics expose env-var presence, DB info, and trigger a paid AI call —
+  // admin-only. Accepts the dedicated migrate secret or an admin session.
+  const secret = req.headers.get("x-admin-secret");
+  const expected = process.env.ADMIN_MIGRATE_SECRET;
+  if (!expected || secret !== expected) {
+    const { requireAdmin } = await import("@/lib/admin-auth");
+    const admin = await requireAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+  }
+
   const results: Record<string, string> = {};
   const timings: Record<string, number> = {};
 

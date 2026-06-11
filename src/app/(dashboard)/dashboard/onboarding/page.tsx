@@ -25,6 +25,8 @@ import {
   Loader2,
   BookOpen,
   Shield,
+  AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { upload as blobUpload } from "@vercel/blob/client";
 
@@ -53,6 +55,9 @@ export default function OnboardingPage() {
   const [uploadingDocs, setUploadingDocs] = useState(false);
 
   const [error, setError] = useState("");
+  const [docWarning, setDocWarning] = useState("");
+  const [skipped, setSkipped] = useState(false);
+  const [savedPropertyId, setSavedPropertyId] = useState<string | null>(null);
 
   const TOTAL_STEPS = 4;
 
@@ -73,26 +78,40 @@ export default function OnboardingPage() {
         return;
       }
 
-      if (propName.trim()) {
-        const propRes = await fetch("/api/properties", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: propName,
-            address: propAddress,
-            city: propCity,
-            units: propUnits,
-          }),
-        });
-        if (propRes.ok) {
-          const propData = await propRes.json();
-          const propertyId = propData.id;
+      if (!skipped && propName.trim()) {
+        let propertyId = savedPropertyId;
 
+        if (!propertyId) {
+          const propRes = await fetch("/api/properties", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: propName,
+              address: propAddress,
+              city: propCity,
+              units: propUnits,
+            }),
+          }).catch(() => null);
+
+          if (!propRes || !propRes.ok) {
+            console.error("[ONBOARDING] Property save failed");
+            setError("No pudimos guardar tu propiedad. Revisa tu conexión e intenta de nuevo.");
+            setLoading(false);
+            return;
+          }
+
+          const propData = await propRes.json();
+          propertyId = propData.id as string;
+          setSavedPropertyId(propertyId);
+        }
+
+        if (!docWarning) {
           const docsToUpload = [
             { file: manualFile, type: "manual_convivencia" },
             { file: reglamentoFile, type: "reglamento_interno" },
           ];
 
+          const failedDocs: string[] = [];
           for (const doc of docsToUpload) {
             if (!doc.file) continue;
             try {
@@ -102,7 +121,7 @@ export default function OnboardingPage() {
                 handleUploadUrl: "/api/upload/token",
                 contentType: doc.file.type || "application/octet-stream",
               });
-              await fetch(`/api/properties/${propertyId}/documents`, {
+              const docRes = await fetch(`/api/properties/${propertyId}/documents`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -113,12 +132,18 @@ export default function OnboardingPage() {
                   mimeType: doc.file.type,
                 }),
               });
+              if (!docRes.ok) throw new Error("Document registration failed");
             } catch (err) {
               console.error("[ONBOARDING] Doc upload failed:", err);
+              failedDocs.push(doc.file.name);
             }
           }
-        } else {
-          console.error("[ONBOARDING] Property save failed");
+
+          if (failedDocs.length > 0) {
+            setDocWarning(`La propiedad se guardó, pero falló la subida de ${failedDocs.join(", ")}. Podrás subirlo después desde Propiedades.`);
+            setLoading(false);
+            return;
+          }
         }
       }
 
@@ -746,7 +771,7 @@ export default function OnboardingPage() {
                 Atras
               </button>
               <button
-                onClick={() => setStep(3)}
+                onClick={() => { setSkipped(false); setStep(3); }}
                 disabled={!propName.trim()}
                 className="flex-1 flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 style={{
@@ -763,7 +788,16 @@ export default function OnboardingPage() {
             </div>
 
             <button
-              onClick={() => setStep(3)}
+              onClick={() => {
+                setSkipped(true);
+                setPropName("");
+                setPropAddress("");
+                setPropCity("");
+                setPropUnits("");
+                setManualFile(null);
+                setReglamentoFile(null);
+                setStep(3);
+              }}
               className="w-full mt-3 text-center transition-colors"
               style={{ fontSize: 12, color: "rgba(246,245,247,0.35)" }}
             >
@@ -1009,13 +1043,27 @@ export default function OnboardingPage() {
 
             {error && (
               <div
-                className="rounded-xl px-4 py-3 mb-4"
+                className="rounded-xl px-4 py-3 mb-4 flex items-start gap-2.5"
                 style={{
-                  background: "rgba(255,111,111,0.10)",
-                  border: "1px solid rgba(255,111,111,0.25)",
+                  background: "rgba(255,111,111,0.08)",
+                  border: "1px solid rgba(255,111,111,0.3)",
                 }}
               >
-                <p style={{ fontSize: 13, color: "#ff6f6f" }}>{error}</p>
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "#ff6f6f" }} />
+                <p style={{ fontSize: 13, color: "#ff6f6f", lineHeight: 1.5 }}>{error}</p>
+              </div>
+            )}
+
+            {docWarning && (
+              <div
+                className="rounded-xl px-4 py-3 mb-4 flex items-start gap-2.5"
+                style={{
+                  background: "rgba(255,185,88,0.08)",
+                  border: "1px solid rgba(255,185,88,0.3)",
+                }}
+              >
+                <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "#ffb958" }} />
+                <p style={{ fontSize: 13, color: "#ffb958", lineHeight: 1.5 }}>{docWarning}</p>
               </div>
             )}
 

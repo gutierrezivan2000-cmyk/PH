@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { TRIAL_DAYS } from "@/lib/plan";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, name } = await req.json();
+    const body = await req.json();
+    const password = body.password as string | undefined;
+    const name = body.name as string | undefined;
+    const email = (body.email as string | undefined)?.trim().toLowerCase();
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email y contraseña son requeridos" }, { status: 400 });
@@ -15,50 +19,79 @@ export async function POST(req: NextRequest) {
 
     const { db } = await import("@/lib/db");
     const bcrypt = await import("bcryptjs");
+    const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+    await ensureAdminSchema();
+
+    const passwordHash = await bcrypt.hash(password, 12);
 
     const existing = await db.user.findUnique({ where: { email } });
     if (existing) {
-      return NextResponse.json({ error: "Ya existe una cuenta con este correo" }, { status: 409 });
-    }
+      if (existing.emailVerified) {
+        return NextResponse.json({ error: "Ya existe una cuenta con este correo" }, { status: 409 });
+      }
+      // Unverified account re-registering (e.g. the verification email never
+      // arrived): refresh credentials and send a new code instead of locking
+      // them out with a 409 forever.
+      await db.user.update({
+        where: { id: existing.id },
+        data: { passwordHash, ...(name ? { name } : {}) },
+      });
+    } else {
+      const created = await db.user.create({
+        data: {
+          email,
+          name: name || email.split("@")[0],
+          passwordHash,
+          // emailVerified stays null until code is confirmed
+        },
+      });
 
-    const passwordHash = await bcrypt.hash(password, 12);
-    await db.user.create({
-      data: {
-        email,
-        name: name || email.split("@")[0],
-        passwordHash,
-        // emailVerified stays null until code is confirmed
-      },
-    });
+      // Start the advertised 7-day free trial (Pro limits, no card).
+      try {
+        const now = new Date();
+        await db.subscription.create({
+          data: {
+            userId: created.id,
+            status: "trialing",
+            planId: "pro",
+            currentPeriodStart: now,
+            currentPeriodEnd: new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+          },
+        });
+      } catch (subErr) {
+        // Non-fatal: checkSubscriptionAccess lazy-creates the trial on first use.
+        console.error("[register] trial subscription create failed:", subErr);
+      }
+    }
 
     // Generate 6-digit verification code
     const code = crypto.randomInt(100000, 999999).toString();
     const hashedCode = crypto.createHash("sha256").update(code).digest("hex");
     const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    // Clean up any existing tokens for this email, then create new one
     await db.verificationToken.deleteMany({ where: { identifier: email } });
     await db.verificationToken.create({
-      data: {
-        identifier: email,
-        token: hashedCode,
-        expires,
-      },
+      data: { identifier: email, token: hashedCode, expires },
     });
 
-    // Send verification email
+    // Send verification email — report the outcome honestly so the UI can
+    // tell the user when the code didn't go out instead of leaving them
+    // stranded on /verify waiting for an email that never arrives.
+    let emailSent = true;
     try {
       const { sendVerificationEmail } = await import("@/lib/email");
       await sendVerificationEmail(email, code);
     } catch (emailErr) {
       console.error("[register] Email send failed:", emailErr);
-      // Don't fail registration if email fails — user can resend
+      emailSent = false;
     }
 
-    return NextResponse.json({ success: true, needsVerification: true });
+    return NextResponse.json({ success: true, needsVerification: true, emailSent });
   } catch (e) {
     console.error("[register] Error:", e);
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json(
+      { error: "No pudimos crear tu cuenta. Intenta de nuevo en unos minutos." },
+      { status: 500 }
+    );
   }
 }

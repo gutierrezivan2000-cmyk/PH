@@ -40,7 +40,7 @@ const productionProviders = [
     },
     async authorize(credentials) {
       try {
-        const email = credentials?.email as string;
+        const email = (credentials?.email as string)?.trim().toLowerCase();
         const password = credentials?.password as string;
 
         if (!email || !password) return null;
@@ -118,11 +118,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // On first Google sign-in, ensure user exists in our DB
       if (account?.provider === "google" && user?.email) {
         try {
+          const googleEmail = user.email.trim().toLowerCase();
           const { db } = await import("@/lib/db");
           const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
           await ensureAdminSchema();
           const existing = await db.user.findUnique({
-            where: { email: user.email },
+            where: { email: googleEmail },
           });
           if (existing) {
             token.id = existing.id;
@@ -133,10 +134,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               .split(",")
               .map((e) => e.trim().toLowerCase())
               .filter(Boolean);
-            const role = adminEmails.includes(user.email.toLowerCase()) ? "admin" : "user";
+            const role = adminEmails.includes(googleEmail) ? "admin" : "user";
             const created = await db.user.create({
               data: {
-                email: user.email,
+                email: googleEmail,
                 name: user.name,
                 image: user.image,
                 role,
@@ -144,6 +145,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             });
             token.id = created.id;
             token.role = created.role;
+
+            // Start the 7-day free trial for brand-new Google accounts.
+            try {
+              const { TRIAL_DAYS } = await import("@/lib/plan");
+              const now = new Date();
+              await db.subscription.create({
+                data: {
+                  userId: created.id,
+                  status: "trialing",
+                  planId: "pro",
+                  currentPeriodStart: now,
+                  currentPeriodEnd: new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+                },
+              });
+            } catch (subErr) {
+              console.error("[AUTH] trial subscription create failed:", subErr);
+            }
           }
         } catch (e) {
           console.error("[AUTH] DB sync failed:", e);

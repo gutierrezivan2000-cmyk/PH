@@ -86,7 +86,7 @@ export async function PATCH(
   const updateData: Record<string, any> = {};
 
   if (status !== undefined) {
-    const validStatuses = ["active", "inactive", "canceled", "past_due"];
+    const validStatuses = ["active", "trialing", "inactive", "canceled", "past_due"];
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
         { error: "Estado inválido." },
@@ -133,7 +133,7 @@ export async function PATCH(
   // checkout flow may not have stored an epaycoSubscriptionId — in that case
   // there's no recurring subscription object to cancel (charges are one-off),
   // so we just update local state and report that to the admin.
-  let epaycoCancel: { attempted: boolean; ok: boolean; note: string } = {
+  const epaycoCancel: { attempted: boolean; ok: boolean; note: string } = {
     attempted: false,
     ok: false,
     note: "",

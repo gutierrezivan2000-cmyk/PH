@@ -49,6 +49,79 @@ export function calcMrr(planId?: string | null, addonAgents?: string[] | null): 
   return planBaseMrr(planId) + (addonAgents?.length || 0) * 5;
 }
 
+// ── Subscription access (trial + paid gating) ────────────────────────────────
+
+export const TRIAL_DAYS = 7;
+
+export interface AccessCheck {
+  allowed: boolean;
+  /** Machine-readable: "active" | "trialing" | "trial_expired" | "past_due" | "canceled" | "inactive" | "none" */
+  status: string;
+  /** Human-readable Spanish reason when blocked. */
+  reason?: string;
+  trialEndsAt?: Date | null;
+}
+
+interface AccessSubLike {
+  status?: string | null;
+  currentPeriodEnd?: Date | null;
+}
+
+/**
+ * Source of truth for "can this user use paid features".
+ * - "active": allowed. (We don't hard-expire by date yet because the ePayco
+ *   onpage flow has no recurring billing reconciliation; expiring would lock
+ *   out paying customers. Revisit when recurring billing lands.)
+ * - "trialing": allowed only while currentPeriodEnd is in the future.
+ * - everything else (canceled, past_due, inactive, missing): blocked.
+ */
+export function hasActiveAccess(sub?: AccessSubLike | null): AccessCheck {
+  if (!sub || !sub.status) {
+    return {
+      allowed: false,
+      status: "none",
+      reason: "Necesitas una suscripción activa para usar SOPH.IA.",
+    };
+  }
+  if (sub.status === "active") {
+    return { allowed: true, status: "active" };
+  }
+  if (sub.status === "trialing") {
+    const ends = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
+    if (ends && ends.getTime() > Date.now()) {
+      return { allowed: true, status: "trialing", trialEndsAt: ends };
+    }
+    return {
+      allowed: false,
+      status: "trial_expired",
+      trialEndsAt: ends,
+      reason:
+        "Tu período de prueba de 7 días terminó. Elige un plan en Suscripción para seguir generando documentos.",
+    };
+  }
+  if (sub.status === "past_due") {
+    return {
+      allowed: false,
+      status: "past_due",
+      reason:
+        "Tu último pago no se pudo procesar. Actualiza tu método de pago en Suscripción para reactivar tu cuenta.",
+    };
+  }
+  if (sub.status === "canceled") {
+    return {
+      allowed: false,
+      status: "canceled",
+      reason:
+        "Tu suscripción está cancelada. Reactívala desde Suscripción para seguir usando SOPH.IA.",
+    };
+  }
+  return {
+    allowed: false,
+    status: sub.status,
+    reason: "Tu suscripción no está activa. Revisa tu plan en Suscripción.",
+  };
+}
+
 interface SubLike {
   status?: string | null;
   planId?: string | null;

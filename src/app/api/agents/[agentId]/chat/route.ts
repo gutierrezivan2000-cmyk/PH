@@ -80,6 +80,19 @@ export async function POST(
       return NextResponse.json({ error: "Agente no valido" }, { status: 400 });
     }
 
+    // ── Subscription/trial gate: no active plan or live trial → no agents.
+    step = "check-subscription";
+    if (!IS_DEMO) {
+      const { checkSubscriptionAccess } = await import("@/lib/usage");
+      const access = await checkSubscriptionAccess(session.user.id);
+      if (!access.allowed) {
+        return NextResponse.json(
+          { error: access.reason, code: "subscription_required" },
+          { status: 403 }
+        );
+      }
+    }
+
     // ── Access control: included agents are open; add-on agents require the
     // user's subscription to have them in addonAgents (set by admin/billing).
     step = "check-agent-access";
