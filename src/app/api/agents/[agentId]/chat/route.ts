@@ -306,10 +306,22 @@ export async function POST(
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error("[api/agents/chat] create chat failed:", errMsg, err);
+      // FK violation on userId → the session points at a user row that no
+      // longer exists (DB reset / account recreated). Force a re-login.
+      const isFkViolation =
+        (err as { code?: string })?.code === "P2003" ||
+        errMsg.includes("Foreign key constraint");
+      if (isFkViolation) {
+        return NextResponse.json(
+          {
+            error: "Tu sesión ya no es válida. Cierra sesión y vuelve a ingresar.",
+            code: "session_stale",
+          },
+          { status: 401 }
+        );
+      }
       return NextResponse.json(
-        {
-          error: `No se pudo crear el chat: ${errMsg}`,
-        },
+        { error: "No se pudo crear el chat. Intenta de nuevo en unos segundos." },
         { status: 503 }
       );
     }

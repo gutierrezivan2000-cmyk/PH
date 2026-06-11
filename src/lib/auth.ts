@@ -204,6 +204,42 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         }
       }
+      // Self-heal stale sessions: with JWT strategy the user id is baked into
+      // the cookie at sign-in. If the DB was reset or the account recreated,
+      // that id no longer exists and every FK insert (chats, properties,
+      // generations) blows up. Re-verify the id at most every 5 minutes:
+      // re-resolve by email when possible, kill the session when the account
+      // is gone entirely.
+      if (!IS_DEMO && !account && token.id && token.email) {
+        const checkedAt = (token.dbCheckedAt as number) || 0;
+        if (Date.now() - checkedAt > 5 * 60 * 1000) {
+          try {
+            const { db } = await import("@/lib/db");
+            const byId = await db.user.findUnique({
+              where: { id: token.id as string },
+              select: { id: true, role: true },
+            });
+            if (byId) {
+              token.role = byId.role;
+            } else {
+              const byEmail = await db.user.findUnique({
+                where: { email: (token.email as string).trim().toLowerCase() },
+                select: { id: true, role: true },
+              });
+              if (byEmail) {
+                token.id = byEmail.id;
+                token.role = byEmail.role;
+              } else {
+                // Account no longer exists — invalidate the session.
+                return null;
+              }
+            }
+            token.dbCheckedAt = Date.now();
+          } catch {
+            // DB unavailable — keep the token; API routes degrade on their own
+          }
+        }
+      }
       return token;
     },
     async session({ session, token }) {
