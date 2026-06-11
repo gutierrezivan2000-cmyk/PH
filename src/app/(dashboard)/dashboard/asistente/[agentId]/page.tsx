@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { Header } from "@/components/dashboard/Header";
 import { Button } from "@/components/ui/button";
 import { AGENTS, isValidAgentId, isIncludedAgent, INCLUDED_AGENT_IDS, type AgentId } from "@/lib/agents";
@@ -373,6 +373,12 @@ export default function AgentPage() {
           errorMsg = data.error || errorMsg;
           errorCode = data.code || "";
         } catch { /* ignore */ }
+        // Stale JWT (user row recreated/deleted behind the session) — only a
+        // fresh login fixes it, so clear the cookie and send them there.
+        if (errorCode === "session_stale") {
+          await signOut({ callbackUrl: "/login" });
+          return;
+        }
         setMessages((prev) => [
           ...prev,
           {
