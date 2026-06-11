@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, TrendingUp, Calendar } from "lucide-react";
+import Link from "next/link";
+import { Activity, TrendingUp, Calendar, Sparkles } from "lucide-react";
 
 interface UsageData {
   monthlyGenerations: number;
@@ -12,6 +13,67 @@ interface UsageData {
     generationsPerDay: number;
     generationsPerMonth: number;
   };
+  planStatus?: string;
+  planName?: "pro" | "elite" | null;
+  trialEndsAt?: string | null;
+}
+
+function PlanStatusChip({ usage }: { usage: UsageData }) {
+  const status = usage.planStatus;
+  if (!status) return null;
+
+  if (status === "trialing" && usage.trialEndsAt) {
+    const daysLeft = Math.max(
+      0,
+      Math.ceil((new Date(usage.trialEndsAt).getTime() - Date.now()) / 86400000)
+    );
+    const urgent = daysLeft <= 2;
+    return (
+      <Link
+        href="/dashboard/suscripcion"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors"
+        style={{
+          background: urgent ? "rgba(255,185,88,0.10)" : "rgba(124,92,255,0.08)",
+          borderColor: urgent ? "rgba(255,185,88,0.30)" : "rgba(124,92,255,0.30)",
+        }}
+      >
+        <Sparkles className="h-3.5 w-3.5" style={{ color: urgent ? "#ffb958" : "#9a7fff" }} />
+        <span
+          className="text-[11px] font-medium"
+          style={{
+            fontFamily: "var(--font-mono)",
+            letterSpacing: "0.06em",
+            color: urgent ? "#ffb958" : "#9a7fff",
+          }}
+        >
+          PRUEBA GRATIS · {daysLeft === 0 ? "TERMINA HOY" : `${daysLeft} DÍA${daysLeft === 1 ? "" : "S"}`}
+        </span>
+      </Link>
+    );
+  }
+
+  if (status === "trial_expired" || status === "past_due" || status === "canceled") {
+    return (
+      <Link
+        href="/dashboard/suscripcion"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors"
+        style={{
+          background: "rgba(255,111,111,0.10)",
+          borderColor: "rgba(255,111,111,0.30)",
+        }}
+      >
+        <Sparkles className="h-3.5 w-3.5" style={{ color: "#ff8585" }} />
+        <span
+          className="text-[11px] font-medium"
+          style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.06em", color: "#ff8585" }}
+        >
+          {status === "trial_expired" ? "PRUEBA FINALIZADA · ELIGE UN PLAN" : "PLAN INACTIVO · REACTIVAR"}
+        </span>
+      </Link>
+    );
+  }
+
+  return null;
 }
 
 export function UsageCard() {

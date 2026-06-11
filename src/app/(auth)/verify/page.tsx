@@ -21,13 +21,14 @@ function VerifyContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const email = searchParams.get("email") || "";
-  const password = searchParams.get("p") || "";
+  const emailFailed = searchParams.get("sent") === "0";
 
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [willAutoLogin, setWillAutoLogin] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -98,19 +99,30 @@ function VerifyContent() {
         return;
       }
 
+      // Auto sign-in using the password stashed in sessionStorage during
+      // registration (kept out of the URL for security).
+      let pendingPw = "";
+      try {
+        pendingPw = sessionStorage.getItem("sophia-pending-pw") || "";
+        sessionStorage.removeItem("sophia-pending-pw");
+      } catch {
+        // sessionStorage unavailable — fall back to manual login
+      }
+
+      setWillAutoLogin(!!pendingPw);
       setSuccess(true);
 
-      // Auto sign-in if we have the password
-      if (password) {
+      if (pendingPw) {
         const result = await signIn("credentials", {
           email,
-          password,
+          password: pendingPw,
           redirect: false,
         });
         if (result?.ok) {
           window.location.href = "/dashboard";
           return;
         }
+        setWillAutoLogin(false);
       }
 
       // Redirect to login after a short delay
@@ -167,7 +179,9 @@ function VerifyContent() {
                 <ShieldCheck className="h-8 w-8 text-emerald-400" />
               </div>
               <h2 className="text-2xl font-bold text-white">Cuenta verificada</h2>
-              <p className="text-white/50 text-sm">Redirigiendo al dashboard...</p>
+              <p className="text-white/50 text-sm">
+                {willAutoLogin ? "Redirigiendo al dashboard..." : "Redirigiendo al inicio de sesion..."}
+              </p>
               <Loader2 className="h-5 w-5 animate-spin text-violet-400 mx-auto" />
             </div>
           ) : (
@@ -183,6 +197,15 @@ function VerifyContent() {
                   <span className="text-violet-300 font-medium">{email}</span>
                 </p>
               </div>
+
+              {emailFailed && (
+                <div className="mb-6 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-center">
+                  <p className="text-sm text-amber-200">
+                    No pudimos enviar el correo con el codigo. Usa &quot;Reenviar codigo&quot; en
+                    unos segundos, o escribe a soporte@sophiagrouph.com.
+                  </p>
+                </div>
+              )}
 
               {error && (
                 <div className="mb-6 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-center">

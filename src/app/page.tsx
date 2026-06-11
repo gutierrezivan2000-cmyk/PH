@@ -12,19 +12,16 @@ import {
   Check,
   Lock,
   ArrowRight,
-  Play,
   Sparkles,
   FileCheck2,
   Layers,
   FileOutput,
   Paperclip,
   Download,
-  FileText,
+  Upload,
   ShieldCheck,
   MapPin,
-  Building2,
   Minus,
-  Star,
   AlertCircle,
 } from "lucide-react";
 
@@ -84,14 +81,35 @@ const AGENTS = [
 ];
 
 const MARQUEE_NAMES = [
-  "Mirador",
-  "Altavista",
-  "Reservas",
-  "Lumière",
-  "Portales",
-  "Cantábrico",
-  "Bambú",
-  "Cedros",
+  "Actas de Asamblea",
+  "Informes de Gestión",
+  "Presentaciones PPTX",
+  "Convocatorias",
+  "PQRS",
+  "Circulares",
+  "SG-SST",
+  "Presupuestos",
+];
+
+const WHATSAPP_URL =
+  process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_URL || "https://wa.me/573001112233";
+
+const SUGGESTED_QA = [
+  {
+    q: "¿Qué quórum necesito para asamblea ordinaria?",
+    a: "Para deliberar en asamblea ordinaria necesitas un número plural de propietarios que represente más de la mitad de los coeficientes de copropiedad (Art. 45, Ley 675 de 2001). Si no se alcanza, la reunión de segunda convocatoria puede sesionar con cualquier número plural de propietarios.",
+    cite: "Ley 675 · Art. 45",
+  },
+  {
+    q: "¿El revisor fiscal debe firmar el acta?",
+    a: "El acta la firman el presidente y el secretario de la reunión; la firma del revisor fiscal no es requisito de validez. Recuerda que el revisor fiscal es obligatorio en edificios de uso comercial o mixto y opcional en los residenciales (Arts. 56 y 57, Ley 675 de 2001).",
+    cite: "Ley 675 · Arts. 56-57",
+  },
+  {
+    q: "¿Cómo impugno una decisión de asamblea?",
+    a: "El administrador, el revisor fiscal o cualquier propietario puede impugnar ante el juez las decisiones contrarias a la ley o al reglamento, dentro de los 2 meses siguientes a la fecha de la comunicación o publicación del acta (Art. 49, Ley 675 de 2001).",
+    cite: "Ley 675 · Art. 49",
+  },
 ];
 
 const CHAT_SEQUENCE = [
@@ -127,19 +145,21 @@ const CHAT_SEQUENCE = [
 ];
 
 const PRO_FEATURES = [
-  "1 copropiedad",
+  "Hasta 3 propiedades",
   "Themis + Chronos incluidos",
-  "Actas, informes y PPTX ilimitados",
+  "15 generaciones al mes (máx. 3/día)",
   "Exporta PDF · DOCX · PPTX",
   "Historial completo de documentos",
+  "Soporte por chat",
 ];
 
 const ELITE_FEATURES = [
-  "Hasta 4 copropiedades",
+  "Propiedades ilimitadas",
   "Themis + Chronos incluidos",
-  "Actas, informes y PPTX ilimitados",
+  "50 generaciones al mes (máx. 10/día)",
   "Exporta PDF · DOCX · PPTX",
   "Generar en lote (hasta 4 a la vez)",
+  "Soporte prioritario",
 ];
 
 const ADDON_AGENTS = [
@@ -153,10 +173,21 @@ const ADDON_AGENTS = [
 // Sub-components
 // ─────────────────────────────────────────────
 
+type ChatMessage = {
+  role: "user" | "themis" | "typing";
+  text?: string;
+  file?: string;
+  cite?: string;
+};
+
 function ChatDemo() {
   const [visibleCount, setVisibleCount] = useState(2);
+  const [interacted, setInteracted] = useState(false);
+  const [extraMessages, setExtraMessages] = useState<ChatMessage[]>([]);
+  const [answering, setAnswering] = useState(false);
 
   useEffect(() => {
+    if (interacted) return;
     if (visibleCount >= CHAT_SEQUENCE.length) {
       const restart = setTimeout(() => setVisibleCount(2), 5000);
       return () => clearTimeout(restart);
@@ -165,9 +196,38 @@ function ChatDemo() {
     const delay = current.role === "typing" ? current.delay ?? 800 : 1200;
     const t = setTimeout(() => setVisibleCount((c) => c + 1), delay);
     return () => clearTimeout(t);
-  }, [visibleCount]);
+  }, [visibleCount, interacted]);
 
-  const messages = CHAT_SEQUENCE.slice(0, visibleCount);
+  const handleSuggestion = (item: (typeof SUGGESTED_QA)[number]) => {
+    if (answering) return;
+    // Freeze the auto-play loop and show the full scripted sequence
+    setInteracted(true);
+    setVisibleCount(CHAT_SEQUENCE.length);
+    setAnswering(true);
+    setExtraMessages((m) => [
+      ...m,
+      { role: "user", text: item.q },
+      { role: "typing" },
+    ]);
+    setTimeout(() => {
+      setExtraMessages((m) => [
+        ...m.filter((x) => x.role !== "typing"),
+        { role: "themis", text: item.a, cite: item.cite },
+      ]);
+      setAnswering(false);
+    }, 800);
+  };
+
+  const messages: ChatMessage[] = [
+    ...CHAT_SEQUENCE.slice(0, visibleCount),
+    ...extraMessages,
+  ];
+
+  // Keep the latest message in view as the conversation grows
+  useEffect(() => {
+    const el = document.getElementById("sophia-chat-scroll");
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [visibleCount, extraMessages]);
 
   return (
     <div
@@ -213,7 +273,11 @@ function ChatDemo() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 flex flex-col gap-3 p-4 overflow-y-auto">
+      <div
+        id="sophia-chat-scroll"
+        className="flex-1 flex flex-col gap-3 p-4 overflow-y-auto"
+        style={{ maxHeight: 420, scrollBehavior: "smooth" }}
+      >
         {messages.map((msg, i) => {
           if (msg.role === "typing") {
             return (
@@ -313,6 +377,26 @@ function ChatDemo() {
             </div>
           );
         })}
+      </div>
+
+      {/* Suggestion chips */}
+      <div className="flex flex-wrap gap-2 px-4 pb-3">
+        {SUGGESTED_QA.map((item) => (
+          <button
+            key={item.q}
+            onClick={() => handleSuggestion(item)}
+            disabled={answering}
+            className="text-xs px-3 py-1.5 rounded-full transition-all cursor-pointer text-left"
+            style={{
+              background: "#1d1d24",
+              border: "1px solid #7c5cff35",
+              color: "#c4b5fd",
+              opacity: answering ? 0.5 : 1,
+            }}
+          >
+            {item.q}
+          </button>
+        ))}
       </div>
 
       {/* Compose bar */}
@@ -423,13 +507,152 @@ function DocCard({
   );
 }
 
+function SavingsCalculator() {
+  const [props, setProps] = useState(3);
+
+  const hours = props * 4; // 4 h/mes por copropiedad redactando documentos
+  const minutesWithSophia = props * 3; // ~3 min por generación
+  const savings = hours * 35000; // valor hora $35.000 COP
+
+  return (
+    <section
+      className="py-24 px-6"
+      style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+    >
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-10 flex flex-col gap-3">
+          <p
+            className="text-xs font-medium tracking-widest uppercase sophia-mono"
+            style={{ color: "rgba(255,255,255,0.35)" }}
+          >
+            Calculadora
+          </p>
+          <h2
+            style={{
+              fontSize: "clamp(28px, 3vw, 44px)",
+              fontWeight: 500,
+              letterSpacing: "-0.025em",
+              color: "rgba(255,255,255,0.95)",
+            }}
+          >
+            ¿Cuánto te ahorra{" "}
+            <em style={{ fontStyle: "italic", color: "#a78bff" }}>SOPH.IA</em>?
+          </h2>
+        </div>
+
+        <div
+          className="rounded-3xl p-8 sm:p-12 flex flex-col gap-10"
+          style={{
+            background: "linear-gradient(145deg, #1a1530, #15151a)",
+            border: "1px solid #7c5cff45",
+            boxShadow: "0 0 48px #7c5cff22, 0 0 0 1px #7c5cff22",
+          }}
+        >
+          {/* Input */}
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4">
+              <label
+                htmlFor="sophia-props-slider"
+                className="text-sm"
+                style={{ color: "rgba(255,255,255,0.65)" }}
+              >
+                ¿Cuántas copropiedades administras?
+              </label>
+              <span
+                className="sophia-mono font-bold px-4 py-1.5 rounded-lg text-lg"
+                style={{
+                  background: "#7c5cff22",
+                  border: "1px solid #7c5cff45",
+                  color: "#a78bff",
+                }}
+              >
+                {props}
+              </span>
+            </div>
+            <input
+              id="sophia-props-slider"
+              type="range"
+              min={1}
+              max={30}
+              value={props}
+              onChange={(e) => setProps(Number(e.target.value))}
+              className="w-full cursor-pointer"
+              style={{ accentColor: "#7c5cff" }}
+            />
+            <div
+              className="flex justify-between text-xs sophia-mono"
+              style={{ color: "rgba(255,255,255,0.25)" }}
+            >
+              <span>1</span>
+              <span>30</span>
+            </div>
+          </div>
+
+          {/* Results */}
+          <div className="grid sm:grid-cols-2 gap-8">
+            <div className="flex flex-col gap-1.5">
+              <p
+                className="text-xs sophia-mono uppercase tracking-wider"
+                style={{ color: "rgba(255,255,255,0.35)" }}
+              >
+                Horas recuperadas al mes
+              </p>
+              <p
+                className="sophia-mono font-bold"
+                style={{
+                  fontSize: "clamp(32px, 4vw, 48px)",
+                  color: "#7c5cff",
+                  lineHeight: 1.1,
+                }}
+              >
+                {hours} h{" "}
+                <span style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.5em" }}>
+                  → ~{minutesWithSophia} min
+                </span>
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <p
+                className="text-xs sophia-mono uppercase tracking-wider"
+                style={{ color: "rgba(255,255,255,0.35)" }}
+              >
+                Equivalente
+              </p>
+              <p
+                className="sophia-mono font-bold"
+                style={{
+                  fontSize: "clamp(32px, 4vw, 48px)",
+                  color: "#7c5cff",
+                  lineHeight: 1.1,
+                }}
+              >
+                ${savings.toLocaleString("es-CO")}{" "}
+                <span style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.5em" }}>
+                  COP/mes
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <p
+            className="text-xs sophia-mono"
+            style={{ color: "rgba(255,255,255,0.3)" }}
+          >
+            Estimación: 4 h/mes por copropiedad en informes, actas y
+            presentaciones · valor hora $35.000 COP.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ─────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────
 
 export default function LandingPage() {
   const [agentHover, setAgentHover] = useState<number | null>(null);
-  const [docsHovered, setDocsHovered] = useState(false);
 
   return (
     <>
@@ -458,6 +681,16 @@ export default function LandingPage() {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.3; }
         }
+        @keyframes sophiaWhatsPulse {
+          0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.35), 0 0 0 0 rgba(37,211,102,0.35); }
+          50% { box-shadow: 0 4px 20px rgba(0,0,0,0.35), 0 0 0 12px rgba(37,211,102,0); }
+        }
+
+        .sophia-navlink {
+          color: rgba(255,255,255,0.6);
+          transition: color 0.2s;
+        }
+        .sophia-navlink:hover { color: #fff; }
 
         .sophia-page {
           font-family: 'Geist', system-ui, sans-serif;
@@ -518,6 +751,17 @@ export default function LandingPage() {
               <span style={{ color: "#7c5cff" }}>IA</span>
             </span>
           </div>
+          <div className="hidden md:flex items-center gap-7">
+            <Link href="#agentes" className="sophia-navlink text-sm">
+              Agentes
+            </Link>
+            <Link href="#planes" className="sophia-navlink text-sm">
+              Planes
+            </Link>
+            <Link href="#como-funciona" className="sophia-navlink text-sm">
+              Cómo funciona
+            </Link>
+          </div>
           <div className="flex items-center gap-3">
             <Link
               href="/login"
@@ -530,11 +774,11 @@ export default function LandingPage() {
               Ingresar
             </Link>
             <Link
-              href="/login"
+              href="/login?mode=register"
               className="flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all"
               style={{ background: "#7c5cff", color: "#fff" }}
             >
-              Probar 7 días
+              Probar 7 días gratis
             </Link>
           </div>
         </nav>
@@ -641,7 +885,7 @@ export default function LandingPage() {
               {/* Buttons */}
               <div className="flex flex-wrap gap-3">
                 <Link
-                  href="/login"
+                  href="/login?mode=register"
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
                   style={{ background: "#7c5cff", color: "#fff" }}
                 >
@@ -649,7 +893,7 @@ export default function LandingPage() {
                   <ArrowRight size={16} />
                 </Link>
                 <Link
-                  href="/login"
+                  href="/demo"
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
                   style={{
                     background: "transparent",
@@ -657,35 +901,38 @@ export default function LandingPage() {
                     color: "rgba(255,255,255,0.75)",
                   }}
                 >
-                  <Play size={14} />
-                  Ver demo 2 min
+                  <FileOutput size={14} />
+                  Ver documentos de ejemplo
                 </Link>
               </div>
+              <p
+                className="text-xs sophia-mono"
+                style={{ color: "rgba(255,255,255,0.35)", marginTop: -12 }}
+              >
+                7 días gratis con límites del plan Pro · sin tarjeta · luego
+                eliges plan
+              </p>
 
-              {/* Social proof */}
-              <div className="flex items-center gap-3 pt-2">
-                <div className="flex -space-x-2">
-                  {["CM", "JR", "LP", "AM"].map((init, i) => (
-                    <div
-                      key={init}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                      style={{
-                        background: `hsl(${i * 55 + 250},60%,55%)`,
-                        border: "2px solid #0a0a0a",
-                        zIndex: 4 - i,
-                        color: "#fff",
-                      }}
-                    >
-                      {init}
-                    </div>
-                  ))}
-                </div>
-                <p
-                  className="text-sm sophia-mono"
-                  style={{ color: "rgba(255,255,255,0.4)" }}
-                >
-                  180+ administradores · ★ 4.9 · 2.400 actas/mes
-                </p>
+              {/* Honest value row */}
+              <div className="flex flex-wrap items-center gap-2 pt-2">
+                {[
+                  { Icon: ShieldCheck, text: "Conforme Ley 675 de 2001" },
+                  { Icon: Lock, text: "Datos alojados con cifrado" },
+                  { Icon: MapPin, text: "Hecho en Colombia · CO" },
+                ].map(({ Icon, text }) => (
+                  <span
+                    key={text}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sophia-mono"
+                    style={{
+                      background: "#15151a",
+                      border: "1px solid rgba(255,255,255,0.09)",
+                      color: "rgba(255,255,255,0.5)",
+                    }}
+                  >
+                    <Icon size={11} style={{ color: "#a78bff" }} />
+                    {text}
+                  </span>
+                ))}
               </div>
             </div>
 
@@ -694,8 +941,6 @@ export default function LandingPage() {
               <div
                 className="docs-fan relative"
                 style={{ height: 340, width: 320 }}
-                onMouseEnter={() => setDocsHovered(true)}
-                onMouseLeave={() => setDocsHovered(false)}
               >
                 <div className="doc-card-0">
                   <DocCard
@@ -834,8 +1079,9 @@ export default function LandingPage() {
 
         {/* ── 4. AGENTS GRID ── */}
         <section
+          id="agentes"
           className="py-24 px-6"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+          style={{ borderTop: "1px solid rgba(255,255,255,0.07)", scrollMarginTop: 80 }}
         >
           <div className="max-w-7xl mx-auto">
             <div className="mb-12 flex flex-col gap-3">
@@ -997,11 +1243,11 @@ export default function LandingPage() {
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8">
               {[
-                { num: "180+", label: "administradores en Colombia" },
-                { num: "2.400", label: "actas generadas / mes" },
-                { num: "96%", label: "cumplimiento Ley 675" },
-                { num: "14h", label: "recuperadas / mes" },
-                { num: "3min", label: "tiempo medio de generación" },
+                { num: "3", label: "documentos por generación" },
+                { num: "675", label: "ley citada artículo por artículo" },
+                { num: "~3min", label: "por generación" },
+                { num: "6", label: "agentes IA especializados" },
+                { num: "2", label: "incluidos en todo plan" },
               ].map(({ num, label }) => (
                 <div key={label} className="flex flex-col gap-1">
                   <p
@@ -1059,7 +1305,7 @@ export default function LandingPage() {
                   border: "1px solid rgba(255,255,255,0.07)",
                 }}
               >
-                <Building2 size={13} style={{ color: "#7c5cff" }} />
+                <FileCheck2 size={13} style={{ color: "#7c5cff" }} />
                 <span
                   className="text-sm font-medium"
                   style={{ color: "rgba(255,255,255,0.65)" }}
@@ -1070,103 +1316,117 @@ export default function LandingPage() {
                   className="text-xs sophia-mono"
                   style={{ color: "rgba(255,255,255,0.2)" }}
                 >
-                  PH · CO
+                  SOPH.IA
                 </span>
               </div>
             ))}
           </div>
         </section>
 
-        {/* ── 7. TESTIMONIAL ── */}
-        <section className="py-24 px-6">
-          <div className="max-w-4xl mx-auto">
-            <div
-              className="relative rounded-3xl p-10 sm:p-14 overflow-hidden"
-              style={{
-                background: "#15151a",
-                border: "1px solid rgba(255,255,255,0.07)",
-              }}
-            >
-              {/* Oversized quote mark */}
+        {/* ── 7. CÓMO FUNCIONA EN 3 PASOS ── */}
+        <section
+          id="como-funciona"
+          className="py-24 px-6"
+          style={{ scrollMarginTop: 80 }}
+        >
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-12 flex flex-col gap-3">
               <p
-                className="absolute"
+                className="text-xs font-medium tracking-widest uppercase sophia-mono"
+                style={{ color: "rgba(255,255,255,0.35)" }}
+              >
+                Cómo funciona
+              </p>
+              <h2
                 style={{
-                  top: -20,
-                  left: 32,
-                  fontSize: 160,
-                  lineHeight: 1,
-                  color: "#7c5cff",
-                  opacity: 0.35,
-                  fontFamily: "Georgia, serif",
-                  userSelect: "none",
-                  pointerEvents: "none",
+                  fontSize: "clamp(28px, 3vw, 44px)",
+                  fontWeight: 500,
+                  letterSpacing: "-0.025em",
+                  color: "rgba(255,255,255,0.95)",
                 }}
               >
-                &ldquo;
-              </p>
+                Cómo funciona en{" "}
+                <em style={{ fontStyle: "italic", color: "#a78bff" }}>
+                  3 pasos
+                </em>
+                .
+              </h2>
+            </div>
 
-              <blockquote className="relative flex flex-col gap-7">
-                <p
-                  className="leading-relaxed pt-10"
+            <div className="grid md:grid-cols-3 gap-4">
+              {[
+                {
+                  num: "01",
+                  Icon: Upload,
+                  title: "Sube tus archivos del mes",
+                  desc: "Excel de cartera, PDF de extractos, fotos de mantenimiento. Arrastra y listo.",
+                },
+                {
+                  num: "02",
+                  Icon: Sparkles,
+                  title: "La IA redacta informe, acta y presentación",
+                  desc: "Los agentes cruzan tus datos con tu reglamento y la Ley 675, artículo por artículo.",
+                },
+                {
+                  num: "03",
+                  Icon: Download,
+                  title: "Revisas, ajustas y descargas",
+                  desc: "Editas lo que quieras y exportas en PDF, DOCX o PPTX, listos para firmar.",
+                },
+              ].map(({ num, Icon, title, desc }) => (
+                <div
+                  key={num}
+                  className="relative overflow-hidden rounded-2xl p-7 flex flex-col gap-4"
                   style={{
-                    fontSize: "clamp(18px, 2.2vw, 26px)",
-                    color: "rgba(255,255,255,0.87)",
-                    fontWeight: 400,
+                    background: "#15151a",
+                    border: "1px solid rgba(255,255,255,0.07)",
                   }}
                 >
-                  Pasé de cerrar el informe de gestión el sábado a tener todo
-                  listo el viernes a las 11 de la mañana.{" "}
-                  <em
-                    style={{
-                      fontStyle: "italic",
-                      color: "#a78bff",
-                    }}
-                  >
-                    Mi Consejo cree que duermo menos.
-                  </em>
-                </p>
-
-                <div className="flex items-center gap-4">
-                  <div
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-                    style={{ background: "#7c5cff", color: "#fff" }}
-                  >
-                    AM
+                  <div className="flex items-start justify-between">
+                    <span
+                      className="sophia-mono font-bold"
+                      style={{ fontSize: 40, color: "#7c5cff", lineHeight: 1 }}
+                    >
+                      {num}
+                    </span>
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center"
+                      style={{
+                        background: "#7c5cff20",
+                        border: "1px solid #7c5cff40",
+                      }}
+                    >
+                      <Icon size={18} style={{ color: "#a78bff" }} />
+                    </div>
                   </div>
                   <div>
                     <p
-                      className="font-semibold text-sm"
-                      style={{ color: "rgba(255,255,255,0.87)" }}
+                      className="font-semibold mb-1.5"
+                      style={{ fontSize: 17, color: "rgba(255,255,255,0.9)" }}
                     >
-                      Ana Marín
+                      {title}
                     </p>
                     <p
-                      className="text-xs sophia-mono"
-                      style={{ color: "rgba(255,255,255,0.4)" }}
+                      className="text-sm leading-relaxed"
+                      style={{ color: "rgba(255,255,255,0.45)" }}
                     >
-                      Administradora · 12 copropiedades · Bogotá
+                      {desc}
                     </p>
                   </div>
-                  <div className="ml-auto flex gap-0.5">
-                    {[0, 1, 2, 3, 4].map((s) => (
-                      <Star
-                        key={s}
-                        size={16}
-                        fill="#7c5cff"
-                        style={{ color: "#7c5cff" }}
-                      />
-                    ))}
-                  </div>
                 </div>
-              </blockquote>
+              ))}
             </div>
           </div>
         </section>
 
+        {/* ── 7b. SAVINGS CALCULATOR ── */}
+        <SavingsCalculator />
+
         {/* ── 8. PRICING ── */}
         <section
+          id="planes"
           className="py-24 px-6"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+          style={{ borderTop: "1px solid rgba(255,255,255,0.07)", scrollMarginTop: 80 }}
         >
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12 flex flex-col gap-3">
@@ -1186,6 +1446,13 @@ export default function LandingPage() {
               >
                 Simple. Transparente. Sin sorpresas.
               </h2>
+              <p
+                className="text-sm sophia-mono"
+                style={{ color: "rgba(255,255,255,0.4)" }}
+              >
+                7 días gratis con límites del plan Pro · sin tarjeta · luego
+                eliges plan
+              </p>
             </div>
 
             <div className="grid lg:grid-cols-3 gap-6 items-start">
@@ -1222,6 +1489,12 @@ export default function LandingPage() {
                       /mes USD
                     </span>
                   </div>
+                  <p
+                    className="text-xs sophia-mono mb-2"
+                    style={{ color: "rgba(255,255,255,0.35)" }}
+                  >
+                    ≈ $80.000 COP/mes
+                  </p>
                   <span
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs sophia-mono"
                     style={{
@@ -1230,7 +1503,7 @@ export default function LandingPage() {
                       color: "#a78bff",
                     }}
                   >
-                    Trial 7 días
+                    7 días gratis · sin tarjeta
                   </span>
                 </div>
                 <ul className="flex flex-col gap-3">
@@ -1254,7 +1527,7 @@ export default function LandingPage() {
                   </li>
                 </ul>
                 <Link
-                  href="/login"
+                  href="/login?mode=register"
                   className="block text-center py-3 rounded-xl text-sm font-semibold transition-all"
                   style={{
                     border: "1px solid rgba(255,255,255,0.15)",
@@ -1311,6 +1584,12 @@ export default function LandingPage() {
                       /mes USD
                     </span>
                   </div>
+                  <p
+                    className="text-xs sophia-mono"
+                    style={{ color: "rgba(196,181,253,0.45)" }}
+                  >
+                    ≈ $800.000 COP/mes
+                  </p>
                 </div>
                 <ul className="flex flex-col gap-3">
                   {ELITE_FEATURES.map((f) => (
@@ -1324,7 +1603,7 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <Link
-                  href="/login"
+                  href="/login?mode=register"
                   className="block text-center py-3 rounded-xl text-sm font-semibold transition-all"
                   style={{ background: "#7c5cff", color: "#fff" }}
                 >
@@ -1344,10 +1623,16 @@ export default function LandingPage() {
               >
                 <div>
                   <p
-                    className="text-xs sophia-mono uppercase tracking-wider mb-3"
+                    className="text-xs sophia-mono uppercase tracking-wider mb-1"
                     style={{ color: "rgba(255,255,255,0.35)" }}
                   >
-                    Add-ons · $5/mes c/u
+                    Add-ons · $5 USD/mes c/u
+                  </p>
+                  <p
+                    className="text-xs sophia-mono mb-3"
+                    style={{ color: "rgba(255,255,255,0.3)" }}
+                  >
+                    ≈ $20.000 COP/mes c/u
                   </p>
                   <p
                     className="text-sm leading-relaxed"
@@ -1400,19 +1685,15 @@ export default function LandingPage() {
                     </div>
                   ))}
                 </div>
-                <div
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs sophia-mono"
-                  style={{
-                    background: "#7c5cff15",
-                    border: "1px solid #7c5cff35",
-                    color: "#a78bff",
-                  }}
-                >
-                  <Sparkles size={12} />
-                  Paquete 4 agentes · USD 15/mes · −25%
-                </div>
               </div>
             </div>
+
+            <p
+              className="text-center text-xs sophia-mono mt-8"
+              style={{ color: "rgba(255,255,255,0.3)" }}
+            >
+              Cobro procesado en COP por ePayco a la tasa del día.
+            </p>
           </div>
         </section>
 
@@ -1468,7 +1749,7 @@ export default function LandingPage() {
               </div>
               <div className="flex justify-center lg:justify-end">
                 <Link
-                  href="/login"
+                  href="/login?mode=register"
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-xl text-base font-semibold transition-all"
                   style={{
                     background: "#7c5cff",
@@ -1529,25 +1810,24 @@ export default function LandingPage() {
                 title: "Producto",
                 links: [
                   ["Themis", "/login"],
-                  ["Agentes", "#agents"],
-                  ["Precios", "#pricing"],
-                  ["Demo", "/login"],
+                  ["Agentes", "#agentes"],
+                  ["Precios", "#planes"],
+                  ["Demo", "/demo"],
                 ],
               },
               {
                 title: "Legal",
                 links: [
-                  ["Términos de uso", "/login"],
-                  ["Privacidad", "/login"],
-                  ["Habeas Data", "/login"],
+                  ["Términos de uso", "/legal/terminos"],
+                  ["Privacidad", "/legal/privacidad"],
+                  ["Habeas Data", "/legal/habeas-data"],
                 ],
               },
               {
                 title: "Contacto",
                 links: [
-                  ["WhatsApp", "/login"],
-                  ["Email", "/login"],
-                  ["LinkedIn", "/login"],
+                  ["WhatsApp", WHATSAPP_URL],
+                  ["Email", "mailto:soporte@sophiagrouph.com"],
                 ],
               },
             ].map((col) => (
@@ -1561,13 +1841,29 @@ export default function LandingPage() {
                 <ul className="flex flex-col gap-2.5">
                   {col.links.map(([label, href]) => (
                     <li key={label}>
-                      <Link
-                        href={href}
-                        className="text-sm transition-colors"
-                        style={{ color: "rgba(255,255,255,0.45)" }}
-                      >
-                        {label}
-                      </Link>
+                      {href.startsWith("http") || href.startsWith("mailto:") ? (
+                        <a
+                          href={href}
+                          target={href.startsWith("http") ? "_blank" : undefined}
+                          rel={
+                            href.startsWith("http")
+                              ? "noopener noreferrer"
+                              : undefined
+                          }
+                          className="text-sm transition-colors"
+                          style={{ color: "rgba(255,255,255,0.45)" }}
+                        >
+                          {label}
+                        </a>
+                      ) : (
+                        <Link
+                          href={href}
+                          className="text-sm transition-colors"
+                          style={{ color: "rgba(255,255,255,0.45)" }}
+                        >
+                          {label}
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -1575,6 +1871,25 @@ export default function LandingPage() {
             ))}
           </div>
         </footer>
+
+        {/* ── FLOATING WHATSAPP BUTTON ── */}
+        <a
+          href={WHATSAPP_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Soporte por WhatsApp"
+          className="fixed bottom-6 right-6 z-50 flex items-center justify-center rounded-full transition-transform hover:scale-105"
+          style={{
+            width: 56,
+            height: 56,
+            background: "#25D366",
+            animation: "sophiaWhatsPulse 2.5s ease-in-out infinite",
+          }}
+        >
+          <svg viewBox="0 0 24 24" width={28} height={28} fill="#fff">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+          </svg>
+        </a>
       </div>
     </>
   );

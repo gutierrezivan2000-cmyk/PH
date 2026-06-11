@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Zap, ArrowRight, Mail, Lock, User, Eye, EyeOff, Loader2 } from "lucide-react";
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
@@ -24,7 +25,11 @@ function LoginContent() {
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const errorParam = searchParams.get("error");
 
-  const [mode, setMode] = useState<"login" | "register">("login");
+  // Landing CTAs link to /login?mode=register so "Empezar gratis" opens the
+  // signup form directly instead of the login form.
+  const [mode, setMode] = useState<"login" | "register">(
+    searchParams.get("mode") === "register" ? "register" : "login"
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -52,7 +57,15 @@ function LoginContent() {
           setLoading(false);
           return;
         }
-        const params = new URLSearchParams({ email, p: password });
+        // Keep the password OUT of the URL (history/logs). The verify page
+        // reads it from sessionStorage to auto-login after verification.
+        try {
+          sessionStorage.setItem("sophia-pending-pw", password);
+        } catch {
+          // sessionStorage unavailable → verify page falls back to /login
+        }
+        const params = new URLSearchParams({ email });
+        if (data.emailSent === false) params.set("sent", "0");
         window.location.href = `/verify?${params.toString()}`;
         return;
       }
@@ -476,13 +489,13 @@ function LoginContent() {
                 {/* Forgot password link */}
                 {mode === "login" && (
                   <div className="flex justify-end">
-                    <button
-                      type="button"
-                      className="transition-colors"
+                    <Link
+                      href="/forgot-password"
+                      className="transition-colors hover:opacity-80"
                       style={{ fontSize: 12, color: "#7c5cff" }}
                     >
                       &iquest;Olvidaste tu contrasena?
-                    </button>
+                    </Link>
                   </div>
                 )}
 
@@ -551,12 +564,21 @@ function LoginContent() {
             style={{ fontSize: 11, color: "rgba(246,245,247,0.28)" }}
           >
             Al continuar, aceptas nuestros{" "}
-            <span
+            <Link
+              href="/legal/terminos"
               className="cursor-pointer hover:opacity-80 transition-opacity"
               style={{ color: "rgba(246,245,247,0.45)", textDecoration: "underline", textUnderlineOffset: 2 }}
             >
               Terminos de Servicio
-            </span>
+            </Link>{" "}
+            y la{" "}
+            <Link
+              href="/legal/privacidad"
+              className="cursor-pointer hover:opacity-80 transition-opacity"
+              style={{ color: "rgba(246,245,247,0.45)", textDecoration: "underline", textUnderlineOffset: 2 }}
+            >
+              Politica de Privacidad
+            </Link>
           </p>
         </div>
 

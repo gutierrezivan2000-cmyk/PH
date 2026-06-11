@@ -367,10 +367,20 @@ export default function AgentPage() {
 
       if (!res.ok) {
         let errorMsg = "Error al enviar.";
-        try { const data = await res.json(); errorMsg = data.error || errorMsg; } catch { /* ignore */ }
+        let errorCode = "";
+        try {
+          const data = await res.json();
+          errorMsg = data.error || errorMsg;
+          errorCode = data.code || "";
+        } catch { /* ignore */ }
         setMessages((prev) => [
           ...prev,
-          { id: `err-${Date.now()}`, role: "assistant", content: errorMsg, createdAt: new Date().toISOString() },
+          {
+            id: `err-${Date.now()}`,
+            role: "assistant",
+            content: errorCode === "agent_locked" ? "__AGENT_LOCKED__" : errorMsg,
+            createdAt: new Date().toISOString(),
+          },
         ]);
         return;
       }
@@ -1023,7 +1033,72 @@ export default function AgentPage() {
               </div>
             ) : (
               <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-5">
-                {messages.map((msg) => (
+                {messages.map((msg) => {
+                  /* Locked add-on agent — render upsell card instead of a bubble */
+                  if (msg.content === "__AGENT_LOCKED__") {
+                    return (
+                      <div key={msg.id} className="flex justify-start">
+                        <div
+                          className="rounded-2xl w-full max-w-md"
+                          style={{
+                            background: "radial-gradient(120% 100% at 0% 0%, rgba(124,92,255,0.12), transparent 70%), #15151a",
+                            border: "1px solid rgba(124,92,255,0.4)",
+                            padding: 20,
+                          }}
+                        >
+                          <div className="flex items-center gap-3 mb-3">
+                            <div
+                              className="flex items-center justify-center rounded-xl flex-shrink-0"
+                              style={{
+                                width: 36,
+                                height: 36,
+                                background: "rgba(124,92,255,0.15)",
+                                border: "1px solid rgba(124,92,255,0.30)",
+                              }}
+                            >
+                              <Lock className="h-4 w-4" style={{ color: "#9a7fff" }} />
+                            </div>
+                            <p style={{ fontSize: 14, fontWeight: 600, color: "#f6f5f7" }}>
+                              {agent.name} es un agente complemento
+                            </p>
+                          </div>
+                          <p className="mb-4" style={{ fontSize: 13, color: "rgba(246,245,247,0.66)", lineHeight: 1.6 }}>
+                            Actívalo por $5 USD/mes y desbloquea {agent.title?.toLowerCase() ?? "sus capacidades"}.
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={() => router.push("/dashboard/suscripcion")}
+                              className="rounded-full px-4 py-2 transition-all duration-150 hover:opacity-90 active:scale-[0.98] cursor-pointer"
+                              style={{
+                                background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
+                                boxShadow: "0 2px 12px rgba(124,92,255,0.25)",
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: "#fff",
+                              }}
+                            >
+                              Ver planes y add-ons
+                            </button>
+                            <button
+                              onClick={() => window.open(process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_URL || "https://wa.me/573001112233", "_blank")}
+                              className="rounded-full px-4 py-2 transition-all duration-150 hover:opacity-80 cursor-pointer"
+                              style={{
+                                background: "transparent",
+                                border: "1px solid rgba(255,255,255,0.10)",
+                                fontSize: 12,
+                                fontWeight: 500,
+                                color: "rgba(246,245,247,0.66)",
+                              }}
+                            >
+                              Hablar con soporte
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
                   <div
                     key={msg.id}
                     className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
@@ -1135,7 +1210,8 @@ export default function AgentPage() {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
 
                 {/* Typing indicator */}
                 {isLoading && (messages.length === 0 || messages[messages.length - 1]?.role === "user") && (
