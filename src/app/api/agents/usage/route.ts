@@ -31,10 +31,9 @@ export async function GET() {
       transcriptionMinutesPerDay: number;
       transcriptionMinutesPerMonth: number;
     } = { ...PLANS.pro.limits };
-    // In demo mode every agent is unlocked; otherwise compute from subscription.
-    let accessible: string[] = IS_DEMO
-      ? ["themis", "chronos", "metra", "nomethes", "hermes", "logistes"]
-      : [...INCLUDED_AGENT_IDS];
+    // Coming-soon agents are locked for everyone (demo included) — only the
+    // launched agents (Themis + Chronos) are accessible.
+    let accessible: string[] = [...INCLUDED_AGENT_IDS];
     try {
       const sub = await db.subscription.findUnique({ where: { userId } });
       if (normalizePlanId(sub?.planId) === "elite") {

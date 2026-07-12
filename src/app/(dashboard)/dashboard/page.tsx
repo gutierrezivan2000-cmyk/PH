@@ -15,7 +15,6 @@ import {
   FileText,
   FileCheck2,
   Presentation,
-  Lock,
   AlertCircle,
   ArrowUpRight,
   MessageSquare,
@@ -463,11 +462,11 @@ export default function DashboardPage() {
                 );
               }
 
-              // Locked agent
+              // Coming-soon agent (visible, not accessible)
               return (
                 <div
                   key={id}
-                  className="relative overflow-hidden rounded-2xl p-4 flex flex-col gap-3"
+                  className="relative overflow-hidden rounded-2xl p-4 flex flex-col gap-3 select-none"
                   style={{
                     background: "var(--card)",
                     border: "1px solid var(--border)",
@@ -481,13 +480,6 @@ export default function DashboardPage() {
                       style={{ background: "rgba(255,255,255,0.06)", color: "rgba(246,245,247,0.30)" }}
                     >
                       {meta.monogram}
-                    </div>
-                    <div
-                      className="flex items-center gap-1 px-1.5 py-0.5 rounded-full"
-                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-                    >
-                      <Lock className="h-2.5 w-2.5" style={{ color: "rgba(246,245,247,0.35)" }} />
-                      <span className="text-[9px] font-semibold" style={{ color: "rgba(246,245,247,0.35)" }}>bloq.</span>
                     </div>
                   </div>
 
@@ -504,10 +496,10 @@ export default function DashboardPage() {
                     </p>
                   </div>
 
-                  {/* Activate CTA */}
+                  {/* Coming soon */}
                   <div className="mt-auto">
-                    <button
-                      className="w-full py-1.5 rounded-lg transition-colors"
+                    <div
+                      className="w-full py-1.5 rounded-lg text-center"
                       style={{
                         fontSize: 10,
                         fontFamily: "'Geist Mono', monospace",
@@ -517,10 +509,9 @@ export default function DashboardPage() {
                         color: "#9a7fff",
                         background: "rgba(124,92,255,0.10)",
                       }}
-                      onClick={() => router.push("/dashboard/suscripcion")}
                     >
-                      + Activar · $5/mes
-                    </button>
+                      Próximamente
+                    </div>
                   </div>
                 </div>
               );

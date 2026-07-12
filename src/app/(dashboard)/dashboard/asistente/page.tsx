@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
 import { AGENTS, AGENT_IDS, INCLUDED_AGENT_IDS } from "@/lib/agents";
-import { Lock, ArrowRight, MessageSquare, Zap } from "lucide-react";
+import { ArrowRight, MessageSquare, Zap, Hourglass } from "lucide-react";
 
 const AGENT_COLORS: Record<string, string> = {
   themis: "#a78bff",
@@ -197,28 +197,20 @@ export default function AsistentePage() {
                   opacity: 0.75,
                 }}
               >
-                {/* Lock overlay */}
-                <div
-                  className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10 rounded-2xl"
-                  style={{ background: "rgba(10,10,10,0.45)", backdropFilter: "blur(2px)" }}
-                >
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center"
-                    style={{ background: "var(--hifi-surface-2)", border: "1px solid var(--hifi-hairline-strong)" }}
-                  >
-                    <Lock className="h-4 w-4" style={{ color: "var(--hifi-ink-faint)" }} />
-                  </div>
+                {/* Coming-soon badge (top-right, keeps name + functions readable) */}
+                <div className="absolute top-4 right-4 z-10">
                   <span
-                    className="text-[10px] font-semibold"
-                    style={{ fontFamily: "var(--hifi-mono)", letterSpacing: "0.1em", color: "var(--hifi-ink-dim)" }}
+                    className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full"
+                    style={{
+                      fontFamily: "var(--hifi-mono)",
+                      letterSpacing: "0.1em",
+                      background: "rgba(124,92,255,0.12)",
+                      border: "1px solid rgba(124,92,255,0.35)",
+                      color: "var(--hifi-accent-hi)",
+                    }}
                   >
-                    COMPLEMENTO
-                  </span>
-                  <span
-                    className="text-xs font-bold"
-                    style={{ color: "var(--hifi-accent-hi)", fontFamily: "var(--hifi-mono)" }}
-                  >
-                    + $5 USD / mes
+                    <Hourglass className="h-3 w-3" />
+                    PRÓXIMAMENTE
                   </span>
                 </div>
 
@@ -275,7 +267,7 @@ export default function AsistentePage() {
             <p>— Puedes crear múltiples chats con cada agente para organizar tus consultas por tema.</p>
             <p>— Los agentes pueden recibir imágenes y documentos como parte de la conversación.</p>
             <p>— La memoria del agente guarda notas importantes que persisten entre sesiones.</p>
-            <p>— Tu plan incluye <strong style={{ color: "var(--hifi-themis)" }}>Themis</strong> y <strong style={{ color: "var(--hifi-chronos)" }}>Chronos</strong>. Los demás agentes son complementos adicionales por $5 USD/mes cada uno.</p>
+            <p>— Tu plan incluye <strong style={{ color: "var(--hifi-themis)" }}>Themis</strong> y <strong style={{ color: "var(--hifi-chronos)" }}>Chronos</strong>. Los demás agentes estarán disponibles próximamente.</p>
           </div>
         </div>
       </div>

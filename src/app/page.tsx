@@ -1173,13 +1173,12 @@ export default function LandingPage() {
                         <span
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium sophia-mono"
                           style={{
-                            background: "#25252e",
-                            border: "1px solid rgba(255,255,255,0.1)",
-                            color: "rgba(255,255,255,0.45)",
+                            background: "rgba(124,92,255,0.10)",
+                            border: "1px solid rgba(124,92,255,0.30)",
+                            color: "#9a7fff",
                           }}
                         >
-                          <Lock size={10} />
-                          +$5/mes
+                          Próximamente
                         </span>
                       )}
                     </div>
@@ -1246,8 +1245,8 @@ export default function LandingPage() {
                 { num: "3", label: "documentos por generación" },
                 { num: "675", label: "ley citada artículo por artículo" },
                 { num: "~3min", label: "por generación" },
-                { num: "6", label: "agentes IA especializados" },
-                { num: "2", label: "incluidos en todo plan" },
+                { num: "2", label: "agentes IA disponibles hoy" },
+                { num: "4", label: "agentes más en camino" },
               ].map(({ num, label }) => (
                 <div key={label} className="flex flex-col gap-1">
                   <p
@@ -1626,20 +1625,14 @@ export default function LandingPage() {
                     className="text-xs sophia-mono uppercase tracking-wider mb-1"
                     style={{ color: "rgba(255,255,255,0.35)" }}
                   >
-                    Add-ons · $5 USD/mes c/u
+                    Más agentes · Próximamente
                   </p>
                   <p
-                    className="text-xs sophia-mono mb-3"
-                    style={{ color: "rgba(255,255,255,0.3)" }}
-                  >
-                    ≈ $20.000 COP/mes c/u
-                  </p>
-                  <p
-                    className="text-sm leading-relaxed"
+                    className="text-sm leading-relaxed mt-3"
                     style={{ color: "rgba(255,255,255,0.45)" }}
                   >
-                    Agrega agentes especializados a cualquier plan cuando los
-                    necesites.
+                    Estos agentes especializados se lanzarán como complementos
+                    de tu plan. Themis y Chronos ya están incluidos hoy.
                   </p>
                 </div>
                 <div className="flex flex-col gap-3">
@@ -1677,10 +1670,10 @@ export default function LandingPage() {
                         </p>
                       </div>
                       <span
-                        className="text-xs font-semibold sophia-mono"
-                        style={{ color: "#a78bff" }}
+                        className="text-[10px] font-semibold sophia-mono uppercase"
+                        style={{ color: "#a78bff", letterSpacing: "0.08em" }}
                       >
-                        +$5
+                        Próximamente
                       </span>
                     </div>
                   ))}
