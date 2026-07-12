@@ -1,6 +1,7 @@
 import {
   INCLUDED_AGENT_IDS,
   isIncludedAgent,
+  isComingSoonAgent,
   AGENT_IDS,
   type AgentId,
 } from "@/lib/agents";
@@ -137,7 +138,12 @@ export function accessibleAgents(sub?: SubLike | null): AgentId[] {
   const addons = sub?.addonAgents || [];
   const result: AgentId[] = [...INCLUDED_AGENT_IDS];
   for (const id of AGENT_IDS) {
-    if (!isIncludedAgent(id) && addons.includes(id) && !result.includes(id)) {
+    if (
+      !isIncludedAgent(id) &&
+      !isComingSoonAgent(id) &&
+      addons.includes(id) &&
+      !result.includes(id)
+    ) {
       result.push(id);
     }
   }
@@ -150,5 +156,8 @@ export function accessibleAgents(sub?: SubLike | null): AgentId[] {
  */
 export function canAccessAgent(agentId: AgentId, sub?: SubLike | null): boolean {
   if (isIncludedAgent(agentId)) return true;
+  // Coming-soon agents are visible in the catalog but not usable by anyone,
+  // regardless of purchased add-ons.
+  if (isComingSoonAgent(agentId)) return false;
   return (sub?.addonAgents || []).includes(agentId);
 }

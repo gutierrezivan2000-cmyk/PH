@@ -244,25 +244,27 @@ export default function AgentPage() {
             <agent.icon className="h-10 w-10 text-white" />
           </div>
           <div className="flex flex-col items-center gap-2">
-            <div className="flex items-center gap-2 mb-1">
-              <Lock className="h-5 w-5" style={{ color: "rgba(246,245,247,0.35)" }} />
-              <h2 className="text-xl font-bold" style={{ color: "#f6f5f7" }}>{agent.name} &mdash; Complemento</h2>
-            </div>
+            <span
+              className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-3 py-1.5 rounded-full mb-1"
+              style={{
+                fontFamily: "var(--hifi-mono, ui-monospace)",
+                letterSpacing: "0.12em",
+                background: "rgba(124,92,255,0.12)",
+                border: "1px solid rgba(124,92,255,0.35)",
+                color: "#9a7fff",
+              }}
+            >
+              PRÓXIMAMENTE
+            </span>
+            <h2 className="text-xl font-bold" style={{ color: "#f6f5f7" }}>
+              {agent.name} está en camino
+            </h2>
             <p className="text-sm max-w-sm leading-relaxed" style={{ color: "rgba(246,245,247,0.55)" }}>
               {agent.description}
             </p>
-            <div
-              className="mt-2 px-5 py-2 rounded-2xl"
-              style={{
-                background: "rgba(124,92,255,0.10)",
-                border: "1px solid rgba(124,92,255,0.25)",
-              }}
-            >
-              <p className="text-sm font-bold" style={{ color: "#9a7fff" }}>+$5 USD / mes</p>
-              <p className="text-xs mt-0.5" style={{ color: "rgba(154,127,255,0.70)" }}>Se agrega como complemento a tu plan actual</p>
-            </div>
             <p className="text-xs mt-2 max-w-xs" style={{ color: "rgba(246,245,247,0.30)" }}>
-              Contacta a soporte desde el chatbot o desde Configuracion para activar este agente.
+              Estamos afinando este agente. Mientras tanto, Themis y Chronos están
+              disponibles para ayudarte.
             </p>
           </div>
           <Button variant="outline" onClick={() => router.push("/dashboard/asistente")}>

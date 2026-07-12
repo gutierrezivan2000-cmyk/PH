@@ -4,7 +4,7 @@ export const maxDuration = 120;
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { AGENTS, isValidAgentId } from "@/lib/agents";
+import { AGENTS, isValidAgentId, isComingSoonAgent } from "@/lib/agents";
 import { PLANS } from "@/lib/epayco";
 import { normalizePlanId, canAccessAgent } from "@/lib/plan";
 import { ensureAgentTables, isMissingRelationError } from "@/lib/ensure-agent-tables";
@@ -91,6 +91,18 @@ export async function POST(
           { status: 403 }
         );
       }
+    }
+
+    // ── Coming-soon agents are not usable by anyone (demo included).
+    step = "check-coming-soon";
+    if (isComingSoonAgent(agentId)) {
+      return NextResponse.json(
+        {
+          error: `${AGENTS[agentId].name} estará disponible próximamente. Por ahora puedes trabajar con Themis y Chronos.`,
+          code: "agent_coming_soon",
+        },
+        { status: 403 }
+      );
     }
 
     // ── Access control: included agents are open; add-on agents require the

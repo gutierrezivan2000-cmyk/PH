@@ -18,8 +18,16 @@ export type AgentId =
 // Agents included in the base $20/month plan
 export const INCLUDED_AGENT_IDS: AgentId[] = ["themis", "chronos"];
 
+// Agents visible in the catalog but not yet purchasable/usable ("Próximamente").
+// Remove an id from this list (and nothing else) to launch it as an add-on.
+export const COMING_SOON_AGENT_IDS: AgentId[] = ["metra", "nomethes", "hermes", "logistes"];
+
 export function isIncludedAgent(id: AgentId): boolean {
   return INCLUDED_AGENT_IDS.includes(id);
+}
+
+export function isComingSoonAgent(id: AgentId): boolean {
+  return COMING_SOON_AGENT_IDS.includes(id);
 }
 
 export interface AgentDef {

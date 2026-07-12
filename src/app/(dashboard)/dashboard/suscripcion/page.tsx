@@ -411,7 +411,7 @@ export default function SuscripcionPage() {
           >
             {/* Eyebrow */}
             <p style={{ ...monoLabel, color: "var(--muted-foreground)" }} className="mb-6">
-              Add-ons · $5/mes c/u
+              Más agentes · En camino
             </p>
 
             {/* Agent list */}
@@ -435,39 +435,31 @@ export default function SuscripcionPage() {
                       {a.role}
                     </p>
                   </div>
-                  {/* Price */}
+                  {/* Coming soon tag */}
                   <span
                     style={{
                       fontFamily: "'Geist Mono', monospace",
-                      fontSize: 11,
+                      fontSize: 9,
                       fontWeight: 600,
                       color: "#a78bff",
-                      letterSpacing: "0.04em",
+                      letterSpacing: "0.08em",
                       flexShrink: 0,
+                      textTransform: "uppercase",
                     }}
                   >
-                    +$5
+                    Próximamente
                   </span>
                 </li>
               ))}
             </ul>
 
-            {/* Bundle chip */}
-            <div className="flex justify-end mt-8">
-              <span
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold"
-                style={{
-                  fontFamily: "'Geist Mono', monospace",
-                  fontSize: 10,
-                  letterSpacing: "0.06em",
-                  background: "rgba(124,92,255,0.15)",
-                  color: "#a78bff",
-                  border: "1px solid rgba(124,92,255,0.30)",
-                }}
-              >
-                Paquete 4 agentes · USD 15/mes · −25%
-              </span>
-            </div>
+            <p
+              className="mt-8 text-[11px] leading-relaxed"
+              style={{ color: "var(--muted-foreground)", opacity: 0.75 }}
+            >
+              Estos agentes especializados se lanzarán como complementos de tu plan.
+              Te avisaremos cuando estén disponibles.
+            </p>
           </div>
 
         </div>
