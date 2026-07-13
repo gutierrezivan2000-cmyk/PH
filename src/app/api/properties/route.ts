@@ -85,6 +85,14 @@ export async function POST(req: NextRequest) {
   try {
     const db = await getDb();
     const dbUserId = await ensureUserExists(session as { user: { id: string; email: string; name: string; image: string } });
+
+    // Enforce the plan's property cap (Pro 3, Business 10, Elite unlimited).
+    const { checkPropertyLimit } = await import("@/lib/usage");
+    const limitCheck = await checkPropertyLimit(dbUserId);
+    if (!limitCheck.allowed) {
+      return NextResponse.json({ error: limitCheck.reason, code: "property_limit" }, { status: 403 });
+    }
+
     const property = await db.property.create({
       data: {
         userId: dbUserId,

@@ -1,8 +1,37 @@
 import { db } from "@/lib/db";
-import { PLANS } from "@/lib/epayco";
+import { PLANS, TRIAL_LIMITS } from "@/lib/epayco";
 import { normalizePlanId, hasActiveAccess, TRIAL_DAYS, type AccessCheck } from "@/lib/plan";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
+
+// Colombia is UTC-5 all year (no DST). Compute daily/monthly quota windows in
+// Bogotá local time so the "day" doesn't reset at 7 p.m. for our users.
+const BOGOTA_OFFSET_MS = 5 * 60 * 60 * 1000;
+function bogotaStartOfDay(now: Date): Date {
+  const local = new Date(now.getTime() - BOGOTA_OFFSET_MS);
+  const midnight = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate());
+  return new Date(midnight + BOGOTA_OFFSET_MS);
+}
+function bogotaStartOfMonth(now: Date): Date {
+  const local = new Date(now.getTime() - BOGOTA_OFFSET_MS);
+  const first = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), 1);
+  return new Date(first + BOGOTA_OFFSET_MS);
+}
+
+// A generation only counts against quota if it succeeded or is still genuinely
+// in flight. Rows stuck in "processing"/"pending" past this window are treated
+// as dead (the serverless function died) and never consume the user's quota.
+const STUCK_MS = 15 * 60 * 1000;
+function activeGenerationWhere(userId: string, since: Date) {
+  return {
+    userId,
+    createdAt: { gte: since },
+    OR: [
+      { status: "completed" },
+      { status: { in: ["processing", "pending"] }, createdAt: { gte: new Date(Date.now() - STUCK_MS) } },
+    ],
+  };
+}
 
 /**
  * Central access gate: does this user have an active plan or a live trial?
@@ -49,7 +78,9 @@ type PlanLimits = {
 };
 
 function getPlanLimits(planId?: string | null): PlanLimits {
-  if (normalizePlanId(planId) === "elite") return { ...PLANS.elite.limits };
+  const p = normalizePlanId(planId);
+  if (p === "elite") return { ...PLANS.elite.limits };
+  if (p === "business") return { ...PLANS.business.limits };
   return { ...PLANS.pro.limits };
 }
 
@@ -67,8 +98,51 @@ export async function checkUsageLimits(userId: string): Promise<{
   }
 
   const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfDay = bogotaStartOfDay(now);
+  const startOfMonth = bogotaStartOfMonth(now);
+
+  // ── Trial: strict TOTAL caps (not monthly), so a 7-day trial can't be milked.
+  if (access.status === "trialing") {
+    let trialStart: Date | undefined;
+    try {
+      const sub = await db.subscription.findUnique({
+        where: { userId },
+        select: { currentPeriodStart: true },
+      });
+      trialStart = sub?.currentPeriodStart ?? undefined;
+    } catch {
+      /* fall through: counts all-time, still bounded by the total cap */
+    }
+
+    const [trialDaily, trialTotal] = await Promise.all([
+      db.generation.count({ where: activeGenerationWhere(userId, startOfDay) }),
+      db.generation.count({
+        where: {
+          userId,
+          ...(trialStart ? { createdAt: { gte: trialStart } } : {}),
+          status: { in: ["completed", "processing", "pending"] },
+        },
+      }),
+    ]);
+
+    if (trialTotal >= TRIAL_LIMITS.totalGenerations) {
+      return {
+        allowed: false,
+        reason: `Tu prueba gratis incluye ${TRIAL_LIMITS.totalGenerations} generaciones. Elige un plan en Suscripción para seguir.`,
+        dailyUsed: trialDaily,
+        monthlyUsed: trialTotal,
+      };
+    }
+    if (trialDaily >= TRIAL_LIMITS.generationsPerDay) {
+      return {
+        allowed: false,
+        reason: `En la prueba gratis puedes generar ${TRIAL_LIMITS.generationsPerDay} documentos por día. Vuelve mañana o elige un plan.`,
+        dailyUsed: trialDaily,
+        monthlyUsed: trialTotal,
+      };
+    }
+    return { allowed: true, dailyUsed: trialDaily, monthlyUsed: trialTotal };
+  }
 
   // Get user's plan
   let limits: PlanLimits = { ...PLANS.pro.limits };
@@ -80,20 +154,8 @@ export async function checkUsageLimits(userId: string): Promise<{
   }
 
   const [dailyCount, monthlyCount] = await Promise.all([
-    db.generation.count({
-      where: {
-        userId,
-        createdAt: { gte: startOfDay },
-        status: { in: ["completed", "processing", "pending"] },
-      },
-    }),
-    db.generation.count({
-      where: {
-        userId,
-        createdAt: { gte: startOfMonth },
-        status: { in: ["completed", "processing", "pending"] },
-      },
-    }),
+    db.generation.count({ where: activeGenerationWhere(userId, startOfDay) }),
+    db.generation.count({ where: activeGenerationWhere(userId, startOfMonth) }),
   ]);
 
   if (dailyCount >= limits.generationsPerDay) {
@@ -117,6 +179,71 @@ export async function checkUsageLimits(userId: string): Promise<{
   return { allowed: true, dailyUsed: dailyCount, monthlyUsed: monthlyCount };
 }
 
+/**
+ * Watchdog: mark generations stuck in "processing"/"pending" past the dead
+ * window as failed, so the UI stops polling forever and the row stops
+ * pretending to be in flight. Called from the job-status path.
+ */
+export async function failStuckGenerations(userId: string): Promise<void> {
+  try {
+    await db.generation.updateMany({
+      where: {
+        userId,
+        status: { in: ["processing", "pending"] },
+        createdAt: { lt: new Date(Date.now() - STUCK_MS) },
+      },
+      data: {
+        status: "failed",
+        errorMessage: "La generación excedió el tiempo máximo y se canceló.",
+      },
+    });
+  } catch (e) {
+    console.error("[usage] failStuckGenerations:", e);
+  }
+}
+
+/** Max properties allowed for the user's current plan (trial = Pro level). */
+export async function getMaxProperties(userId: string): Promise<number> {
+  try {
+    const sub = await db.subscription.findUnique({ where: { userId } });
+    const p = normalizePlanId(sub?.planId);
+    if (p === "elite") return PLANS.elite.maxProperties;
+    if (p === "business") return PLANS.business.maxProperties;
+    return PLANS.pro.maxProperties;
+  } catch {
+    return PLANS.pro.maxProperties;
+  }
+}
+
+/** Whether the user can create another property under their plan's cap. */
+export async function checkPropertyLimit(userId: string): Promise<{
+  allowed: boolean;
+  reason?: string;
+  limit: number;
+  current: number;
+}> {
+  const limit = await getMaxProperties(userId);
+  let current = 0;
+  try {
+    current = await db.property.count({ where: { userId } });
+  } catch {
+    // If we can't count, don't block creation on an infra blip.
+    return { allowed: true, limit, current: 0 };
+  }
+  if (current >= limit) {
+    return {
+      allowed: false,
+      reason:
+        limit >= 999
+          ? "No se pudo crear la propiedad."
+          : `Tu plan permite hasta ${limit} propiedades. Sube de plan en Suscripción para agregar más.`,
+      limit,
+      current,
+    };
+  }
+  return { allowed: true, limit, current };
+}
+
 export async function recordUsage(
   userId: string,
   tokens: number,
@@ -130,12 +257,12 @@ export async function recordUsage(
 
 export async function getUsageSummary(userId: string) {
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfMonth = bogotaStartOfMonth(now);
+  const startOfDay = bogotaStartOfDay(now);
 
   let limits: PlanLimits = { ...PLANS.pro.limits };
   let planStatus = "none";
-  let planName: "pro" | "elite" | null = null;
+  let planName: "pro" | "business" | "elite" | null = null;
   let trialEndsAt: string | null = null;
   try {
     const sub = await db.subscription.findUnique({ where: { userId } });

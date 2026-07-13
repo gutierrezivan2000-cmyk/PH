@@ -40,6 +40,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "generationId e instruccion requeridos" }, { status: 400 });
     }
 
+    // Gate on active plan/trial (refine calls the paid AI too).
+    if (!IS_DEMO) {
+      const { checkSubscriptionAccess } = await import("@/lib/usage");
+      const access = await checkSubscriptionAccess(session.user.id);
+      if (!access.allowed) {
+        return NextResponse.json(
+          { error: access.reason, code: "subscription_required" },
+          { status: 403 }
+        );
+      }
+    }
+
+    if (blobFiles.length > 10) {
+      return NextResponse.json({ error: "Máximo 10 archivos por corrección." }, { status: 400 });
+    }
+
     // Parse any additional uploaded files into text context
     let additionalContent = "";
     if (blobFiles.length > 0) {

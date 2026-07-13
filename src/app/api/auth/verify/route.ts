@@ -11,6 +11,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email y codigo son requeridos" }, { status: 400 });
     }
 
+    // Throttle guesses: the code is only 6 digits, so cap attempts per email.
+    const { rateLimit } = await import("@/lib/rate-limit");
+    const attempt = await rateLimit(`verify:${email}`, { max: 10, windowMs: 15 * 60 * 1000 });
+    if (!attempt.allowed) {
+      return NextResponse.json(
+        { error: "Demasiados intentos. Espera unos minutos y solicita un código nuevo." },
+        { status: 429 }
+      );
+    }
+
     const { db } = await import("@/lib/db");
     const hashedCode = crypto.createHash("sha256").update(code.trim()).digest("hex");
 

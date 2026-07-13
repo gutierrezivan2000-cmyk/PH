@@ -27,6 +27,7 @@ interface Generation {
   tokensUsed: number;
   costUsd: number;
   createdAt: string;
+  outputFiles?: Record<string, string> | null;
 }
 
 const MONTHS = [
@@ -35,6 +36,7 @@ const MONTHS = [
 ];
 
 const TYPE_LABELS: Record<string, string> = {
+  custom: "Generación",
   full: "Completo",
   informe: "Informe",
   acta: "Acta",
@@ -43,6 +45,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 // Doc type visual config: tag color (text), bg, border, Geist Mono label
 const DOC_TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  custom:       { label: "DOC",  color: "#a78bff", bg: "rgba(124,92,255,0.10)",  border: "rgba(124,92,255,0.30)"  },
   full:         { label: "PDF",  color: "#ff6f6f", bg: "rgba(255,111,111,0.10)", border: "rgba(255,111,111,0.30)" },
   informe:      { label: "DOCX", color: "#5fb4ff", bg: "rgba(95,180,255,0.10)",  border: "rgba(95,180,255,0.30)"  },
   acta:         { label: "DOCX", color: "#5fb4ff", bg: "rgba(95,180,255,0.10)",  border: "rgba(95,180,255,0.30)"  },
@@ -91,7 +94,13 @@ export default function HistorialPage() {
   }, []);
 
   const filtered = generations.filter((g) => {
-    const typeOk = typeFilter === "all" || g.type === typeFilter;
+    // Generations are stored as type "custom" and can contain several docs, so
+    // filter by which documents the generation actually produced, not by type.
+    const out = g.outputFiles ?? {};
+    let typeOk = true;
+    if (typeFilter === "informe") typeOk = !!out.informeHtml;
+    else if (typeFilter === "acta") typeOk = !!out.actaHtml;
+    else if (typeFilter === "presentacion") typeOk = !!out.presentacionPptx;
     const statusOk = statusFilter === "all" || g.status === statusFilter;
     return typeOk && statusOk;
   });
@@ -140,11 +149,10 @@ export default function HistorialPage() {
                   e.currentTarget.style.boxShadow = "none";
                 }}
               >
-                <option value="all" style={{ background: "#15151a" }}>Todos los tipos</option>
-                <option value="full" style={{ background: "#15151a" }}>Completo</option>
-                <option value="informe" style={{ background: "#15151a" }}>Informe</option>
-                <option value="acta" style={{ background: "#15151a" }}>Acta</option>
-                <option value="presentacion" style={{ background: "#15151a" }}>Presentacion</option>
+                <option value="all" style={{ background: "#15151a" }}>Todos los documentos</option>
+                <option value="informe" style={{ background: "#15151a" }}>Con informe</option>
+                <option value="acta" style={{ background: "#15151a" }}>Con acta</option>
+                <option value="presentacion" style={{ background: "#15151a" }}>Con presentación</option>
               </select>
               <ArrowRight
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none h-3.5 w-3.5"
@@ -264,7 +272,7 @@ export default function HistorialPage() {
             }}
           >
             {filtered.map((gen, index) => {
-              const docCfg = DOC_TYPE_CONFIG[gen.type] ?? DOC_TYPE_CONFIG.full;
+              const docCfg = DOC_TYPE_CONFIG[gen.type] ?? DOC_TYPE_CONFIG.custom;
               const statusCfg = STATUS_CONFIG[gen.status] ?? {
                 label: gen.status,
                 color: "rgba(246,245,247,0.66)",

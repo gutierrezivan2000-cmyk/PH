@@ -108,6 +108,7 @@ export default function ConfiguracionPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   // Editable fields
   const [name, setName] = useState("");
@@ -159,16 +160,22 @@ export default function ConfiguracionPage() {
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
+    setSaveError(false);
     try {
-      await fetch("/api/profile", {
+      const res = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, cargo, company, phone, city }),
       });
+      if (!res.ok) {
+        // Don't show a green "Saved!" when the server rejected the change.
+        setSaveError(true);
+        return;
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
-      // ignore
+      setSaveError(true);
     } finally {
       setSaving(false);
     }
@@ -395,6 +402,11 @@ export default function ConfiguracionPage() {
                 )}
                 {saving ? "Guardando..." : saved ? "Guardado!" : "Guardar Cambios"}
               </button>
+              {saveError && (
+                <p className="mt-3 text-sm text-center" style={{ color: "#ff6f6f" }}>
+                  No pudimos guardar tus cambios. Revisa tu conexión e intenta de nuevo.
+                </p>
+              )}
             </div>
           )}
         </div>

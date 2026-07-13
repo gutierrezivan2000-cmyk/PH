@@ -14,7 +14,7 @@ interface UsageData {
     generationsPerMonth: number;
   };
   planStatus?: string;
-  planName?: "pro" | "elite" | null;
+  planName?: "pro" | "business" | "elite" | null;
   trialEndsAt?: string | null;
 }
 

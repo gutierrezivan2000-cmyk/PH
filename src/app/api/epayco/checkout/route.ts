@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { PLANS } from "@/lib/epayco";
+import { normalizePlanId, type CanonicalPlan } from "@/lib/plan";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -16,22 +17,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: `${appUrl}/dashboard?success=true&demo=1` });
   }
 
-  let planType: "pro" | "elite" = "pro";
+  let planType: CanonicalPlan = "pro";
   try {
     const body = await req.json();
-    if (body.plan === "elite") planType = "elite";
+    if (body.plan === "elite" || body.plan === "business" || body.plan === "pro") {
+      planType = body.plan;
+    }
   } catch {
     // default to pro
   }
 
-  // Check if user already has an active subscription
+  // Only block re-purchasing the SAME active plan; allow upgrades/downgrades
+  // (Pro → Business → Elite) between different plans.
   try {
     const { db } = await import("@/lib/db");
     const existing = await db.subscription.findUnique({
       where: { userId: session.user.id },
     });
-    if (existing?.status === "active") {
-      return NextResponse.json({ error: "Ya tienes una suscripcion activa" }, { status: 400 });
+    if (existing?.status === "active" && normalizePlanId(existing.planId) === planType) {
+      return NextResponse.json(
+        { error: "Ya tienes este plan activo." },
+        { status: 400 }
+      );
     }
   } catch (e) {
     console.error("[CHECKOUT] DB check failed, proceeding:", e);
@@ -39,12 +46,36 @@ export async function POST(req: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const plan = PLANS[planType];
+  const invoice = `ph-${session.user.id}-${Date.now()}`;
+
+  // Persist a server-side pending order. The confirmation callback resolves
+  // userId + plan + expected amount from this record (keyed by `invoice`),
+  // never from the tamperable x_extra fields.
+  try {
+    const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+    await ensureAdminSchema();
+    const { db } = await import("@/lib/db");
+    await db.pendingOrder.create({
+      data: {
+        ref: invoice,
+        userId: session.user.id,
+        planType,
+        amount: plan.amount,
+        currency: plan.currency,
+        status: "pending",
+      },
+    });
+  } catch (e) {
+    // Non-fatal: confirmation has a signed-amount fallback if the order is
+    // missing, so a DB blip here doesn't strand the payment.
+    console.error("[CHECKOUT] pending order create failed:", e);
+  }
 
   return NextResponse.json({
     checkoutConfig: {
       name: plan.name,
       description: plan.description,
-      invoice: `ph-${session.user.id}-${Date.now()}`,
+      invoice,
       currency: plan.currency,
       amount: String(plan.amount),
       tax_base: "0",

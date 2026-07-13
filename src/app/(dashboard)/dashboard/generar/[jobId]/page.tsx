@@ -38,6 +38,7 @@ interface Generation {
     presentacionPptx?: string;
     transcripcion?: string;
     actaRequirements?: string;
+    pptxRequested?: string;
   };
   property: {
     name: string;
@@ -162,11 +163,14 @@ export default function JobResultPage() {
   }, []);
 
   useEffect(() => {
+    // Only regenerate a PPTX the user actually asked for (pptxRequested marker),
+    // and only if the background attempt didn't already produce one. Without the
+    // marker guard, every informe-only result silently fabricated a slideshow.
     if (
       generation?.status === "completed" &&
-      generation.outputFiles?.informeMarkdown &&
+      generation.outputFiles?.pptxRequested &&
       !generation.outputFiles?.presentacionPptx &&
-      generation.outputFiles?.informeHtml
+      generation.outputFiles?.informeMarkdown
     ) {
       triggerPptx(generation.id);
     }

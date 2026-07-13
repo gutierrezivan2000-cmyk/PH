@@ -15,6 +15,7 @@ function toProxyUrls(generationId: string, outputFiles: Record<string, string> |
   if (outputFiles.informeMarkdown) proxy.informeMarkdown = "available";
   if (outputFiles.actaMarkdown) proxy.actaMarkdown = "available";
   if (outputFiles.actaRequirements) proxy.actaRequirements = outputFiles.actaRequirements;
+  if (outputFiles.pptxRequested) proxy.pptxRequested = outputFiles.pptxRequested;
   return Object.keys(proxy).length > 0 ? proxy : null;
 }
 
@@ -39,13 +40,33 @@ export async function GET(
 
   try {
     const { db } = await import("@/lib/db");
-    const generation = await db.generation.findFirst({
+    let generation = await db.generation.findFirst({
       where: { id: jobId, userId: session.user.id },
       include: { property: true },
     });
 
     if (!generation) {
       return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    }
+
+    // Watchdog: if the background work died, the row would poll "processing"
+    // forever. Past 15 min, mark it failed so the UI stops and it no longer
+    // pretends to be in flight (checkUsageLimits already excludes it from quota).
+    const STUCK_MS = 15 * 60 * 1000;
+    if (
+      (generation.status === "processing" || generation.status === "pending") &&
+      Date.now() - new Date(generation.createdAt).getTime() > STUCK_MS
+    ) {
+      try {
+        generation = await db.generation.update({
+          where: { id: generation.id },
+          data: {
+            status: "failed",
+            errorMessage: "La generación excedió el tiempo máximo y se canceló. Intenta de nuevo.",
+          },
+          include: { property: true },
+        });
+      } catch { /* ignore — next poll retries */ }
     }
 
     // Replace raw blob URLs with proxy download URLs

@@ -194,7 +194,12 @@ export default function PropiedadesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Estas seguro de eliminar esta propiedad?")) return;
+    if (
+      !confirm(
+        "¿Eliminar esta propiedad? Se borrará también todo su historial de documentos generados (informes, actas y presentaciones). Esta acción no se puede deshacer."
+      )
+    )
+      return;
     try {
       const res = await fetch(`/api/properties?id=${id}`, { method: "DELETE" });
       if (res.ok) fetchProperties();

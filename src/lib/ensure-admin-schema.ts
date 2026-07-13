@@ -67,6 +67,32 @@ const STATEMENTS: string[] = [
     ALTER TABLE "AdminAuditLog" ADD CONSTRAINT "AdminAuditLog_adminId_fkey"
       FOREIGN KEY ("adminId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // Billing: server-side pending orders (payment integrity)
+  `CREATE TABLE IF NOT EXISTS "PendingOrder" (
+    "id" TEXT NOT NULL,
+    "ref" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "planType" TEXT NOT NULL,
+    "amount" INTEGER NOT NULL,
+    "currency" TEXT NOT NULL DEFAULT 'cop',
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "epaycoRef" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completedAt" TIMESTAMP(3),
+    CONSTRAINT "PendingOrder_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "PendingOrder_ref_key" ON "PendingOrder"("ref")`,
+  `CREATE INDEX IF NOT EXISTS "PendingOrder_userId_idx" ON "PendingOrder"("userId")`,
+  // Rate limiting: fixed-window counters
+  `CREATE TABLE IF NOT EXISTS "RateLimit" (
+    "id" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "count" INTEGER NOT NULL DEFAULT 0,
+    "windowStart" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "RateLimit_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "RateLimit_key_key" ON "RateLimit"("key")`,
+  `CREATE INDEX IF NOT EXISTS "RateLimit_windowStart_idx" ON "RateLimit"("windowStart")`,
 ];
 
 let ensured = false;

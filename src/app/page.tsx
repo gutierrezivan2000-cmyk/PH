@@ -153,13 +153,22 @@ const PRO_FEATURES = [
   "Soporte por chat",
 ];
 
+const BUSINESS_FEATURES = [
+  "Hasta 10 propiedades",
+  "Themis + Chronos incluidos",
+  "40 generaciones al mes (máx. 5/día)",
+  "Exporta PDF · DOCX · PPTX",
+  "Generar en lote",
+  "Soporte prioritario",
+];
+
 const ELITE_FEATURES = [
   "Propiedades ilimitadas",
   "Themis + Chronos incluidos",
-  "50 generaciones al mes (máx. 10/día)",
+  "100 generaciones al mes (máx. 10/día)",
   "Exporta PDF · DOCX · PPTX",
-  "Generar en lote (hasta 4 a la vez)",
-  "Soporte prioritario",
+  "Generar en lote",
+  "Soporte prioritario · WhatsApp directo",
 ];
 
 const ADDON_AGENTS = [
@@ -909,7 +918,7 @@ export default function LandingPage() {
                 className="text-xs sophia-mono"
                 style={{ color: "rgba(255,255,255,0.35)", marginTop: -12 }}
               >
-                7 días gratis con límites del plan Pro · sin tarjeta · luego
+                7 días gratis · 5 generaciones de prueba · sin tarjeta · luego
                 eliges plan
               </p>
 
@@ -1449,7 +1458,7 @@ export default function LandingPage() {
                 className="text-sm sophia-mono"
                 style={{ color: "rgba(255,255,255,0.4)" }}
               >
-                7 días gratis con límites del plan Pro · sin tarjeta · luego
+                7 días gratis · 5 generaciones de prueba · sin tarjeta · luego
                 eliges plan
               </p>
             </div>
@@ -1468,31 +1477,31 @@ export default function LandingPage() {
                     className="text-xs sophia-mono uppercase tracking-wider mb-3"
                     style={{ color: "rgba(255,255,255,0.35)" }}
                   >
-                    Plan profesional
+                    Plan Pro
                   </p>
                   <div className="flex items-baseline gap-2 mb-1">
                     <span
                       style={{
-                        fontSize: 54,
+                        fontSize: 44,
                         fontWeight: 700,
                         color: "rgba(255,255,255,0.9)",
                         lineHeight: 1,
                       }}
                     >
-                      $20
+                      $99.900
                     </span>
                     <span
                       className="text-sm"
                       style={{ color: "rgba(255,255,255,0.4)" }}
                     >
-                      /mes USD
+                      COP/mes
                     </span>
                   </div>
                   <p
                     className="text-xs sophia-mono mb-2"
                     style={{ color: "rgba(255,255,255,0.35)" }}
                   >
-                    ≈ $80.000 COP/mes
+                    ≈ USD 24
                   </p>
                   <span
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs sophia-mono"
@@ -1556,42 +1565,42 @@ export default function LandingPage() {
                     maxWidth: 140,
                   }}
                 >
-                  recomendado para 4+ propiedades
+                  recomendado · 4 a 10 propiedades
                 </div>
                 <div>
                   <p
                     className="text-xs sophia-mono uppercase tracking-wider mb-3"
                     style={{ color: "#a78bff" }}
                   >
-                    Plan elite
+                    Plan Business
                   </p>
                   <div className="flex items-baseline gap-2 mb-1">
                     <span
                       style={{
-                        fontSize: 54,
+                        fontSize: 44,
                         fontWeight: 700,
                         color: "#c4b5fd",
                         lineHeight: 1,
                       }}
                     >
-                      $200
+                      $299.900
                     </span>
                     <span
                       className="text-sm"
                       style={{ color: "rgba(196,181,253,0.5)" }}
                     >
-                      /mes USD
+                      COP/mes
                     </span>
                   </div>
                   <p
                     className="text-xs sophia-mono"
                     style={{ color: "rgba(196,181,253,0.45)" }}
                   >
-                    ≈ $800.000 COP/mes
+                    ≈ USD 73
                   </p>
                 </div>
                 <ul className="flex flex-col gap-3">
-                  {ELITE_FEATURES.map((f) => (
+                  {BUSINESS_FEATURES.map((f) => (
                     <li key={f} className="flex items-center gap-2.5 text-sm">
                       <Check
                         size={15}
@@ -1606,78 +1615,124 @@ export default function LandingPage() {
                   className="block text-center py-3 rounded-xl text-sm font-semibold transition-all"
                   style={{ background: "#7c5cff", color: "#fff" }}
                 >
-                  Subir a Elite
+                  Subir a Business
                 </Link>
               </div>
 
-              {/* Col 3 — Add-ons */}
+              {/* Col 3 — Elite */}
               <div
-                className="rounded-2xl p-7 flex flex-col gap-6 relative overflow-hidden"
+                className="rounded-2xl p-7 flex flex-col gap-6"
                 style={{
                   background: "#15151a",
                   border: "1px solid rgba(255,255,255,0.09)",
-                  backgroundImage:
-                    "repeating-linear-gradient(45deg, transparent, transparent 14px, rgba(255,255,255,0.015) 14px, rgba(255,255,255,0.015) 15px)",
                 }}
               >
                 <div>
                   <p
-                    className="text-xs sophia-mono uppercase tracking-wider mb-1"
+                    className="text-xs sophia-mono uppercase tracking-wider mb-3"
                     style={{ color: "rgba(255,255,255,0.35)" }}
                   >
-                    Más agentes · Próximamente
+                    Plan Elite
                   </p>
-                  <p
-                    className="text-sm leading-relaxed mt-3"
-                    style={{ color: "rgba(255,255,255,0.45)" }}
-                  >
-                    Estos agentes especializados se lanzarán como complementos
-                    de tu plan. Themis y Chronos ya están incluidos hoy.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-3">
-                  {ADDON_AGENTS.map((a) => (
-                    <div
-                      key={a.name}
-                      className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span
                       style={{
-                        background: "#1d1d24",
-                        border: "1px solid rgba(255,255,255,0.07)",
+                        fontSize: 44,
+                        fontWeight: 700,
+                        color: "rgba(255,255,255,0.9)",
+                        lineHeight: 1,
                       }}
                     >
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                        style={{
-                          background: `${a.color}20`,
-                          border: `1px solid ${a.color}40`,
-                          color: a.color,
-                        }}
-                      >
-                        {a.name[0]}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className="text-sm font-medium"
-                          style={{ color: "rgba(255,255,255,0.8)" }}
-                        >
-                          {a.name}
-                        </p>
-                        <p
-                          className="text-xs sophia-mono"
-                          style={{ color: "rgba(255,255,255,0.3)" }}
-                        >
-                          {a.role}
-                        </p>
-                      </div>
-                      <span
+                      $749.900
+                    </span>
+                    <span className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      COP/mes
+                    </span>
+                  </div>
+                  <p
+                    className="text-xs sophia-mono mb-2"
+                    style={{ color: "rgba(255,255,255,0.35)" }}
+                  >
+                    ≈ USD 183
+                  </p>
+                </div>
+                <ul className="flex flex-col gap-3">
+                  {ELITE_FEATURES.map((f) => (
+                    <li key={f} className="flex items-center gap-2.5 text-sm">
+                      <Check size={15} style={{ color: "#7c5cff", flexShrink: 0 }} />
+                      <span style={{ color: "rgba(255,255,255,0.65)" }}>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/login?mode=register"
+                  className="block text-center py-3 rounded-xl text-sm font-semibold transition-all"
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    color: "rgba(255,255,255,0.75)",
+                  }}
+                >
+                  Subir a Elite
+                </Link>
+              </div>
+            </div>
+
+            {/* Coming-soon agents strip */}
+            <div
+              className="mt-6 rounded-2xl p-6"
+              style={{
+                background: "#15151a",
+                border: "1px solid rgba(255,255,255,0.09)",
+                backgroundImage:
+                  "repeating-linear-gradient(45deg, transparent, transparent 14px, rgba(255,255,255,0.015) 14px, rgba(255,255,255,0.015) 15px)",
+              }}
+            >
+              <p
+                className="text-xs sophia-mono uppercase tracking-wider mb-1"
+                style={{ color: "rgba(255,255,255,0.35)" }}
+              >
+                Más agentes · Próximamente
+              </p>
+              <p
+                className="text-sm leading-relaxed mb-5"
+                style={{ color: "rgba(255,255,255,0.45)" }}
+              >
+                Estos agentes especializados se lanzarán como complementos de tu
+                plan. Themis y Chronos ya están incluidos en todos los planes.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {ADDON_AGENTS.map((a) => (
+                  <div
+                    key={a.name}
+                    className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+                    style={{
+                      background: "#1d1d24",
+                      border: "1px solid rgba(255,255,255,0.07)",
+                    }}
+                  >
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                      style={{
+                        background: `${a.color}20`,
+                        border: `1px solid ${a.color}40`,
+                        color: a.color,
+                      }}
+                    >
+                      {a.name[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>
+                        {a.name}
+                      </p>
+                      <p
                         className="text-[10px] font-semibold sophia-mono uppercase"
                         style={{ color: "#a78bff", letterSpacing: "0.08em" }}
                       >
                         Próximamente
-                      </span>
+                      </p>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -1685,7 +1740,7 @@ export default function LandingPage() {
               className="text-center text-xs sophia-mono mt-8"
               style={{ color: "rgba(255,255,255,0.3)" }}
             >
-              Cobro procesado en COP por ePayco a la tasa del día.
+              Cobro en COP procesado por ePayco. 7 días de prueba gratis · sin tarjeta.
             </p>
           </div>
         </section>

@@ -22,6 +22,25 @@ export async function POST(req: NextRequest) {
     const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
     await ensureAdminSchema();
 
+    // Rate limit to stop email bombing / trial-account farming.
+    const { rateLimit, clientIp } = await import("@/lib/rate-limit");
+    const ip = clientIp(req);
+    const HOUR = 60 * 60 * 1000;
+    const ipLimit = await rateLimit(`register:ip:${ip}`, { max: 8, windowMs: HOUR });
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: "Demasiados registros desde esta red. Intenta más tarde." },
+        { status: 429 }
+      );
+    }
+    const emailLimit = await rateLimit(`register:email:${email}`, { max: 3, windowMs: HOUR });
+    if (!emailLimit.allowed) {
+      return NextResponse.json(
+        { error: "Demasiados intentos con este correo. Espera un momento." },
+        { status: 429 }
+      );
+    }
+
     const passwordHash = await bcrypt.hash(password, 12);
 
     const existing = await db.user.findUnique({ where: { email } });
