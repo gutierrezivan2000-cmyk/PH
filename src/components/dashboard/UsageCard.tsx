@@ -105,6 +105,64 @@ export function UsageCard() {
     );
   }
 
+  // Beta testers have unrestricted access — show an unlimited state instead of
+  // misleading "X / 3" bars.
+  if (usage.planStatus === "beta") {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-9 h-9 rounded-lg flex items-center justify-center"
+              style={{ background: "rgba(124,92,255,0.10)", color: "#9a7fff" }}
+            >
+              <Activity className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Uso del plan</h3>
+              <p
+                className="text-[10px] uppercase text-muted-foreground/70 mt-0.5"
+                style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.14em" }}
+              >
+                Acceso completo de prueba
+              </p>
+            </div>
+          </div>
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium"
+            style={{
+              background: "rgba(124,92,255,0.10)",
+              borderColor: "rgba(124,92,255,0.40)",
+              color: "#9a7fff",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            <Sparkles className="h-3 w-3" />
+            <span>BETA</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <div>
+            <p className="text-2xl font-semibold text-foreground tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>
+              {usage.monthlyGenerations}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">este mes</p>
+          </div>
+          <div>
+            <p className="text-2xl font-semibold text-foreground tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>
+              {usage.dailyGenerations}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">hoy</p>
+          </div>
+          <div className="ml-auto text-right">
+            <p className="text-sm font-semibold" style={{ color: "#9a7fff" }}>Generaciones ilimitadas</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">durante la fase de prueba</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const monthlyPercent = Math.min((usage.monthlyGenerations / usage.limits.generationsPerMonth) * 100, 100);
   const dailyPercent = Math.min((usage.dailyGenerations / usage.limits.generationsPerDay) * 100, 100);
   const monthlyRemaining = usage.limits.generationsPerMonth - usage.monthlyGenerations;

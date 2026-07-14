@@ -82,6 +82,7 @@ export async function POST(
 
     // ── Subscription/trial gate: no active plan or live trial → no agents.
     step = "check-subscription";
+    let isBeta = false;
     if (!IS_DEMO) {
       const { checkSubscriptionAccess } = await import("@/lib/usage");
       const access = await checkSubscriptionAccess(session.user.id);
@@ -91,6 +92,7 @@ export async function POST(
           { status: 403 }
         );
       }
+      isBeta = access.status === "beta"; // grandfathered tester → no message caps
     }
 
     // ── Coming-soon agents are not usable by anyone (demo included).
@@ -159,7 +161,7 @@ export async function POST(
       (a) => a.type?.startsWith("audio/") || /\.(mp3|wav|ogg|m4a|webm)$/i.test(a.name)
     );
     let estimatedMinutesForThisRequest = 0;
-    if (allAudioAtts.length > 0) {
+    if (!isBeta && allAudioAtts.length > 0) {
       // Conservative estimate: 1 MB ~ 1 minute for typical compressed voice audio.
       const totalBytes = allAudioAtts.reduce((sum, a) => sum + a.size, 0);
       estimatedMinutesForThisRequest = Math.max(1, Math.ceil(totalBytes / (1024 * 1024)));
@@ -258,7 +260,7 @@ export async function POST(
           },
         });
 
-        if (dailyCount >= planLimits.agentMessagesPerDay) {
+        if (!isBeta && dailyCount >= planLimits.agentMessagesPerDay) {
           return NextResponse.json(
             {
               error: `Has alcanzado el limite diario de ${planLimits.agentMessagesPerDay} mensajes. Intenta manana.`,
@@ -275,7 +277,7 @@ export async function POST(
           },
         });
 
-        if (weeklyCount >= planLimits.agentMessagesPerWeek) {
+        if (!isBeta && weeklyCount >= planLimits.agentMessagesPerWeek) {
           return NextResponse.json(
             {
               error: `Has alcanzado el limite semanal de ${planLimits.agentMessagesPerWeek} mensajes.`,

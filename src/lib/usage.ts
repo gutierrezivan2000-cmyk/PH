@@ -4,6 +4,28 @@ import { normalizePlanId, hasActiveAccess, TRIAL_DAYS, type AccessCheck } from "
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
+// ── Beta grandfathering ──────────────────────────────────────────────────────
+// We're in a testing phase: every account that already existed as of the cutoff
+// gets UNLIMITED access (no generation/property/file caps, no expiration). Only
+// signups AFTER the cutoff go through the trial → paid flow. Zero migration —
+// it's decided from User.createdAt. Extend BETA_GRANDFATHER_BEFORE (ISO date)
+// to keep grandfathering later testers; set it in the past to end the beta.
+const GRANDFATHER_BEFORE = new Date(
+  process.env.BETA_GRANDFATHER_BEFORE || "2026-07-15T00:00:00Z"
+);
+
+async function isGrandfathered(userId: string): Promise<boolean> {
+  try {
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { createdAt: true },
+    });
+    return !!user && user.createdAt < GRANDFATHER_BEFORE;
+  } catch {
+    return false;
+  }
+}
+
 // Colombia is UTC-5 all year (no DST). Compute daily/monthly quota windows in
 // Bogotá local time so the "day" doesn't reset at 7 p.m. for our users.
 const BOGOTA_OFFSET_MS = 5 * 60 * 60 * 1000;
@@ -44,6 +66,9 @@ function activeGenerationWhere(userId: string, since: Date) {
  */
 export async function checkSubscriptionAccess(userId: string): Promise<AccessCheck> {
   if (IS_DEMO) return { allowed: true, status: "active" };
+
+  // Beta testers (existing accounts) get unrestricted access, no trial row.
+  if (await isGrandfathered(userId)) return { allowed: true, status: "beta" };
 
   try {
     let sub = await db.subscription.findUnique({ where: { userId } });
@@ -95,6 +120,11 @@ export async function checkUsageLimits(userId: string): Promise<{
   const access = await checkSubscriptionAccess(userId);
   if (!access.allowed) {
     return { allowed: false, reason: access.reason, dailyUsed: 0, monthlyUsed: 0 };
+  }
+
+  // Beta testers: no generation caps.
+  if (access.status === "beta") {
+    return { allowed: true, dailyUsed: 0, monthlyUsed: 0 };
   }
 
   // Reap dead "processing" rows before counting, so a generation whose backend
@@ -217,6 +247,9 @@ export async function getGenerationFileLimits(
 ): Promise<{ maxFiles: number; maxFileSizeMb: number }> {
   try {
     const access = await checkSubscriptionAccess(userId);
+    if (access.status === "beta") {
+      return { maxFiles: 20, maxFileSizeMb: 25 };
+    }
     if (access.status === "trialing") {
       return {
         maxFiles: TRIAL_LIMITS.maxFilesPerGeneration,
@@ -254,6 +287,10 @@ export async function checkPropertyLimit(userId: string): Promise<{
   limit: number;
   current: number;
 }> {
+  // Beta testers: unlimited properties.
+  const access = await checkSubscriptionAccess(userId);
+  if (access.status === "beta") return { allowed: true, limit: 999, current: 0 };
+
   const limit = await getMaxProperties(userId);
   // Elite is effectively unlimited — don't even count.
   if (limit >= 999) return { allowed: true, limit, current: 0 };
@@ -296,15 +333,20 @@ export async function getUsageSummary(userId: string) {
   let planStatus = "none";
   let planName: "pro" | "business" | "elite" | null = null;
   let trialEndsAt: string | null = null;
+  const grandfathered = await isGrandfathered(userId);
   try {
     const sub = await db.subscription.findUnique({ where: { userId } });
     limits = getPlanLimits(sub?.planId);
     planName = normalizePlanId(sub?.planId);
-    const access = hasActiveAccess(sub);
-    planStatus = access.status;
-    trialEndsAt = access.trialEndsAt ? access.trialEndsAt.toISOString() : null;
+    if (grandfathered) {
+      planStatus = "beta";
+    } else {
+      const access = hasActiveAccess(sub);
+      planStatus = access.status;
+      trialEndsAt = access.trialEndsAt ? access.trialEndsAt.toISOString() : null;
+    }
   } catch {
-    // default
+    if (grandfathered) planStatus = "beta";
   }
 
   const [monthlyGenerations, dailyGenerations, monthlyTokens] = await Promise.all([
