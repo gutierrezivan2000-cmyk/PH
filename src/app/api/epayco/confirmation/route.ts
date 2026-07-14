@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { validateConfirmationSignature, verifyTransaction } from "@/lib/epayco";
+import { validateConfirmationSignature, verifyTransaction, PLANS } from "@/lib/epayco";
 import { normalizePlanId, planFromAmount, type CanonicalPlan } from "@/lib/plan";
 
 // ePayco sends a POST (or GET) to this endpoint after each transaction.
@@ -55,11 +55,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
-    // 2) Re-confirm the transaction status directly with ePayco's API.
+    // 2) Re-confirm the transaction status directly with ePayco's API. The
+    // approve/reject status (x_cod_response) is NOT covered by the signature, so
+    // we must NOT trust the callback's value: if the validation API is
+    // unreachable, return 503 so ePayco retries later rather than acting on an
+    // unverified (forgeable) status.
     const verification = await verifyTransaction(x_ref_payco);
-    const codResponse = verification.success
-      ? String(verification.data?.x_cod_response ?? x_cod_response)
-      : String(x_cod_response);
+    if (!verification.success) {
+      console.error("[ePayco confirmation] verifyTransaction failed — will not act on unsigned status", {
+        x_ref_payco,
+      });
+      return NextResponse.json({ error: "Verification unavailable, retry" }, { status: 503 });
+    }
+    const codResponse = String(verification.data?.x_cod_response ?? x_cod_response);
 
     // 3) Resolve the order server-side. Ensure the table exists first.
     try {
@@ -96,8 +104,10 @@ export async function POST(req: NextRequest) {
       // Legacy fallback (payment started before this table existed): resolve the
       // plan from the SIGNED amount — never from the unsigned x_extra2 — so a
       // tampered callback still can't claim a higher plan than what was paid.
+      // We also set expectedAmount here so the amount check below still runs.
       userId = x_extra1;
       plan = planFromAmount(x_amount) || "pro";
+      expectedAmount = PLANS[plan].amount;
       console.warn("[ePayco confirmation] no PendingOrder for invoice, using signed-amount fallback", {
         x_ref_payco,
         x_id_invoice,
@@ -109,19 +119,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
-    // 4) The charged amount must match what we asked ePayco to charge.
+    // 4) The charged amount AND currency must match what we asked ePayco to
+    // charge — never accept 99900 units of some other currency as a COP plan.
     if (expectedAmount !== undefined && !amountMatches(x_amount, expectedAmount)) {
-      console.error("[ePayco confirmation] amount mismatch", {
-        x_ref_payco,
-        x_amount,
-        expectedAmount,
-      });
+      console.error("[ePayco confirmation] amount mismatch", { x_ref_payco, x_amount, expectedAmount });
       return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
     }
+    if (x_currency_code && x_currency_code.toLowerCase() !== "cop") {
+      console.error("[ePayco confirmation] currency mismatch", { x_ref_payco, x_currency_code });
+      return NextResponse.json({ error: "Currency mismatch" }, { status: 400 });
+    }
 
-    // 5) Idempotency — never apply the same order twice (blocks replay renewals).
+    // 5) Idempotency — never apply the same transaction twice (blocks replay
+    // renewals). Order path uses the order status; the fallback path checks
+    // whether this exact ePayco ref was already applied to the user.
     if (order && order.status === "completed") {
       return NextResponse.json({ received: true, alreadyProcessed: true });
+    }
+    if (!order) {
+      const already = await db.subscription
+        .findFirst({ where: { userId, epaycoRef: x_ref_payco }, select: { id: true } })
+        .catch(() => null);
+      if (already) {
+        return NextResponse.json({ received: true, alreadyProcessed: true });
+      }
     }
 
     const now = new Date();
@@ -158,12 +179,19 @@ export async function POST(req: NextRequest) {
       }
     } else if (codResponse === "2" || codResponse === "4") {
       // ── REJECTED or FAILED ──
-      // Only degrade a genuinely ACTIVE subscription (a failed renewal). A
-      // rejected first payment must NOT revoke a still-valid trial.
-      await db.subscription.updateMany({
-        where: { userId, status: "active" },
-        data: { status: "past_due", epaycoRef: x_ref_payco },
-      });
+      // Only degrade when the rejection is for the SAME plan that is currently
+      // active — i.e. a failed renewal. A rejected UPGRADE attempt (Pro→Elite
+      // declined) must NOT break the still-paid current plan, and a rejected
+      // first payment must NOT revoke a valid trial.
+      const current = await db.subscription
+        .findUnique({ where: { userId }, select: { status: true, planId: true } })
+        .catch(() => null);
+      if (current?.status === "active" && normalizePlanId(current.planId) === plan) {
+        await db.subscription.updateMany({
+          where: { userId, status: "active" },
+          data: { status: "past_due", epaycoRef: x_ref_payco },
+        });
+      }
       if (order) {
         await db.pendingOrder
           .update({ where: { id: order.id }, data: { status: "rejected", epaycoRef: x_ref_payco } })

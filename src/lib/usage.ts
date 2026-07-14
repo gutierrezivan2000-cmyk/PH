@@ -97,6 +97,11 @@ export async function checkUsageLimits(userId: string): Promise<{
     return { allowed: false, reason: access.reason, dailyUsed: 0, monthlyUsed: 0 };
   }
 
+  // Reap dead "processing" rows before counting, so a generation whose backend
+  // died never permanently consumes quota (especially the trial's TOTAL cap,
+  // which — unlike the daily/monthly windows — can't be escaped by waiting).
+  await failStuckGenerations(userId);
+
   const now = new Date();
   const startOfDay = bogotaStartOfDay(now);
   const startOfMonth = bogotaStartOfMonth(now);
@@ -202,6 +207,33 @@ export async function failStuckGenerations(userId: string): Promise<void> {
   }
 }
 
+/**
+ * Per-generation file caps for the user (trial is stricter than any paid plan).
+ * Enforced server-side in the generation route so a trialer can't drive Whisper
+ * cost with 20×25 MB of audio.
+ */
+export async function getGenerationFileLimits(
+  userId: string
+): Promise<{ maxFiles: number; maxFileSizeMb: number }> {
+  try {
+    const access = await checkSubscriptionAccess(userId);
+    if (access.status === "trialing") {
+      return {
+        maxFiles: TRIAL_LIMITS.maxFilesPerGeneration,
+        maxFileSizeMb: TRIAL_LIMITS.maxFileSizeMb,
+      };
+    }
+    const sub = await db.subscription.findUnique({ where: { userId } });
+    const limits = getPlanLimits(sub?.planId);
+    return { maxFiles: limits.maxFilesPerGeneration, maxFileSizeMb: limits.maxFileSizeMb };
+  } catch {
+    return {
+      maxFiles: PLANS.pro.limits.maxFilesPerGeneration,
+      maxFileSizeMb: PLANS.pro.limits.maxFileSizeMb,
+    };
+  }
+}
+
 /** Max properties allowed for the user's current plan (trial = Pro level). */
 export async function getMaxProperties(userId: string): Promise<number> {
   try {
@@ -223,6 +255,9 @@ export async function checkPropertyLimit(userId: string): Promise<{
   current: number;
 }> {
   const limit = await getMaxProperties(userId);
+  // Elite is effectively unlimited — don't even count.
+  if (limit >= 999) return { allowed: true, limit, current: 0 };
+
   let current = 0;
   try {
     current = await db.property.count({ where: { userId } });
@@ -233,10 +268,7 @@ export async function checkPropertyLimit(userId: string): Promise<{
   if (current >= limit) {
     return {
       allowed: false,
-      reason:
-        limit >= 999
-          ? "No se pudo crear la propiedad."
-          : `Tu plan permite hasta ${limit} propiedades. Sube de plan en Suscripción para agregar más.`,
+      reason: `Tu plan permite hasta ${limit} propiedades. Sube de plan en Suscripción para agregar más.`,
       limit,
       current,
     };

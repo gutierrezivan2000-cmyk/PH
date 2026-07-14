@@ -1,11 +1,17 @@
 import { db } from "@/lib/db";
 import type { NextRequest } from "next/server";
 
-/** Best-effort client IP from proxy headers (Vercel sets x-forwarded-for). */
+/**
+ * Best-effort client IP. Prefer x-real-ip (Vercel sets it to the true client
+ * IP and the client can't override it); the leftmost x-forwarded-for token is
+ * client-supplied and spoofable, so only use it as a fallback.
+ */
 export function clientIp(req: NextRequest): string {
+  const real = req.headers.get("x-real-ip");
+  if (real) return real.trim();
   const fwd = req.headers.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0]!.trim();
-  return req.headers.get("x-real-ip") || "unknown";
+  return "unknown";
 }
 
 /**

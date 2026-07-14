@@ -349,12 +349,27 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
   }
 
-  // Cap files per generation (safety net beyond the 25 MB/file upload cap).
-  if (blobFiles.length > 20) {
-    return NextResponse.json(
-      { error: "Máximo 20 archivos por generación." },
-      { status: 400 }
-    );
+  // Enforce per-plan file caps (trial: 5 files/10 MB; paid: 20 files/25 MB).
+  // The count is authoritative; the declared size is a best-effort early reject
+  // on top of the hard 25 MB cap enforced by the upload token.
+  try {
+    const { getGenerationFileLimits } = await import("@/lib/usage");
+    const fileLimits = await getGenerationFileLimits(dbUserId);
+    if (blobFiles.length > fileLimits.maxFiles) {
+      return NextResponse.json(
+        { error: `Tu plan permite hasta ${fileLimits.maxFiles} archivos por generación.` },
+        { status: 400 }
+      );
+    }
+    const oversized = blobFiles.find((f) => f.size > fileLimits.maxFileSizeMb * 1024 * 1024);
+    if (oversized) {
+      return NextResponse.json(
+        { error: `El archivo "${oversized.name}" supera el límite de ${fileLimits.maxFileSizeMb} MB de tu plan.` },
+        { status: 400 }
+      );
+    }
+  } catch (e) {
+    console.error("[generate/full] file-limit check failed:", e);
   }
 
   // Step 4: Check usage limits

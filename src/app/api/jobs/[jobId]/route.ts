@@ -58,14 +58,22 @@ export async function GET(
       Date.now() - new Date(generation.createdAt).getTime() > STUCK_MS
     ) {
       try {
-        generation = await db.generation.update({
-          where: { id: generation.id },
+        // Guard on status in the WHERE so a result written in the meantime is
+        // never clobbered (updateMany won't touch an already-"completed" row).
+        const res = await db.generation.updateMany({
+          where: { id: generation.id, status: { in: ["processing", "pending"] } },
           data: {
             status: "failed",
             errorMessage: "La generación excedió el tiempo máximo y se canceló. Intenta de nuevo.",
           },
-          include: { property: true },
         });
+        if (res.count > 0) {
+          const refreshed = await db.generation.findFirst({
+            where: { id: generation.id, userId: session.user.id },
+            include: { property: true },
+          });
+          if (refreshed) generation = refreshed;
+        }
       } catch { /* ignore — next poll retries */ }
     }
 
