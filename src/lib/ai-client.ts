@@ -29,7 +29,12 @@ export async function generateWithClaude(
     const response = await client.messages.create({
       model,
       max_tokens: 16384,
-      system: systemPrompt,
+      // Cache the (stable, ~3.4k-token) system prompt so repeat generations —
+      // including across users within the cache window — don't re-pay input
+      // cost for it. The per-request user content stays uncached.
+      system: [
+        { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
+      ],
       messages: [{ role: "user", content: userContent }],
       temperature: 0.2,
     });

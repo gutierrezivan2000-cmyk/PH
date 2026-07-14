@@ -24,21 +24,41 @@ const IS_DEMO = process.env.DEMO_MODE === "true";
 
 type BlobFileRef = { url: string; name: string; type: string; size: number };
 
+// Only ever read from Vercel Blob hosts. The url comes from the request body,
+// so without this an attacker could point it at an internal/metadata endpoint
+// and have the server fetch it (SSRF) and feed the bytes into the AI prompt.
+function isAllowedBlobUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    return u.protocol === "https:" && u.hostname.endsWith(".blob.vercel-storage.com");
+  } catch {
+    return false;
+  }
+}
+
 /** Fetch a private blob URL and turn it into a File suitable for the parsers. */
 async function blobRefToFile(ref: BlobFileRef): Promise<File> {
+  if (!isAllowedBlobUrl(ref.url)) {
+    throw new Error(`Origen de archivo no permitido para "${ref.name}"`);
+  }
   const { get } = await import("@vercel/blob");
   const result = await get(ref.url, { access: "private" }).catch(() => null);
   let buffer: ArrayBuffer;
   if (result) {
     buffer = await new Response(result.stream).arrayBuffer();
   } else {
-    // Fallback: direct fetch (in case the URL is somehow public-accessible)
+    // Fallback fetch — safe now that the host is allowlisted above.
     const res = await fetch(ref.url);
     if (!res.ok) throw new Error(`No se pudo descargar el archivo "${ref.name}" (${res.status})`);
     buffer = await res.arrayBuffer();
   }
   return new File([buffer], ref.name, { type: ref.type || "application/octet-stream" });
 }
+
+// Cap the consolidated file content fed to Sonnet. ~150k chars ≈ 40k tokens —
+// covers any legitimate month of documents and bounds the worst-case cost of a
+// single generation (input is sent to two parallel Sonnet calls).
+const MAX_CONTENT_CHARS = 150_000;
 
 export async function POST(req: NextRequest) {
   try {
@@ -329,6 +349,29 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
   }
 
+  // Enforce per-plan file caps (trial: 5 files/10 MB; paid: 20 files/25 MB).
+  // The count is authoritative; the declared size is a best-effort early reject
+  // on top of the hard 25 MB cap enforced by the upload token.
+  try {
+    const { getGenerationFileLimits } = await import("@/lib/usage");
+    const fileLimits = await getGenerationFileLimits(dbUserId);
+    if (blobFiles.length > fileLimits.maxFiles) {
+      return NextResponse.json(
+        { error: `Tu plan permite hasta ${fileLimits.maxFiles} archivos por generación.` },
+        { status: 400 }
+      );
+    }
+    const oversized = blobFiles.find((f) => f.size > fileLimits.maxFileSizeMb * 1024 * 1024);
+    if (oversized) {
+      return NextResponse.json(
+        { error: `El archivo "${oversized.name}" supera el límite de ${fileLimits.maxFileSizeMb} MB de tu plan.` },
+        { status: 400 }
+      );
+    }
+  } catch (e) {
+    console.error("[generate/full] file-limit check failed:", e);
+  }
+
   // Step 4: Check usage limits
   try {
     const { checkUsageLimits } = await import("@/lib/usage");
@@ -412,7 +455,12 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
           transcriptionParts.push(fc.text);
         }
       }
-      const consolidatedContent = textParts.join("\n\n---\n\n") || "[No se proporcionaron archivos ni texto adicional]";
+      let consolidatedContent = textParts.join("\n\n---\n\n") || "[No se proporcionaron archivos ni texto adicional]";
+      if (consolidatedContent.length > MAX_CONTENT_CHARS) {
+        consolidatedContent =
+          consolidatedContent.slice(0, MAX_CONTENT_CHARS) +
+          "\n\n[Contenido truncado por límite de tamaño]";
+      }
 
       console.log(`[generate/full] Consolidated content: ${consolidatedContent.length} chars from ${fileContents.length} files`);
       console.log(`[generate/full] Content preview (first 500 chars):\n${consolidatedContent.substring(0, 500)}`);
@@ -558,6 +606,12 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
         } catch (e) {
           console.error("[generate/full] PPTX failed in after(), client will use /api/generate/pptx:", e instanceof Error ? e.message : String(e));
         }
+      }
+
+      // Remember whether the user asked for a PPTX, so the results page only
+      // regenerates it when it was requested (and the background attempt failed).
+      if (includePptx) {
+        blobUrls.pptxRequested = "1";
       }
 
       await updateProgress(90);

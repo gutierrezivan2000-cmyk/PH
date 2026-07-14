@@ -34,13 +34,17 @@ export const epayco = new Proxy({} as any, {
 
 // ── Plan configuration ────────────────────────────────────────────────────────
 
+// Billing is in Colombian pesos (COP) via ePayco — local cards convert without
+// FX risk for the customer. `amount` is what ePayco charges; `usd` is the
+// approximate USD equivalent used only for admin MRR/reporting (TRM ~$4.100).
 export const PLANS = {
   pro: {
-    name: "Plan Profesional",
-    idPlan: "plan-profesional-ph",
+    name: "Plan Pro",
+    idPlan: "plan-pro-ph",
     description: "Hasta 3 propiedades — informes y actas con IA",
-    amount: 20,
-    currency: "usd",
+    amount: 99900,
+    currency: "cop",
+    usd: 24,
     interval: "month",
     intervalCount: 1,
     trialDays: 7,
@@ -58,29 +62,68 @@ export const PLANS = {
       transcriptionMaxFileMb: 25,
     },
   },
+  business: {
+    name: "Plan Business",
+    idPlan: "plan-business-ph",
+    description: "Hasta 10 propiedades — para administradores en crecimiento",
+    amount: 299900,
+    currency: "cop",
+    usd: 73,
+    interval: "month",
+    intervalCount: 1,
+    trialDays: 7,
+    maxProperties: 10,
+    limits: {
+      generationsPerDay: 5,
+      generationsPerMonth: 40,
+      maxFileSizeMb: 25,
+      maxFilesPerGeneration: 20,
+      maxAudioMinutes: 45,
+      agentMessagesPerDay: 60,
+      agentMessagesPerWeek: 400,
+      transcriptionMinutesPerDay: 40,
+      transcriptionMinutesPerMonth: 300,
+      transcriptionMaxFileMb: 25,
+    },
+  },
   elite: {
     name: "Plan Elite",
     idPlan: "plan-elite-ph",
     description: "Propiedades ilimitadas — para grandes administradores",
-    amount: 200,
-    currency: "usd",
+    amount: 749900,
+    currency: "cop",
+    usd: 183,
     interval: "month",
     intervalCount: 1,
     trialDays: 7,
     maxProperties: 999,
     limits: {
       generationsPerDay: 10,
-      generationsPerMonth: 50,
+      generationsPerMonth: 100,
       maxFileSizeMb: 25,
       maxFilesPerGeneration: 20,
       maxAudioMinutes: 60,
-      agentMessagesPerDay: 100,
-      agentMessagesPerWeek: 500,
+      agentMessagesPerDay: 150,
+      agentMessagesPerWeek: 1000,
       transcriptionMinutesPerDay: 60,
-      transcriptionMinutesPerMonth: 500,
+      transcriptionMinutesPerMonth: 800,
       transcriptionMaxFileMb: 25,
     },
   },
+} as const;
+
+/**
+ * Free-trial limits. Deliberately stricter than any paid plan: the trial is a
+ * taste of the product, not a full month of Pro. Total (not monthly) caps so a
+ * trial can't be milked, and small file caps bound the AI cost per trialer.
+ */
+export const TRIAL_LIMITS = {
+  totalGenerations: 5,
+  generationsPerDay: 2,
+  agentMessagesPerDay: 15,
+  transcriptionMinutesTotal: 20,
+  maxFilesPerGeneration: 5,
+  maxFileSizeMb: 10,
 } as const;
 
 // ── ePayco plan management ────────────────────────────────────────────────────

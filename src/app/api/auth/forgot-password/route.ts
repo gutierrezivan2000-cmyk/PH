@@ -15,6 +15,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email requerido" }, { status: 400 });
     }
 
+    // Rate limit per IP so this can't be used to spam reset emails.
+    const { rateLimit, clientIp } = await import("@/lib/rate-limit");
+    const ipLimit = await rateLimit(`forgot:ip:${clientIp(req)}`, {
+      max: 6,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!ipLimit.allowed) {
+      // Still 200-shaped to avoid leaking anything; just don't send more.
+      return NextResponse.json({
+        success: true,
+        message: "Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña.",
+      });
+    }
+
     const { db } = await import("@/lib/db");
     const user = await db.user.findUnique({ where: { email } });
 

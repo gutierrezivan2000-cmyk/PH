@@ -108,6 +108,43 @@ model Subscription {
 }
 
 // ============================================
+// Billing — pending checkout orders (payment integrity)
+// ============================================
+
+// A checkout order we created server-side BEFORE sending the user to ePayco.
+// The confirmation callback resolves userId + plan + expected amount from HERE
+// (keyed by the invoice ref), never from the unsigned x_extra fields — so a
+// tampered callback can't upgrade a plan, activate someone else's account, or
+// replay to renew for free.
+model PendingOrder {
+  id          String    @id @default(cuid())
+  ref         String    @unique // the invoice we send to ePayco (ph-<userId>-<ts>)
+  userId      String
+  planType    String    // "pro" | "business" | "elite"
+  amount      Int       // expected charge amount (COP)
+  currency    String    @default("cop")
+  status      String    @default("pending") // "pending" | "completed" | "rejected"
+  epaycoRef   String? // x_ref_payco once ePayco confirms
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([userId])
+}
+
+// ============================================
+// Rate limiting (fixed-window counters)
+// ============================================
+
+model RateLimit {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g. "register:ip:1.2.3.4" or "register:email:x@y.com"
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+
+  @@index([windowStart])
+}
+
+// ============================================
 // Property Management
 // ============================================
 

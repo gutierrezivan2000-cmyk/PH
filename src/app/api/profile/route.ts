@@ -53,16 +53,19 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[PROFILE GET]", error);
-    return NextResponse.json({
-      name: session.user.name,
-      email: session.user.email,
-      image: session.user.image,
-      cargo: "",
-      phone: "",
-      company: "",
-      city: "",
-      onboarded: false,
-    });
+    // A DB blip must NOT look like "new, unonboarded user" — that would bounce
+    // an already-configured user back into the onboarding wizard (and let them
+    // create a duplicate property). Signal the error so the client can tell.
+    return NextResponse.json(
+      {
+        error: true,
+        name: session.user.name,
+        email: session.user.email,
+        image: session.user.image,
+        onboarded: true,
+      },
+      { status: 500 }
+    );
   }
 }
 

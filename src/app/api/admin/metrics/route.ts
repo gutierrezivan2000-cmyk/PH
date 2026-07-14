@@ -137,15 +137,16 @@ export async function GET(req: NextRequest) {
       : "0";
 
   // ---- Plan distribution ----
-  let proCount = 0, eliteCount = 0, noSubCount = 0;
+  let proCount = 0, businessCount = 0, eliteCount = 0, noSubCount = 0;
   for (const s of allSubs) {
     if (s.status !== "active") continue;
     const p = normalizePlanId(s.planId);
     if (p === "elite") eliteCount++;
+    else if (p === "business") businessCount++;
     else if (p === "pro") proCount++;
     // active sub with no recognizable plan → counted in neither (falls to noSub)
   }
-  noSubCount = totalUsers - (proCount + eliteCount);
+  noSubCount = totalUsers - (proCount + businessCount + eliteCount);
 
   // ---- MRR over last 6 months ----
   const months: { key: string; label: string; start: Date; end: Date }[] = [];
@@ -250,6 +251,7 @@ export async function GET(req: NextRequest) {
     mrrByMonth,
     planDistribution: {
       pro: proCount,
+      business: businessCount,
       elite: eliteCount,
       noSub: noSubCount,
       total: totalUsers,

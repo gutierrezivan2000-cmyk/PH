@@ -14,10 +14,18 @@ const SEEDED_CONTENT: Record<string, { month: number; year: number }> = {
 
 const PROPERTY_NAME = "Conjunto Residencial Los Pinos";
 
+const IS_DEMO = process.env.DEMO_MODE === "true";
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ generationId: string; fileType: string }> }
 ) {
+  // Demo-only: this route builds PDFs/PPTX from query params with no auth, so
+  // in production it would be an unauthenticated compute sink. 404 when off.
+  if (!IS_DEMO) {
+    return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+  }
+
   const { generationId, fileType } = await params;
 
   // Try live buffers first (from a just-completed generation in same invocation)

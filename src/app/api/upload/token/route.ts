@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 const ALLOWED_CONTENT_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword", // legacy .doc (Word 97-2003) — the UI offers it
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel",
   "text/plain",
@@ -26,7 +27,9 @@ const ALLOWED_CONTENT_TYPES = [
   "audio/aac",
 ];
 
-const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB — big enough for 1h+ audio
+// Matches the plan limit (maxFileSizeMb / transcriptionMaxFileMb = 25). The old
+// 500 MB cap let any user drive unbounded Blob storage + Whisper cost.
+const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const body = (await req.json()) as HandleUploadBody;
