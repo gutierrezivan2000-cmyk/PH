@@ -149,12 +149,15 @@ model RateLimit {
 // ============================================
 
 model Property {
-  id      String  @id @default(cuid())
-  userId  String
-  name    String
-  address String?
-  city    String?
-  units   Int?
+  id         String  @id @default(cuid())
+  userId     String
+  name       String
+  address    String?
+  city       String?
+  units      Int?
+  // Optional label to group/organize properties in the enterprise portfolio
+  // (e.g. a zone, building type, or assigned administrator).
+  groupLabel String?
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   generations Generation[]
@@ -162,6 +165,8 @@ model Property {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 // ============================================

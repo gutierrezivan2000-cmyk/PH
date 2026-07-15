@@ -93,6 +93,8 @@ const STATEMENTS: string[] = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "RateLimit_key_key" ON "RateLimit"("key")`,
   `CREATE INDEX IF NOT EXISTS "RateLimit_windowStart_idx" ON "RateLimit"("windowStart")`,
+  // Enterprise portfolio: optional grouping label on properties.
+  `ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "groupLabel" TEXT`,
 ];
 
 let ensured = false;
