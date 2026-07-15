@@ -162,11 +162,37 @@ model Property {
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   generations Generation[]
   documents   PropertyDocument[]
+  monthlyData PropertyMonthlyData[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+// ============================================
+// Enterprise batch: per-property monthly input staging
+// ============================================
+
+// A property's staged inputs for a given month — uploaded throughout the month
+// so that "generate in batch" can pull each property's own complete data. One
+// bucket per (property, month, year).
+model PropertyMonthlyData {
+  id             String   @id @default(cuid())
+  propertyId     String
+  userId         String
+  month          Int
+  year           Int
+  files          Json     @default("[]") // [{name,url,type,size}]
+  additionalText String?  @db.Text
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([propertyId, month, year])
+  @@index([userId, year, month])
 }
 
 // ============================================

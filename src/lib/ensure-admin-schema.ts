@@ -95,6 +95,25 @@ const STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS "RateLimit_windowStart_idx" ON "RateLimit"("windowStart")`,
   // Enterprise portfolio: optional grouping label on properties.
   `ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "groupLabel" TEXT`,
+  // Enterprise batch: per-property monthly input staging.
+  `CREATE TABLE IF NOT EXISTS "PropertyMonthlyData" (
+    "id" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "month" INTEGER NOT NULL,
+    "year" INTEGER NOT NULL,
+    "files" JSONB NOT NULL DEFAULT '[]',
+    "additionalText" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "PropertyMonthlyData_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "PropertyMonthlyData_propertyId_month_year_key" ON "PropertyMonthlyData"("propertyId", "month", "year")`,
+  `CREATE INDEX IF NOT EXISTS "PropertyMonthlyData_userId_year_month_idx" ON "PropertyMonthlyData"("userId", "year", "month")`,
+  `DO $$ BEGIN
+    ALTER TABLE "PropertyMonthlyData" ADD CONSTRAINT "PropertyMonthlyData_propertyId_fkey"
+      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 ];
 
 let ensured = false;
