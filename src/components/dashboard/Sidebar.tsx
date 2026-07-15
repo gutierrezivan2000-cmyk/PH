@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   Home,
@@ -15,10 +16,13 @@ import {
   ChevronsRight,
   X,
   Sparkles,
+  LayoutGrid,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
-const navigation = [
+type NavEntry = { name: string; href: string; icon: typeof Home; n: string; badge?: string };
+
+const navigation: NavEntry[] = [
   { name: "Inicio", href: "/dashboard", icon: Home, n: "01" },
   { name: "Generar", href: "/dashboard/generar", icon: FilePlus2, n: "02" },
   { name: "Asistente IA", href: "/dashboard/asistente", icon: Sparkles, n: "03", badge: "6" },
@@ -27,6 +31,15 @@ const navigation = [
   { name: "Suscripción", href: "/dashboard/suscripcion", icon: CreditCard, n: "06" },
   { name: "Configuración", href: "/dashboard/configuracion", icon: Settings2, n: "07" },
 ];
+
+// Enterprise "Portafolio" — only for Elite subscribers and beta testers.
+const PORTAFOLIO_ENTRY: NavEntry = {
+  name: "Portafolio",
+  href: "/empresa",
+  icon: LayoutGrid,
+  n: "★",
+  badge: "Élite",
+};
 
 interface SidebarProps {
   open: boolean;
@@ -59,6 +72,27 @@ function BrandMark({ collapsed = false }: { collapsed?: boolean }) {
 
 export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
+
+  // Show the enterprise "Portafolio" entry only for Elite / beta users.
+  const [showPortafolio, setShowPortafolio] = useState(false);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/usage")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (active && d && (d.planName === "elite" || d.planStatus === "beta")) {
+          setShowPortafolio(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const navItems: NavEntry[] = showPortafolio
+    ? [...navigation.slice(0, 4), PORTAFOLIO_ENTRY, ...navigation.slice(4)]
+    : navigation;
 
   const navItem = (item: typeof navigation[0], isActive: boolean, isMobile = false) => {
     const showLabel = isMobile || !collapsed;
@@ -155,7 +189,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
 
         {/* Nav */}
         <nav className={cn("flex-1 space-y-1 overflow-y-auto", collapsed ? "px-2 py-3" : "px-3 pb-4")}>
-          {navigation.map((item) => {
+          {navItems.map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
@@ -207,7 +241,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
         </div>
 
         <nav className="flex-1 px-3 pb-3 space-y-1 overflow-y-auto">
-          {navigation.map((item) => {
+          {navItems.map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
