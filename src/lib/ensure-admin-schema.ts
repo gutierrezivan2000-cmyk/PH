@@ -95,6 +95,41 @@ const STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS "RateLimit_windowStart_idx" ON "RateLimit"("windowStart")`,
   // Enterprise portfolio: optional grouping label on properties.
   `ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "groupLabel" TEXT`,
+  // Enterprise batch: per-property monthly input staging.
+  `CREATE TABLE IF NOT EXISTS "PropertyMonthlyData" (
+    "id" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "month" INTEGER NOT NULL,
+    "year" INTEGER NOT NULL,
+    "files" JSONB NOT NULL DEFAULT '[]',
+    "additionalText" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "PropertyMonthlyData_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "PropertyMonthlyData_propertyId_month_year_key" ON "PropertyMonthlyData"("propertyId", "month", "year")`,
+  `CREATE INDEX IF NOT EXISTS "PropertyMonthlyData_userId_year_month_idx" ON "PropertyMonthlyData"("userId", "year", "month")`,
+  `DO $$ BEGIN
+    ALTER TABLE "PropertyMonthlyData" ADD CONSTRAINT "PropertyMonthlyData_propertyId_fkey"
+      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // Enterprise batch generation.
+  `ALTER TABLE "Generation" ADD COLUMN IF NOT EXISTS "batchId" TEXT`,
+  `CREATE INDEX IF NOT EXISTS "Generation_batchId_idx" ON "Generation"("batchId")`,
+  `CREATE TABLE IF NOT EXISTS "GenerationBatch" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "month" INTEGER NOT NULL,
+    "year" INTEGER NOT NULL,
+    "docTypes" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    "status" TEXT NOT NULL DEFAULT 'processing',
+    "total" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completedAt" TIMESTAMP(3),
+    CONSTRAINT "GenerationBatch_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "GenerationBatch_userId_idx" ON "GenerationBatch"("userId")`,
 ];
 
 let ensured = false;

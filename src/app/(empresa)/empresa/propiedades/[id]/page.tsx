@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eliteGate } from "@/components/empresa/EmpresaGate";
 import { EmpresaShell } from "@/components/empresa/EmpresaShell";
+import { MonthlyDataCard } from "@/components/empresa/MonthlyDataCard";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/db";
@@ -80,6 +81,9 @@ export default async function PropertyDetailPage({
           <InfoTile icon={Building2} label="Unidades" value={property.units ? String(property.units) : "—"} />
           <InfoTile icon={Layers3} label="Grupo" value={property.groupLabel || "Sin grupo"} />
         </div>
+
+        {/* Monthly input staging for batch generation */}
+        <MonthlyDataCard propertyId={property.id} />
 
         {/* Documents */}
         <section className="rounded-2xl border border-border bg-card overflow-hidden mb-6">

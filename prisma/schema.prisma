@@ -162,11 +162,37 @@ model Property {
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   generations Generation[]
   documents   PropertyDocument[]
+  monthlyData PropertyMonthlyData[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+// ============================================
+// Enterprise batch: per-property monthly input staging
+// ============================================
+
+// A property's staged inputs for a given month — uploaded throughout the month
+// so that "generate in batch" can pull each property's own complete data. One
+// bucket per (property, month, year).
+model PropertyMonthlyData {
+  id             String   @id @default(cuid())
+  propertyId     String
+  userId         String
+  month          Int
+  year           Int
+  files          Json     @default("[]") // [{name,url,type,size}]
+  additionalText String?  @db.Text
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([propertyId, month, year])
+  @@index([userId, year, month])
 }
 
 // ============================================
@@ -182,6 +208,8 @@ model Generation {
   progress   Int     @default(0) // 0-100 percentage
   month      Int
   year       Int
+  // Set when this generation is part of an enterprise batch run.
+  batchId    String?
 
   inputFiles   Json
   inputText    String? @db.Text
@@ -195,6 +223,24 @@ model Generation {
 
   createdAt   DateTime  @default(now())
   completedAt DateTime?
+
+  @@index([batchId])
+  @@index([userId, createdAt])
+}
+
+// A batch generation run over many properties (Elite enterprise feature).
+model GenerationBatch {
+  id          String    @id @default(cuid())
+  userId      String
+  month       Int
+  year        Int
+  docTypes    String[]  @default([]) // subset of ["informe","acta","pptx"]
+  status      String    @default("processing") // "processing" | "completed"
+  total       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([userId])
 }
 
 // ============================================
