@@ -224,8 +224,16 @@ export async function failStuckGenerations(userId: string): Promise<void> {
     await db.generation.updateMany({
       where: {
         userId,
-        status: { in: ["processing", "pending"] },
         createdAt: { lt: new Date(Date.now() - STUCK_MS) },
+        OR: [
+          // Single generations: a live one runs inside a 300s function, so
+          // processing/pending past 15 min means the function died.
+          { batchId: null, status: { in: ["processing", "pending"] } },
+          // Batch generations: "pending" ones are just waiting in the queue for
+          // the cron (a 50-property batch can take a while) and must NOT be
+          // reaped. Only reap ones the cron claimed ("processing") but died on.
+          { batchId: { not: null }, status: "processing" },
+        ],
       },
       data: {
         status: "failed",
