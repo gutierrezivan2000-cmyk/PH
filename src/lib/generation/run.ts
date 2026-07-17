@@ -50,6 +50,12 @@ export interface RunGenerationParams {
   includeInforme: boolean;
   includeActa: boolean;
   includePptx: boolean;
+  /**
+   * Delete the raw input blobs after a successful generation. True for one-off
+   * generations (the file was a throwaway upload); false for enterprise batch,
+   * where the files live in per-property monthly staging and may be reused.
+   */
+  cleanupInputs?: boolean;
 }
 
 /**
@@ -134,11 +140,21 @@ export async function runGeneration(p: RunGenerationParams): Promise<void> {
 
     await updateProgress(60);
 
+    // Per-administrator branding shown on the documents.
+    const brandUser = await db.user
+      .findUnique({ where: { id: p.userId }, select: { company: true, logoUrl: true, brandColor: true } })
+      .catch(() => null);
+    const branding = {
+      companyName: brandUser?.company ?? null,
+      logoUrl: brandUser?.logoUrl ?? null,
+      brandColor: brandUser?.brandColor ?? null,
+    };
+
     const informeHtml = (informeText && p.includeInforme) ? generatePdfHtml({
-      title: "Informe de Gestion", propertyName: p.propertyName, period, content: informeText, type: "informe",
+      title: "Informe de Gestion", propertyName: p.propertyName, period, content: informeText, type: "informe", ...branding,
     }) : null;
     const actaHtml = actaText ? generatePdfHtml({
-      title: "Acta de Reunion", propertyName: p.propertyName, period, content: actaText, type: "acta",
+      title: "Acta de Reunion", propertyName: p.propertyName, period, content: actaText, type: "acta", ...branding,
     }) : null;
 
     await updateProgress(70);
@@ -205,6 +221,17 @@ export async function runGeneration(p: RunGenerationParams): Promise<void> {
       await recordUsage(p.userId, totalTokens, costUsd, "generacion");
     } catch (e) {
       console.error("[runGeneration] Usage recording failed:", e);
+    }
+
+    // Free the raw input blobs — their parsed content is already in the output
+    // document, and they're never shown again. Bounds Blob storage growth.
+    if (p.cleanupInputs && p.blobFiles.length > 0) {
+      try {
+        const { del } = await import("@vercel/blob");
+        await del(p.blobFiles.map((f) => f.url));
+      } catch (e) {
+        console.error("[runGeneration] input blob cleanup failed:", e);
+      }
     }
 
     console.log(`[runGeneration] completed ${p.generationId} (${totalTokens} tokens, $${costUsd.toFixed(4)})`);

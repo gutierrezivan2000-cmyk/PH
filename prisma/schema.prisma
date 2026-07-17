@@ -26,6 +26,10 @@ model User {
   city          String?
   onboarded     Boolean   @default(false)
 
+  // Document branding (shown on generated informes/actas)
+  logoUrl       String?
+  brandColor    String?
+
   // Admin role
   role          String    @default("user") // "user" | "admin"
 

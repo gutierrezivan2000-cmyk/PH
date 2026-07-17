@@ -105,14 +105,27 @@ export interface PdfDocumentData {
   period: string;
   content: string;
   type: "informe" | "acta";
+  /** Optional per-administrator branding shown in the header/footer. */
+  companyName?: string | null;
+  logoUrl?: string | null;
+  brandColor?: string | null;
+}
+
+// Accept only a safe hex color for the brand accent (defends the inlined CSS).
+function safeHex(c?: string | null): string | null {
+  if (!c) return null;
+  return /^#[0-9a-fA-F]{6}$/.test(c.trim()) ? c.trim() : null;
 }
 
 export function generatePdfHtml(data: PdfDocumentData): string {
   const { title, propertyName, period, content, type } = data;
   const contentHtml = markdownToSimpleHtml(content);
 
-  const accentColor = type === "informe" ? "#4338ca" : "#166534";
+  const brand = safeHex(data.brandColor);
+  const accentColor = brand || (type === "informe" ? "#4338ca" : "#166534");
   const accentLight = type === "informe" ? "#eef2ff" : "#f0fdf4";
+  const logo = data.logoUrl && /^https:\/\//.test(data.logoUrl) ? data.logoUrl : null;
+  const company = (data.companyName || "").trim();
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -305,12 +318,14 @@ export function generatePdfHtml(data: PdfDocumentData): string {
   </div>
   <div class="page">
     <div class="doc-header">
+      ${logo ? `<img src="${logo}" alt="${company || "Logo"}" style="max-height:56px;max-width:220px;object-fit:contain;margin:0 auto 14px;display:block;" />` : ""}
+      ${company ? `<div style="font-size:13px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:${accentColor};margin-bottom:8px;">${company}</div>` : ""}
       <h1>${title.toUpperCase()}</h1>
       <div class="meta"><strong>${propertyName}</strong> &mdash; ${period}</div>
     </div>
     ${contentHtml}
     <div class="doc-footer">
-      Documento generado el ${new Date().toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })} &bull; SOPH.IA
+      ${company ? `${company} &bull; ` : ""}Documento generado el ${new Date().toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })} &bull; SOPH.IA
     </div>
   </div>
 </body>

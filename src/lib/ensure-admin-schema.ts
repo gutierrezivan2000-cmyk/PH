@@ -12,6 +12,8 @@ import { db } from "@/lib/db";
  */
 const STATEMENTS: string[] = [
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "role" TEXT NOT NULL DEFAULT 'user'`,
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "logoUrl" TEXT`,
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "brandColor" TEXT`,
   `ALTER TABLE "Subscription" ADD COLUMN IF NOT EXISTS "addonAgents" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`,
   `ALTER TABLE "Subscription" ADD COLUMN IF NOT EXISTS "adminNotes" TEXT`,
   `CREATE TABLE IF NOT EXISTS "Ticket" (

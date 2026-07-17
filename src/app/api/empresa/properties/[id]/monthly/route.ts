@@ -81,6 +81,23 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const additionalText = typeof body.additionalText === "string" ? body.additionalText.slice(0, 20000) : "";
 
+  // Delete blobs the user removed from the staging list (avoid orphans).
+  try {
+    const existing = await db.propertyMonthlyData.findUnique({
+      where: { propertyId_month_year: { propertyId: id, month, year } },
+      select: { files: true },
+    });
+    const oldUrls = ((existing?.files as FileRef[] | null) ?? []).map((f) => f.url);
+    const newUrls = new Set(files.map((f) => f.url));
+    const removed = oldUrls.filter((u) => !newUrls.has(u));
+    if (removed.length > 0) {
+      const { del } = await import("@vercel/blob");
+      await del(removed);
+    }
+  } catch (e) {
+    console.error("[monthly PUT] blob cleanup failed:", e);
+  }
+
   await db.propertyMonthlyData.upsert({
     where: { propertyId_month_year: { propertyId: id, month, year } },
     create: { propertyId: id, userId: elite.userId, month, year, files, additionalText },
