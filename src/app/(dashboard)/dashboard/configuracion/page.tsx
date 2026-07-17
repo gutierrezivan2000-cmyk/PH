@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { upload as blobUpload } from "@vercel/blob/client";
 import { Header } from "@/components/dashboard/Header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -117,6 +118,11 @@ export default function ConfiguracionPage() {
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
 
+  // Document branding
+  const [logoUrl, setLogoUrl] = useState("");
+  const [brandColor, setBrandColor] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
   // Tickets section
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
@@ -139,6 +145,8 @@ export default function ConfiguracionPage() {
         setCompany(data.company || "");
         setPhone(data.phone || "");
         setCity(data.city || "");
+        setLogoUrl(data.logoUrl || "");
+        setBrandColor(data.brandColor || "");
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -165,7 +173,7 @@ export default function ConfiguracionPage() {
       const res = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, cargo, company, phone, city }),
+        body: JSON.stringify({ name, cargo, company, phone, city, logoUrl, brandColor }),
       });
       if (!res.ok) {
         // Don't show a green "Saved!" when the server rejected the change.
@@ -178,6 +186,23 @@ export default function ConfiguracionPage() {
       setSaveError(true);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    setUploadingLogo(true);
+    try {
+      const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+      const result = await blobUpload(`branding/logo-${Date.now()}-${safeName}`, file, {
+        access: "public",
+        handleUploadUrl: "/api/upload/token",
+        contentType: file.type || "image/png",
+      });
+      setLogoUrl(result.url);
+    } catch {
+      setSaveError(true);
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -377,6 +402,73 @@ export default function ConfiguracionPage() {
                     style={hiInput}
                     className="rounded-xl focus:ring-2 focus:ring-[#7c5cff]/40 focus:border-[#7c5cff]"
                   />
+                </div>
+              </div>
+
+              {/* Document branding */}
+              <div className="pt-2 border-t border-border">
+                <p className="text-sm font-semibold text-foreground mb-1">Marca de tus documentos</p>
+                <p className="text-[12px] text-muted-foreground mb-4">
+                  Tu logo, nombre y color aparecerán en los informes y actas que generes.
+                </p>
+                <div className="flex items-start gap-4 flex-wrap">
+                  {/* Logo */}
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-16 h-16 rounded-xl border border-border flex items-center justify-center overflow-hidden flex-shrink-0"
+                      style={{ background: "var(--secondary)" }}
+                    >
+                      {logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground/60 text-center px-1">Sin logo</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-foreground hover:bg-secondary cursor-pointer transition-colors">
+                        {uploadingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                        {uploadingLogo ? "Subiendo…" : logoUrl ? "Cambiar logo" : "Subir logo"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])}
+                        />
+                      </label>
+                      {logoUrl && (
+                        <button onClick={() => setLogoUrl("")} className="text-[11px] text-muted-foreground hover:text-[#ff6f6f] text-left">
+                          Quitar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Brand color */}
+                  <div>
+                    <label className="block text-[11px] uppercase text-muted-foreground/70 mb-2" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }}>
+                      Color de marca
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={brandColor || "#4338ca"}
+                        onChange={(e) => setBrandColor(e.target.value)}
+                        className="w-10 h-10 rounded-lg border border-border bg-transparent cursor-pointer p-0.5"
+                      />
+                      <Input
+                        value={brandColor}
+                        onChange={(e) => setBrandColor(e.target.value)}
+                        placeholder="#4338ca"
+                        className="w-28 rounded-lg font-mono text-[13px]"
+                      />
+                      {brandColor && (
+                        <button onClick={() => setBrandColor("")} className="text-[11px] text-muted-foreground hover:text-foreground">
+                          Predeterminado
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 

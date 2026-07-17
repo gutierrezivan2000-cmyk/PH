@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { PLANS } from "@/lib/epayco";
-import { normalizePlanId, type CanonicalPlan } from "@/lib/plan";
+import { normalizePlanId, hasActiveAccess, type CanonicalPlan } from "@/lib/plan";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -27,14 +27,16 @@ export async function POST(req: NextRequest) {
     // default to pro
   }
 
-  // Only block re-purchasing the SAME active plan; allow upgrades/downgrades
-  // (Pro → Business → Elite) between different plans.
+  // Block re-purchasing the SAME plan only while it's genuinely active (paid
+  // period not yet ended). Allow upgrades/downgrades between plans, and allow
+  // renewing the same plan once the period has lapsed (grace/expired).
   try {
     const { db } = await import("@/lib/db");
     const existing = await db.subscription.findUnique({
       where: { userId: session.user.id },
     });
-    if (existing?.status === "active" && normalizePlanId(existing.planId) === planType) {
+    const access = hasActiveAccess(existing);
+    if (access.status === "active" && normalizePlanId(existing?.planId) === planType) {
       return NextResponse.json(
         { error: "Ya tienes este plan activo." },
         { status: 400 }

@@ -384,6 +384,7 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
       includeInforme,
       includeActa,
       includePptx,
+      cleanupInputs: true,
     })
   );
 

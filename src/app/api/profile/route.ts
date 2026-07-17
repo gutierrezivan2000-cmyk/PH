@@ -50,6 +50,8 @@ export async function GET() {
       company: user.company ?? "",
       city: user.city ?? "",
       onboarded: user.onboarded,
+      logoUrl: user.logoUrl ?? "",
+      brandColor: user.brandColor ?? "",
     });
   } catch (error) {
     console.error("[PROFILE GET]", error);
@@ -77,6 +79,16 @@ export async function PUT(req: NextRequest) {
 
   const body = await req.json();
   const { name, cargo, phone, company, city, onboarded } = body;
+
+  // Branding: validate a hex color and an https logo URL before storing.
+  const brandColor =
+    typeof body.brandColor === "string" && /^#[0-9a-fA-F]{6}$/.test(body.brandColor.trim())
+      ? body.brandColor.trim()
+      : body.brandColor === "" ? "" : undefined;
+  const logoUrl =
+    typeof body.logoUrl === "string" && (/^https:\/\//.test(body.logoUrl) || body.logoUrl === "")
+      ? body.logoUrl
+      : undefined;
 
   if (IS_DEMO) {
     return NextResponse.json({ ok: true });
@@ -108,6 +120,8 @@ export async function PUT(req: NextRequest) {
         ...(company !== undefined && { company }),
         ...(city !== undefined && { city }),
         ...(onboarded !== undefined && { onboarded }),
+        ...(brandColor !== undefined && { brandColor: brandColor || null }),
+        ...(logoUrl !== undefined && { logoUrl: logoUrl || null }),
       },
     });
 

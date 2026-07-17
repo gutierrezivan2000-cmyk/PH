@@ -67,13 +67,21 @@ export function calcMrr(planId?: string | null, addonAgents?: string[] | null): 
 
 export const TRIAL_DAYS = 7;
 
+// Days of continued access AFTER a paid period ends, before we hard-block. The
+// ePayco onpage flow has no automatic recurring charge, so a user renews
+// manually each month; the grace window keeps a paying customer from being
+// locked out the instant their period lapses while they re-pay.
+export const GRACE_DAYS = 7;
+
 export interface AccessCheck {
   allowed: boolean;
-  /** Machine-readable: "active" | "trialing" | "trial_expired" | "past_due" | "canceled" | "inactive" | "none" */
+  /** Machine-readable: "active" | "grace" | "expired" | "trialing" | "trial_expired" | "past_due" | "canceled" | "inactive" | "none" */
   status: string;
-  /** Human-readable Spanish reason when blocked. */
+  /** Human-readable Spanish reason when blocked or in grace. */
   reason?: string;
   trialEndsAt?: Date | null;
+  /** End of the current paid period (for "active"/"grace"/"expired"). */
+  periodEndsAt?: Date | null;
 }
 
 interface AccessSubLike {
@@ -83,11 +91,14 @@ interface AccessSubLike {
 
 /**
  * Source of truth for "can this user use paid features".
- * - "active": allowed. (We don't hard-expire by date yet because the ePayco
- *   onpage flow has no recurring billing reconciliation; expiring would lock
- *   out paying customers. Revisit when recurring billing lands.)
+ * - "active": within the paid period → allowed.
+ * - "grace": paid period ended but within GRACE_DAYS → allowed, with a renewal
+ *   nudge. Once past grace → "expired" (blocked). A subscription with no
+ *   currentPeriodEnd is treated as legacy/non-expiring so we never lock out an
+ *   older paying account whose period date we don't have.
  * - "trialing": allowed only while currentPeriodEnd is in the future.
  * - everything else (canceled, past_due, inactive, missing): blocked.
+ * Beta/grandfathered users never reach this function (short-circuited upstream).
  */
 export function hasActiveAccess(sub?: AccessSubLike | null): AccessCheck {
   if (!sub || !sub.status) {
@@ -98,7 +109,31 @@ export function hasActiveAccess(sub?: AccessSubLike | null): AccessCheck {
     };
   }
   if (sub.status === "active") {
-    return { allowed: true, status: "active" };
+    const ends = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
+    if (!ends) {
+      // Legacy sub with no period date — don't expire it.
+      return { allowed: true, status: "active" };
+    }
+    const now = Date.now();
+    if (ends.getTime() > now) {
+      return { allowed: true, status: "active", periodEndsAt: ends };
+    }
+    const graceEnd = ends.getTime() + GRACE_DAYS * 24 * 60 * 60 * 1000;
+    if (now <= graceEnd) {
+      return {
+        allowed: true,
+        status: "grace",
+        periodEndsAt: ends,
+        reason:
+          "Tu plan venció. Renuévalo en Suscripción para no perder el acceso — tienes unos días de gracia.",
+      };
+    }
+    return {
+      allowed: false,
+      status: "expired",
+      periodEndsAt: ends,
+      reason: "Tu plan venció. Renueva en Suscripción para seguir usando SOPH.IA.",
+    };
   }
   if (sub.status === "trialing") {
     const ends = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;

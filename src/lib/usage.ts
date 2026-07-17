@@ -341,6 +341,7 @@ export async function getUsageSummary(userId: string) {
   let planStatus = "none";
   let planName: "pro" | "business" | "elite" | null = null;
   let trialEndsAt: string | null = null;
+  let periodEndsAt: string | null = null;
   const grandfathered = await isGrandfathered(userId);
   try {
     const sub = await db.subscription.findUnique({ where: { userId } });
@@ -352,6 +353,7 @@ export async function getUsageSummary(userId: string) {
       const access = hasActiveAccess(sub);
       planStatus = access.status;
       trialEndsAt = access.trialEndsAt ? access.trialEndsAt.toISOString() : null;
+      periodEndsAt = access.periodEndsAt ? access.periodEndsAt.toISOString() : null;
     }
   } catch {
     if (grandfathered) planStatus = "beta";
@@ -379,5 +381,6 @@ export async function getUsageSummary(userId: string) {
     planStatus,
     planName,
     trialEndsAt,
+    periodEndsAt,
   };
 }
