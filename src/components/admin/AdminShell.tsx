@@ -11,6 +11,7 @@ import {
   Ticket,
   Plug,
   BarChart3,
+  Activity,
   ScrollText,
   LogOut,
   Menu,
@@ -30,7 +31,8 @@ const NAV = [
   { name: "Tickets", href: "/admin/tickets", icon: Ticket, n: "03" },
   { name: "Add-ons", href: "/admin/addons", icon: Plug, n: "04" },
   { name: "Métricas", href: "/admin/metricas", icon: BarChart3, n: "05" },
-  { name: "Auditoría", href: "/admin/auditoria", icon: ScrollText, n: "06" },
+  { name: "Consumo IA", href: "/admin/consumo", icon: Activity, n: "06" },
+  { name: "Auditoría", href: "/admin/auditoria", icon: ScrollText, n: "07" },
 ];
 
 function BrandMark() {
