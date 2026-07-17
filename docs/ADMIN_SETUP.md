@@ -1,5 +1,34 @@
 # Configurar administradores y el panel admin
 
+Hay dos caminos. El **rápido** no toca DNS; el **aislado** pone el admin en su
+propio subdominio.
+
+---
+
+## ⚡ Opción rápida (sin DNS) — recomendada para empezar
+
+El panel queda en **`management.sophiagrouph.com/admin`**, protegido igual por
+`requireAdmin` (verifica el rol contra la base de datos en cada página y API).
+
+En Vercel → **Settings → Environment Variables** (entorno **Production**),
+agrega DOS variables y luego **Redeploy**:
+
+```
+ADMIN_EMAILS = gutierrezivan2000@gmail.com
+ALLOW_ADMIN_ON_MAIN_HOST = true
+```
+
+Después: cierra sesión, entra a `https://management.sophiagrouph.com/admin` e
+inicia sesión con ese correo. Listo.
+
+> `ADMIN_EMAILS` es runtime (aplica al próximo login). `ALLOW_ADMIN_ON_MAIN_HOST`
+> lo lee el middleware en el borde, así que conviene **hacer Redeploy** tras
+> agregarla para que tome efecto de inmediato.
+
+---
+
+## 🔒 Opción aislada (subdominio propio)
+
 El panel de administración vive en un **host separado** del app principal
 (`management.sophiagrouph.com` es el app; el admin NO puede vivir ahí).
 
