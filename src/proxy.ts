@@ -32,8 +32,14 @@ export function proxy(req: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // ── Regular host: block direct /admin access (admin lives on its subdomain) ──
-  if (url.pathname.startsWith("/admin")) {
+  // ── Regular host: /admin normally lives on its own subdomain. Set
+  // ALLOW_ADMIN_ON_MAIN_HOST=true to also reach it at <main-host>/admin — it
+  // stays fully gated by requireAdmin (DB role check) on every page and API,
+  // so this only trades some host isolation for zero DNS setup. ──
+  if (
+    url.pathname.startsWith("/admin") &&
+    process.env.ALLOW_ADMIN_ON_MAIN_HOST !== "true"
+  ) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));
   }
 
