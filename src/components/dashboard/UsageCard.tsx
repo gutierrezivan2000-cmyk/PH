@@ -16,6 +16,7 @@ interface UsageData {
   planStatus?: string;
   planName?: "pro" | "business" | "elite" | null;
   trialEndsAt?: string | null;
+  periodEndsAt?: string | null;
 }
 
 function PlanStatusChip({ usage }: { usage: UsageData }) {
@@ -52,7 +53,31 @@ function PlanStatusChip({ usage }: { usage: UsageData }) {
     );
   }
 
-  if (status === "trial_expired" || status === "past_due" || status === "canceled") {
+  if (status === "grace") {
+    return (
+      <Link
+        href="/dashboard/suscripcion"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors"
+        style={{ background: "rgba(255,185,88,0.10)", borderColor: "rgba(255,185,88,0.30)" }}
+      >
+        <Sparkles className="h-3.5 w-3.5" style={{ color: "#ffb958" }} />
+        <span
+          className="text-[11px] font-medium"
+          style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.06em", color: "#ffb958" }}
+        >
+          PLAN VENCIDO · RENOVAR (PERÍODO DE GRACIA)
+        </span>
+      </Link>
+    );
+  }
+
+  if (status === "trial_expired" || status === "past_due" || status === "canceled" || status === "expired") {
+    const label =
+      status === "trial_expired"
+        ? "PRUEBA FINALIZADA · ELIGE UN PLAN"
+        : status === "expired"
+        ? "PLAN VENCIDO · RENOVAR"
+        : "PLAN INACTIVO · REACTIVAR";
     return (
       <Link
         href="/dashboard/suscripcion"
@@ -67,7 +92,7 @@ function PlanStatusChip({ usage }: { usage: UsageData }) {
           className="text-[11px] font-medium"
           style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.06em", color: "#ff8585" }}
         >
-          {status === "trial_expired" ? "PRUEBA FINALIZADA · ELIGE UN PLAN" : "PLAN INACTIVO · REACTIVAR"}
+          {label}
         </span>
       </Link>
     );

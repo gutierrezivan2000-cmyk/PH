@@ -3,6 +3,7 @@
 import { SessionProvider } from "next-auth/react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { DemoBanner } from "@/components/ui/demo-banner";
+import { RenewalBanner } from "@/components/dashboard/RenewalBanner";
 import { useState, lazy, Suspense } from "react";
 
 const ChatBot = lazy(() => import("@/components/dashboard/ChatBot").then(m => ({ default: m.ChatBot })));
@@ -33,6 +34,7 @@ export default function DashboardLayout({
             />
           )}
           <main className="flex-1 min-h-screen w-full overflow-x-hidden">
+            <RenewalBanner />
             {/* Mobile top bar */}
             <div
               className="lg:hidden sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/85 px-4 py-3 backdrop-blur-xl"
