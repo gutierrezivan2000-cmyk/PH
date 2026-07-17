@@ -9,7 +9,9 @@
     "start": "next start",
     "lint": "eslint",
     "db:push": "prisma db push",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
@@ -53,6 +55,7 @@
     "eslint-config-next": "16.2.2",
     "prisma": "^7.6.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }
