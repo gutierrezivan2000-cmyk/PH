@@ -3,8 +3,13 @@ export const dynamic = "force-dynamic";
 import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { db } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import Link from "next/link";
 import { ShieldCheck, ChevronLeft, ChevronRight } from "lucide-react";
+
+type AuditLogRow = Prisma.AdminAuditLogGetPayload<{
+  include: { admin: { select: { id: true; name: true; email: true; image: true } } };
+}>;
 
 // ---- Constants ----
 const PAGE_SIZE = 50;
@@ -56,25 +61,33 @@ async function loadAudit(params: {
     }
   }
 
-  const [logs, total, admins] = await Promise.all([
-    db.adminAuditLog.findMany({
-      where,
-      include: {
-        admin: { select: { id: true, name: true, email: true, image: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: PAGE_SIZE,
-      skip: (page - 1) * PAGE_SIZE,
-    }),
-    db.adminAuditLog.count({ where }),
-    db.user.findMany({
-      where: { role: "admin" },
-      select: { id: true, name: true, email: true },
-      orderBy: { name: "asc" },
-    }),
-  ]);
-
-  return { logs, total, admins };
+  try {
+    const [logs, total, admins] = await Promise.all([
+      db.adminAuditLog.findMany({
+        where,
+        include: {
+          admin: { select: { id: true, name: true, email: true, image: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: PAGE_SIZE,
+        skip: (page - 1) * PAGE_SIZE,
+      }),
+      db.adminAuditLog.count({ where }),
+      db.user.findMany({
+        where: { role: "admin" },
+        select: { id: true, name: true, email: true },
+        orderBy: { name: "asc" },
+      }),
+    ]);
+    return { logs: logs as AuditLogRow[], total, admins };
+  } catch (e) {
+    console.error("[auditoria] load failed:", e);
+    return {
+      logs: [] as AuditLogRow[],
+      total: 0,
+      admins: [] as { id: string; name: string | null; email: string }[],
+    };
+  }
 }
 
 // ---- Helpers ----

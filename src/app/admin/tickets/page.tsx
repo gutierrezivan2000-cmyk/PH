@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MessageSquare, Clock, ChevronRight } from "lucide-react";
+import { TicketsFilters } from "./TicketsFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -237,79 +238,13 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
 
         {/* Filter selects + search */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Priority */}
-          <select
-            defaultValue={activePriority || "all"}
-            onChange={(e) => {
-              const url = buildUrl({ priority: e.target.value === "all" ? undefined : e.target.value });
-              window.location.href = url;
-            }}
-            className="h-8 px-3 rounded-lg text-[11px] cursor-pointer transition-colors"
-            style={{
-              fontFamily: "var(--font-mono)",
-              letterSpacing: "0.10em",
-              textTransform: "uppercase",
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              color: "rgba(255,255,255,0.55)",
-              outline: "none",
-            }}
-          >
-            <option value="all">Prioridad: Todas</option>
-            <option value="low">Baja</option>
-            <option value="normal">Normal</option>
-            <option value="high">Alta</option>
-            <option value="urgent">Urgente</option>
-          </select>
-
-          {/* Category */}
-          <select
-            defaultValue={activeCategory || "all"}
-            onChange={(e) => {
-              const url = buildUrl({ category: e.target.value === "all" ? undefined : e.target.value });
-              window.location.href = url;
-            }}
-            className="h-8 px-3 rounded-lg text-[11px] cursor-pointer transition-colors"
-            style={{
-              fontFamily: "var(--font-mono)",
-              letterSpacing: "0.10em",
-              textTransform: "uppercase",
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              color: "rgba(255,255,255,0.55)",
-              outline: "none",
-            }}
-          >
-            <option value="all">Categoría: Todas</option>
-            <option value="general">General</option>
-            <option value="billing">Facturación</option>
-            <option value="technical">Técnico</option>
-            <option value="feature">Función</option>
-            <option value="bug">Bug</option>
-          </select>
-
-          {/* Assigned */}
-          <select
-            defaultValue={activeAssigned || "all"}
-            onChange={(e) => {
-              const url = buildUrl({ assigned: e.target.value === "all" ? undefined : e.target.value });
-              window.location.href = url;
-            }}
-            className="h-8 px-3 rounded-lg text-[11px] cursor-pointer transition-colors"
-            style={{
-              fontFamily: "var(--font-mono)",
-              letterSpacing: "0.10em",
-              textTransform: "uppercase",
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              color: "rgba(255,255,255,0.55)",
-              outline: "none",
-            }}
-          >
-            <option value="all">Asignado: Todos</option>
-            <option value="unassigned">Sin asignar</option>
-            <option value="mine">Míos</option>
-          </select>
+          <TicketsFilters
+            status={activeStatus}
+            priority={activePriority}
+            category={activeCategory}
+            assigned={activeAssigned}
+            q={q}
+          />
 
           {/* Search */}
           <form method="GET" action="/admin/tickets" className="flex-1 min-w-[180px]">
