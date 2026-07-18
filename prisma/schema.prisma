@@ -164,6 +164,11 @@ model Property {
   address    String?
   city       String?
   units      Int?
+
+  // Building profile for the compliance calendar:
+  // { ascensor, piscina, plantaElectrica, gimnasio, empleadosDirectos: boolean,
+  //   polizaVence: "YYYY-MM-DD" | null }
+  features   Json?
   // Optional label to group/organize properties in the enterprise portfolio
   // (e.g. a zone, building type, or assigned administrator).
   groupLabel String?
@@ -250,6 +255,33 @@ model GenerationBatch {
   completedAt DateTime?
 
   @@index([userId])
+}
+
+// ============================================
+// Compliance calendar (Calendario de cumplimiento)
+// ============================================
+
+// One row per acted-on auto item (done/dismissed) OR per custom item.
+// Auto items are computed from rules (src/lib/compliance.ts) + Property.features;
+// their row exists only once the admin marks them.
+model ComplianceRecord {
+  id          String    @id @default(cuid())
+  userId      String
+  propertyId  String
+  itemKey     String    // stable rule key ("asamblea-2026") or the cuid for custom items
+  source      String    @default("auto") // "auto" | "custom"
+  title       String?   // custom items only
+  description String?   @db.Text
+  dueDate     DateTime? // custom items only
+  status      String    @default("done") // "pending" (custom) | "done" | "dismissed"
+  doneAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([propertyId, itemKey])
+  @@index([userId])
+  @@index([propertyId])
 }
 
 // ============================================

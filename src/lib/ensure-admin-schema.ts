@@ -136,6 +136,26 @@ const STATEMENTS: string[] = [
     CONSTRAINT "GenerationBatch_pkey" PRIMARY KEY ("id")
   )`,
   `CREATE INDEX IF NOT EXISTS "GenerationBatch_userId_idx" ON "GenerationBatch"("userId")`,
+  // Compliance calendar: building profile + acted-on/custom items.
+  `ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "features" JSONB`,
+  `CREATE TABLE IF NOT EXISTS "ComplianceRecord" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "itemKey" TEXT NOT NULL,
+    "source" TEXT NOT NULL DEFAULT 'auto',
+    "title" TEXT,
+    "description" TEXT,
+    "dueDate" TIMESTAMP(3),
+    "status" TEXT NOT NULL DEFAULT 'done',
+    "doneAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "ComplianceRecord_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "ComplianceRecord_propertyId_itemKey_key" ON "ComplianceRecord"("propertyId", "itemKey")`,
+  `CREATE INDEX IF NOT EXISTS "ComplianceRecord_userId_idx" ON "ComplianceRecord"("userId")`,
+  `CREATE INDEX IF NOT EXISTS "ComplianceRecord_propertyId_idx" ON "ComplianceRecord"("propertyId")`,
 ];
 
 let ensured = false;
