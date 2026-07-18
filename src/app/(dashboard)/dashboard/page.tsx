@@ -83,12 +83,30 @@ export default function DashboardPage() {
   const [userName, setUserName] = useState<string>("");
   const [clock, setClock] = useState<{ dateLabel: string; greeting: string } | null>(null);
   const [recentDocs, setRecentDocs] = useState<RecentDoc[]>([]);
+  const [deadlines, setDeadlines] = useState<
+    { key: string; propertyId: string; propertyName: string; title: string; dueDate: string }[]
+  >([]);
 
   useEffect(() => {
     fetch("/api/generations")
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setRecentDocs(data.slice(0, 4));
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/calendar")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data?.items)) {
+          setDeadlines(
+            data.items.filter(
+              (it: { status: string }) => it.status === "pending"
+            )
+          );
+        }
       })
       .catch(() => {});
   }, []);
@@ -136,6 +154,21 @@ export default function DashboardPage() {
   const firstName = userName || "Administrador";
   const dateLabel = clock?.dateLabel ?? "";
   const greeting = clock?.greeting ?? "Hola";
+
+  const daysTo = (dueDate: string) => {
+    const [y, m, d] = dueDate.split("-").map(Number);
+    const now = new Date();
+    const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((new Date(y, m - 1, d).getTime() - base.getTime()) / 86400000);
+  };
+  const overdueCount = deadlines.filter((it) => daysTo(it.dueDate) < 0).length;
+  const weekCount = deadlines.filter((it) => {
+    const d = daysTo(it.dueDate);
+    return d >= 0 && d <= 7;
+  }).length;
+  const upcoming = [...deadlines]
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    .slice(0, 4);
 
   const quickActions = [
     {
@@ -212,31 +245,46 @@ export default function DashboardPage() {
             <div className="flex-1 min-w-0">
               {/* Chips row */}
               <div className="flex flex-wrap items-center gap-2 mb-5">
-                <span
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-                  style={{
-                    background: "rgba(76,214,160,0.12)",
-                    color: "#4cd6a0",
-                    border: "1px solid rgba(76,214,160,0.25)",
-                  }}
-                >
-                  <span className="relative flex h-1.5 w-1.5 flex-shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#4cd6a0" }} />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "#4cd6a0" }} />
+                {overdueCount === 0 && weekCount === 0 && (
+                  <span
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                    style={{
+                      background: "rgba(76,214,160,0.12)",
+                      color: "#4cd6a0",
+                      border: "1px solid rgba(76,214,160,0.25)",
+                    }}
+                  >
+                    <span className="relative flex h-1.5 w-1.5 flex-shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#4cd6a0" }} />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "#4cd6a0" }} />
+                    </span>
+                    obligaciones al día
                   </span>
-                  todo listo para marzo
-                </span>
-                <span
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-                  style={{
-                    background: "rgba(255,185,88,0.12)",
-                    color: "#ffb958",
-                    border: "1px solid rgba(255,185,88,0.25)",
-                  }}
-                >
-                  <AlertCircle className="h-3 w-3" />
-                  2 vencimientos esta semana
-                </span>
+                )}
+                {(overdueCount > 0 || weekCount > 0) && (
+                  <Link
+                    href="/dashboard/calendario"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-opacity hover:opacity-80"
+                    style={
+                      overdueCount > 0
+                        ? {
+                            background: "rgba(255,111,111,0.12)",
+                            color: "#ff8585",
+                            border: "1px solid rgba(255,111,111,0.25)",
+                          }
+                        : {
+                            background: "rgba(255,185,88,0.12)",
+                            color: "#ffb958",
+                            border: "1px solid rgba(255,185,88,0.25)",
+                          }
+                    }
+                  >
+                    <AlertCircle className="h-3 w-3" />
+                    {overdueCount > 0
+                      ? `${overdueCount} ${overdueCount === 1 ? "obligación vencida" : "obligaciones vencidas"}`
+                      : `${weekCount} ${weekCount === 1 ? "vencimiento" : "vencimientos"} esta semana`}
+                  </Link>
+                )}
               </div>
 
               <h2
@@ -321,6 +369,73 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Próximos vencimientos (calendario de cumplimiento) ──────── */}
+        {upcoming.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <p style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>
+                Próximos vencimientos
+              </p>
+              <Link
+                href="/dashboard/calendario"
+                className="inline-flex items-center gap-1 text-[12px] font-medium transition-colors hover:text-foreground"
+                style={{ color: "#a78bff" }}
+              >
+                Ver calendario
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {upcoming.map((it) => {
+                const d = daysTo(it.dueDate);
+                const color = d < 0 ? "#ff8585" : d <= 7 ? "#ffb958" : "rgba(246,245,247,0.55)";
+                const label =
+                  d === 0
+                    ? "Vence hoy"
+                    : d === 1
+                      ? "Vence mañana"
+                      : d > 1
+                        ? `En ${d} días`
+                        : `Hace ${Math.abs(d)} días`;
+                return (
+                  <Link key={`${it.propertyId}:${it.key}`} href="/dashboard/calendario">
+                    <div
+                      className="rounded-2xl p-4 h-full cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+                      style={{
+                        background: "var(--card)",
+                        border: `1px solid ${d < 0 ? "rgba(255,111,111,0.30)" : "var(--border)"}`,
+                      }}
+                    >
+                      <p
+                        className="text-[13px] font-medium leading-snug mb-1.5"
+                        style={{ color: "var(--foreground)" }}
+                      >
+                        {it.title}
+                      </p>
+                      <p
+                        className="text-[11px] truncate mb-2"
+                        style={{ color: "rgba(246,245,247,0.40)" }}
+                      >
+                        {it.propertyName}
+                      </p>
+                      <p
+                        className="text-[11px] font-semibold"
+                        style={{
+                          fontFamily: "'Geist Mono', 'GeistMono', monospace",
+                          letterSpacing: "0.06em",
+                          color,
+                        }}
+                      >
+                        {label}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── Quick Actions Grid ──────────────────────────────────────── */}
         <div>

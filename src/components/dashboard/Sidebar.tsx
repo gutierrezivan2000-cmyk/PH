@@ -17,6 +17,7 @@ import {
   X,
   Sparkles,
   LayoutGrid,
+  CalendarClock,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -25,11 +26,12 @@ type NavEntry = { name: string; href: string; icon: typeof Home; n: string; badg
 const navigation: NavEntry[] = [
   { name: "Inicio", href: "/dashboard", icon: Home, n: "01" },
   { name: "Generar", href: "/dashboard/generar", icon: FilePlus2, n: "02" },
-  { name: "Asistente IA", href: "/dashboard/asistente", icon: Sparkles, n: "03", badge: "6" },
-  { name: "Propiedades", href: "/dashboard/propiedades", icon: Building2, n: "04" },
-  { name: "Historial", href: "/dashboard/historial", icon: History, n: "05" },
-  { name: "Suscripción", href: "/dashboard/suscripcion", icon: CreditCard, n: "06" },
-  { name: "Configuración", href: "/dashboard/configuracion", icon: Settings2, n: "07" },
+  { name: "Calendario", href: "/dashboard/calendario", icon: CalendarClock, n: "03" },
+  { name: "Asistente IA", href: "/dashboard/asistente", icon: Sparkles, n: "04", badge: "6" },
+  { name: "Propiedades", href: "/dashboard/propiedades", icon: Building2, n: "05" },
+  { name: "Historial", href: "/dashboard/historial", icon: History, n: "06" },
+  { name: "Suscripción", href: "/dashboard/suscripcion", icon: CreditCard, n: "07" },
+  { name: "Configuración", href: "/dashboard/configuracion", icon: Settings2, n: "08" },
 ];
 
 // Enterprise "Portafolio" — only for Elite subscribers and beta testers.

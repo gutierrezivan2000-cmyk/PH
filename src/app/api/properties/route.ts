@@ -116,16 +116,21 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { id, name, address, city, units } = body;
+  const { id, name, address, city, units, features } = body;
 
   if (!id) {
     return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   }
-  if (!name) {
+
+  // Features-only update (building profile from the compliance calendar) —
+  // name is not required in that case.
+  const isFeaturesOnly = features !== undefined && name === undefined;
+  if (!name && !isFeaturesOnly) {
     return NextResponse.json({ error: "El nombre es requerido" }, { status: 400 });
   }
 
   if (IS_DEMO) {
+    if (isFeaturesOnly) return NextResponse.json({ ok: true });
     const updated = updateProperty(id, DEMO_USER.id, {
       name,
       address,
@@ -148,6 +153,16 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
     }
 
+    if (isFeaturesOnly) {
+      const { parseFeatures } = await import("@/lib/compliance");
+      const clean = parseFeatures(features);
+      const updated = await db.property.update({
+        where: { id },
+        data: { features: clean as object },
+      });
+      return NextResponse.json(updated);
+    }
+
     const updated = await db.property.update({
       where: { id },
       data: {
@@ -155,6 +170,13 @@ export async function PUT(req: NextRequest) {
         address,
         city,
         units: units ? parseInt(units) : null,
+        ...(features !== undefined
+          ? {
+              features: (await import("@/lib/compliance")).parseFeatures(
+                features
+              ) as object,
+            }
+          : {}),
       },
     });
     return NextResponse.json(updated);
