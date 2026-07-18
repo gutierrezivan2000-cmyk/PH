@@ -59,6 +59,9 @@ const productionProviders = [
         // Block unverified email accounts
         if (!user.emailVerified) return null;
 
+        // Block banned accounts
+        if (user.banned) return null;
+
         return { id: user.id, name: user.name, email: user.email, image: user.image };
       } catch (e) {
         console.error("[AUTH] Credentials authorize error:", e);
@@ -108,6 +111,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 
   callbacks: {
+    // Runs before jwt on every sign-in. Blocks banned accounts for all
+    // providers (Google, credentials). Credentials also checks in authorize().
+    async signIn({ user }) {
+      if (IS_DEMO) return true;
+      const email = user?.email?.trim().toLowerCase();
+      if (!email) return true;
+      try {
+        const { db } = await import("@/lib/db");
+        const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+        await ensureAdminSchema();
+        const dbUser = await db.user.findUnique({
+          where: { email },
+          select: { banned: true },
+        });
+        if (dbUser?.banned) return false;
+      } catch {
+        // Best effort — if the check fails, don't lock everyone out.
+      }
+      return true;
+    },
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
@@ -217,16 +240,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             const { db } = await import("@/lib/db");
             const byId = await db.user.findUnique({
               where: { id: token.id as string },
-              select: { id: true, role: true },
+              select: { id: true, role: true, banned: true },
             });
             if (byId) {
+              // Banned mid-session — revoke within one recheck window.
+              if (byId.banned) return null;
               token.role = byId.role;
             } else {
               const byEmail = await db.user.findUnique({
                 where: { email: (token.email as string).trim().toLowerCase() },
-                select: { id: true, role: true },
+                select: { id: true, role: true, banned: true },
               });
               if (byEmail) {
+                if (byEmail.banned) return null;
                 token.id = byEmail.id;
                 token.role = byEmail.role;
               } else {

@@ -72,6 +72,63 @@ export async function PATCH(
 
   const { id } = await params;
 
+  const body = await req.json().catch(() => ({}));
+  const { role, banned, reason } = body as {
+    role?: string;
+    banned?: boolean;
+    reason?: string;
+  };
+
+  const existing = await db.user.findUnique({
+    where: { id },
+    select: { id: true, role: true, email: true, banned: true },
+  });
+
+  if (!existing) {
+    return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+  }
+
+  // ── Ban / unban ─────────────────────────────────────────────
+  if (typeof banned === "boolean") {
+    if (id === admin.userId) {
+      return NextResponse.json(
+        { error: "No puedes banearte a ti mismo." },
+        { status: 400 }
+      );
+    }
+    // Permanent admins (ADMIN_EMAILS) would be able to log in regardless — block.
+    if (banned && isEnvAdmin(existing.email)) {
+      return NextResponse.json(
+        {
+          error:
+            "No puedes banear a un administrador permanente (configurado en ADMIN_EMAILS).",
+        },
+        { status: 400 }
+      );
+    }
+
+    const updated = await db.user.update({
+      where: { id },
+      data: {
+        banned,
+        bannedAt: banned ? new Date() : null,
+        banReason: banned ? (reason?.trim() || null) : null,
+      },
+      select: { id: true, email: true, role: true, banned: true, banReason: true },
+    });
+
+    await logAdminAction({
+      adminId: admin.userId,
+      action: banned ? "user.ban" : "user.unban",
+      targetType: "user",
+      targetId: id,
+      metadata: banned ? { reason: reason?.trim() || null } : {},
+    });
+
+    return NextResponse.json({ user: updated });
+  }
+
+  // ── Role change ─────────────────────────────────────────────
   if (id === admin.userId) {
     return NextResponse.json(
       { error: "No puedes cambiar tu propio rol." },
@@ -79,23 +136,11 @@ export async function PATCH(
     );
   }
 
-  const body = await req.json().catch(() => ({}));
-  const { role } = body as { role?: string };
-
   if (!role || !["admin", "user"].includes(role)) {
     return NextResponse.json(
       { error: "Rol inválido. Debe ser 'admin' o 'user'." },
       { status: 400 }
     );
-  }
-
-  const existing = await db.user.findUnique({
-    where: { id },
-    select: { id: true, role: true, email: true },
-  });
-
-  if (!existing) {
-    return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
   }
 
   // Env-configured admins (ADMIN_EMAILS) are permanent — a demotion here would

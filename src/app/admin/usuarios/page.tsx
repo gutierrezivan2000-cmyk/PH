@@ -209,6 +209,11 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
                             admin
                           </Badge>
                         )}
+                        {u.banned && (
+                          <Badge variant="destructive" className="text-[9px] px-1.5 py-0.5 ml-0.5">
+                            baneado
+                          </Badge>
+                        )}
                       </div>
                     </td>
 

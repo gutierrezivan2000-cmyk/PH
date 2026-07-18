@@ -23,6 +23,8 @@ const MONO: React.CSSProperties = {
 
 const ACTION_LABELS: Record<string, string> = {
   "user.role_change": "Cambió rol",
+  "user.ban": "Baneó usuario",
+  "user.unban": "Reactivó usuario",
   "subscription.status_change": "Cambió estado de suscripción",
   "subscription.plan_change": "Cambió plan",
   "subscription.addons_change": "Actualizó add-ons",
