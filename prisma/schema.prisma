@@ -173,10 +173,12 @@ model Property {
   // (e.g. a zone, building type, or assigned administrator).
   groupLabel String?
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  generations Generation[]
-  documents   PropertyDocument[]
-  monthlyData PropertyMonthlyData[]
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  generations   Generation[]
+  documents     PropertyDocument[]
+  monthlyData   PropertyMonthlyData[]
+  unitList      Unit[]
+  announcements Announcement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -254,6 +256,49 @@ model GenerationBatch {
   createdAt   DateTime  @default(now())
   completedAt DateTime?
 
+  @@index([userId])
+}
+
+// ============================================
+// Units & Announcements (Comunicados)
+// ============================================
+
+// A private unit (apto/casa/local) inside a property. v1: contact directory
+// for comunicados. F2 extends it with coeficiente/cartera. F3 adds the
+// tokenized resident portal ("la unidad es la cuenta").
+model Unit {
+  id           String  @id @default(cuid())
+  propertyId   String
+  userId       String
+  label        String  // "Apto 502", "Casa 12", "Local 3"
+  residentName String?
+  email        String?
+  phone        String?
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([userId])
+}
+
+model Announcement {
+  id             String    @id @default(cuid())
+  userId         String
+  propertyId     String
+  subject        String
+  content        String    @db.Text
+  status         String    @default("sent") // "sent" | future: "draft" | "scheduled"
+  recipientCount Int       @default(0)
+  sentAt         DateTime?
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([propertyId])
   @@index([userId])
 }
 

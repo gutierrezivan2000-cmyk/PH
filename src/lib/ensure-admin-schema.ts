@@ -156,6 +156,43 @@ const STATEMENTS: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS "ComplianceRecord_propertyId_itemKey_key" ON "ComplianceRecord"("propertyId", "itemKey")`,
   `CREATE INDEX IF NOT EXISTS "ComplianceRecord_userId_idx" ON "ComplianceRecord"("userId")`,
   `CREATE INDEX IF NOT EXISTS "ComplianceRecord_propertyId_idx" ON "ComplianceRecord"("propertyId")`,
+  // Units (contact directory per property) + Announcements (comunicados).
+  `CREATE TABLE IF NOT EXISTS "Unit" (
+    "id" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "label" TEXT NOT NULL,
+    "residentName" TEXT,
+    "email" TEXT,
+    "phone" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Unit_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "Unit_propertyId_idx" ON "Unit"("propertyId")`,
+  `CREATE INDEX IF NOT EXISTS "Unit_userId_idx" ON "Unit"("userId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "Unit" ADD CONSTRAINT "Unit_propertyId_fkey"
+      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `CREATE TABLE IF NOT EXISTS "Announcement" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "subject" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'sent',
+    "recipientCount" INTEGER NOT NULL DEFAULT 0,
+    "sentAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Announcement_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "Announcement_propertyId_idx" ON "Announcement"("propertyId")`,
+  `CREATE INDEX IF NOT EXISTS "Announcement_userId_idx" ON "Announcement"("userId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "Announcement" ADD CONSTRAINT "Announcement_propertyId_fkey"
+      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 ];
 
 let ensured = false;
