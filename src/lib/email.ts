@@ -2,6 +2,28 @@ import { Resend } from "resend";
 
 let _resend: Resend | null = null;
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Plain textarea text → simple paragraph HTML (escaped). */
+export function textToEmailHtml(text: string): string {
+  return text
+    .trim()
+    .split(/\n{2,}/)
+    .map(
+      (para) =>
+        `<p style="color:#374151;font-size:14px;line-height:1.7;margin:0 0 16px;">${escapeHtml(
+          para
+        ).replace(/\n/g, "<br/>")}</p>`
+    )
+    .join("");
+}
+
 function getResend(): Resend {
   if (!_resend) {
     const key = process.env.RESEND_API_KEY;
@@ -49,6 +71,86 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string): P
 </body>
 </html>`,
   });
+}
+
+export interface AnnouncementEmailParams {
+  recipients: string[];
+  subject: string;
+  /** Already-safe HTML body (use textToEmailHtml for plain text). */
+  contentHtml: string;
+  propertyName: string;
+  senderName: string;
+  /** Replies from residents go straight to the admin. */
+  replyTo?: string;
+  logoUrl?: string | null;
+  brandColor?: string | null;
+}
+
+/**
+ * Send a comunicado to many recipients via Resend's batch API (chunks of 100,
+ * individual `to` per message — recipients never see each other).
+ * Returns how many emails were accepted.
+ */
+export async function sendAnnouncementEmails(
+  params: AnnouncementEmailParams
+): Promise<{ sent: number; failed: number }> {
+  const resend = getResend();
+  const accent = params.brandColor && /^#[0-9a-fA-F]{6}$/.test(params.brandColor)
+    ? params.brandColor
+    : "#7c3aed";
+
+  const brandHeader = params.logoUrl
+    ? `<img src="${params.logoUrl}" alt="${escapeHtml(params.senderName)}" style="max-height:48px;max-width:200px;margin:0 auto;display:block;"/>`
+    : `<h1 style="color:#fff;font-size:22px;margin:0;font-weight:800;letter-spacing:-0.5px;">${escapeHtml(params.senderName)}</h1>`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f4f5;">
+  <div style="max-width:560px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:${accent};padding:28px 24px;text-align:center;">
+      ${brandHeader}
+      <p style="color:rgba(255,255,255,0.85);margin:10px 0 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;">${escapeHtml(params.propertyName)}</p>
+    </div>
+    <div style="padding:32px 28px;">
+      <h2 style="color:#1f2937;font-size:19px;margin:0 0 16px;">${escapeHtml(params.subject)}</h2>
+      ${params.contentHtml}
+    </div>
+    <div style="border-top:1px solid #f3f4f6;padding:16px 24px;text-align:center;">
+      <p style="color:#9ca3af;font-size:11px;margin:0 0 4px;">Comunicado oficial de la administración de ${escapeHtml(params.propertyName)}.</p>
+      <p style="color:#d1d5db;font-size:11px;margin:0;">Enviado con SOPH.IA &copy; ${new Date().getFullYear()}</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  let sent = 0;
+  let failed = 0;
+  const CHUNK = 100;
+  for (let i = 0; i < params.recipients.length; i += CHUNK) {
+    const chunk = params.recipients.slice(i, i + CHUNK);
+    try {
+      const payload = chunk.map((to) => ({
+        from: FROM_EMAIL,
+        to,
+        subject: params.subject,
+        html,
+        ...(params.replyTo ? { replyTo: params.replyTo } : {}),
+      }));
+      const res = await resend.batch.send(payload);
+      if (res.error) {
+        console.error("[email] batch error:", res.error);
+        failed += chunk.length;
+      } else {
+        sent += chunk.length;
+      }
+    } catch (e) {
+      console.error("[email] batch send failed:", e);
+      failed += chunk.length;
+    }
+  }
+  return { sent, failed };
 }
 
 export async function sendVerificationEmail(email: string, code: string): Promise<void> {
