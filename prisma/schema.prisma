@@ -33,6 +33,11 @@ model User {
   // Admin role
   role          String    @default("user") // "user" | "admin"
 
+  // Moderation — banned users cannot log in and active sessions are revoked.
+  banned        Boolean   @default(false)
+  bannedAt      DateTime?
+  banReason     String?
+
   accounts      Account[]
   sessions      Session[]
   subscription  Subscription?

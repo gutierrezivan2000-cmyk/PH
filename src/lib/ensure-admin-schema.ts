@@ -14,6 +14,10 @@ const STATEMENTS: string[] = [
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "role" TEXT NOT NULL DEFAULT 'user'`,
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "logoUrl" TEXT`,
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "brandColor" TEXT`,
+  // Moderation: ban/suspend a user (blocks login + revokes sessions).
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "banned" BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannedAt" TIMESTAMP(3)`,
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "banReason" TEXT`,
   `ALTER TABLE "Subscription" ADD COLUMN IF NOT EXISTS "addonAgents" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`,
   `ALTER TABLE "Subscription" ADD COLUMN IF NOT EXISTS "adminNotes" TEXT`,
   `CREATE TABLE IF NOT EXISTS "Ticket" (

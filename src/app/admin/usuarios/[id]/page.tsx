@@ -17,8 +17,10 @@ import {
   FileText,
   MessageSquare,
   Zap,
+  Ban,
 } from "lucide-react";
 import { RoleButton } from "./RoleButton";
+import { BanButton } from "./BanButton";
 
 async function loadUser(id: string) {
   const last30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -170,6 +172,7 @@ async function UsuarioDetail({ id }: { id: string }) {
               currentRole={user.role}
               isSelf={isSelf}
             />
+            <BanButton userId={user.id} banned={user.banned} isSelf={isSelf} />
           </div>
         }
       />
@@ -207,6 +210,7 @@ async function UsuarioDetail({ id }: { id: string }) {
                   <Badge variant={user.role === "admin" ? "accent" : "secondary"}>
                     {user.role}
                   </Badge>
+                  {user.banned && <Badge variant="destructive">Baneado</Badge>}
                 </div>
                 <p
                   className="text-[12px] text-muted-foreground mt-0.5"
@@ -252,6 +256,43 @@ async function UsuarioDetail({ id }: { id: string }) {
                 </Badge>
               </div>
             </div>
+
+            {user.banned && (
+              <div
+                className="mt-4 rounded-xl border p-3.5"
+                style={{
+                  background: "rgba(255,111,111,0.06)",
+                  borderColor: "rgba(255,111,111,0.25)",
+                }}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Ban className="h-3.5 w-3.5 text-[#ff8585]" />
+                  <p className="text-[12px] font-medium text-[#ff8585]">
+                    Cuenta baneada
+                  </p>
+                </div>
+                <p className="text-[11.5px] text-muted-foreground/80 leading-snug">
+                  Este usuario no puede iniciar sesión.
+                  {user.bannedAt && (
+                    <>
+                      {" "}Desde el{" "}
+                      {new Date(user.bannedAt).toLocaleDateString("es-CO", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                      .
+                    </>
+                  )}
+                </p>
+                {user.banReason && (
+                  <p className="text-[11.5px] text-foreground/70 mt-1.5">
+                    <span className="text-muted-foreground/60">Motivo:</span>{" "}
+                    {user.banReason}
+                  </p>
+                )}
+              </div>
+            )}
           </SectionCard>
 
           {/* Contact */}
