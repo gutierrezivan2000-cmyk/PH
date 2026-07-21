@@ -6,7 +6,9 @@ import {
   generateAutoItems,
   monthlyReportItem,
   parseFeatures,
+  assemblyItems,
   type BuildingFeatures,
+  type AssemblyDerivedItem,
 } from "@/lib/compliance";
 import { getProperties, DEMO_USER } from "@/lib/demo-store";
 
@@ -72,6 +74,7 @@ export async function GET() {
       doneAt: Date | null;
     }[] = [];
     const generatedProps = new Set<string>();
+    const assemblyByProp = new Map<string, AssemblyDerivedItem[]>();
 
     if (IS_DEMO) {
       properties = getProperties(DEMO_USER.id).map((p) => ({
@@ -115,6 +118,25 @@ export async function GET() {
           distinct: ["propertyId"],
         });
         for (const g of gens) generatedProps.add(g.propertyId);
+
+        // Assembly-derived legal deadlines (convocatoria, acta, impugnación).
+        const assemblies = await db.assembly.findMany({
+          where: { propertyId: { in: propIds }, status: { not: "cancelada" } },
+          select: {
+            id: true,
+            propertyId: true,
+            type: true,
+            date: true,
+            status: true,
+            convokedAt: true,
+            actaReadyAt: true,
+          },
+        });
+        for (const a of assemblies) {
+          const list = assemblyByProp.get(a.propertyId) || [];
+          list.push(...assemblyItems(a, today));
+          assemblyByProp.set(a.propertyId, list);
+        }
       }
     }
 
@@ -128,6 +150,7 @@ export async function GET() {
       const autoItems = [
         ...generateAutoItems(prop.features, today),
         monthlyReportItem(today),
+        ...(assemblyByProp.get(prop.id) || []),
       ];
 
       for (const it of autoItems) {
@@ -140,6 +163,8 @@ export async function GET() {
         } else if (rec?.status === "dismissed") {
           status = "dismissed";
         } else if (it.category === "informe" && generatedProps.has(prop.id)) {
+          status = "done";
+        } else if ((it as AssemblyDerivedItem).autoDone) {
           status = "done";
         }
         items.push({

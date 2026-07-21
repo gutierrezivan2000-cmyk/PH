@@ -48,6 +48,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string; bg: string
   sgsst:         { label: "SG-SST",        color: "#ff8585", bg: "rgba(255,111,111,0.10)", border: "rgba(255,111,111,0.30)" },
   finanzas:      { label: "Finanzas",      color: "#4cd6a0", bg: "rgba(76,214,160,0.10)",  border: "rgba(76,214,160,0.30)"  },
   informe:       { label: "Informe",       color: "#5fd6c6", bg: "rgba(95,214,198,0.10)",  border: "rgba(95,214,198,0.30)"  },
+  asamblea:      { label: "Asamblea",      color: "#8fa8ff", bg: "rgba(143,168,255,0.10)", border: "rgba(143,168,255,0.30)" },
   custom:        { label: "Recordatorio",  color: "rgba(255,255,255,0.60)", bg: "rgba(255,255,255,0.06)", border: "rgba(255,255,255,0.14)" },
 };
 

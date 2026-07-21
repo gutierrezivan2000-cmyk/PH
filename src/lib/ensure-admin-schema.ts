@@ -193,6 +193,29 @@ const STATEMENTS: string[] = [
     ALTER TABLE "Announcement" ADD CONSTRAINT "Announcement_propertyId_fkey"
       FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // Assemblies (convocatoria + control de términos).
+  `CREATE TABLE IF NOT EXISTS "Assembly" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "date" TIMESTAMP(3) NOT NULL,
+    "modality" TEXT NOT NULL DEFAULT 'presencial',
+    "location" TEXT,
+    "agenda" JSONB NOT NULL DEFAULT '[]',
+    "status" TEXT NOT NULL DEFAULT 'convocada',
+    "convokedAt" TIMESTAMP(3),
+    "actaReadyAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Assembly_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "Assembly_userId_idx" ON "Assembly"("userId")`,
+  `CREATE INDEX IF NOT EXISTS "Assembly_propertyId_idx" ON "Assembly"("propertyId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "Assembly" ADD CONSTRAINT "Assembly_propertyId_fkey"
+      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
   // Certificates (paz y salvo / residencia) with public QR verification.
   `CREATE TABLE IF NOT EXISTS "Certificate" (
     "id" TEXT NOT NULL,

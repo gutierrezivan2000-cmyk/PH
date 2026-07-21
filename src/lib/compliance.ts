@@ -23,6 +23,7 @@ export type ComplianceCategory =
   | "sgsst"
   | "finanzas"
   | "informe"
+  | "asamblea"
   | "custom";
 
 export const CATEGORY_LABELS: Record<ComplianceCategory, string> = {
@@ -32,6 +33,7 @@ export const CATEGORY_LABELS: Record<ComplianceCategory, string> = {
   sgsst: "SG-SST",
   finanzas: "Finanzas",
   informe: "Informe",
+  asamblea: "Asamblea",
   custom: "Recordatorio",
 };
 
@@ -191,6 +193,98 @@ export function monthlyReportItem(today: Date): AutoItem {
     category: "informe",
     dueDate: iso(y, m, lastDayOfMonth(y, m)),
   };
+}
+
+// ── Assembly-derived deadlines (Ley 675) ────────────────────────────────────
+
+/** Add n business days (Mon–Fri) to a date. Ignores Colombian holidays, which
+ *  makes the computed deadline slightly EARLIER than the legal one — a
+ *  conservative reminder, never a late one. */
+export function addBusinessDays(from: Date, n: number): Date {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  let remaining = n;
+  while (remaining > 0) {
+    d.setDate(d.getDate() + 1);
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) remaining--;
+  }
+  return d;
+}
+
+function toIso(d: Date): string {
+  return iso(d.getFullYear(), d.getMonth() + 1, d.getDate());
+}
+
+export interface AssemblyLike {
+  id: string;
+  type: string; // "ordinaria" | "extraordinaria"
+  date: Date;
+  status: string; // "convocada" | "realizada" | "cancelada"
+  convokedAt: Date | null;
+  actaReadyAt: Date | null;
+}
+
+export interface AssemblyDerivedItem extends AutoItem {
+  /** Marked done automatically from the assembly record itself. */
+  autoDone: boolean;
+}
+
+/** Legal deadlines derived from an assembly (skips cancelled ones):
+ *  - ordinaria: enviar convocatoria ≥15 días calendario antes (Art. 39).
+ *  - acta disponible dentro de los 20 días hábiles siguientes (Art. 47).
+ *  - ventana de impugnación: 2 meses desde la reunión (Art. 49). */
+export function assemblyItems(a: AssemblyLike, today: Date): AssemblyDerivedItem[] {
+  if (a.status === "cancelada") return [];
+  const items: AssemblyDerivedItem[] = [];
+  const meetingDay = new Date(a.date.getFullYear(), a.date.getMonth(), a.date.getDate());
+  const dateLabel = meetingDay.toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "long",
+  });
+
+  if (a.type === "ordinaria") {
+    const convDue = new Date(meetingDay);
+    convDue.setDate(convDue.getDate() - 15);
+    items.push({
+      key: `asamblea-conv-${a.id}`,
+      title: `Enviar convocatoria (asamblea del ${dateLabel})`,
+      description:
+        "La convocatoria a asamblea ordinaria debe enviarse con una antelación no inferior a 15 días calendario (Art. 39, Ley 675 de 2001).",
+      category: "asamblea",
+      dueDate: toIso(convDue),
+      autoDone: !!a.convokedAt,
+    });
+  }
+
+  const meetingPassed = meetingDay.getTime() <= today.getTime();
+  if (meetingPassed || a.status === "realizada") {
+    items.push({
+      key: `asamblea-acta-${a.id}`,
+      title: `Publicar acta (asamblea del ${dateLabel})`,
+      description:
+        "El acta debe estar disponible para los propietarios dentro de los 20 días hábiles siguientes a la reunión (Art. 47, Ley 675 de 2001).",
+      category: "asamblea",
+      dueDate: toIso(addBusinessDays(meetingDay, 20)),
+      autoDone: !!a.actaReadyAt,
+    });
+
+    const impugEnd = new Date(meetingDay);
+    impugEnd.setMonth(impugEnd.getMonth() + 2);
+    items.push({
+      key: `asamblea-impug-${a.id}`,
+      title: `Fin de ventana de impugnación (asamblea del ${dateLabel})`,
+      description:
+        "Las decisiones de la asamblea pueden impugnarse judicialmente dentro de los 2 meses siguientes (Art. 49, Ley 675 de 2001). Conserva acta, convocatoria y listado de asistencia.",
+      category: "asamblea",
+      dueDate: toIso(impugEnd),
+      autoDone: false,
+    });
+  }
+
+  return items.filter((it) => {
+    const d = daysUntil(it.dueDate, today);
+    return d >= -WINDOW_PAST_DAYS && d <= WINDOW_FUTURE_DAYS;
+  });
 }
 
 /** Parse Property.features (Json column) defensively. */
