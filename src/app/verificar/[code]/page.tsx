@@ -48,7 +48,8 @@ export default async function VerificarPage({
   } | null = null;
 
   // Only well-formed codes hit the DB (defensive against scanning noise).
-  if (/^[A-Za-z0-9_-]{8,40}$/.test(code)) {
+  // Demo mode never touches the DB (db is a stub there) → "no encontrado".
+  if (process.env.DEMO_MODE !== "true" && /^[A-Za-z0-9_-]{8,40}$/.test(code)) {
     try {
       const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
       await ensureAdminSchema();
@@ -72,6 +73,17 @@ export default async function VerificarPage({
 
   const meta = (cert?.meta as Meta | null) || {};
   const isValid = cert?.status === "valid";
+
+  // A paz y salvo past its "hasta" date is authentic but no longer in force —
+  // never show it as "vigente" to a third party scanning the QR.
+  const todayBogota = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+  }).format(new Date()); // "YYYY-MM-DD" — lexical compare is safe for ISO dates
+  const isExpired =
+    isValid &&
+    cert?.type === "paz_y_salvo" &&
+    typeof meta.validUntil === "string" &&
+    meta.validUntil < todayBogota;
 
   const mono: React.CSSProperties = {
     fontFamily: "var(--font-mono, monospace)",
@@ -108,9 +120,11 @@ export default async function VerificarPage({
             background: "#15151a",
             borderColor: !cert
               ? "rgba(255,185,88,0.30)"
-              : isValid
-                ? "rgba(76,214,160,0.30)"
-                : "rgba(255,111,111,0.30)",
+              : isExpired
+                ? "rgba(255,185,88,0.30)"
+                : isValid
+                  ? "rgba(76,214,160,0.30)"
+                  : "rgba(255,111,111,0.30)",
           }}
         >
           {!cert ? (
@@ -135,7 +149,9 @@ export default async function VerificarPage({
           ) : (
             <>
               <div className="flex items-center gap-3 mb-5">
-                {isValid ? (
+                {isExpired ? (
+                  <ShieldQuestion className="h-8 w-8 flex-shrink-0" style={{ color: "#ffb958" }} />
+                ) : isValid ? (
                   <CheckCircle2 className="h-8 w-8 flex-shrink-0" style={{ color: "#4cd6a0" }} />
                 ) : (
                   <XCircle className="h-8 w-8 flex-shrink-0" style={{ color: "#ff6f6f" }} />
@@ -143,9 +159,13 @@ export default async function VerificarPage({
                 <div>
                   <p
                     className="text-[16px] font-semibold"
-                    style={{ color: isValid ? "#4cd6a0" : "#ff6f6f" }}
+                    style={{ color: isExpired ? "#ffb958" : isValid ? "#4cd6a0" : "#ff6f6f" }}
                   >
-                    {isValid ? "Documento auténtico y vigente" : "Documento REVOCADO"}
+                    {isExpired
+                      ? "Documento auténtico · vigencia vencida"
+                      : isValid
+                        ? "Documento auténtico y vigente"
+                        : "Documento REVOCADO"}
                   </p>
                   <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.45)" }}>
                     {TYPE_LABELS[cert.type] || "Certificado"}
@@ -185,9 +205,11 @@ export default async function VerificarPage({
               </div>
 
               <p className="text-[11px] leading-relaxed mt-5" style={{ color: "rgba(255,255,255,0.35)" }}>
-                {isValid
-                  ? "Este certificado fue expedido digitalmente por la administración de la copropiedad a través de SOPH.IA. Compare los datos anteriores con el documento físico o PDF recibido."
-                  : "Este certificado fue revocado por la administración y ya no es válido, aunque el documento físico o PDF siga circulando."}
+                {isExpired
+                  ? "Este certificado es auténtico pero su periodo de validez ya venció. Solicite a la administración un paz y salvo actualizado."
+                  : isValid
+                    ? "Este certificado fue expedido digitalmente por la administración de la copropiedad a través de SOPH.IA. Compare los datos anteriores con el documento físico o PDF recibido."
+                    : "Este certificado fue revocado por la administración y ya no es válido, aunque el documento físico o PDF siga circulando."}
               </p>
             </>
           )}

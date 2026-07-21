@@ -85,6 +85,9 @@ export default function CertificadosPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
+  const [issuedId, setIssuedId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
 
   // Form
   const [showForm, setShowForm] = useState(false);
@@ -135,6 +138,12 @@ export default function CertificadosPage() {
 
   useEffect(() => {
     if (propertyId) {
+      // Reset per-property form state so a stale unit from the previous
+      // property can never leak into a certificate for the new one.
+      setUnitId("");
+      setUnitLabel("");
+      setIssuedId(null);
+      setNotice("");
       loadCerts(propertyId);
       loadUnits(propertyId);
     }
@@ -143,6 +152,8 @@ export default function CertificadosPage() {
   async function createCert(e: React.FormEvent) {
     e.preventDefault();
     setFormError("");
+    setNotice("");
+    setIssuedId(null);
     if (!recipientName.trim() || (!unitId && !unitLabel.trim())) {
       setFormError("Indica la unidad y el nombre del titular.");
       return;
@@ -156,7 +167,9 @@ export default function CertificadosPage() {
           propertyId,
           type,
           unitId: unitId || undefined,
-          unitLabel: unitLabel.trim() || undefined,
+          // When a directory unit is selected, never send the free-text label —
+          // the server resolves the label from the unit itself.
+          unitLabel: unitId ? undefined : unitLabel.trim() || undefined,
           recipientName,
           recipientDocument: recipientDocument.trim() || undefined,
           validUntil: type === "paz_y_salvo" ? validUntil || undefined : undefined,
@@ -169,14 +182,26 @@ export default function CertificadosPage() {
         setFormError(data.error || "No se pudo expedir el certificado.");
         return;
       }
+      // Open the print view as close to the click as possible — popup blockers
+      // (Safari especially) may still block it, so keep a fallback link.
+      let opened = false;
+      if (data.id) {
+        opened = !!window.open(`/certificados/${data.id}/imprimir`, "_blank");
+      }
       setRecipientName("");
       setRecipientDocument("");
       setNote("");
+      setResidesSince("");
+      setUnitId("");
+      setUnitLabel("");
+      setValidUntil(endOfMonthIso());
       setShowForm(false);
-      await loadCerts(propertyId);
-      if (data.id) {
-        window.open(`/certificados/${data.id}/imprimir`, "_blank");
+      if (data.demo) {
+        setNotice("Modo demo: el certificado se generó pero no se guarda ni se imprime en la demo.");
+      } else if (data.id && !opened) {
+        setIssuedId(data.id);
       }
+      await loadCerts(propertyId);
     } catch {
       setFormError("Error de red. Intenta de nuevo.");
     } finally {
@@ -185,6 +210,17 @@ export default function CertificadosPage() {
   }
 
   async function toggleRevoke(cert: Certificate) {
+    // Revoking flips the public verification page to "REVOCADO" instantly —
+    // confirm the destructive direction.
+    if (
+      cert.status === "valid" &&
+      !window.confirm(
+        `¿Revocar el certificado de ${cert.recipientName} (${cert.unitLabel})? El enlace público de verificación mostrará "Documento REVOCADO".`
+      )
+    ) {
+      return;
+    }
+    setActionError("");
     setBusyId(cert.id);
     try {
       const res = await fetch("/api/certificates", {
@@ -195,7 +231,13 @@ export default function CertificadosPage() {
           action: cert.status === "valid" ? "revoke" : "restore",
         }),
       });
-      if (res.ok) await loadCerts(propertyId);
+      if (res.ok) {
+        await loadCerts(propertyId);
+      } else {
+        setActionError("No se pudo actualizar el certificado. Intenta de nuevo.");
+      }
+    } catch {
+      setActionError("Error de red. Intenta de nuevo.");
     } finally {
       setBusyId(null);
     }
@@ -301,7 +343,13 @@ export default function CertificadosPage() {
                       <div className="relative">
                         <select
                           value={unitId}
-                          onChange={(e) => setUnitId(e.target.value)}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setUnitId(v);
+                            // Clear any stale free-text label so it can never
+                            // override the selected directory unit.
+                            if (v) setUnitLabel("");
+                          }}
                           style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}
                         >
                           <option value="" style={{ background: "#15151a" }}>
@@ -410,6 +458,49 @@ export default function CertificadosPage() {
                   {creating ? "Expidiendo…" : "Expedir y abrir para imprimir"}
                 </button>
               </form>
+            )}
+
+            {/* Post-issue notices */}
+            {notice && (
+              <p
+                className="text-[12.5px] rounded-xl p-3"
+                style={{
+                  background: "rgba(255,185,88,0.10)",
+                  color: "#ffb958",
+                  border: "1px solid rgba(255,185,88,0.30)",
+                }}
+              >
+                {notice}
+              </p>
+            )}
+            {issuedId && (
+              <div
+                className="flex flex-wrap items-center gap-3 rounded-xl p-3"
+                style={{
+                  background: "rgba(76,214,160,0.08)",
+                  border: "1px solid rgba(76,214,160,0.30)",
+                }}
+              >
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: "#4cd6a0" }} />
+                <span className="text-[12.5px] flex-1" style={{ color: "#4cd6a0" }}>
+                  Certificado expedido correctamente.
+                </span>
+                <a
+                  href={`/certificados/${issuedId}/imprimir`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-1.5"
+                  style={{ background: "#4cd6a0", color: "#0a0a0a" }}
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Abrir para imprimir
+                </a>
+              </div>
+            )}
+            {actionError && (
+              <p className="text-[12px]" style={{ color: "#ff8585" }}>
+                {actionError}
+              </p>
             )}
 
             {/* List */}

@@ -68,8 +68,20 @@ export async function POST(req: NextRequest) {
   if (!recipientName?.trim()) {
     return NextResponse.json({ error: "El nombre del titular es requerido." }, { status: 400 });
   }
-  if (validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(validUntil)) {
-    return NextResponse.json({ error: "Fecha de validez inválida." }, { status: 400 });
+  if (validUntil) {
+    // Real calendar-date validation: reject both non-parsing values
+    // (2026-13-05) and silently-rolling ones (2026-02-31).
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(validUntil);
+    const d = m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null;
+    if (
+      !m ||
+      !d ||
+      d.getUTCFullYear() !== +m[1] ||
+      d.getUTCMonth() !== +m[2] - 1 ||
+      d.getUTCDate() !== +m[3]
+    ) {
+      return NextResponse.json({ error: "Fecha de validez inválida." }, { status: 400 });
+    }
   }
 
   if (IS_DEMO) return NextResponse.json({ ok: true, demo: true }, { status: 201 });
@@ -96,14 +108,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
     }
 
-    // Resolve the unit label: explicit label wins; else look up the unit.
-    let label = unitLabel?.trim().slice(0, 60) || "";
-    if (!label && unitId) {
+    // Resolve the unit. Any client-supplied unitId must belong to THIS
+    // property (never persist an unvalidated cross-tenant reference), and when
+    // a unit is selected its directory label wins over any stale free text.
+    let safeUnitId: string | null = null;
+    let label = "";
+    if (unitId) {
       const unit = await db.unit.findFirst({
         where: { id: unitId, propertyId },
         select: { label: true },
       });
-      label = unit?.label || "";
+      if (!unit) {
+        return NextResponse.json({ error: "Unidad no encontrada." }, { status: 400 });
+      }
+      safeUnitId = unitId;
+      label = unit.label;
+    } else {
+      label = unitLabel?.trim().slice(0, 60) || "";
     }
     if (!label) {
       return NextResponse.json({ error: "Indica la unidad (ej: Apto 502)." }, { status: 400 });
@@ -119,7 +140,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId: session.user.id,
         propertyId,
-        unitId: unitId || null,
+        unitId: safeUnitId,
         type: type as string,
         recipientName: recipientName.trim().slice(0, 120),
         unitLabel: label,
@@ -151,6 +172,8 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const { db } = await import("@/lib/db");
+    const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+    await ensureAdminSchema();
 
     const existing = await db.certificate.findFirst({
       where: { id, userId: session.user.id },

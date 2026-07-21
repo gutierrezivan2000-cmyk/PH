@@ -39,10 +39,18 @@ export default async function ImprimirCertificadoPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
   const { id } = await params;
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect(`/login?callbackUrl=${encodeURIComponent(`/certificados/${id}/imprimir`)}`);
+  }
+
+  // Demo mode never touches the DB (db is a stub there).
+  if (process.env.DEMO_MODE === "true") notFound();
+
+  const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+  await ensureAdminSchema();
+
   const cert = await db.certificate.findFirst({
     where: { id, userId: session.user.id },
     include: { property: { select: { name: true, address: true, city: true } } },
@@ -61,9 +69,11 @@ export default async function ImprimirCertificadoPage({
   const qrSvg = await QRCode.toString(verifyUrl, {
     type: "svg",
     margin: 0,
-    width: 96,
+    width: 84, // must match the 84px container in the verification footer
     color: { dark: "#1f2937", light: "#ffffff" },
   });
+
+  const revoked = cert.status !== "valid";
 
   const meta = (cert.meta as Meta | null) || {};
   const accent =
@@ -161,6 +171,28 @@ export default async function ImprimirCertificadoPage({
             borderRadius: "12px 12px 0 0",
           }}
         />
+
+        {/* Revoked banner — intentionally NOT .no-print: it must appear on paper */}
+        {revoked && (
+          <div
+            style={{
+              background: "#fef2f2",
+              border: "2px solid #dc2626",
+              color: "#b91c1c",
+              textAlign: "center",
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              fontSize: 13,
+              padding: "10px 16px",
+              borderRadius: 8,
+              margin: "0 0 24px",
+              fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            }}
+          >
+            DOCUMENTO REVOCADO
+            {cert.revokedAt ? ` el ${fechaLarga(cert.revokedAt)}` : ""} — NO VÁLIDO
+          </div>
+        )}
 
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 36 }}>
