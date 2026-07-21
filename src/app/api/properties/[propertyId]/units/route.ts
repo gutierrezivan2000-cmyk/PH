@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { parseNumericToken } from "@/lib/cartera";
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
 const MAX_UNITS_PER_PROPERTY = 1000;
@@ -98,6 +99,8 @@ export async function POST(
       label: string;
       residentName: string | null;
       email: string | null;
+      monthlyFee: number | null;
+      coeficiente: number | null;
     }[] = [];
     let skipped = 0;
 
@@ -108,12 +111,25 @@ export async function POST(
         skipped++;
         continue;
       }
-      const tokens = line
-        .split(/[,;\t]/)
-        .map((t) => t.trim())
-        .filter((t) => t && !EMAIL_RE.test(t));
+      // Numeric tokens become cuota (>=1000) / coeficiente (<100); the rest
+      // are label + resident name. E.g. "Apto 101, María, maria@x.com, 1,25, 350.000".
+      let monthlyFee: number | null = null;
+      let coeficiente: number | null = null;
+      const textTokens: string[] = [];
+      for (const rawToken of line.split(/[,;\t]/)) {
+        const t = rawToken.trim();
+        if (!t || EMAIL_RE.test(t)) continue;
+        const num = parseNumericToken(t);
+        if (num?.kind === "fee" && monthlyFee === null) {
+          monthlyFee = num.value;
+        } else if (num?.kind === "coef" && coeficiente === null) {
+          coeficiente = num.value;
+        } else if (!num) {
+          textTokens.push(t);
+        }
+      }
       const label =
-        tokens[0]?.slice(0, 60) ||
+        textTokens[0]?.slice(0, 60) ||
         (email ? email.split("@")[0].slice(0, 60) : "");
       if (!label && !email) {
         skipped++;
@@ -124,8 +140,10 @@ export async function POST(
         propertyId,
         userId: session.user.id,
         label: label || "Unidad",
-        residentName: tokens[1]?.slice(0, 100) || null,
+        residentName: textTokens[1]?.slice(0, 100) || null,
         email,
+        monthlyFee,
+        coeficiente,
       });
     }
 
@@ -137,6 +155,85 @@ export async function POST(
   } catch (error) {
     console.error("[api/units POST]", error);
     return NextResponse.json({ error: "Error al importar unidades" }, { status: 500 });
+  }
+}
+
+/** Edit a single unit (inline edits from the cartera table). */
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ propertyId: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+    const { propertyId } = await params;
+    const property = await ownedProperty(propertyId, session.user.id);
+    if (!property) {
+      return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const { id, label, residentName, email, monthlyFee, coeficiente } = body as {
+      id?: string;
+      label?: string;
+      residentName?: string | null;
+      email?: string | null;
+      monthlyFee?: number | null;
+      coeficiente?: number | null;
+    };
+    if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+
+    const unit = await db.unit.findFirst({ where: { id, propertyId }, select: { id: true } });
+    if (!unit) {
+      return NextResponse.json({ error: "Unidad no encontrada" }, { status: 404 });
+    }
+
+    const data: Record<string, unknown> = {};
+    if (label !== undefined) {
+      const l = String(label).trim().slice(0, 60);
+      if (!l) return NextResponse.json({ error: "El nombre de la unidad no puede quedar vacío." }, { status: 400 });
+      data.label = l;
+    }
+    if (residentName !== undefined) {
+      data.residentName = residentName ? String(residentName).trim().slice(0, 100) : null;
+    }
+    if (email !== undefined) {
+      const e = email ? String(email).trim().toLowerCase() : null;
+      if (e && !EMAIL_RE.test(e)) {
+        return NextResponse.json({ error: "Correo inválido." }, { status: 400 });
+      }
+      data.email = e;
+    }
+    if (monthlyFee !== undefined) {
+      if (monthlyFee === null) {
+        data.monthlyFee = null;
+      } else {
+        const f = Math.round(Number(monthlyFee));
+        if (!Number.isFinite(f) || f < 0 || f > 100_000_000) {
+          return NextResponse.json({ error: "Cuota inválida." }, { status: 400 });
+        }
+        data.monthlyFee = f || null;
+      }
+    }
+    if (coeficiente !== undefined) {
+      if (coeficiente === null) {
+        data.coeficiente = null;
+      } else {
+        const c = Number(coeficiente);
+        if (!Number.isFinite(c) || c < 0 || c > 100) {
+          return NextResponse.json({ error: "Coeficiente inválido (0-100)." }, { status: 400 });
+        }
+        data.coeficiente = c || null;
+      }
+    }
+
+    const updated = await db.unit.update({ where: { id }, data });
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("[api/units PATCH]", error);
+    return NextResponse.json({ error: "Error al actualizar la unidad" }, { status: 500 });
   }
 }
 

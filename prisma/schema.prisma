@@ -277,12 +277,67 @@ model Unit {
   email        String?
   phone        String?
 
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  // Cartera (F2): coeficiente de copropiedad (%) y cuota de administración (COP/mes).
+  coeficiente  Float?
+  monthlyFee   Int?
+
+  property Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  charges  Charge[]
+  payments UnitPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([propertyId])
+  @@index([userId])
+}
+
+// A billed amount against a unit (cuota mensual, extraordinaria, interés…).
+// paidAmount is denormalized from FIFO payment allocation for cheap
+// status/aging queries; the unit balance is always sum(charges) - sum(payments).
+model Charge {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+  unitId     String
+  concept    String
+  type       String   @default("admin") // "admin" | "extraordinaria" | "interes" | "otro"
+  amount     Int // COP
+  paidAmount Int      @default(0) // COP applied via FIFO
+  month      Int?
+  year       Int?
+  dueDate    DateTime
+
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([userId])
+}
+
+// A payment received from a unit (manual registration in F2; online in F3).
+// allocations: [{ chargeId, amount }] — lets a deleted payment reverse its
+// FIFO application exactly.
+model UnitPayment {
+  id          String   @id @default(cuid())
+  userId      String
+  propertyId  String
+  unitId      String
+  amount      Int // COP
+  method      String   @default("transferencia") // "efectivo" | "transferencia" | "consignacion" | "otro"
+  reference   String?
+  note        String?
+  allocations Json     @default("[]")
+  receivedAt  DateTime @default(now())
+
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([unitId])
   @@index([userId])
 }
 
