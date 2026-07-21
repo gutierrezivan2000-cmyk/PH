@@ -179,6 +179,7 @@ model Property {
   monthlyData   PropertyMonthlyData[]
   unitList      Unit[]
   announcements Announcement[]
+  certificates  Certificate[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -300,6 +301,32 @@ model Announcement {
 
   @@index([propertyId])
   @@index([userId])
+}
+
+// ============================================
+// Certificates (Paz y salvo / Certificado de residencia) with public QR verify
+// ============================================
+
+model Certificate {
+  id            String    @id @default(cuid())
+  userId        String
+  propertyId    String
+  unitId        String?
+  type          String    // "paz_y_salvo" | "residencia"
+  recipientName String
+  unitLabel     String
+  // { recipientDocument?, validUntil? ("YYYY-MM-DD"), residesSince?, note? }
+  meta          Json?
+  verifyCode    String    @unique // unguessable public verification token
+  status        String    @default("valid") // "valid" | "revoked"
+  revokedAt     DateTime?
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([propertyId])
 }
 
 // ============================================
