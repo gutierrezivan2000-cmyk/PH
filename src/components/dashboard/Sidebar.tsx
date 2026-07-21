@@ -20,6 +20,7 @@ import {
   CalendarClock,
   Send,
   BadgeCheck,
+  Gavel,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -31,11 +32,12 @@ const navigation: NavEntry[] = [
   { name: "Calendario", href: "/dashboard/calendario", icon: CalendarClock, n: "03" },
   { name: "Comunicados", href: "/dashboard/comunicados", icon: Send, n: "04" },
   { name: "Certificados", href: "/dashboard/certificados", icon: BadgeCheck, n: "05" },
-  { name: "Asistente IA", href: "/dashboard/asistente", icon: Sparkles, n: "06", badge: "6" },
-  { name: "Propiedades", href: "/dashboard/propiedades", icon: Building2, n: "07" },
-  { name: "Historial", href: "/dashboard/historial", icon: History, n: "08" },
-  { name: "Suscripción", href: "/dashboard/suscripcion", icon: CreditCard, n: "09" },
-  { name: "Configuración", href: "/dashboard/configuracion", icon: Settings2, n: "10" },
+  { name: "Asambleas", href: "/dashboard/asambleas", icon: Gavel, n: "06" },
+  { name: "Asistente IA", href: "/dashboard/asistente", icon: Sparkles, n: "07", badge: "6" },
+  { name: "Propiedades", href: "/dashboard/propiedades", icon: Building2, n: "08" },
+  { name: "Historial", href: "/dashboard/historial", icon: History, n: "09" },
+  { name: "Suscripción", href: "/dashboard/suscripcion", icon: CreditCard, n: "10" },
+  { name: "Configuración", href: "/dashboard/configuracion", icon: Settings2, n: "11" },
 ];
 
 // Enterprise "Portafolio" — only for Elite subscribers and beta testers.

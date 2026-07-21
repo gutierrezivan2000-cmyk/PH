@@ -180,6 +180,7 @@ model Property {
   unitList      Unit[]
   announcements Announcement[]
   certificates  Certificate[]
+  assemblies    Assembly[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -301,6 +302,32 @@ model Announcement {
 
   @@index([propertyId])
   @@index([userId])
+}
+
+// ============================================
+// Assemblies (Convocatoria + control de términos Ley 675)
+// ============================================
+
+model Assembly {
+  id         String    @id @default(cuid())
+  userId     String
+  propertyId String
+  type       String    // "ordinaria" | "extraordinaria"
+  date       DateTime  // fecha y hora de la asamblea
+  modality   String    @default("presencial") // "presencial" | "virtual" | "mixta"
+  location   String? // lugar físico o enlace de la reunión
+  agenda     Json      @default("[]") // string[] — orden del día
+  status     String    @default("convocada") // "convocada" | "realizada" | "cancelada"
+  convokedAt DateTime? // cuándo se envió/emitió la convocatoria
+  actaReadyAt DateTime? // cuándo se publicó el acta (cierra el término de 20 días hábiles)
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([propertyId])
 }
 
 // ============================================

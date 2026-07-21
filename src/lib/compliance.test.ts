@@ -4,6 +4,8 @@ import {
   generateAutoItems,
   monthlyReportItem,
   parseFeatures,
+  addBusinessDays,
+  assemblyItems,
 } from "./compliance";
 
 // Fixed reference date: 2026-07-18 (mid-July).
@@ -121,6 +123,77 @@ describe("monthlyReportItem", () => {
   it("handles February month-end", () => {
     const item = monthlyReportItem(new Date(2026, 1, 5));
     expect(item.dueDate).toBe("2026-02-28");
+  });
+});
+
+describe("addBusinessDays", () => {
+  it("skips weekends", () => {
+    // Friday 2026-07-17 + 1 business day = Monday 2026-07-20
+    const r = addBusinessDays(new Date(2026, 6, 17), 1);
+    expect([r.getFullYear(), r.getMonth(), r.getDate()]).toEqual([2026, 6, 20]);
+  });
+  it("computes 20 business days = 4 calendar weeks", () => {
+    // Wednesday 2026-03-25 + 20 business days = Wednesday 2026-04-22
+    const r = addBusinessDays(new Date(2026, 2, 25), 20);
+    expect([r.getFullYear(), r.getMonth(), r.getDate()]).toEqual([2026, 3, 22]);
+  });
+});
+
+describe("assemblyItems", () => {
+  const base = {
+    id: "asm1",
+    type: "ordinaria",
+    date: new Date(2026, 2, 25, 19, 0), // Wed Mar 25 2026, 7pm
+    status: "convocada",
+    convokedAt: null as Date | null,
+    actaReadyAt: null as Date | null,
+  };
+
+  it("before the meeting: only the convocatoria item, due 15 days ahead", () => {
+    const items = assemblyItems(base, new Date(2026, 2, 1));
+    const keys = items.map((i) => i.key);
+    expect(keys).toContain("asamblea-conv-asm1");
+    expect(keys).not.toContain("asamblea-acta-asm1");
+    const conv = items.find((i) => i.key === "asamblea-conv-asm1")!;
+    expect(conv.dueDate).toBe("2026-03-10"); // Mar 25 - 15 días calendario
+    expect(conv.autoDone).toBe(false);
+  });
+
+  it("convocatoria marks auto-done once convokedAt is set", () => {
+    const items = assemblyItems(
+      { ...base, convokedAt: new Date(2026, 2, 5) },
+      new Date(2026, 2, 6)
+    );
+    expect(items.find((i) => i.key === "asamblea-conv-asm1")!.autoDone).toBe(true);
+  });
+
+  it("after the meeting: acta due in 20 business days + impugnación in 2 months", () => {
+    const items = assemblyItems(base, new Date(2026, 3, 1));
+    const acta = items.find((i) => i.key === "asamblea-acta-asm1")!;
+    const impug = items.find((i) => i.key === "asamblea-impug-asm1")!;
+    expect(acta.dueDate).toBe("2026-04-22"); // 20 días hábiles desde Mar 25
+    expect(impug.dueDate).toBe("2026-05-25"); // 2 meses
+    expect(acta.autoDone).toBe(false);
+  });
+
+  it("acta item auto-done when actaReadyAt is set", () => {
+    const items = assemblyItems(
+      { ...base, status: "realizada", actaReadyAt: new Date(2026, 3, 2) },
+      new Date(2026, 3, 3)
+    );
+    expect(items.find((i) => i.key === "asamblea-acta-asm1")!.autoDone).toBe(true);
+  });
+
+  it("extraordinaria has no 15-day convocatoria item", () => {
+    const items = assemblyItems(
+      { ...base, type: "extraordinaria" },
+      new Date(2026, 2, 1)
+    );
+    expect(items.some((i) => i.key.startsWith("asamblea-conv"))).toBe(false);
+  });
+
+  it("cancelled assemblies produce nothing", () => {
+    expect(assemblyItems({ ...base, status: "cancelada" }, new Date(2026, 2, 1))).toEqual([]);
   });
 });
 
