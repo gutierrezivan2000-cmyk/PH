@@ -12,9 +12,10 @@ function getClient(): Anthropic {
   return _client;
 }
 
-// Model selection: Sonnet for quality, Haiku for speed
-// With Vercel Pro (300s timeout), Sonnet is viable and produces much better documents
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
+// Model selection: Sonnet for quality, Haiku for speed.
+// Sonnet 5 is the current generation model (the older claude-sonnet-4-20250514
+// has been retired and now returns not_found). Override with ANTHROPIC_MODEL.
+const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 
 export async function generateWithClaude(
   systemPrompt: string,
@@ -61,6 +62,9 @@ export async function generateWithClaude(
     }
     if (msg.includes("rate_limit") || msg.includes("429")) {
       throw new Error("El servicio de IA esta temporalmente saturado. Intenta de nuevo en unos minutos.");
+    }
+    if (msg.includes("not_found") || msg.includes("model:") || msg.includes("404")) {
+      throw new Error("El modelo de IA configurado no esta disponible. Contacta al administrador de la plataforma.");
     }
     throw error;
   }
