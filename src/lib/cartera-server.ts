@@ -8,7 +8,7 @@ import { canUseCartera } from "@/lib/cartera";
  * Callers handle DEMO_MODE before invoking this.
  */
 export async function requireCartera(): Promise<
-  { userId: string } | { error: NextResponse }
+  { userId: string; accessStatus: string } | { error: NextResponse }
 > {
   const session = await auth();
   if (!session?.user?.id) {
@@ -55,5 +55,5 @@ export async function requireCartera(): Promise<
   const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
   await ensureAdminSchema();
 
-  return { userId: session.user.id };
+  return { userId: session.user.id, accessStatus: access.status };
 }

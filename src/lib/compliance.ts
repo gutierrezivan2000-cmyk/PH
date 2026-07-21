@@ -14,6 +14,8 @@ export interface BuildingFeatures {
   empleadosDirectos?: boolean;
   /** "YYYY-MM-DD" — next/last known expiry of the common-areas insurance. */
   polizaVence?: string | null;
+  /** Monthly late-interest rate (%) used by cartera (legal cap: 1.5× IBC, Art. 30 Ley 675). */
+  tasaMora?: number | null;
 }
 
 export type ComplianceCategory =
@@ -300,6 +302,10 @@ export function parseFeatures(raw: unknown): BuildingFeatures {
     polizaVence:
       typeof o.polizaVence === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.polizaVence)
         ? o.polizaVence
+        : null,
+    tasaMora:
+      typeof o.tasaMora === "number" && Number.isFinite(o.tasaMora) && o.tasaMora > 0 && o.tasaMora <= 15
+        ? o.tasaMora
         : null,
   };
 }

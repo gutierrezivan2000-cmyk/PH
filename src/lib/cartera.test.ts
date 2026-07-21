@@ -6,6 +6,8 @@ import {
   computeUnitSummary,
   agingBucket,
   parseNumericToken,
+  computeAgingReport,
+  interesMora,
 } from "./cartera";
 
 describe("fmtCOP", () => {
@@ -135,6 +137,49 @@ describe("agingBucket", () => {
     expect(agingBucket(60)).toBe("d60");
     expect(agingBucket(90)).toBe("d90");
     expect(agingBucket(91)).toBe("d90plus");
+  });
+});
+
+describe("computeAgingReport", () => {
+  const mk = (overdueAmount: number, overdueDays: number) => ({
+    summary: { overdueAmount, overdueDays },
+  });
+
+  it("buckets units by their oldest overdue days and sums overdue amounts", () => {
+    const rows = computeAgingReport([
+      mk(100000, 10), // d30
+      mk(50000, 25), // d30
+      mk(200000, 45), // d60
+      mk(300000, 95), // d90plus
+      mk(0, 0), // al día — excluded
+    ]);
+    expect(rows.map((r) => [r.bucket, r.count, r.amount])).toEqual([
+      ["d30", 2, 150000],
+      ["d60", 1, 200000],
+      ["d90", 0, 0],
+      ["d90plus", 1, 300000],
+    ]);
+  });
+
+  it("returns all-zero buckets when nothing is overdue", () => {
+    const rows = computeAgingReport([mk(0, 0)]);
+    expect(rows.every((r) => r.count === 0 && r.amount === 0)).toBe(true);
+  });
+});
+
+describe("interesMora", () => {
+  it("computes simple monthly interest on the overdue base", () => {
+    expect(interesMora(1_000_000, 2.1)).toBe(21000);
+    expect(interesMora(350_000, 2)).toBe(7000);
+  });
+  it("rounds to the nearest peso", () => {
+    expect(interesMora(333_333, 2.1)).toBe(7000); // 6999.993 → 7000
+  });
+  it("returns 0 for empty base or invalid rate", () => {
+    expect(interesMora(0, 2.1)).toBe(0);
+    expect(interesMora(-500, 2.1)).toBe(0);
+    expect(interesMora(100000, 0)).toBe(0);
+    expect(interesMora(100000, -1)).toBe(0);
   });
 });
 

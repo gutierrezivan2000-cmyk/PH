@@ -120,6 +120,43 @@ export const AGING_LABELS: Record<ReturnType<typeof agingBucket>, string> = {
   d90plus: "+90 días",
 };
 
+// ── Aging report + late interest ────────────────────────────────────────────
+
+export interface AgingRow {
+  bucket: ReturnType<typeof agingBucket>;
+  label: string;
+  count: number;
+  amount: number;
+}
+
+/** Group units into aging buckets by their oldest overdue charge.
+ *  Only units that actually owe overdue money are counted. */
+export function computeAgingReport(
+  units: { summary: Pick<UnitSummary, "overdueAmount" | "overdueDays"> }[]
+): AgingRow[] {
+  const order: ReturnType<typeof agingBucket>[] = ["d30", "d60", "d90", "d90plus"];
+  const rows = new Map(
+    order.map((b) => [b, { bucket: b, label: AGING_LABELS[b], count: 0, amount: 0 }])
+  );
+  for (const u of units) {
+    if (u.summary.overdueAmount <= 0 || u.summary.overdueDays <= 0) continue;
+    const b = agingBucket(u.summary.overdueDays);
+    if (b === "al_dia") continue;
+    const row = rows.get(b)!;
+    row.count++;
+    row.amount += u.summary.overdueAmount;
+  }
+  return order.map((b) => rows.get(b)!);
+}
+
+/** Monthly late interest on an overdue base at rate% (simple interest, one
+ *  month). The base must EXCLUDE prior interest charges (no anatocismo). */
+export function interesMora(overdueBase: number, ratePct: number): number {
+  if (!Number.isFinite(overdueBase) || overdueBase <= 0) return 0;
+  if (!Number.isFinite(ratePct) || ratePct <= 0) return 0;
+  return Math.round(overdueBase * (ratePct / 100));
+}
+
 // ── Bulk-import token parsing (units) ───────────────────────────────────────
 
 /**

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
-import { fmtCOP } from "@/lib/cartera";
+import { fmtCOP, computeAgingReport } from "@/lib/cartera";
 import {
   Wallet,
   Loader2,
@@ -17,6 +17,10 @@ import {
   Trash2,
   ArrowUpRight,
   Users,
+  Percent,
+  Sparkles,
+  Send,
+  Copy,
 } from "lucide-react";
 
 interface Property {
@@ -105,9 +109,23 @@ export default function CarteraPage() {
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [loading, setLoading] = useState(true);
   const [upgrade, setUpgrade] = useState(false);
-  const [panel, setPanel] = useState<"" | "causar" | "pago" | "cobro">("");
+  const [panel, setPanel] = useState<"" | "causar" | "pago" | "cobro" | "intereses" | "carta">("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Intereses
+  const [rate, setRate] = useState("");
+  const [intMonth, setIntMonth] = useState(now.getMonth() + 1);
+  const [intYear, setIntYear] = useState(now.getFullYear());
+
+  // Carta de cobro (Metra)
+  const [cartaUnit, setCartaUnit] = useState("");
+  const [cartaTone, setCartaTone] = useState<"recordatorio" | "persuasivo" | "prejuridico">("recordatorio");
+  const [cartaSubject, setCartaSubject] = useState("");
+  const [cartaContent, setCartaContent] = useState("");
+  const [cartaBusy, setCartaBusy] = useState(false);
+  const [cartaSending, setCartaSending] = useState(false);
+  const [cartaCopied, setCartaCopied] = useState(false);
 
   // Causar
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -142,6 +160,9 @@ export default function CarteraPage() {
         setUpgrade(false);
         setUnits(data.units || []);
         setKpis(data.kpis || null);
+        if (data.meta?.tasaMora != null) {
+          setRate((prev) => prev || String(data.meta.tasaMora));
+        }
       }
     } catch {
       // keep
@@ -321,6 +342,124 @@ export default function CarteraPage() {
     }
   }
 
+  async function liquidarIntereses() {
+    const pct = parseFloat(rate.replace(",", "."));
+    if (!Number.isFinite(pct) || pct <= 0) {
+      setMsg({ ok: false, text: "Indica una tasa mensual válida (ej: 2.1)." });
+      return;
+    }
+    if (
+      !window.confirm(
+        `¿Liquidar intereses de ${MONTHS[intMonth - 1]} ${intYear} al ${pct}% mensual sobre los saldos en mora? Se creará un cobro de interés por unidad morosa (una sola vez por mes).`
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/cartera/intereses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId, month: intMonth, year: intYear, rate: pct }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMsg({ ok: false, text: data.error || "No se pudo liquidar." });
+        return;
+      }
+      setMsg({
+        ok: true,
+        text:
+          data.created > 0
+            ? `Intereses liquidados: ${data.created} ${data.created === 1 ? "unidad" : "unidades"} por ${fmtCOP(data.total)} en total.`
+            : "No había saldos en mora pendientes de liquidar este mes.",
+      });
+      setPanel("");
+      await load(propertyId);
+    } catch {
+      setMsg({ ok: false, text: "Error de red." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function generarCarta() {
+    if (!cartaUnit) {
+      setMsg({ ok: false, text: "Selecciona la unidad morosa." });
+      return;
+    }
+    setCartaBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/cartera/carta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "draft", unitId: cartaUnit, tone: cartaTone }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMsg({ ok: false, text: data.error || "No se pudo generar la carta." });
+        return;
+      }
+      setCartaSubject(data.subject || "");
+      setCartaContent(data.content || "");
+    } catch {
+      setMsg({ ok: false, text: "Error de red al generar la carta." });
+    } finally {
+      setCartaBusy(false);
+    }
+  }
+
+  async function enviarCarta() {
+    if (!cartaUnit || !cartaSubject.trim() || !cartaContent.trim()) return;
+    const u = units.find((x) => x.id === cartaUnit);
+    if (
+      !window.confirm(
+        `¿Enviar esta carta de cobro por correo a ${u?.label || "la unidad"}${u?.email ? ` (${u.email})` : ""}?`
+      )
+    ) {
+      return;
+    }
+    setCartaSending(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/cartera/carta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "send",
+          unitId: cartaUnit,
+          subject: cartaSubject,
+          content: cartaContent,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMsg({ ok: false, text: data.error || "No se pudo enviar la carta." });
+        return;
+      }
+      setMsg({ ok: true, text: "Carta de cobro enviada por correo." });
+      setPanel("");
+      setCartaSubject("");
+      setCartaContent("");
+    } catch {
+      setMsg({ ok: false, text: "Error de red al enviar." });
+    } finally {
+      setCartaSending(false);
+    }
+  }
+
+  async function copiarCarta() {
+    try {
+      await navigator.clipboard.writeText(`${cartaSubject}\n\n${cartaContent}`);
+      setCartaCopied(true);
+      setTimeout(() => setCartaCopied(false), 2000);
+    } catch {
+      // clipboard unavailable
+    }
+  }
+
   async function saveUnitField(unitId: string, field: "monthlyFee" | "coeficiente", raw: string) {
     const clean = raw.replace(/[.$\s%]/g, "").replace(",", ".");
     const value = clean === "" ? null : Number(clean);
@@ -462,6 +601,8 @@ export default function CarteraPage() {
               {panelBtn("causar", <CalendarPlus className="h-3.5 w-3.5" />, "Causar mes")}
               {panelBtn("pago", <HandCoins className="h-3.5 w-3.5" />, "Registrar pago")}
               {panelBtn("cobro", <Receipt className="h-3.5 w-3.5" />, "Cobro extra")}
+              {panelBtn("intereses", <Percent className="h-3.5 w-3.5" />, "Intereses de mora")}
+              {panelBtn("carta", <Sparkles className="h-3.5 w-3.5" />, "Carta de cobro IA")}
             </div>
 
             {/* Message */}
@@ -661,6 +802,265 @@ export default function CarteraPage() {
                 </button>
               </form>
             )}
+
+            {/* Intereses panel */}
+            {panel === "intereses" && (
+              <div className="rounded-2xl p-5 space-y-4" style={card}>
+                <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
+                  Liquidar intereses de mora
+                </p>
+                <p className="text-[12px] leading-relaxed" style={{ color: "rgba(246,245,247,0.50)" }}>
+                  Crea un cobro de interés por cada unidad con saldo vencido (una sola vez por
+                  mes, nunca sobre intereses anteriores). Tope legal: 1.5× el interés bancario
+                  corriente vigente, sin exceder la usura (Art. 30, Ley 675). Consulta la tasa
+                  certificada por la Superfinanciera para tu mes.
+                </p>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div>
+                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                      Tasa mensual %
+                    </label>
+                    <input
+                      value={rate}
+                      onChange={(e) => setRate(e.target.value)}
+                      placeholder="2.1"
+                      style={{ ...inputStyle, width: 100 }}
+                      inputMode="decimal"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Mes</label>
+                    <div className="relative">
+                      <select value={intMonth} onChange={(e) => setIntMonth(Number(e.target.value))} style={{ ...inputStyle, width: 150, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
+                        {MONTHS.map((mn, i) => (
+                          <option key={mn} value={i + 1} style={{ background: "#15151a" }}>{mn}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Año</label>
+                    <input type="number" value={intYear} onChange={(e) => setIntYear(Number(e.target.value))} style={{ ...inputStyle, width: 100 }} min={2020} max={2100} />
+                  </div>
+                  <button
+                    onClick={liquidarIntereses}
+                    disabled={busy}
+                    className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-50 cursor-pointer"
+                    style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+                  >
+                    {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Percent className="h-3.5 w-3.5" />}
+                    Liquidar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Carta de cobro panel (Metra) */}
+            {panel === "carta" && (
+              <div className="rounded-2xl p-5 space-y-4" style={{ ...card, borderColor: "rgba(76,214,160,0.25)" }}>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" style={{ color: "#4cd6a0" }} />
+                  <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
+                    Carta de cobro con IA
+                  </p>
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[9px]"
+                    style={{ ...monoLabel, fontSize: 9, background: "rgba(76,214,160,0.12)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.30)" }}
+                  >
+                    Metra
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Unidad morosa</label>
+                    <div className="relative">
+                      <select
+                        value={cartaUnit}
+                        onChange={(e) => {
+                          setCartaUnit(e.target.value);
+                          setCartaSubject("");
+                          setCartaContent("");
+                        }}
+                        style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}
+                      >
+                        <option value="" style={{ background: "#15151a" }}>Selecciona…</option>
+                        {units
+                          .filter((u) => u.summary.balance > 0)
+                          .map((u) => (
+                            <option key={u.id} value={u.id} style={{ background: "#15151a" }}>
+                              {u.label} — debe {fmtCOP(u.summary.balance)}
+                              {u.summary.overdueDays > 0 ? ` (${u.summary.overdueDays}d mora)` : ""}
+                            </option>
+                          ))}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Tono</label>
+                    <div className="relative">
+                      <select
+                        value={cartaTone}
+                        onChange={(e) => setCartaTone(e.target.value as typeof cartaTone)}
+                        style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}
+                      >
+                        <option value="recordatorio" style={{ background: "#15151a" }}>Recordatorio amable (1er aviso)</option>
+                        <option value="persuasivo" style={{ background: "#15151a" }}>Cobro persuasivo (2do aviso)</option>
+                        <option value="prejuridico" style={{ background: "#15151a" }}>Prejurídico (último aviso)</option>
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={generarCarta}
+                  disabled={cartaBusy || !cartaUnit}
+                  className="inline-flex items-center gap-2 rounded-full text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-40 cursor-pointer"
+                  style={{ background: "rgba(76,214,160,0.14)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.35)" }}
+                >
+                  {cartaBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  {cartaBusy ? "Redactando con los datos de la deuda…" : "Redactar carta"}
+                </button>
+
+                {cartaContent && (
+                  <div className="space-y-3 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div>
+                      <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Asunto</label>
+                      <input value={cartaSubject} onChange={(e) => setCartaSubject(e.target.value)} style={inputStyle} maxLength={150} />
+                    </div>
+                    <div>
+                      <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                        Carta (edítala si lo necesitas)
+                      </label>
+                      <textarea
+                        value={cartaContent}
+                        onChange={(e) => setCartaContent(e.target.value)}
+                        rows={12}
+                        style={{ ...inputStyle, height: "auto", padding: "10px 12px", resize: "vertical", lineHeight: 1.6, fontFamily: "inherit" }}
+                        maxLength={10000}
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={enviarCarta}
+                        disabled={cartaSending || !units.find((u) => u.id === cartaUnit)?.email}
+                        className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-40 cursor-pointer"
+                        style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+                      >
+                        {cartaSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                        Enviar por correo
+                      </button>
+                      <button
+                        onClick={copiarCarta}
+                        className="inline-flex items-center gap-2 rounded-full text-[13px] font-medium px-5 py-2.5 transition-all cursor-pointer"
+                        style={{ background: "rgba(255,255,255,0.06)", color: cartaCopied ? "#4cd6a0" : "rgba(246,245,247,0.70)", border: "1px solid rgba(255,255,255,0.12)" }}
+                      >
+                        {cartaCopied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                        {cartaCopied ? "Copiado" : "Copiar texto"}
+                      </button>
+                      {!units.find((u) => u.id === cartaUnit)?.email && (
+                        <span className="text-[11.5px]" style={{ color: "rgba(246,245,247,0.40)" }}>
+                          La unidad no tiene correo — copia el texto para enviarlo por otro medio.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Aging + top morosos */}
+            {(() => {
+              const aging = computeAgingReport(units);
+              const totalOverdue = aging.reduce((s, a) => s + a.amount, 0);
+              if (totalOverdue <= 0) return null;
+              const AGING_COLORS: Record<string, string> = {
+                d30: "#ffb958",
+                d60: "#ff9c58",
+                d90: "#ff8585",
+                d90plus: "#ff6f6f",
+              };
+              const morosos = [...units]
+                .filter((u) => u.summary.balance > 0 && u.summary.overdueDays > 0)
+                .sort((a, b) => b.summary.balance - a.summary.balance)
+                .slice(0, 5);
+              return (
+                <div className="rounded-2xl p-5 space-y-4" style={card}>
+                  <p style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>
+                    Cartera por edades · {fmtCOP(totalOverdue)} en mora
+                  </p>
+                  {/* Stacked bar */}
+                  <div className="flex h-2.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
+                    {aging.map((a) =>
+                      a.amount > 0 ? (
+                        <div
+                          key={a.bucket}
+                          style={{ width: `${(a.amount / totalOverdue) * 100}%`, background: AGING_COLORS[a.bucket] }}
+                          title={`${a.label}: ${fmtCOP(a.amount)}`}
+                        />
+                      ) : null
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {aging.map((a) => (
+                      <div key={a.bucket}>
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="h-2 w-2 rounded-full" style={{ background: AGING_COLORS[a.bucket] }} />
+                          <span style={{ ...monoMini, color: "rgba(246,245,247,0.45)" }}>{a.label}</span>
+                        </div>
+                        <p className="text-[13.5px] font-semibold" style={{ color: a.amount > 0 ? "#f6f5f7" : "rgba(246,245,247,0.30)" }}>
+                          {fmtCOP(a.amount)}
+                        </p>
+                        <p className="text-[10.5px]" style={{ color: "rgba(246,245,247,0.35)" }}>
+                          {a.count} {a.count === 1 ? "unidad" : "unidades"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  {morosos.length > 0 && (
+                    <div className="pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                      <p style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="mb-2">
+                        Mayores deudores
+                      </p>
+                      <div className="space-y-1.5">
+                        {morosos.map((u) => (
+                          <div key={u.id} className="flex items-center gap-3">
+                            <span className="text-[12.5px] font-medium flex-1" style={{ color: "#f6f5f7" }}>
+                              {u.label}
+                              {u.residentName ? (
+                                <span style={{ color: "rgba(246,245,247,0.40)" }}> · {u.residentName}</span>
+                              ) : null}
+                            </span>
+                            <span className="text-[12.5px] font-semibold" style={{ color: "#ff8585" }}>
+                              {fmtCOP(u.summary.balance)}
+                            </span>
+                            <span style={{ ...monoMini, color: "rgba(246,245,247,0.35)" }}>
+                              {u.summary.overdueDays}d
+                            </span>
+                            <button
+                              onClick={() => {
+                                setPanel("carta");
+                                setCartaUnit(u.id);
+                                setCartaSubject("");
+                                setCartaContent("");
+                                setMsg(null);
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }}
+                              className="inline-flex items-center gap-1 rounded-full text-[11px] px-2.5 py-1 cursor-pointer transition-colors hover:bg-white/[0.06]"
+                              style={{ color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.30)" }}
+                            >
+                              <Sparkles className="h-3 w-3" />
+                              Carta
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Units table */}
             {units.length === 0 ? (

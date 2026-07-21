@@ -32,13 +32,15 @@ export async function GET(req: NextRequest) {
 
   try {
     const { db } = await import("@/lib/db");
+    const { parseFeatures } = await import("@/lib/compliance");
     const property = await db.property.findFirst({
       where: { id: propertyId, userId },
-      select: { id: true },
+      select: { id: true, features: true },
     });
     if (!property) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
     }
+    const tasaMora = parseFeatures(property.features).tasaMora ?? null;
 
     const now = new Date();
     const monthStart = bogotaMonthStart(now);
@@ -113,7 +115,7 @@ export async function GET(req: NextRequest) {
       unitsCount: units.length,
     };
 
-    return NextResponse.json({ units: rows, kpis });
+    return NextResponse.json({ units: rows, kpis, meta: { tasaMora } });
   } catch (error) {
     console.error("[cartera GET]", error);
     return NextResponse.json({ error: "Error al cargar la cartera" }, { status: 500 });
