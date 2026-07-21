@@ -181,6 +181,8 @@ model Property {
   announcements Announcement[]
   certificates  Certificate[]
   assemblies    Assembly[]
+  budgets       Budget[]
+  ledgerEntries LedgerEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -350,6 +352,50 @@ model Announcement {
   status         String    @default("sent") // "sent" | future: "draft" | "scheduled"
   recipientCount Int       @default(0)
   sentAt         DateTime?
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([userId])
+}
+
+// ============================================
+// Presupuesto y ejecución (F2.3)
+// ============================================
+
+// One budget per (property, year). items is the chart of budgeted lines:
+// [{ id, concept, group: "ingreso"|"gasto", budgeted: int COP }].
+model Budget {
+  id         String @id @default(cuid())
+  userId     String
+  propertyId String
+  year       Int
+  items      Json   @default("[]")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([propertyId, year])
+  @@index([userId])
+}
+
+// An actual income/expense movement (ejecución). itemId links to a budget
+// line so execution can be compared rubro by rubro; type separates ordinary
+// movements from imprevistos-fund contributions/withdrawals.
+model LedgerEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+  date       DateTime
+  concept    String
+  itemId     String? // budget item id (rubro), null for unclassified
+  type       String   @default("gasto") // "ingreso" | "gasto" | "fondo_aporte" | "fondo_retiro"
+  amount     Int
+  note       String?
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 

@@ -239,6 +239,42 @@ const STATEMENTS: string[] = [
     ALTER TABLE "UnitPayment" ADD CONSTRAINT "UnitPayment_unitId_fkey"
       FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // Presupuesto y ejecución (F2.3).
+  `CREATE TABLE IF NOT EXISTS "Budget" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "year" INTEGER NOT NULL,
+    "items" JSONB NOT NULL DEFAULT '[]',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Budget_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "Budget_propertyId_year_key" ON "Budget"("propertyId", "year")`,
+  `CREATE INDEX IF NOT EXISTS "Budget_userId_idx" ON "Budget"("userId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "Budget" ADD CONSTRAINT "Budget_propertyId_fkey"
+      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `CREATE TABLE IF NOT EXISTS "LedgerEntry" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "date" TIMESTAMP(3) NOT NULL,
+    "concept" TEXT NOT NULL,
+    "itemId" TEXT,
+    "type" TEXT NOT NULL DEFAULT 'gasto',
+    "amount" INTEGER NOT NULL,
+    "note" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "LedgerEntry_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "LedgerEntry_propertyId_idx" ON "LedgerEntry"("propertyId")`,
+  `CREATE INDEX IF NOT EXISTS "LedgerEntry_userId_idx" ON "LedgerEntry"("userId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "LedgerEntry" ADD CONSTRAINT "LedgerEntry_propertyId_fkey"
+      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
   // Assemblies (convocatoria + control de términos).
   `CREATE TABLE IF NOT EXISTS "Assembly" (
     "id" TEXT NOT NULL,
