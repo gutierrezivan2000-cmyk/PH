@@ -193,6 +193,29 @@ const STATEMENTS: string[] = [
     ALTER TABLE "Announcement" ADD CONSTRAINT "Announcement_propertyId_fkey"
       FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // Certificates (paz y salvo / residencia) with public QR verification.
+  `CREATE TABLE IF NOT EXISTS "Certificate" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "unitId" TEXT,
+    "type" TEXT NOT NULL,
+    "recipientName" TEXT NOT NULL,
+    "unitLabel" TEXT NOT NULL,
+    "meta" JSONB,
+    "verifyCode" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'valid',
+    "revokedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Certificate_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "Certificate_verifyCode_key" ON "Certificate"("verifyCode")`,
+  `CREATE INDEX IF NOT EXISTS "Certificate_userId_idx" ON "Certificate"("userId")`,
+  `CREATE INDEX IF NOT EXISTS "Certificate_propertyId_idx" ON "Certificate"("propertyId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "Certificate" ADD CONSTRAINT "Certificate_propertyId_fkey"
+      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 ];
 
 let ensured = false;
