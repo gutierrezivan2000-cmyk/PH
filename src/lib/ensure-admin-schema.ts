@@ -193,6 +193,52 @@ const STATEMENTS: string[] = [
     ALTER TABLE "Announcement" ADD CONSTRAINT "Announcement_propertyId_fkey"
       FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // Cartera (F2): coeficiente/cuota en Unit + cargos y pagos.
+  `ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "coeficiente" DOUBLE PRECISION`,
+  `ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "monthlyFee" INTEGER`,
+  `CREATE TABLE IF NOT EXISTS "Charge" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "unitId" TEXT NOT NULL,
+    "concept" TEXT NOT NULL,
+    "type" TEXT NOT NULL DEFAULT 'admin',
+    "amount" INTEGER NOT NULL,
+    "paidAmount" INTEGER NOT NULL DEFAULT 0,
+    "month" INTEGER,
+    "year" INTEGER,
+    "dueDate" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Charge_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "Charge_propertyId_idx" ON "Charge"("propertyId")`,
+  `CREATE INDEX IF NOT EXISTS "Charge_unitId_idx" ON "Charge"("unitId")`,
+  `CREATE INDEX IF NOT EXISTS "Charge_userId_idx" ON "Charge"("userId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "Charge" ADD CONSTRAINT "Charge_unitId_fkey"
+      FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `CREATE TABLE IF NOT EXISTS "UnitPayment" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "unitId" TEXT NOT NULL,
+    "amount" INTEGER NOT NULL,
+    "method" TEXT NOT NULL DEFAULT 'transferencia',
+    "reference" TEXT,
+    "note" TEXT,
+    "allocations" JSONB NOT NULL DEFAULT '[]',
+    "receivedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "UnitPayment_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "UnitPayment_propertyId_idx" ON "UnitPayment"("propertyId")`,
+  `CREATE INDEX IF NOT EXISTS "UnitPayment_unitId_idx" ON "UnitPayment"("unitId")`,
+  `CREATE INDEX IF NOT EXISTS "UnitPayment_userId_idx" ON "UnitPayment"("userId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "UnitPayment" ADD CONSTRAINT "UnitPayment_unitId_fkey"
+      FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
   // Assemblies (convocatoria + control de términos).
   `CREATE TABLE IF NOT EXISTS "Assembly" (
     "id" TEXT NOT NULL,
