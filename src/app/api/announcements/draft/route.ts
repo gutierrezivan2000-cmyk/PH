@@ -95,10 +95,11 @@ Lo que debe comunicar: ${brief.trim()}`;
     return NextResponse.json({ subject, content });
   } catch (error) {
     console.error("[announcements draft]", error);
-    const msg =
-      error instanceof Error && /IA|API|saturado|creditos/i.test(error.message)
-        ? error.message
-        : "No se pudo generar el borrador. Intenta de nuevo.";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const detail = error instanceof Error ? error.message : String(error);
+    // Surface the real cause (admin-only beta tool) so failures are diagnosable.
+    return NextResponse.json(
+      { error: `No se pudo generar el borrador. Detalle: ${detail}`.slice(0, 400) },
+      { status: 500 }
+    );
   }
 }
