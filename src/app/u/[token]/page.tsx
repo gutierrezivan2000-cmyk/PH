@@ -6,6 +6,7 @@ import { fmtCOP, computeUnitSummary } from "@/lib/cartera";
 import { waLink, residentToAdminMessage } from "@/lib/whatsapp";
 import { Home, FileText, Megaphone, Wallet, CheckCircle2, AlertCircle } from "lucide-react";
 import { PortalPqrs } from "./PortalPqrs";
+import { PortalAssistant } from "./PortalAssistant";
 
 const DOC_LABELS: Record<string, string> = {
   reglamento_interno: "Reglamento interno",
@@ -246,6 +247,9 @@ export default async function ResidentPortalPage({
             </div>
           </div>
         )}
+
+        {/* Asistente del reglamento (solo si hay documentos cargados) */}
+        {documents.length > 0 && <PortalAssistant token={token} accent={accent} />}
 
         {/* PQRS */}
         <PortalPqrs token={token} accent={accent} />
