@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
+import { UnitImport } from "@/components/dashboard/UnitImport";
 import {
   Send,
   Loader2,
@@ -13,6 +14,7 @@ import {
   Mail,
   CheckCircle2,
   Building2,
+  MessageCircle,
 } from "lucide-react";
 
 interface Property {
@@ -88,6 +90,7 @@ export default function ComunicadosPage() {
   const [confirming, setConfirming] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendMsg, setSendMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [waCopied, setWaCopied] = useState(false);
 
   const emailCount = units.filter((u) => u.email).length;
 
@@ -352,6 +355,21 @@ export default function ComunicadosPage() {
                       ))}
                     </div>
                   )}
+                  {/* AI file import (Excel/PDF/Word) */}
+                  <UnitImport
+                    propertyId={propertyId}
+                    onImported={(n) => {
+                      setBulkMsg(`${n} ${n === 1 ? "unidad importada" : "unidades importadas"} desde el archivo.`);
+                      loadUnits(propertyId);
+                    }}
+                  />
+
+                  <div className="flex items-center gap-3 my-1">
+                    <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+                    <span style={{ ...monoLabel, color: "rgba(246,245,247,0.35)" }}>o a mano</span>
+                    <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+                  </div>
+
                   <div>
                     <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
                       Agregar unidades (una por línea)
@@ -360,7 +378,7 @@ export default function ComunicadosPage() {
                       value={bulkText}
                       onChange={(e) => setBulkText(e.target.value)}
                       rows={4}
-                      placeholder={"Apto 101, María Pérez, maria@correo.com\nApto 102, juan@correo.com\ncarlos@correo.com"}
+                      placeholder={"Apto 101, María Pérez, maria@correo.com, 3001112233\nApto 102, juan@correo.com\ncarlos@correo.com"}
                       style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }}
                     />
                   </div>
@@ -487,6 +505,25 @@ export default function ComunicadosPage() {
                     style={{ color: "rgba(246,245,247,0.45)" }}
                   >
                     Cancelar
+                  </button>
+                )}
+                {subject.trim() && content.trim() && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(`*${subject.trim()}*\n\n${content.trim()}`);
+                        setWaCopied(true);
+                        setTimeout(() => setWaCopied(false), 2000);
+                      } catch {
+                        /* clipboard unavailable */
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full text-[13px] font-medium px-4 py-2.5 transition-all cursor-pointer"
+                    style={{ background: waCopied ? "rgba(37,211,102,0.2)" : "rgba(37,211,102,0.14)", color: "#25D366", border: "1px solid rgba(37,211,102,0.35)" }}
+                    title="Copia el texto para pegarlo en una difusión de WhatsApp"
+                  >
+                    {waCopied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <MessageCircle className="h-3.5 w-3.5" />}
+                    {waCopied ? "Copiado" : "Copiar para WhatsApp"}
                   </button>
                 )}
                 {emailCount === 0 && (

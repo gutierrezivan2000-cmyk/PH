@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
 import { fmtCOP, computeAgingReport } from "@/lib/cartera";
+import { waLink, paymentReminderMessage } from "@/lib/whatsapp";
 import {
   Wallet,
   Loader2,
@@ -21,6 +22,7 @@ import {
   Sparkles,
   Send,
   Copy,
+  MessageCircle,
 } from "lucide-react";
 
 interface Property {
@@ -33,6 +35,7 @@ interface UnitRow {
   label: string;
   residentName: string | null;
   email: string | null;
+  phone: string | null;
   monthlyFee: number | null;
   coeficiente: number | null;
   summary: {
@@ -1206,6 +1209,29 @@ export default function CarteraPage() {
                                 >
                                   <FileText className="h-4 w-4" />
                                 </a>
+                                {(() => {
+                                  if (u.summary.balance <= 0 || !u.phone) return null;
+                                  const href = waLink(
+                                    u.phone,
+                                    paymentReminderMessage({
+                                      propertyName: properties.find((p) => p.id === propertyId)?.name || "la copropiedad",
+                                      unitLabel: u.label,
+                                      balanceText: fmtCOP(u.summary.balance),
+                                    })
+                                  );
+                                  return href ? (
+                                    <a
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1.5 rounded-lg transition-colors hover:bg-white/[0.06]"
+                                      style={{ color: "#25D366" }}
+                                      title="Recordar pago por WhatsApp"
+                                    >
+                                      <MessageCircle className="h-4 w-4" />
+                                    </a>
+                                  ) : null;
+                                })()}
                               </div>
                             </td>
                           </tr>

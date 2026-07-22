@@ -199,6 +199,8 @@ const STATEMENTS: string[] = [
   // F3: resident portal token.
   `ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "portalToken" TEXT`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "Unit_portalToken_key" ON "Unit"("portalToken")`,
+  // F3: admin WhatsApp contact per property.
+  `ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "whatsapp" TEXT`,
   `CREATE TABLE IF NOT EXISTS "Charge" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,

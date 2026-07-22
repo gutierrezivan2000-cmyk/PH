@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
           label: true,
           residentName: true,
           email: true,
+          phone: true,
           monthlyFee: true,
           coeficiente: true,
         },

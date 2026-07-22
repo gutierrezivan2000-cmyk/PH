@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     const { db } = await import("@/lib/db");
     const property = await db.property.findFirst({
       where: { id: propertyId, userId },
-      select: { id: true },
+      select: { id: true, whatsapp: true },
     });
     if (!property) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
@@ -36,9 +36,9 @@ export async function GET(req: NextRequest) {
     const units = await db.unit.findMany({
       where: { propertyId },
       orderBy: { label: "asc" },
-      select: { id: true, label: true, residentName: true, email: true, portalToken: true },
+      select: { id: true, label: true, residentName: true, email: true, phone: true, portalToken: true },
     });
-    return NextResponse.json({ units });
+    return NextResponse.json({ units, whatsapp: property.whatsapp || "" });
   } catch (error) {
     console.error("[portal tokens GET]", error);
     return NextResponse.json({ error: "Error al cargar las unidades" }, { status: 500 });

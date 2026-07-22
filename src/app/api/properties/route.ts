@@ -116,21 +116,23 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { id, name, address, city, units, features } = body;
+  const { id, name, address, city, units, features, whatsapp } = body;
 
   if (!id) {
     return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   }
 
-  // Features-only update (building profile from the compliance calendar) —
-  // name is not required in that case.
-  const isFeaturesOnly = features !== undefined && name === undefined;
-  if (!name && !isFeaturesOnly) {
+  // Settings-only update (building profile from the compliance calendar, or the
+  // WhatsApp contact) — name is not required in that case.
+  const isSettingsOnly = name === undefined && (features !== undefined || whatsapp !== undefined);
+  if (!name && !isSettingsOnly) {
     return NextResponse.json({ error: "El nombre es requerido" }, { status: 400 });
   }
+  const cleanWhatsapp =
+    whatsapp === undefined ? undefined : whatsapp ? String(whatsapp).trim().slice(0, 20) || null : null;
 
   if (IS_DEMO) {
-    if (isFeaturesOnly) return NextResponse.json({ ok: true });
+    if (isSettingsOnly) return NextResponse.json({ ok: true });
     const updated = updateProperty(id, DEMO_USER.id, {
       name,
       address,
@@ -153,13 +155,14 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
     }
 
-    if (isFeaturesOnly) {
-      const { parseFeatures } = await import("@/lib/compliance");
-      const clean = parseFeatures(features);
-      const updated = await db.property.update({
-        where: { id },
-        data: { features: clean as object },
-      });
+    if (isSettingsOnly) {
+      const data: Record<string, unknown> = {};
+      if (features !== undefined) {
+        const { parseFeatures } = await import("@/lib/compliance");
+        data.features = parseFeatures(features) as object;
+      }
+      if (cleanWhatsapp !== undefined) data.whatsapp = cleanWhatsapp;
+      const updated = await db.property.update({ where: { id }, data });
       return NextResponse.json(updated);
     }
 
@@ -170,6 +173,7 @@ export async function PUT(req: NextRequest) {
         address,
         city,
         units: units ? parseInt(units) : null,
+        ...(cleanWhatsapp !== undefined ? { whatsapp: cleanWhatsapp } : {}),
         ...(features !== undefined
           ? {
               features: (await import("@/lib/compliance")).parseFeatures(
