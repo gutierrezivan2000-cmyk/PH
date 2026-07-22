@@ -37,7 +37,8 @@ export async function generateWithClaude(
         { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
       ],
       messages: [{ role: "user", content: userContent }],
-      temperature: 0.2,
+      // NOTE: no `temperature` — the Claude 5 family (default claude-sonnet-5)
+      // rejects it ("temperature is deprecated for this model").
     });
 
     const text = response.content

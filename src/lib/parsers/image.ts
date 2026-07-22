@@ -36,7 +36,6 @@ export async function parseImageFile(file: File): Promise<string> {
     const response = await client.messages.create({
       model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5",
       max_tokens: 2048,
-      temperature: 0.1,
       messages: [
         {
           role: "user",
