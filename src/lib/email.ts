@@ -73,6 +73,60 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string): P
   });
 }
 
+/**
+ * Alert the platform admins when a health check finds a critical subsystem
+ * down. Recipients come from ADMIN_EMAILS. Best-effort: never throws.
+ */
+export async function sendHealthAlertEmail(
+  failing: { name: string; detail: string }[]
+): Promise<{ sent: number }> {
+  const admins = (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+  if (admins.length === 0 || !process.env.RESEND_API_KEY) return { sent: 0 };
+
+  const rows = failing
+    .map(
+      (f) =>
+        `<tr><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:700;color:#b91c1c;">${escapeHtml(f.name)}</td><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#374151;">${escapeHtml(f.detail)}</td></tr>`
+    )
+    .join("");
+
+  try {
+    const resend = getResend();
+    const res = await resend.batch.send(
+      admins.map((to) => ({
+        from: FROM_EMAIL,
+        to,
+        subject: `⚠️ SOPH.IA — falla crítica en la plataforma (${failing.length})`,
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f4f5;">
+  <div style="max-width:560px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:#dc2626;padding:24px;text-align:center;">
+      <h1 style="color:#fff;font-size:20px;margin:0;font-weight:800;">Chequeo de salud: falla crítica</h1>
+    </div>
+    <div style="padding:24px;">
+      <p style="color:#374151;font-size:14px;line-height:1.6;margin:0 0 16px;">
+        El chequeo automático de SOPH.IA detectó ${failing.length} subsistema(s) crítico(s) en falla.
+        Revísalo cuanto antes: mientras esté así, esa parte de la plataforma no funciona para tus usuarios.
+      </p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">${rows}</table>
+      <p style="color:#9ca3af;font-size:12px;margin:20px 0 0;">
+        Puedes ver el estado completo en /api/health. Este aviso se repite cada 6 horas mientras persista la falla.
+      </p>
+    </div>
+  </div>
+</body></html>`,
+      }))
+    );
+    return { sent: res.error ? 0 : admins.length };
+  } catch (e) {
+    console.error("[email] health alert failed:", e);
+    return { sent: 0 };
+  }
+}
+
 export interface AnnouncementEmailParams {
   recipients: string[];
   subject: string;
