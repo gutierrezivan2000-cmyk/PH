@@ -283,6 +283,9 @@ model Unit {
   coeficiente  Float?
   monthlyFee   Int?
 
+  // F3: unguessable public token for the account-less resident portal (/u/<token>).
+  portalToken  String?  @unique
+
   property Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   charges  Charge[]
   payments UnitPayment[]

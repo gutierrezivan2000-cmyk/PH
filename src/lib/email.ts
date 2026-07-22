@@ -127,6 +127,73 @@ export async function sendHealthAlertEmail(
   }
 }
 
+/**
+ * Send each resident their private portal link. `recipients` is a list of
+ * { email, url, unitLabel }. Sent via Resend batch (individual `to`).
+ */
+export async function sendPortalLinkEmails(params: {
+  recipients: { email: string; url: string; unitLabel: string }[];
+  propertyName: string;
+  senderName: string;
+  replyTo?: string;
+  logoUrl?: string | null;
+  brandColor?: string | null;
+}): Promise<{ sent: number; failed: number }> {
+  const resend = getResend();
+  const accent =
+    params.brandColor && /^#[0-9a-fA-F]{6}$/.test(params.brandColor) ? params.brandColor : "#7c3aed";
+  const brandHeader = params.logoUrl
+    ? `<img src="${params.logoUrl}" alt="${escapeHtml(params.senderName)}" style="max-height:44px;max-width:180px;margin:0 auto;display:block;"/>`
+    : `<h1 style="color:#fff;font-size:20px;margin:0;font-weight:800;">${escapeHtml(params.senderName)}</h1>`;
+
+  let sent = 0;
+  let failed = 0;
+  const CHUNK = 100;
+  for (let i = 0; i < params.recipients.length; i += CHUNK) {
+    const chunk = params.recipients.slice(i, i + CHUNK);
+    try {
+      const payload = chunk.map((rcpt) => ({
+        from: FROM_EMAIL,
+        to: rcpt.email,
+        subject: `Tu portal de ${params.propertyName} — ${rcpt.unitLabel}`,
+        ...(params.replyTo ? { replyTo: params.replyTo } : {}),
+        html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f4f5;">
+  <div style="max-width:480px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:${accent};padding:24px;text-align:center;">${brandHeader}
+      <p style="color:rgba(255,255,255,0.9);margin:8px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;">${escapeHtml(params.propertyName)}</p>
+    </div>
+    <div style="padding:28px 24px;">
+      <h2 style="color:#1f2937;font-size:18px;margin:0 0 8px;">Portal de tu unidad (${escapeHtml(rcpt.unitLabel)})</h2>
+      <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 20px;">
+        Consulta tu estado de cuenta, los comunicados y los documentos de la copropiedad desde este enlace personal. No necesitas usuario ni contraseña.
+      </p>
+      <div style="text-align:center;margin:0 0 20px;">
+        <a href="${rcpt.url}" style="display:inline-block;background:${accent};color:#fff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;">Abrir mi portal</a>
+      </div>
+      <p style="color:#9ca3af;font-size:12px;line-height:1.5;margin:0;word-break:break-all;">
+        O copia este enlace: ${rcpt.url}<br/><br/>
+        Este enlace es personal de tu unidad — no lo compartas.
+      </p>
+    </div>
+  </div>
+</body></html>`,
+      }));
+      const res = await resend.batch.send(payload);
+      if (res.error) {
+        console.error("[email] portal batch error:", res.error);
+        failed += chunk.length;
+      } else {
+        sent += chunk.length;
+      }
+    } catch (e) {
+      console.error("[email] portal send failed:", e);
+      failed += chunk.length;
+    }
+  }
+  return { sent, failed };
+}
+
 export interface AnnouncementEmailParams {
   recipients: string[];
   subject: string;

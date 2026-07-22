@@ -196,6 +196,9 @@ const STATEMENTS: string[] = [
   // Cartera (F2): coeficiente/cuota en Unit + cargos y pagos.
   `ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "coeficiente" DOUBLE PRECISION`,
   `ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "monthlyFee" INTEGER`,
+  // F3: resident portal token.
+  `ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "portalToken" TEXT`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "Unit_portalToken_key" ON "Unit"("portalToken")`,
   `CREATE TABLE IF NOT EXISTS "Charge" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
