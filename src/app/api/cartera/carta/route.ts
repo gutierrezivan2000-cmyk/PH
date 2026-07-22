@@ -183,10 +183,10 @@ ${openList || "- (sin detalle)"}`;
     return NextResponse.json({ subject: letterSubject, content: letterContent });
   } catch (error) {
     console.error("[cartera carta]", error);
-    const detail = error instanceof Error ? error.message : String(error);
-    return NextResponse.json(
-      { error: `No se pudo generar la carta. Detalle: ${detail}`.slice(0, 400) },
-      { status: 500 }
-    );
+    const msg =
+      error instanceof Error && /IA|API|saturado|creditos/i.test(error.message)
+        ? error.message
+        : "No se pudo generar la carta. Intenta de nuevo.";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
