@@ -30,6 +30,14 @@ model User {
   logoUrl       String?
   brandColor    String?
 
+  // F3.3: the admin's OWN ePayco merchant credentials, so resident payments go
+  // straight to their account (SOPH.IA never custodies funds). Secrets stored
+  // here; never returned to the client in full.
+  epaycoPublicKey String?
+  epaycoPCustId   String?
+  epaycoPKey      String?
+  epaycoTest      Boolean @default(true)
+
   // Admin role
   role          String    @default("user") // "user" | "admin"
 
@@ -366,6 +374,25 @@ model Announcement {
 
   @@index([propertyId])
   @@index([userId])
+}
+
+// Server-side pending order for a resident's online administration payment
+// (F3.3). Mirrors PendingOrder (subscriptions) for payment integrity: we never
+// trust the callback to decide who/how-much — we resolve from this record.
+model UnitPaymentOrder {
+  id          String    @id @default(cuid())
+  ref         String    @unique // invoice sent to ePayco (uadm-<unitId>-<ts>)
+  userId      String // admin owner
+  propertyId  String
+  unitId      String
+  amount      Int // expected charge (COP)
+  status      String    @default("pending") // "pending" | "completed" | "rejected"
+  epaycoRef   String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([userId])
+  @@index([unitId])
 }
 
 // ============================================

@@ -176,6 +176,32 @@ export function validateConfirmationSignature(params: {
   return expected === x_signature;
 }
 
+/**
+ * Signature validation with explicit merchant credentials — used for resident
+ * administration payments, which settle into the ADMIN's own ePayco account,
+ * so we must validate with THEIR P_CUST_ID / P_KEY (not SOPH.IA's env keys).
+ */
+export function validateSignatureWith(
+  custId: string,
+  pKey: string,
+  params: {
+    x_ref_payco: string;
+    x_transaction_id: string;
+    x_amount: string;
+    x_currency_code: string;
+    x_signature: string;
+  }
+): boolean {
+  if (!custId || !pKey) return false;
+  const expected = crypto
+    .createHash("sha256")
+    .update(
+      `${custId}^${pKey}^${params.x_ref_payco}^${params.x_transaction_id}^${params.x_amount}^${params.x_currency_code}`
+    )
+    .digest("hex");
+  return expected === params.x_signature;
+}
+
 // ── Transaction verification via API ──────────────────────────────────────────
 
 export async function verifyTransaction(refPayco: string): Promise<{
