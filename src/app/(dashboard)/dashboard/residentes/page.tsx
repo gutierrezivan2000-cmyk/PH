@@ -19,6 +19,8 @@ import {
   Mail,
   MessageCircle,
   Save,
+  CreditCard,
+  ChevronDown,
 } from "lucide-react";
 
 interface Property {
@@ -67,9 +69,50 @@ export default function ResidentesPage() {
   const [waDirty, setWaDirty] = useState(false);
   const [waSaving, setWaSaving] = useState(false);
 
+  // ePayco config (account-level, applies to all properties)
+  const [showPay, setShowPay] = useState(false);
+  const [payConfigured, setPayConfigured] = useState(false);
+  const [payPublicKey, setPayPublicKey] = useState("");
+  const [payCustId, setPayCustId] = useState("");
+  const [payKey, setPayKey] = useState("");
+  const [payTest, setPayTest] = useState(true);
+  const [paySaving, setPaySaving] = useState(false);
+
   useEffect(() => {
     setOrigin(window.location.origin);
+    fetch("/api/pagos/config")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && !d.error) {
+          setPayConfigured(!!d.configured);
+          setPayPublicKey(d.publicKey || "");
+          setPayCustId(d.pCustId || "");
+          setPayKey(d.pKeyMasked || "");
+          setPayTest(d.test !== false);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  async function savePayConfig() {
+    setPaySaving(true);
+    try {
+      const res = await fetch("/api/pagos/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicKey: payPublicKey, pCustId: payCustId, pKey: payKey, test: payTest }),
+      });
+      if (res.ok) {
+        setMsg({ ok: true, text: "Pago en línea configurado. Los residentes con saldo ya pueden pagar desde su portal." });
+        setPayConfigured(!!(payPublicKey && payCustId && (payKey && !payKey.includes("•") || payConfigured)));
+        setShowPay(false);
+      } else {
+        setMsg({ ok: false, text: "No se pudo guardar la configuración de pago." });
+      }
+    } finally {
+      setPaySaving(false);
+    }
+  }
 
   const load = useCallback(async (pid: string) => {
     if (!pid) return;
@@ -351,6 +394,61 @@ export default function ResidentesPage() {
                   Guardar
                 </button>
               </div>
+            </div>
+
+            {/* Pago en línea (ePayco) */}
+            <div className="rounded-2xl" style={card}>
+              <button onClick={() => setShowPay((v) => !v)} className="w-full flex items-center gap-3 p-4 cursor-pointer">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(95,180,255,0.10)" }}>
+                  <CreditCard className="h-4 w-4" style={{ color: "#5fb4ff" }} />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>Pago en línea (ePayco)</p>
+                  <p className="text-[11.5px]" style={{ color: payConfigured ? "#4cd6a0" : "rgba(246,245,247,0.45)" }}>
+                    {payConfigured ? "Configurado — los residentes con saldo pueden pagar desde su portal" : "Sin configurar — conéctalo para recibir pagos en línea"}
+                  </p>
+                </div>
+                <ChevronDown className="h-4 w-4 transition-transform" style={{ color: "rgba(246,245,247,0.35)", transform: showPay ? "rotate(180deg)" : "none" }} />
+              </button>
+              {showPay && (
+                <div className="px-4 pb-4 space-y-3">
+                  <p className="text-[12px] leading-relaxed" style={{ color: "rgba(246,245,247,0.55)" }}>
+                    Ingresa las llaves de <strong>tu propia cuenta ePayco</strong>. Los pagos de los
+                    residentes llegan <strong>directo a tu cuenta</strong> — SOPH.IA solo concilia contra
+                    la cartera y nunca retiene el dinero. Encuentra estas llaves en tu panel de ePayco →
+                    Configuración → Llaves.
+                  </p>
+                  {[
+                    { label: "Public Key", val: payPublicKey, set: setPayPublicKey, ph: "pub_test_..." },
+                    { label: "P_CUST_ID_CLIENTE", val: payCustId, set: setPayCustId, ph: "123456" },
+                    { label: "P_KEY", val: payKey, set: setPayKey, ph: "••••" },
+                  ].map((f) => (
+                    <div key={f.label}>
+                      <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">{f.label}</label>
+                      <input
+                        value={f.val}
+                        onChange={(e) => f.set(e.target.value)}
+                        placeholder={f.ph}
+                        className="w-full h-10 px-3 rounded-lg text-[13px]"
+                        style={{ background: "#0f0f13", border: "1px solid rgba(255,255,255,0.10)", color: "#f6f5f7", outline: "none", fontFamily: "var(--font-mono)" }}
+                      />
+                    </div>
+                  ))}
+                  <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: "rgba(246,245,247,0.60)" }}>
+                    <input type="checkbox" checked={payTest} onChange={(e) => setPayTest(e.target.checked)} />
+                    Modo de pruebas (desactívalo cuando estés listo para cobrar de verdad)
+                  </label>
+                  <button
+                    onClick={savePayConfig}
+                    disabled={paySaving}
+                    className="inline-flex items-center gap-2 rounded-full text-white text-[12.5px] font-medium px-4 py-2 transition-all disabled:opacity-50 cursor-pointer"
+                    style={{ background: "#5fb4ff" }}
+                  >
+                    {paySaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    Guardar configuración de pago
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Actions */}

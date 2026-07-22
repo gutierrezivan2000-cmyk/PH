@@ -7,6 +7,7 @@ import { waLink, residentToAdminMessage } from "@/lib/whatsapp";
 import { Home, FileText, Megaphone, Wallet, CheckCircle2, AlertCircle } from "lucide-react";
 import { PortalPqrs } from "./PortalPqrs";
 import { PortalAssistant } from "./PortalAssistant";
+import { PortalPay } from "./PortalPay";
 
 const DOC_LABELS: Record<string, string> = {
   reglamento_interno: "Reglamento interno",
@@ -85,7 +86,7 @@ export default async function ResidentPortalPage({
   const [admin, announcements, documents] = await Promise.all([
     db.user.findUnique({
       where: { id: unit.property.userId },
-      select: { name: true, company: true, logoUrl: true, brandColor: true },
+      select: { name: true, company: true, logoUrl: true, brandColor: true, epaycoPublicKey: true },
     }),
     db.announcement.findMany({
       where: { propertyId: unit.propertyId },
@@ -107,6 +108,7 @@ export default async function ResidentPortalPage({
   const paymentsTotal = unit.payments.reduce((s, p) => s + p.amount, 0);
   const summary = computeUnitSummary(unit.charges, paymentsTotal, new Date());
   const owes = summary.balance > 0;
+  const payEnabled = owes && !!admin?.epaycoPublicKey;
   const waHref = waLink(unit.property.whatsapp, residentToAdminMessage(unit.property.name, unit.label));
 
   const movements: Movement[] = [
@@ -182,6 +184,11 @@ export default async function ResidentPortalPage({
               <p style={{ fontSize: 13, color: "#15803d", margin: "4px 0 0", display: "flex", alignItems: "center", gap: 4 }}>
                 <CheckCircle2 style={{ width: 14, height: 14 }} /> No tienes saldos pendientes
               </p>
+            )}
+            {payEnabled && (
+              <div style={{ marginTop: 14 }}>
+                <PortalPay token={token} balanceText={fmtCOP(summary.balance)} />
+              </div>
             )}
           </div>
           {movements.length > 0 && (

@@ -241,6 +241,27 @@ const STATEMENTS: string[] = [
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
   // F3.2b: cached extracted text of property documents (asistente del reglamento).
   `ALTER TABLE "PropertyDocument" ADD COLUMN IF NOT EXISTS "extractedText" TEXT`,
+  // F3.3: admin's own ePayco credentials + resident payment orders.
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "epaycoPublicKey" TEXT`,
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "epaycoPCustId" TEXT`,
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "epaycoPKey" TEXT`,
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "epaycoTest" BOOLEAN NOT NULL DEFAULT true`,
+  `CREATE TABLE IF NOT EXISTS "UnitPaymentOrder" (
+    "id" TEXT NOT NULL,
+    "ref" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "unitId" TEXT NOT NULL,
+    "amount" INTEGER NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "epaycoRef" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completedAt" TIMESTAMP(3),
+    CONSTRAINT "UnitPaymentOrder_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "UnitPaymentOrder_ref_key" ON "UnitPaymentOrder"("ref")`,
+  `CREATE INDEX IF NOT EXISTS "UnitPaymentOrder_userId_idx" ON "UnitPaymentOrder"("userId")`,
+  `CREATE INDEX IF NOT EXISTS "UnitPaymentOrder_unitId_idx" ON "UnitPaymentOrder"("unitId")`,
   `CREATE TABLE IF NOT EXISTS "Charge" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
