@@ -186,6 +186,7 @@ model Property {
   assemblies    Assembly[]
   budgets       Budget[]
   ledgerEntries LedgerEntry[]
+  pqrs          Pqrs[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -368,6 +369,49 @@ model Announcement {
 }
 
 // ============================================
+// PQRS del residente (F3.2) — sin cuenta, desde el portal
+// ============================================
+
+// Petición / Queja / Reclamo / Sugerencia radicada por un residente desde el
+// portal. userId is the admin owner (denormalized for inbox queries).
+model Pqrs {
+  id              String   @id @default(cuid())
+  userId          String
+  propertyId      String
+  unitId          String?
+  code            String   @unique // radicado, ej "PQR-7F3K2Q"
+  type            String   @default("peticion") // peticion | queja | reclamo | sugerencia
+  subject         String
+  status          String   @default("radicado") // radicado | en_proceso | resuelto | cerrado
+  residentName    String?
+  residentContact String? // email o teléfono que dejó el residente
+  unitLabel       String? // snapshot for display
+
+  property Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  messages PqrsMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([propertyId])
+  @@index([status])
+}
+
+model PqrsMessage {
+  id        String   @id @default(cuid())
+  pqrsId    String
+  fromAdmin Boolean  @default(false)
+  content   String   @db.Text
+
+  pqrs Pqrs @relation(fields: [pqrsId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([pqrsId])
+}
+
+// ============================================
 // Presupuesto y ejecución (F2.3)
 // ============================================
 
@@ -502,6 +546,8 @@ model PropertyDocument {
   url        String
   size       Int      @default(0)
   mimeType   String?
+  // Cached extracted text for the resident reglamento assistant (F3.2b).
+  extractedText String? @db.Text
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
