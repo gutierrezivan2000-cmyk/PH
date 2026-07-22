@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { fmtCOP, computeUnitSummary } from "@/lib/cartera";
 import { waLink, residentToAdminMessage } from "@/lib/whatsapp";
 import { Home, FileText, Megaphone, Wallet, CheckCircle2, AlertCircle } from "lucide-react";
+import { PortalPqrs } from "./PortalPqrs";
 
 const DOC_LABELS: Record<string, string> = {
   reglamento_interno: "Reglamento interno",
@@ -245,6 +246,9 @@ export default async function ResidentPortalPage({
             </div>
           </div>
         )}
+
+        {/* PQRS */}
+        <PortalPqrs token={token} accent={accent} />
 
         {/* Documentos */}
         {documents.length > 0 && (

@@ -24,6 +24,7 @@ import {
   Wallet,
   PieChart,
   Users,
+  MessageSquare,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -36,14 +37,15 @@ const navigation: NavEntry[] = [
   { name: "Cartera", href: "/dashboard/cartera", icon: Wallet, n: "04" },
   { name: "Presupuesto", href: "/dashboard/presupuesto", icon: PieChart, n: "05" },
   { name: "Residentes", href: "/dashboard/residentes", icon: Users, n: "06" },
-  { name: "Comunicados", href: "/dashboard/comunicados", icon: Send, n: "07" },
-  { name: "Certificados", href: "/dashboard/certificados", icon: BadgeCheck, n: "08" },
-  { name: "Asambleas", href: "/dashboard/asambleas", icon: Gavel, n: "09" },
-  { name: "Asistente IA", href: "/dashboard/asistente", icon: Sparkles, n: "10", badge: "6" },
-  { name: "Propiedades", href: "/dashboard/propiedades", icon: Building2, n: "11" },
-  { name: "Historial", href: "/dashboard/historial", icon: History, n: "12" },
-  { name: "Suscripción", href: "/dashboard/suscripcion", icon: CreditCard, n: "13" },
-  { name: "Configuración", href: "/dashboard/configuracion", icon: Settings2, n: "14" },
+  { name: "PQRS", href: "/dashboard/pqrs", icon: MessageSquare, n: "07" },
+  { name: "Comunicados", href: "/dashboard/comunicados", icon: Send, n: "08" },
+  { name: "Certificados", href: "/dashboard/certificados", icon: BadgeCheck, n: "09" },
+  { name: "Asambleas", href: "/dashboard/asambleas", icon: Gavel, n: "10" },
+  { name: "Asistente IA", href: "/dashboard/asistente", icon: Sparkles, n: "11", badge: "6" },
+  { name: "Propiedades", href: "/dashboard/propiedades", icon: Building2, n: "12" },
+  { name: "Historial", href: "/dashboard/historial", icon: History, n: "13" },
+  { name: "Suscripción", href: "/dashboard/suscripcion", icon: CreditCard, n: "14" },
+  { name: "Configuración", href: "/dashboard/configuracion", icon: Settings2, n: "15" },
 ];
 
 // Enterprise "Portafolio" — only for Elite subscribers and beta testers.

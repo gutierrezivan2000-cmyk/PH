@@ -201,6 +201,46 @@ const STATEMENTS: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS "Unit_portalToken_key" ON "Unit"("portalToken")`,
   // F3: admin WhatsApp contact per property.
   `ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "whatsapp" TEXT`,
+  // F3.2: PQRS del residente.
+  `CREATE TABLE IF NOT EXISTS "Pqrs" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "unitId" TEXT,
+    "code" TEXT NOT NULL,
+    "type" TEXT NOT NULL DEFAULT 'peticion',
+    "subject" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'radicado',
+    "residentName" TEXT,
+    "residentContact" TEXT,
+    "unitLabel" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Pqrs_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "Pqrs_code_key" ON "Pqrs"("code")`,
+  `CREATE INDEX IF NOT EXISTS "Pqrs_userId_idx" ON "Pqrs"("userId")`,
+  `CREATE INDEX IF NOT EXISTS "Pqrs_propertyId_idx" ON "Pqrs"("propertyId")`,
+  `CREATE INDEX IF NOT EXISTS "Pqrs_status_idx" ON "Pqrs"("status")`,
+  `DO $$ BEGIN
+    ALTER TABLE "Pqrs" ADD CONSTRAINT "Pqrs_propertyId_fkey"
+      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `CREATE TABLE IF NOT EXISTS "PqrsMessage" (
+    "id" TEXT NOT NULL,
+    "pqrsId" TEXT NOT NULL,
+    "fromAdmin" BOOLEAN NOT NULL DEFAULT false,
+    "content" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "PqrsMessage_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "PqrsMessage_pqrsId_idx" ON "PqrsMessage"("pqrsId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "PqrsMessage" ADD CONSTRAINT "PqrsMessage_pqrsId_fkey"
+      FOREIGN KEY ("pqrsId") REFERENCES "Pqrs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // F3.2b: cached extracted text of property documents (asistente del reglamento).
+  `ALTER TABLE "PropertyDocument" ADD COLUMN IF NOT EXISTS "extractedText" TEXT`,
   `CREATE TABLE IF NOT EXISTS "Charge" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
