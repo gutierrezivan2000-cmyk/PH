@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
+import { UnitImport } from "@/components/dashboard/UnitImport";
+import { waLink, portalLinkMessage } from "@/lib/whatsapp";
 import {
   Users,
   Loader2,
@@ -15,6 +17,8 @@ import {
   Ban,
   QrCode,
   Mail,
+  MessageCircle,
+  Save,
 } from "lucide-react";
 
 interface Property {
@@ -27,6 +31,7 @@ interface UnitRow {
   label: string;
   residentName: string | null;
   email: string | null;
+  phone: string | null;
   portalToken: string | null;
 }
 
@@ -58,6 +63,9 @@ export default function ResidentesPage() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [origin, setOrigin] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [waDirty, setWaDirty] = useState(false);
+  const [waSaving, setWaSaving] = useState(false);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -75,11 +83,32 @@ export default function ResidentesPage() {
       if (res.ok) {
         setUpgrade(false);
         setUnits(data.units || []);
+        setWhatsapp(data.whatsapp || "");
+        setWaDirty(false);
       }
     } catch {
       /* keep */
     }
   }, []);
+
+  async function saveWhatsapp() {
+    setWaSaving(true);
+    try {
+      const res = await fetch("/api/properties", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: propertyId, whatsapp }),
+      });
+      if (res.ok) {
+        setWaDirty(false);
+        setMsg({ ok: true, text: "Número de WhatsApp guardado. Ya aparece en el portal de tus residentes." });
+      } else {
+        setMsg({ ok: false, text: "No se pudo guardar el número." });
+      }
+    } finally {
+      setWaSaving(false);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/properties")
@@ -292,6 +321,38 @@ export default function ResidentesPage() {
               </p>
             </div>
 
+            {/* WhatsApp de la administración */}
+            <div className="rounded-2xl p-4" style={card}>
+              <div className="flex items-center gap-2 mb-2">
+                <MessageCircle className="h-4 w-4" style={{ color: "#25D366" }} />
+                <span className="text-[13px] font-medium" style={{ color: "#f6f5f7" }}>WhatsApp de la administración</span>
+              </div>
+              <p className="text-[12px] mb-3 leading-relaxed" style={{ color: "rgba(246,245,247,0.50)" }}>
+                Aparece en el portal como botón <strong>&quot;Escríbenos por WhatsApp&quot;</strong>. Cuando un
+                residente lo usa, el mensaje te llega <strong>ya identificado con su unidad</strong> — sabes
+                de inmediato quién escribe.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  value={whatsapp}
+                  onChange={(e) => { setWhatsapp(e.target.value); setWaDirty(true); }}
+                  placeholder="Ej: 300 123 4567"
+                  inputMode="tel"
+                  className="h-10 px-3 rounded-lg text-[13px]"
+                  style={{ background: "#0f0f13", border: "1px solid rgba(255,255,255,0.10)", color: "#f6f5f7", outline: "none", width: 200 }}
+                />
+                <button
+                  onClick={saveWhatsapp}
+                  disabled={waSaving || !waDirty}
+                  className="inline-flex items-center gap-2 rounded-full text-white text-[12.5px] font-medium px-4 py-2 transition-all disabled:opacity-40 cursor-pointer"
+                  style={{ background: "#25D366" }}
+                >
+                  {waSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Guardar
+                </button>
+              </div>
+            </div>
+
             {/* Actions */}
             <div className="flex flex-wrap items-center gap-3">
               {missingToken > 0 && (
@@ -337,20 +398,23 @@ export default function ResidentesPage() {
 
             {/* Units */}
             {units.length === 0 ? (
-              <div className="rounded-2xl p-10 text-center" style={card}>
+              <div className="rounded-2xl p-8 text-center" style={card}>
                 <Users className="h-8 w-8 mx-auto mb-3" style={{ color: "rgba(246,245,247,0.25)" }} />
                 <p className="text-[14px] mb-1" style={{ color: "rgba(246,245,247,0.70)" }}>
                   Esta propiedad aún no tiene unidades
                 </p>
                 <p className="text-[12.5px] mb-4" style={{ color: "rgba(246,245,247,0.40)" }}>
-                  Agrégalas en Comunicados → Destinatarios o en Cartera.
+                  Importa tu listado desde un archivo (Excel, PDF…) y la IA lo organiza, o agrégalas a mano.
                 </p>
+                <div className="flex justify-center mb-3">
+                  <UnitImport propertyId={propertyId} onImported={(n) => { setMsg({ ok: true, text: `${n} ${n === 1 ? "unidad importada" : "unidades importadas"}.` }); load(propertyId); }} />
+                </div>
                 <Link
                   href="/dashboard/comunicados"
                   className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2"
                   style={{ background: "rgba(124,92,255,0.15)", color: "#a78bff", border: "1px solid rgba(124,92,255,0.40)" }}
                 >
-                  Agregar unidades
+                  Agregar a mano
                   <ArrowUpRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
@@ -404,6 +468,16 @@ export default function ResidentesPage() {
                                     <Mail className="h-4 w-4" />
                                   </button>
                                 )}
+                                {(() => {
+                                  const href = u.phone
+                                    ? waLink(u.phone, portalLinkMessage({ propertyName: properties.find((p) => p.id === propertyId)?.name || "la copropiedad", unitLabel: u.label, portalUrl: `${origin}/u/${u.portalToken}` }))
+                                    : null;
+                                  return href ? (
+                                    <a href={href} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-white/[0.06]" style={{ color: "#25D366" }} title="Enviar enlace por WhatsApp">
+                                      <MessageCircle className="h-4 w-4" />
+                                    </a>
+                                  ) : null;
+                                })()}
                                 <button onClick={() => rotate(u.id)} disabled={busy} className="p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.06]" style={{ color: "rgba(246,245,247,0.45)" }} title="Regenerar enlace">
                                   <RefreshCw className="h-4 w-4" />
                                 </button>

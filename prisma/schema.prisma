@@ -169,6 +169,9 @@ model Property {
   // { ascensor, piscina, plantaElectrica, gimnasio, empleadosDirectos: boolean,
   //   polizaVence: "YYYY-MM-DD" | null }
   features   Json?
+
+  // Admin's WhatsApp contact for residents of this property (shown in the portal).
+  whatsapp   String?
   // Optional label to group/organize properties in the enterprise portfolio
   // (e.g. a zone, building type, or assigned administrator).
   groupLabel String?

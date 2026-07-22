@@ -66,6 +66,48 @@ export async function POST(
     await ensureAdminSchema();
 
     const body = await req.json().catch(() => ({}));
+
+    // ── Structured create (from the AI file import, after admin review) ──
+    if (Array.isArray(body.units)) {
+      const incoming = body.units.slice(0, MAX_UNITS_PER_PROPERTY) as Array<Record<string, unknown>>;
+      const [existingCount, existingUnitsE] = await Promise.all([
+        db.unit.count({ where: { propertyId } }),
+        db.unit.findMany({ where: { propertyId, email: { not: null } }, select: { email: true } }),
+      ]);
+      if (existingCount + incoming.length > MAX_UNITS_PER_PROPERTY) {
+        return NextResponse.json({ error: `Máximo ${MAX_UNITS_PER_PROPERTY} unidades por propiedad.` }, { status: 400 });
+      }
+      const known = new Set(existingUnitsE.map((u) => u.email!.toLowerCase()));
+      const rows: {
+        propertyId: string; userId: string; label: string;
+        residentName: string | null; email: string | null; phone: string | null;
+        monthlyFee: number | null; coeficiente: number | null;
+      }[] = [];
+      let skippedS = 0;
+      for (const u of incoming) {
+        const label = typeof u.label === "string" ? u.label.trim().slice(0, 60) : "";
+        if (!label) { skippedS++; continue; }
+        const email = typeof u.email === "string" && EMAIL_RE.test(u.email) ? u.email.trim().toLowerCase() : null;
+        if (email && known.has(email)) { skippedS++; continue; }
+        if (email) known.add(email);
+        const phoneDigits = u.phone != null ? String(u.phone).replace(/[^\d]/g, "").slice(0, 15) : "";
+        const coef = Number(u.coeficiente);
+        const fee = Number(u.monthlyFee);
+        rows.push({
+          propertyId,
+          userId: session.user.id,
+          label,
+          residentName: typeof u.residentName === "string" ? u.residentName.trim().slice(0, 100) || null : null,
+          email,
+          phone: phoneDigits.length >= 7 ? phoneDigits : null,
+          coeficiente: Number.isFinite(coef) && coef > 0 && coef <= 100 ? coef : null,
+          monthlyFee: Number.isFinite(fee) && fee >= 0 && fee <= 100_000_000 ? Math.round(fee) : null,
+        });
+      }
+      if (rows.length > 0) await db.unit.createMany({ data: rows });
+      return NextResponse.json({ created: rows.length, skipped: skippedS }, { status: 201 });
+    }
+
     const lines = String(body.lines || "")
       .split(/\r?\n/)
       .map((l) => l.trim())
