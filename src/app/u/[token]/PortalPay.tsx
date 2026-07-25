@@ -36,6 +36,7 @@ function loadCheckout(): Promise<void> {
 export function PortalPay({ token, balanceText }: { token: string; balanceText: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [testMode, setTestMode] = useState(false);
 
   async function pay() {
     setError("");
@@ -51,6 +52,7 @@ export function PortalPay({ token, balanceText }: { token: string; balanceText: 
         setError(data.error || "No se pudo iniciar el pago.");
         return;
       }
+      setTestMode(!!data.test);
       await loadCheckout();
       if (!window.ePayco) {
         setError("No se pudo cargar la pasarela de pago. Intenta de nuevo.");
@@ -104,6 +106,11 @@ export function PortalPay({ token, balanceText }: { token: string; balanceText: 
         {busy ? "Abriendo pasarela…" : `Pagar ${balanceText} en línea`}
       </button>
       {error && <p style={{ fontSize: 12.5, color: "#b91c1c", margin: "8px 0 0", textAlign: "center" }}>{error}</p>}
+      {testMode && (
+        <p style={{ fontSize: 12, color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "8px 12px", margin: "8px 0 0", textAlign: "center" }}>
+          <strong>Modo de pruebas:</strong> esta transacción es de prueba y <strong>no</strong> abonará a tu saldo.
+        </p>
+      )}
       <p style={{ fontSize: 10.5, color: "#9ca3af", margin: "8px 0 0", textAlign: "center" }}>
         Pago seguro procesado por ePayco directamente a la administración. El saldo se actualiza al confirmarse.
       </p>

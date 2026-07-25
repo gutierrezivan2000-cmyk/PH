@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { validateSignatureWith, verifyTransaction } from "@/lib/epayco";
-import { allocateFifo, type Allocation } from "@/lib/cartera";
+import { applyPaymentFifoTx, type Allocation } from "@/lib/cartera";
 
 // ePayco server-to-server callback for a resident's administration payment.
 // Same integrity model as the subscription confirmation, but:
@@ -68,16 +68,62 @@ export async function POST(req: NextRequest) {
       x_signature,
     });
     if (!sigOk) {
+      // Could be forged — or the admin rotated their ePayco keys mid-flight,
+      // which would silently strand a REAL payment. Flag it for review instead
+      // of leaving the order pending forever with no trace.
       console.error("[unit-confirmation] invalid signature", { ref: x_ref_payco });
+      await db.unitPaymentOrder
+        .update({
+          where: { id: order.id },
+          data: { status: "needs_review", failReason: "invalid_signature", epaycoRef: x_ref_payco },
+        })
+        .catch(() => {});
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
     // 3) Re-confirm status directly with ePayco (status isn't signed).
     const verification = await verifyTransaction(x_ref_payco);
     if (!verification.success) {
+      // Transient: keep the order pending so ePayco retries and the
+      // reconciliation cron can still settle it later.
       return NextResponse.json({ error: "Verification unavailable, retry" }, { status: 503 });
     }
     const codResponse = String(verification.data?.x_cod_response ?? x_cod_response);
+
+    // 3b) ANTI-REPLAY: x_id_invoice is NOT covered by ePayco's signature, so a
+    // signed tuple could otherwise be pointed at a different order of the same
+    // amount. Bind the verified transaction to THIS order.
+    const verifiedInvoice = verification.data?.x_id_invoice;
+    if (verifiedInvoice && String(verifiedInvoice) !== order.ref) {
+      console.error("[unit-confirmation] invoice mismatch", {
+        ref: x_ref_payco,
+        callbackInvoice: x_id_invoice,
+        verifiedInvoice,
+        orderRef: order.ref,
+      });
+      await db.unitPaymentOrder
+        .update({ where: { id: order.id }, data: { status: "needs_review", failReason: "invoice_mismatch" } })
+        .catch(() => {});
+      return NextResponse.json({ error: "Invoice mismatch" }, { status: 400 });
+    }
+
+    // 3c) SANDBOX: a test transaction moves no real money — never credit it to
+    // the cartera. Record it so the admin can see the test went through.
+    const isTestTx = String(verification.data?.x_test_request ?? "").toUpperCase() === "TRUE";
+    if (isTestTx || order.test) {
+      await db.unitPaymentOrder
+        .update({
+          where: { id: order.id },
+          data: {
+            status: "test",
+            epaycoRef: x_ref_payco,
+            failReason: isTestTx ? null : "order_created_in_test_mode",
+            completedAt: new Date(),
+          },
+        })
+        .catch(() => {});
+      return NextResponse.json({ received: true, test: true });
+    }
 
     // 4) Amount + currency must match the order we created.
     if (!amountMatches(x_amount, order.amount)) {
@@ -99,21 +145,23 @@ export async function POST(req: NextRequest) {
       // transaction. Concurrent duplicate callbacks serialize on the order row:
       // only the first claim matches (count === 1); the rest see 0 and no-op.
       await db.$transaction(async (tx) => {
+        // The claim also writes epaycoRef, which carries a UNIQUE index: if this
+        // same ePayco transaction already settled another order, the insert
+        // fails and the whole transaction rolls back (anti cross-replay).
         const claim = await tx.unitPaymentOrder.updateMany({
           where: { id: order.id, status: "pending" },
           data: { status: "completed", epaycoRef: x_ref_payco, completedAt: new Date() },
         });
         if (claim.count !== 1) return; // already reconciled by another callback
 
-        const openCharges = await tx.charge.findMany({
-          where: { unitId: order.unitId },
-          orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
-          select: { id: true, amount: true, paidAmount: true },
-        });
-        const { allocations } = allocateFifo(openCharges, order.amount);
-        for (const a of allocations as Allocation[]) {
-          await tx.charge.update({ where: { id: a.chargeId }, data: { paidAmount: { increment: a.amount } } });
-        }
+        // Read + allocate + write under a row lock on the unit (same helper as
+        // the manual payment path) so the two can never double-impute.
+        const { allocations } = await applyPaymentFifoTx(
+          tx as unknown as Parameters<typeof applyPaymentFifoTx>[0],
+          order.unitId,
+          order.amount
+        );
+        void (allocations as Allocation[]);
         await tx.unitPayment.create({
           data: {
             userId: order.userId,

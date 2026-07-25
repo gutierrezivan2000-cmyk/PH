@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/process-batch", "schedule": "* * * * *" },
+    { "path": "/api/cron/reconcile-payments", "schedule": "*/15 * * * *" },
     { "path": "/api/cron/health-check", "schedule": "0 */6 * * *" }
   ]
 }

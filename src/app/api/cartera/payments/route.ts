@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireCartera } from "@/lib/cartera-server";
-import { allocateFifo, type Allocation } from "@/lib/cartera";
+import { applyPaymentFifoTx, type Allocation } from "@/lib/cartera";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -53,22 +53,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unidad no encontrada" }, { status: 404 });
     }
 
-    // FIFO over open charges, oldest due first.
-    const openCharges = await db.charge.findMany({
-      where: { unitId },
-      orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
-      select: { id: true, amount: true, paidAmount: true },
-    });
-    const { allocations, leftover } = allocateFifo(openCharges, amt);
-
-    const payment = await db.$transaction(async (tx) => {
-      for (const a of allocations) {
-        await tx.charge.update({
-          where: { id: a.chargeId },
-          data: { paidAmount: { increment: a.amount } },
-        });
-      }
-      return tx.unitPayment.create({
+    // Read + allocate + write inside ONE transaction, behind a lock on the unit,
+    // so concurrent payments can never double-impute the same charge.
+    const { payment, leftover } = await db.$transaction(async (tx) => {
+      const { allocations, leftover: rest } = await applyPaymentFifoTx(
+        tx as unknown as Parameters<typeof applyPaymentFifoTx>[0],
+        unitId,
+        amt
+      );
+      const created = await tx.unitPayment.create({
         data: {
           userId,
           propertyId,
@@ -81,6 +74,7 @@ export async function POST(req: NextRequest) {
           receivedAt: when,
         },
       });
+      return { payment: created, leftover: rest };
     });
 
     return NextResponse.json(

@@ -75,16 +75,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "El monto mínimo de pago es $1.000." }, { status: 400 });
     }
 
+    // Anti-abuse: a resident creating unlimited pending orders is the setup for
+    // replay games and clutters reconciliation. 10 checkouts/hour per unit.
+    const { rateLimit } = await import("@/lib/rate-limit");
+    const rl = await rateLimit(`portal-pay:${unit.id}`, { max: 10, windowMs: 60 * 60 * 1000 });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Demasiados intentos de pago seguidos. Espera unos minutos e intenta de nuevo." },
+        { status: 429 }
+      );
+    }
+
+    const isTest = merchant.epaycoTest ?? true;
     const ref = `uadm-${unit.id.slice(-8)}-${randomBytes(4).toString("hex")}`;
     await db.unitPaymentOrder.create({
-      data: { ref, userId: unit.property.userId, propertyId: unit.propertyId, unitId: unit.id, amount: amt, status: "pending" },
+      data: {
+        ref,
+        userId: unit.property.userId,
+        propertyId: unit.propertyId,
+        unitId: unit.id,
+        amount: amt,
+        status: "pending",
+        test: isTest,
+      },
     });
 
     const base = origin(req);
     return NextResponse.json({
       ref,
       publicKey: merchant.epaycoPublicKey,
-      test: merchant.epaycoTest ?? true,
+      test: isTest,
       amount: amt,
       currency: "cop",
       name: `Administración ${unit.property.name}`,
