@@ -3,6 +3,31 @@ import { auth } from "@/lib/auth";
 import { canUseCartera } from "@/lib/cartera";
 
 /**
+ * Whether an ARBITRARY user (the property owner) currently has the plan that
+ * covers resident-facing modules. Used by the PUBLIC portal routes: without
+ * this, a Business admin who downgrades to Pro keeps receiving PQRS and
+ * payments that they can no longer see — the resident's request would vanish
+ * into a black hole. Fails OPEN on infra errors (never block a resident
+ * because our DB hiccuped).
+ */
+export async function ownerHasCarteraPlan(userId: string): Promise<boolean> {
+  try {
+    const { checkSubscriptionAccess } = await import("@/lib/usage");
+    const { db } = await import("@/lib/db");
+    const { normalizePlanId } = await import("@/lib/plan");
+    const access = await checkSubscriptionAccess(userId);
+    if (!access.allowed) return false;
+    const sub = await db.subscription.findUnique({
+      where: { userId },
+      select: { planId: true },
+    });
+    return canUseCartera(access.status, normalizePlanId(sub?.planId));
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Gate for all cartera endpoints: active session + active access (trial,
  * beta or paid) + Business/Élite plan (Pro sees the upgrade path).
  * Callers handle DEMO_MODE before invoking this.

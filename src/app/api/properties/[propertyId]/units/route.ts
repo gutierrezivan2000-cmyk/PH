@@ -295,14 +295,38 @@ export async function DELETE(
     }
 
     const unitId = req.nextUrl.searchParams.get("id");
-    if (unitId) {
-      await db.unit.deleteMany({ where: { id: unitId, propertyId } });
-    } else if (req.nextUrl.searchParams.get("all") === "true") {
-      await db.unit.deleteMany({ where: { propertyId } });
-    } else {
+    const all = req.nextUrl.searchParams.get("all") === "true";
+    if (!unitId && !all) {
       return NextResponse.json({ error: "ID requerido" }, { status: 400 });
     }
-    return NextResponse.json({ ok: true });
+
+    // GUARD: deleting a Unit cascades to its Charge and UnitPayment rows —
+    // i.e. it destroys the unit's whole financial history, which backs the
+    // estado de cuenta and the administrator's debt certification (Art. 48,
+    // Ley 675). Never let that happen from a "remove recipient" click.
+    const scope = unitId ? { id: unitId, propertyId } : { propertyId };
+    const targets = await db.unit.findMany({ where: scope, select: { id: true, label: true } });
+    if (targets.length === 0) {
+      return NextResponse.json({ ok: true, deleted: 0 });
+    }
+    const ids = targets.map((u) => u.id);
+    const [chargeCount, paymentCount] = await Promise.all([
+      db.charge.count({ where: { unitId: { in: ids } } }),
+      db.unitPayment.count({ where: { unitId: { in: ids } } }),
+    ]);
+    if (chargeCount > 0 || paymentCount > 0) {
+      const who = unitId ? `La unidad ${targets[0].label}` : "Algunas unidades";
+      return NextResponse.json(
+        {
+          error: `${who} tiene movimientos de cartera (${chargeCount} cobros y ${paymentCount} pagos). No se puede eliminar sin borrar su historial financiero, que respalda los estados de cuenta. Si el residente cambió, edita la unidad en vez de eliminarla.`,
+          code: "unit_has_cartera",
+        },
+        { status: 409 }
+      );
+    }
+
+    await db.unit.deleteMany({ where: scope });
+    return NextResponse.json({ ok: true, deleted: targets.length });
   } catch (error) {
     console.error("[api/units DELETE]", error);
     return NextResponse.json({ error: "Error al eliminar" }, { status: 500 });

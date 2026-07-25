@@ -78,6 +78,20 @@ export async function POST(req: NextRequest) {
     const unit = await unitFromToken(token);
     if (!unit) return NextResponse.json({ error: "Enlace inválido." }, { status: 404 });
 
+    // Never accept a request the administration can no longer read (e.g. their
+    // plan no longer covers PQRS) — it would vanish with nobody to answer it.
+    const { ownerHasCarteraPlan } = await import("@/lib/cartera-server");
+    if (!(await ownerHasCarteraPlan(unit.property.userId))) {
+      return NextResponse.json(
+        {
+          error:
+            "La administración no está recibiendo solicitudes por este medio en este momento. Por favor comunícate directamente con ella.",
+          code: "not_available",
+        },
+        { status: 403 }
+      );
+    }
+
     // Anti-spam: 5 radicados/hour per unit + 20/hour per IP.
     const rl1 = await rateLimit(`pqrs:unit:${unit.id}`, { max: 5, windowMs: 60 * 60 * 1000 });
     const rl2 = await rateLimit(`pqrs:ip:${clientIp(req)}`, { max: 20, windowMs: 60 * 60 * 1000 });

@@ -168,7 +168,21 @@ export default function ComunicadosPage() {
   }
 
   async function removeUnit(id: string) {
-    await fetch(`/api/properties/${propertyId}/units?id=${id}`, { method: "DELETE" });
+    const u = units.find((x) => x.id === id);
+    if (
+      !window.confirm(
+        `¿Eliminar la unidad ${u?.label || ""}? Se quita de la copropiedad por completo (no solo de los comunicados). Si tiene movimientos de cartera, no podrá eliminarse.`
+      )
+    ) {
+      return;
+    }
+    const res = await fetch(`/api/properties/${propertyId}/units?id=${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setBulkMsg(data.error || "No se pudo eliminar la unidad.");
+      return;
+    }
+    setBulkMsg("");
     await loadUnits(propertyId);
   }
 

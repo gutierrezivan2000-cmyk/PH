@@ -79,6 +79,7 @@ export default function PqrsInboxPage() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [upgrade, setUpgrade] = useState(false);
+  const [canAct, setCanAct] = useState(true);
   const [filter, setFilter] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [reply, setReply] = useState("");
@@ -96,7 +97,10 @@ export default function PqrsInboxPage() {
         return;
       }
       if (res.ok) {
+        // Reading is always allowed: a resident's request must never be
+        // invisible. Only answering needs the plan (canAct === false).
         setUpgrade(false);
+        setCanAct(data.canAct !== false);
         setList(data.pqrs || []);
         setCounts(data.counts || {});
       }
@@ -163,6 +167,27 @@ export default function PqrsInboxPage() {
 
         {!upgrade && (
           <>
+            {!canAct && (
+              <div
+                className="flex flex-wrap items-center gap-3 rounded-2xl p-4"
+                style={{ background: "rgba(124,92,255,0.07)", border: "1px solid rgba(124,92,255,0.28)" }}
+              >
+                <MessageSquare className="h-4 w-4 flex-shrink-0" style={{ color: "#a78bff" }} />
+                <p className="text-[12.5px] flex-1" style={{ color: "rgba(246,245,247,0.75)" }}>
+                  Puedes <strong>leer</strong> las solicitudes de tus residentes, pero para
+                  <strong> responderlas</strong> necesitas el plan Business o Élite. Mientras tanto, el
+                  portal dejó de recibir solicitudes nuevas.
+                </p>
+                <Link
+                  href="/dashboard/suscripcion"
+                  className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2"
+                  style={{ background: "#7c5cff", color: "#fff" }}
+                >
+                  Ver planes <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            )}
+
             {/* Filters */}
             <div className="rounded-2xl p-4 flex flex-wrap items-center gap-2" style={card}>
               <div className="flex flex-wrap gap-2 flex-1">
@@ -249,7 +274,7 @@ export default function PqrsInboxPage() {
                             ))}
                           </div>
 
-                          {p.status !== "cerrado" && (
+                          {p.status !== "cerrado" && canAct && (
                             <div className="space-y-2">
                               <textarea
                                 value={expanded === p.id ? reply : ""}

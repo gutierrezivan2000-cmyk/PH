@@ -6,13 +6,21 @@ import { requireCartera } from "@/lib/cartera-server";
 const IS_DEMO = process.env.DEMO_MODE === "true";
 const STATUSES = ["radicado", "en_proceso", "resuelto", "cerrado"] as const;
 
-/** Admin PQRS inbox. Query: ?propertyId=&status= */
+/** Admin PQRS inbox. Query: ?propertyId=&status=
+ *  READING is always allowed for an authenticated admin — a resident's request
+ *  must never become invisible because the plan changed. Only ANSWERING
+ *  (PATCH) requires the Business/Élite plan. */
 export async function GET(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ pqrs: [], counts: {} });
 
-  const r = await requireCartera();
-  if ("error" in r) return r.error;
-  const { userId } = r;
+  const { auth } = await import("@/lib/auth");
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  const userId = session.user.id;
+  const { ownerHasCarteraPlan } = await import("@/lib/cartera-server");
+  const canAct = await ownerHasCarteraPlan(userId);
 
   const propertyId = req.nextUrl.searchParams.get("propertyId") || undefined;
   const status = req.nextUrl.searchParams.get("status") || undefined;
@@ -39,7 +47,7 @@ export async function GET(req: NextRequest) {
     const counts: Record<string, number> = {};
     for (const g of grouped) counts[g.status] = g._count._all;
 
-    return NextResponse.json({ pqrs, counts });
+    return NextResponse.json({ pqrs, counts, canAct });
   } catch (e) {
     console.error("[pqrs GET]", e);
     return NextResponse.json({ error: "Error al cargar las PQRS" }, { status: 500 });
