@@ -117,6 +117,36 @@ describe("computeUnitSummary", () => {
     expect(s.balance).toBe(260);
   });
 
+  it("a prepaying unit (credit) is NEVER shown as overdue", () => {
+    // Prepaid the semester: FIFO applied Jan only; Feb was created later with
+    // paidAmount 0, so raw overdue would wrongly be 400 — the credit covers it.
+    const s = computeUnitSummary(
+      [
+        { amount: 400, paidAmount: 400, dueDate: new Date(2026, 0, 10) },
+        { amount: 400, paidAmount: 0, dueDate: new Date(2026, 1, 10) },
+      ],
+      2400, // paid the whole semester up front
+      today
+    );
+    expect(s.balance).toBe(-1600);
+    expect(s.overdueAmount).toBe(0);
+    expect(s.overdueDays).toBe(0);
+  });
+
+  it("overdue is capped by the real balance (partial credit)", () => {
+    const s = computeUnitSummary(
+      [
+        { amount: 400, paidAmount: 0, dueDate: new Date(2026, 4, 10) },
+        { amount: 400, paidAmount: 0, dueDate: new Date(2026, 5, 10) },
+      ],
+      500, // paid 500 of 800 → owes 300, even if per-charge detail says 800
+      today
+    );
+    expect(s.balance).toBe(300);
+    expect(s.overdueAmount).toBe(300);
+    expect(s.overdueDays).toBeGreaterThan(0);
+  });
+
   it("a charge due today is not overdue yet", () => {
     const s = computeUnitSummary(
       [{ amount: 100, paidAmount: 0, dueDate: new Date(2026, 6, 20, 8) }],

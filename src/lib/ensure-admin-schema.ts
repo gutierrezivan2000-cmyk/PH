@@ -262,6 +262,11 @@ const STATEMENTS: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS "UnitPaymentOrder_ref_key" ON "UnitPaymentOrder"("ref")`,
   `CREATE INDEX IF NOT EXISTS "UnitPaymentOrder_userId_idx" ON "UnitPaymentOrder"("userId")`,
   `CREATE INDEX IF NOT EXISTS "UnitPaymentOrder_unitId_idx" ON "UnitPaymentOrder"("unitId")`,
+  `CREATE INDEX IF NOT EXISTS "UnitPaymentOrder_status_idx" ON "UnitPaymentOrder"("status")`,
+  `ALTER TABLE "UnitPaymentOrder" ADD COLUMN IF NOT EXISTS "test" BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE "UnitPaymentOrder" ADD COLUMN IF NOT EXISTS "failReason" TEXT`,
+  // Anti-replay: one ePayco transaction can settle AT MOST one order.
+  `CREATE UNIQUE INDEX IF NOT EXISTS "UnitPaymentOrder_epaycoRef_key" ON "UnitPaymentOrder"("epaycoRef")`,
   `CREATE TABLE IF NOT EXISTS "Charge" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,

@@ -49,6 +49,47 @@ export function allocateFifo(
   return { allocations, leftover: remaining };
 }
 
+/**
+ * Serialized FIFO application inside a transaction.
+ *
+ * Reading the charges and computing the allocation MUST happen inside the same
+ * transaction that writes them, behind a row lock on the unit — otherwise two
+ * concurrent payments (double click, or a manual payment racing an ePayco
+ * callback) read the same paidAmount and both impute to the oldest charge,
+ * corrupting the per-charge detail that drives mora, aging and cobranza.
+ *
+ * `tx` is a Prisma transaction client. Returns the allocations applied.
+ */
+export async function applyPaymentFifoTx(
+  tx: {
+    $queryRaw: (q: TemplateStringsArray, ...v: unknown[]) => Promise<unknown>;
+    charge: {
+      findMany: (a: unknown) => Promise<AllocatableCharge[]>;
+      update: (a: unknown) => Promise<unknown>;
+    };
+  },
+  unitId: string,
+  amount: number
+): Promise<{ allocations: Allocation[]; leftover: number }> {
+  // Lock the unit row so concurrent payments for the same unit serialize.
+  await tx.$queryRaw`SELECT id FROM "Unit" WHERE id = ${unitId} FOR UPDATE`;
+
+  const openCharges = await tx.charge.findMany({
+    where: { unitId },
+    orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
+    select: { id: true, amount: true, paidAmount: true },
+  });
+
+  const result = allocateFifo(openCharges, amount);
+  for (const a of result.allocations) {
+    await tx.charge.update({
+      where: { id: a.chargeId },
+      data: { paidAmount: { increment: a.amount } },
+    });
+  }
+  return result;
+}
+
 // ── Unit summary / aging ────────────────────────────────────────────────────
 
 export interface ChargeLike {
@@ -90,15 +131,25 @@ export function computeUnitSummary(
     }
   }
 
-  const overdueDays = oldestOverdue
-    ? Math.round((base.getTime() - oldestOverdue.getTime()) / 86400000)
-    : 0;
+  const balance = charged - paymentsTotal;
+
+  // A unit that prepaid (credit) or paid more than its per-charge allocations
+  // reflect must NEVER show as overdue: FIFO only runs at payment time, so a
+  // credit is not yet imputed to charges created later. Cap the overdue amount
+  // by the real balance so mora, aging, intereses and cobranza never contradict
+  // the account balance. (balance <= 0 → nothing overdue at all.)
+  const cappedOverdue = Math.max(0, Math.min(overdueAmount, balance));
+
+  const overdueDays =
+    cappedOverdue > 0 && oldestOverdue
+      ? Math.round((base.getTime() - oldestOverdue.getTime()) / 86400000)
+      : 0;
 
   return {
     charged,
     paid: paymentsTotal,
-    balance: charged - paymentsTotal,
-    overdueAmount,
+    balance,
+    overdueAmount: cappedOverdue,
     overdueDays,
   };
 }

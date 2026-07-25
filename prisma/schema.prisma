@@ -386,13 +386,20 @@ model UnitPaymentOrder {
   propertyId  String
   unitId      String
   amount      Int // expected charge (COP)
-  status      String    @default("pending") // "pending" | "completed" | "rejected"
-  epaycoRef   String?
+  // "pending" | "completed" | "rejected" | "test" (sandbox, never reconciled)
+  // | "needs_review" (callback arrived but could not be trusted)
+  status      String    @default("pending")
+  // Whether the order was created while the merchant was in ePayco sandbox.
+  test        Boolean   @default(false)
+  failReason  String?
+  // Unique: one ePayco transaction can settle AT MOST one order (anti-replay).
+  epaycoRef   String?   @unique
   createdAt   DateTime  @default(now())
   completedAt DateTime?
 
   @@index([userId])
   @@index([unitId])
+  @@index([status])
 }
 
 // ============================================

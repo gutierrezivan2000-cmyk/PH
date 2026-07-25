@@ -45,6 +45,16 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  // Never liquidate a month that hasn't happened yet: the base would be today's
+  // balance and the charge would be dated in the future.
+  const today = new Date();
+  const isFuture = y > today.getFullYear() || (y === today.getFullYear() && m > today.getMonth() + 1);
+  if (isFuture) {
+    return NextResponse.json(
+      { error: "No puedes liquidar intereses de un mes que aún no ha terminado de transcurrir." },
+      { status: 400 }
+    );
+  }
 
   try {
     const { db } = await import("@/lib/db");
@@ -58,7 +68,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
     }
 
-    const [units, charges, existing] = await Promise.all([
+    const [units, charges, existing, paymentSums] = await Promise.all([
       db.unit.findMany({ where: { propertyId }, select: { id: true } }),
       db.charge.findMany({
         where: { propertyId },
@@ -68,7 +78,13 @@ export async function POST(req: NextRequest) {
         where: { propertyId, type: "interes", month: m, year: y },
         select: { unitId: true },
       }),
+      db.unitPayment.groupBy({
+        by: ["unitId"],
+        where: { propertyId },
+        _sum: { amount: true },
+      }),
     ]);
+    const paidByUnit = new Map(paymentSums.map((p) => [p.unitId, p._sum.amount || 0]));
     const alreadyLiquidated = new Set(existing.map((c) => c.unitId));
 
     const chargesByUnit = new Map<string, typeof charges>();
@@ -79,6 +95,11 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date();
+    // Cut-off = end of the month being liquidated (or now, if it's the current
+    // month). Using "today" for a past month would charge this month's balance
+    // for every back-month, multiplying the interest far beyond the legal cap.
+    const monthEnd = new Date(y, m, 0, 23, 59, 59);
+    const cutoff = monthEnd.getTime() > now.getTime() ? now : monthEnd;
     const concept = `Intereses de mora ${MONTH_NAMES[m - 1]} ${y} (${pct}% mensual)`;
     const toCreate: {
       userId: string;
@@ -94,13 +115,17 @@ export async function POST(req: NextRequest) {
 
     for (const u of units) {
       if (alreadyLiquidated.has(u.id)) continue;
-      // Base excludes "interes" charges — never interest on interest.
-      const base = (chargesByUnit.get(u.id) || []).filter((c) => c.type !== "interes");
-      const summary = computeUnitSummary(base, 0, now);
-      // overdueAmount here is per-charge open amounts past due (payments are
-      // already reflected in paidAmount, so passing 0 as paymentsTotal is fine
-      // for the overdue computation).
-      const interest = interesMora(summary.overdueAmount, pct);
+      const all = chargesByUnit.get(u.id) || [];
+      // Overdue base excludes "interes" charges — never interest on interest…
+      const base = all.filter((c) => c.type !== "interes");
+      const rawOverdue = computeUnitSummary(base, 0, cutoff).overdueAmount;
+      // …and never more than what the unit actually owes overall at the cut-off
+      // (a unit that prepaid has credit that FIFO hasn't imputed yet).
+      const paidTotal = paidByUnit.get(u.id) || 0;
+      const trueBalance = computeUnitSummary(all, paidTotal, cutoff).balance;
+      const effectiveBase = Math.max(0, Math.min(rawOverdue, trueBalance));
+
+      const interest = interesMora(effectiveBase, pct);
       if (interest < 100) continue; // ignore negligible amounts (< COP $100)
       toCreate.push({
         userId,
@@ -111,7 +136,7 @@ export async function POST(req: NextRequest) {
         amount: interest,
         month: m,
         year: y,
-        dueDate: now,
+        dueDate: cutoff,
       });
     }
 
