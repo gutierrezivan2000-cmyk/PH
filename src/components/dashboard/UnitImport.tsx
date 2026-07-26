@@ -121,7 +121,7 @@ export function UnitImport({
       {error && <p className="text-[12px] mt-2" style={{ color: "#ff8585" }}>{error}</p>}
 
       {preview && (
-        <div className="mt-3 rounded-xl overflow-hidden" style={{ background: "#0f0f13", border: "1px solid rgba(124,92,255,0.25)" }}>
+        <div className="mt-3 rounded-xl overflow-hidden" style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgba(124,92,255,0.25)" }}>
           <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" style={{ color: "#4cd6a0" }} />
@@ -154,7 +154,7 @@ export function UnitImport({
             ))}
           </div>
 
-          <div className="flex items-center gap-3 px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="flex items-center gap-3 px-4 py-3" style={{ borderTop: "1px solid var(--hifi-hairline)" }}>
             <button
               onClick={confirm}
               disabled={creating || preview.length === 0}

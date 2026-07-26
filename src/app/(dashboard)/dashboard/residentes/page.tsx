@@ -51,8 +51,8 @@ const monoMini: React.CSSProperties = {
 };
 
 const card: React.CSSProperties = {
-  background: "#15151a",
-  border: "1px solid rgba(255,255,255,0.07)",
+  background: "var(--hifi-surface-1)",
+  border: "1px solid var(--hifi-hairline)",
 };
 
 export default function ResidentesPage() {
@@ -382,7 +382,7 @@ export default function ResidentesPage() {
                   placeholder="Ej: 300 123 4567"
                   inputMode="tel"
                   className="h-10 px-3 rounded-lg text-[13px]"
-                  style={{ background: "#0f0f13", border: "1px solid rgba(255,255,255,0.10)", color: "#f6f5f7", outline: "none", width: 200 }}
+                  style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgba(255,255,255,0.10)", color: "#f6f5f7", outline: "none", width: 200 }}
                 />
                 <button
                   onClick={saveWhatsapp}
@@ -430,7 +430,7 @@ export default function ResidentesPage() {
                         onChange={(e) => f.set(e.target.value)}
                         placeholder={f.ph}
                         className="w-full h-10 px-3 rounded-lg text-[13px]"
-                        style={{ background: "#0f0f13", border: "1px solid rgba(255,255,255,0.10)", color: "#f6f5f7", outline: "none", fontFamily: "var(--font-mono)" }}
+                        style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgba(255,255,255,0.10)", color: "#f6f5f7", outline: "none", fontFamily: "var(--font-mono)" }}
                       />
                     </div>
                   ))}
@@ -521,7 +521,7 @@ export default function ResidentesPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr style={{ background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                      <tr style={{ background: "rgba(255,255,255,0.02)", borderBottom: "1px solid var(--hifi-hairline)" }}>
                         {["Unidad", "Correo", "Portal", ""].map((h) => (
                           <th key={h} className="px-4 py-3 text-left whitespace-nowrap" style={{ ...monoLabel, color: "rgba(246,245,247,0.40)" }}>
                             {h}

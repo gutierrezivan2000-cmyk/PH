@@ -189,13 +189,21 @@ export function StatCard({
   hint?: string;
   icon?: React.ElementType;
 }) {
-  const color = {
-    neutral: "var(--hifi-ink)",
-    ok: "var(--hifi-ok)",
-    warn: "var(--hifi-warn)",
-    danger: "var(--hifi-danger)",
-    accent: "var(--hifi-accent-hi)",
-  }[tone];
+  // A zero/empty metric must NOT be painted green — "todo bien" and "sin datos
+  // todavía" are different things, and colouring them the same misleads.
+  const isEmpty =
+    value === 0 ||
+    value === "0" ||
+    (typeof value === "string" && /^\$?0(\s|$)/.test(value.replace(/\./g, "")));
+  const color = isEmpty
+    ? "rgba(246,245,247,0.42)"
+    : {
+        neutral: "var(--hifi-ink)",
+        ok: "var(--hifi-ok)",
+        warn: "var(--hifi-warn)",
+        danger: "var(--hifi-danger)",
+        accent: "var(--hifi-accent-hi)",
+      }[tone];
 
   return (
     <Surface className="p-4">

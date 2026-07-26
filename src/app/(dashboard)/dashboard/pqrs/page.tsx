@@ -60,7 +60,7 @@ const monoMini: React.CSSProperties = {
   fontSize: "11px",
   letterSpacing: "0.06em",
 };
-const card: React.CSSProperties = { background: "#15151a", border: "1px solid rgba(255,255,255,0.07)" };
+const card: React.CSSProperties = { background: "var(--hifi-surface-1)", border: "1px solid var(--hifi-hairline)" };
 
 function fecha(d: string) {
   return new Date(d).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -282,7 +282,7 @@ export default function PqrsInboxPage() {
                                 rows={3}
                                 placeholder="Escribe tu respuesta…"
                                 className="w-full rounded-lg text-[13px] px-3 py-2.5"
-                                style={{ background: "#0f0f13", border: "1px solid rgba(255,255,255,0.10)", color: "#f6f5f7", outline: "none", resize: "vertical", fontFamily: "inherit" }}
+                                style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgba(255,255,255,0.10)", color: "#f6f5f7", outline: "none", resize: "vertical", fontFamily: "inherit" }}
                                 maxLength={4000}
                               />
                               <div className="flex flex-wrap items-center gap-3">

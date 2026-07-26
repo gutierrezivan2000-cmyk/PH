@@ -621,14 +621,14 @@ export default function AgentPage() {
             <div
               className="fixed inset-y-0 left-0 z-40 w-[280px] sm:w-[300px] lg:relative lg:inset-auto lg:z-auto lg:w-64 xl:w-72 flex flex-col flex-shrink-0"
               style={{
-                background: "#15151a",
+                background: "var(--hifi-surface-1)",
                 borderRight: "1px solid rgba(255,255,255,0.07)",
               }}
             >
               {/* Sidebar header */}
               <div
                 className="p-4 space-y-3"
-                style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+                style={{ borderBottom: "1px solid var(--hifi-hairline)" }}
               >
                 {/* Eyebrow + agent name */}
                 <div className="flex items-center justify-between">
@@ -700,7 +700,7 @@ export default function AgentPage() {
                       paddingTop: 8,
                       paddingBottom: 8,
                       background: "#1d1d24",
-                      border: "1px solid rgba(255,255,255,0.07)",
+                      border: "1px solid var(--hifi-hairline)",
                       borderRadius: 10,
                       fontSize: 12,
                       color: "#f6f5f7",
@@ -853,7 +853,7 @@ export default function AgentPage() {
                         fontSize: 12,
                         padding: "8px 12px",
                         background: "#1d1d24",
-                        border: "1px solid rgba(255,255,255,0.07)",
+                        border: "1px solid var(--hifi-hairline)",
                         borderRadius: 10,
                         color: "#f6f5f7",
                         fontFamily: "'Geist', system-ui, sans-serif",
@@ -886,7 +886,7 @@ export default function AgentPage() {
           {/* Chat header bar */}
           <div
             className="flex items-center gap-3 px-4 py-3"
-            style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+            style={{ borderBottom: "1px solid var(--hifi-hairline)" }}
           >
             {/* Sidebar toggle */}
             <button
@@ -935,7 +935,7 @@ export default function AgentPage() {
                     className="p-1.5 rounded-lg transition-colors disabled:opacity-40"
                     style={{
                       color: "rgba(246,245,247,0.42)",
-                      border: "1px solid rgba(255,255,255,0.07)",
+                      border: "1px solid var(--hifi-hairline)",
                       background: "transparent",
                     }}
                     title="Exportar conversacion"
@@ -1186,8 +1186,8 @@ export default function AgentPage() {
                                 boxShadow: "0 2px 12px rgba(0,0,0,0.20)",
                               }
                             : {
-                                background: "#15151a",
-                                border: "1px solid rgba(255,255,255,0.07)",
+                                background: "var(--hifi-surface-1)",
+                                border: "1px solid var(--hifi-hairline)",
                                 color: "#f6f5f7",
                                 borderRadius: "16px 16px 16px 4px",
                                 boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
@@ -1242,8 +1242,8 @@ export default function AgentPage() {
                     <div
                       className="flex items-center gap-1.5 px-4 py-3"
                       style={{
-                        background: "#15151a",
-                        border: "1px solid rgba(255,255,255,0.07)",
+                        background: "var(--hifi-surface-1)",
+                        border: "1px solid var(--hifi-hairline)",
                         borderRadius: "16px 16px 16px 4px",
                       }}
                     >
@@ -1269,7 +1269,7 @@ export default function AgentPage() {
                     className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
                     style={{
                       background: "#1d1d24",
-                      border: "1px solid rgba(255,255,255,0.07)",
+                      border: "1px solid var(--hifi-hairline)",
                     }}
                   >
                     {att.preview ? (
@@ -1330,7 +1330,7 @@ export default function AgentPage() {
               <div
                 className="rounded-2xl"
                 style={{
-                  background: "#15151a",
+                  background: "var(--hifi-surface-1)",
                   border: "1px solid rgba(255,255,255,0.09)",
                   boxShadow: "0 0 0 1px rgba(124,92,255,0.0)",
                 }}

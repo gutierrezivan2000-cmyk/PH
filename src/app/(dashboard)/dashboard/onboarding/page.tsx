@@ -166,7 +166,7 @@ export default function OnboardingPage() {
   /* ── shared input style ── */
   const inputBase: React.CSSProperties = {
     background: "#1d1d24",
-    border: "1px solid rgba(255,255,255,0.07)",
+    border: "1px solid var(--hifi-hairline)",
     color: "#f6f5f7",
     fontFamily: "'Geist', system-ui, sans-serif",
     borderRadius: 10,
@@ -308,7 +308,7 @@ export default function OnboardingPage() {
             className="rounded-2xl p-8 hifi-ring-glow"
             style={{
               background: "linear-gradient(145deg, #15151a 0%, #18181f 100%)",
-              border: "1px solid rgba(255,255,255,0.07)",
+              border: "1px solid var(--hifi-hairline)",
               boxShadow: "0 0 60px rgba(124,92,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
             }}
           >
@@ -502,7 +502,7 @@ export default function OnboardingPage() {
             className="rounded-2xl p-8 hifi-ring-glow"
             style={{
               background: "linear-gradient(145deg, #15151a 0%, #18181f 100%)",
-              border: "1px solid rgba(255,255,255,0.07)",
+              border: "1px solid var(--hifi-hairline)",
               boxShadow: "0 0 60px rgba(124,92,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
             }}
           >
@@ -812,7 +812,7 @@ export default function OnboardingPage() {
             className="rounded-2xl p-8 hifi-ring-glow"
             style={{
               background: "linear-gradient(145deg, #15151a 0%, #18181f 100%)",
-              border: "1px solid rgba(255,255,255,0.07)",
+              border: "1px solid var(--hifi-hairline)",
               boxShadow: "0 0 60px rgba(124,92,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
             }}
           >
@@ -945,7 +945,7 @@ export default function OnboardingPage() {
             className="rounded-2xl p-8 hifi-ring-glow"
             style={{
               background: "linear-gradient(145deg, #15151a 0%, #18181f 100%)",
-              border: "1px solid rgba(255,255,255,0.07)",
+              border: "1px solid var(--hifi-hairline)",
               boxShadow: "0 0 60px rgba(124,92,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
             }}
           >
@@ -1000,7 +1000,7 @@ export default function OnboardingPage() {
               className="rounded-xl p-5 mb-6 space-y-3"
               style={{
                 background: "#1d1d24",
-                border: "1px solid rgba(255,255,255,0.07)",
+                border: "1px solid var(--hifi-hairline)",
               }}
             >
               <div className="flex items-center gap-3">
