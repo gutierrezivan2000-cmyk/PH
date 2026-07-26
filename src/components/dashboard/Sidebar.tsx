@@ -29,23 +29,46 @@ import {
 import { signOut } from "next-auth/react";
 
 type NavEntry = { name: string; href: string; icon: typeof Home; n: string; badge?: string };
+type NavGroup = { label: string; items: NavEntry[] };
 
-const navigation: NavEntry[] = [
-  { name: "Inicio", href: "/dashboard", icon: Home, n: "01" },
-  { name: "Generar", href: "/dashboard/generar", icon: FilePlus2, n: "02" },
-  { name: "Calendario", href: "/dashboard/calendario", icon: CalendarClock, n: "03" },
-  { name: "Cartera", href: "/dashboard/cartera", icon: Wallet, n: "04" },
-  { name: "Presupuesto", href: "/dashboard/presupuesto", icon: PieChart, n: "05" },
-  { name: "Residentes", href: "/dashboard/residentes", icon: Users, n: "06" },
-  { name: "PQRS", href: "/dashboard/pqrs", icon: MessageSquare, n: "07" },
-  { name: "Comunicados", href: "/dashboard/comunicados", icon: Send, n: "08" },
-  { name: "Certificados", href: "/dashboard/certificados", icon: BadgeCheck, n: "09" },
-  { name: "Asambleas", href: "/dashboard/asambleas", icon: Gavel, n: "10" },
-  { name: "Asistente IA", href: "/dashboard/asistente", icon: Sparkles, n: "11", badge: "6" },
-  { name: "Propiedades", href: "/dashboard/propiedades", icon: Building2, n: "12" },
-  { name: "Historial", href: "/dashboard/historial", icon: History, n: "13" },
-  { name: "Suscripción", href: "/dashboard/suscripcion", icon: CreditCard, n: "14" },
-  { name: "Configuración", href: "/dashboard/configuracion", icon: Settings2, n: "15" },
+// Grouped navigation: 15 flat entries were hard to scan. Sections mirror how
+// an administrator actually thinks about their work.
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Día a día",
+    items: [
+      { name: "Inicio", href: "/dashboard", icon: Home, n: "01" },
+      { name: "Generar", href: "/dashboard/generar", icon: FilePlus2, n: "02" },
+      { name: "Calendario", href: "/dashboard/calendario", icon: CalendarClock, n: "03" },
+      { name: "Asistente IA", href: "/dashboard/asistente", icon: Sparkles, n: "04", badge: "6" },
+    ],
+  },
+  {
+    label: "Finanzas",
+    items: [
+      { name: "Cartera", href: "/dashboard/cartera", icon: Wallet, n: "05" },
+      { name: "Presupuesto", href: "/dashboard/presupuesto", icon: PieChart, n: "06" },
+    ],
+  },
+  {
+    label: "Comunidad",
+    items: [
+      { name: "Residentes", href: "/dashboard/residentes", icon: Users, n: "07" },
+      { name: "PQRS", href: "/dashboard/pqrs", icon: MessageSquare, n: "08" },
+      { name: "Comunicados", href: "/dashboard/comunicados", icon: Send, n: "09" },
+      { name: "Asambleas", href: "/dashboard/asambleas", icon: Gavel, n: "10" },
+      { name: "Certificados", href: "/dashboard/certificados", icon: BadgeCheck, n: "11" },
+    ],
+  },
+  {
+    label: "Administración",
+    items: [
+      { name: "Propiedades", href: "/dashboard/propiedades", icon: Building2, n: "12" },
+      { name: "Historial", href: "/dashboard/historial", icon: History, n: "13" },
+      { name: "Suscripción", href: "/dashboard/suscripcion", icon: CreditCard, n: "14" },
+      { name: "Configuración", href: "/dashboard/configuracion", icon: Settings2, n: "15" },
+    ],
+  },
 ];
 
 // Enterprise "Portafolio" — only for Elite subscribers and beta testers.
@@ -106,11 +129,17 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
     };
   }, []);
 
-  const navItems: NavEntry[] = showPortafolio
-    ? [...navigation.slice(0, 4), PORTAFOLIO_ENTRY, ...navigation.slice(4)]
-    : navigation;
+  // Élite "Portafolio" joins the Finanzas group when available.
+  const groups: NavGroup[] = NAV_GROUPS.map((g) =>
+    g.label === "Finanzas" && showPortafolio
+      ? { ...g, items: [PORTAFOLIO_ENTRY, ...g.items] }
+      : g
+  );
 
-  const navItem = (item: typeof navigation[0], isActive: boolean, isMobile = false) => {
+  const isActiveHref = (href: string) =>
+    pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+
+  const navItem = (item: NavEntry, isActive: boolean, isMobile = false) => {
     const showLabel = isMobile || !collapsed;
     return (
       <Link
@@ -118,23 +147,28 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
         href={item.href}
         onClick={isMobile ? onClose : undefined}
         title={collapsed && !isMobile ? item.name : undefined}
+        data-active={isActive}
         className={cn(
-          "group/item flex items-center gap-3 rounded-xl border transition-all duration-200",
-          showLabel ? "px-3 py-2.5" : "px-3 py-3 justify-center",
-          isActive
-            ? "bg-[rgba(124,92,255,0.08)] border-[rgba(124,92,255,0.40)] text-foreground"
-            : "border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
+          "ui-nav-item group/item flex items-center gap-3 rounded-xl",
+          showLabel ? "px-3 py-2" : "px-3 py-2.5 justify-center",
+          isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
         )}
-        style={
-          isActive
-            ? { boxShadow: "inset 2px 0 0 #7c5cff" }
-            : undefined
-        }
+        style={{
+          background: isActive ? "rgba(124,92,255,0.10)" : undefined,
+        }}
+        onMouseEnter={(e) => {
+          if (!isActive) e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+        }}
+        onMouseLeave={(e) => {
+          if (!isActive) e.currentTarget.style.background = "";
+        }}
       >
         <item.icon
           className={cn(
-            "h-[16px] w-[16px] flex-shrink-0 transition-colors duration-200",
-            isActive ? "text-[#7c5cff]" : "text-muted-foreground/80 group-hover/item:text-foreground"
+            "h-[16px] w-[16px] flex-shrink-0 transition-all duration-200",
+            isActive
+              ? "text-[#9a7fff] scale-105"
+              : "text-muted-foreground/70 group-hover/item:text-foreground group-hover/item:scale-105"
           )}
         />
         {showLabel && (
@@ -142,12 +176,12 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
             <span className="flex-1 truncate text-[13px] font-medium">{item.name}</span>
             {item.badge && (
               <span
-                className="text-[9.5px] font-mono px-1.5 py-0.5 rounded text-muted-foreground"
+                className="text-[9.5px] px-1.5 py-0.5 rounded-md transition-colors"
                 style={{
-                  fontFamily: "var(--font-mono)",
+                  fontFamily: "var(--hifi-mono)",
                   letterSpacing: "0.06em",
-                  background: isActive ? "rgba(124,92,255,0.10)" : "var(--secondary)",
-                  color: isActive ? "#9a7fff" : undefined,
+                  background: isActive ? "rgba(124,92,255,0.16)" : "rgba(255,255,255,0.05)",
+                  color: isActive ? "#9a7fff" : "var(--hifi-ink-faint)",
                 }}
               >
                 {item.badge}
@@ -158,6 +192,31 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
       </Link>
     );
   };
+
+  const renderGroups = (isMobile = false) =>
+    groups.map((group, gi) => (
+      <div key={group.label} className={gi > 0 ? "mt-5" : undefined}>
+        {(isMobile || !collapsed) && (
+          <p
+            className="px-3 mb-1.5 text-[9px] font-medium select-none"
+            style={{
+              fontFamily: "var(--hifi-mono)",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "rgba(246,245,247,0.28)",
+            }}
+          >
+            {group.label}
+          </p>
+        )}
+        {collapsed && !isMobile && gi > 0 && (
+          <div className="mx-3 mb-2 h-px" style={{ background: "var(--hifi-hairline)" }} />
+        )}
+        <div className="space-y-0.5">
+          {group.items.map((item) => navItem(item, isActiveHref(item.href), isMobile))}
+        </div>
+      </div>
+    ));
 
   return (
     <>
@@ -191,26 +250,9 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
           )}
         </button>
 
-        {/* Workspace label */}
-        {!collapsed && (
-          <div className="px-4 pt-4 pb-2">
-            <p
-              className="text-[9.5px] font-medium text-muted-foreground/70 uppercase"
-              style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.16em" }}
-            >
-              Workspace
-            </p>
-          </div>
-        )}
-
         {/* Nav */}
-        <nav className={cn("flex-1 space-y-1 overflow-y-auto", collapsed ? "px-2 py-3" : "px-3 pb-4")}>
-          {navItems.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/dashboard" && pathname.startsWith(item.href));
-            return navItem(item, isActive);
-          })}
+        <nav className={cn("ui-scroll flex-1 overflow-y-auto", collapsed ? "px-2 py-4" : "px-3 py-4")}>
+          {renderGroups()}
         </nav>
 
         {/* Logout */}
@@ -247,23 +289,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
           </button>
         </div>
 
-        <div className="px-4 pt-4 pb-2">
-          <p
-            className="text-[9.5px] font-medium text-muted-foreground/70 uppercase"
-            style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.16em" }}
-          >
-            Workspace
-          </p>
-        </div>
-
-        <nav className="flex-1 px-3 pb-3 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/dashboard" && pathname.startsWith(item.href));
-            return navItem(item, isActive, true);
-          })}
-        </nav>
+        <nav className="ui-scroll flex-1 px-3 py-4 overflow-y-auto">{renderGroups(true)}</nav>
 
         <div className="px-3 py-3 border-t border-border flex-shrink-0">
           <button

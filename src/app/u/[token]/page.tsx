@@ -124,9 +124,9 @@ export default async function ResidentPortalPage({
 
   const cardStyle: React.CSSProperties = {
     background: "#fff",
-    borderRadius: 16,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-    border: "1px solid #ececef",
+    borderRadius: 18,
+    boxShadow: "0 1px 2px rgba(16,24,40,0.04), 0 10px 28px -14px rgba(16,24,40,0.18)",
+    border: "1px solid #ededf1",
     overflow: "hidden",
   };
   const sectionTitle: React.CSSProperties = {
@@ -144,7 +144,7 @@ export default async function ResidentPortalPage({
   return (
     <div style={{ minHeight: "100vh", background: "#f4f4f5", fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif", color: "#1f2937" }}>
       {/* Header */}
-      <div style={{ background: accent, padding: "28px 20px 24px", color: "#fff" }}>
+      <div style={{ background: `linear-gradient(160deg, ${accent} 0%, ${accent}e0 55%, ${accent}bb 100%)`, padding: "30px 20px 26px", color: "#fff", boxShadow: "0 12px 32px -18px rgba(16,24,40,0.5)" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
           {admin?.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -157,7 +157,7 @@ export default async function ResidentPortalPage({
             {unit.property.city ? ` · ${unit.property.city}` : ""}
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 42, height: 42, borderRadius: 13, background: "rgba(255,255,255,0.22)", border: "1px solid rgba(255,255,255,0.28)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Home style={{ width: 20, height: 20 }} />
             </div>
             <div>
@@ -168,7 +168,7 @@ export default async function ResidentPortalPage({
         </div>
       </div>
 
-      <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px 16px 48px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="ui-stagger" style={{ maxWidth: 640, margin: "0 auto", padding: "20px 16px 48px", display: "flex", flexDirection: "column", gap: 16 }}>
         {/* Estado de cuenta */}
         <div style={cardStyle}>
           <div style={{ padding: "18px 20px", background: owes ? "#fef2f2" : "#f0fdf4", borderBottom: "1px solid #ececef" }}>
@@ -176,7 +176,7 @@ export default async function ResidentPortalPage({
               <Wallet style={{ width: 14, height: 14 }} />
               Estado de cuenta
             </p>
-            <p style={{ fontSize: 28, fontWeight: 800, margin: 0, color: owes ? "#b91c1c" : "#15803d" }}>
+            <p className="ui-count" style={{ fontSize: 30, fontWeight: 800, margin: 0, letterSpacing: "-0.02em", color: owes ? "#b91c1c" : "#15803d" }}>
               {summary.balance === 0 ? "Al día" : summary.balance < 0 ? `${fmtCOP(-summary.balance)} a favor` : fmtCOP(summary.balance)}
             </p>
             {owes ? (
@@ -216,6 +216,7 @@ export default async function ResidentPortalPage({
             href={waHref}
             target="_blank"
             rel="noopener noreferrer"
+            className="ui-press"
             style={{
               display: "flex",
               alignItems: "center",
@@ -279,7 +280,7 @@ export default async function ResidentPortalPage({
                   href={d.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 18px", borderBottom: i < documents.length - 1 ? "1px solid #f3f4f6" : "none", textDecoration: "none", color: "#1f2937" }}
+                  className="ui-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderBottom: i < documents.length - 1 ? "1px solid #f3f4f6" : "none", textDecoration: "none", color: "#1f2937" }}
                 >
                   <FileText style={{ width: 16, height: 16, color: accent, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>

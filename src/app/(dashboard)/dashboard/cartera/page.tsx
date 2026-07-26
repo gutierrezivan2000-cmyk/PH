@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
 import { fmtCOP, computeAgingReport } from "@/lib/cartera";
 import { waLink, paymentReminderMessage } from "@/lib/whatsapp";
+import { StatCard, EmptyState, SkeletonList, Toast, type ToastMsg } from "@/components/ui/surface";
 import {
   Wallet,
   Loader2,
@@ -502,7 +503,7 @@ export default function CarteraPage() {
         setPanel((p) => (p === key ? "" : key));
         setMsg(null);
       }}
-      className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 transition-all cursor-pointer"
+      className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
       style={{
         background: panel === key ? "rgba(124,92,255,0.15)" : "rgba(255,255,255,0.05)",
         color: panel === key ? "#a78bff" : "rgba(246,245,247,0.65)",
@@ -518,11 +519,7 @@ export default function CarteraPage() {
     <div>
       <Header title="Cartera" subtitle="Cuotas, pagos y estados de cuenta por unidad" />
       <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-5xl mx-auto space-y-5">
-        {loading && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#7c5cff" }} />
-          </div>
-        )}
+        {loading && <SkeletonList rows={5} kpis={4} />}
 
         {/* Plan upgrade */}
         {!loading && upgrade && (
@@ -558,14 +555,14 @@ export default function CarteraPage() {
         {!loading && !upgrade && properties.length > 0 && (
           <>
             {/* Property selector */}
-            <div className="rounded-2xl p-4 flex flex-wrap items-center gap-2" style={card}>
+            <div className="ui-card ui-sheen p-4 flex flex-wrap items-center gap-2">
               <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Propiedad</span>
               <div className="flex flex-wrap gap-2 flex-1">
                 {properties.map((p) => (
                   <button
                     key={p.id}
                     onClick={() => setPropertyId(p.id)}
-                    className="px-3 py-1.5 rounded-full text-[12px] transition-all cursor-pointer"
+                    className="ui-chip px-3 py-1.5 rounded-full text-[12px] cursor-pointer"
                     style={{
                       border: `1px solid ${propertyId === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
                       background: propertyId === p.id ? "rgba(124,92,255,0.15)" : "transparent",
@@ -580,22 +577,30 @@ export default function CarteraPage() {
 
             {/* KPIs */}
             {kpis && (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {[
-                  { label: "Cartera pendiente", value: fmtCOP(kpis.totalOwed), color: kpis.totalOwed > 0 ? "#ffb958" : "#4cd6a0" },
-                  { label: "Unidades en mora", value: `${kpis.overdueUnits} / ${kpis.unitsCount}`, color: kpis.overdueUnits > 0 ? "#ff8585" : "#4cd6a0" },
-                  { label: "Recaudado este mes", value: fmtCOP(kpis.collectedThisMonth), color: "#4cd6a0" },
-                  { label: "Causado este mes", value: fmtCOP(kpis.chargedThisMonth), color: "rgba(246,245,247,0.80)" },
-                ].map((k) => (
-                  <div key={k.label} className="rounded-2xl p-4" style={card}>
-                    <p style={{ ...monoLabel, color: "rgba(246,245,247,0.40)" }} className="mb-2">
-                      {k.label}
-                    </p>
-                    <p className="text-[18px] font-semibold tracking-tight" style={{ color: k.color }}>
-                      {k.value}
-                    </p>
-                  </div>
-                ))}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 ui-stagger">
+                <StatCard
+                  label="Cartera pendiente"
+                  value={fmtCOP(kpis.totalOwed)}
+                  tone={kpis.totalOwed > 0 ? "warn" : "ok"}
+                  icon={Wallet}
+                />
+                <StatCard
+                  label="Unidades en mora"
+                  value={`${kpis.overdueUnits} / ${kpis.unitsCount}`}
+                  tone={kpis.overdueUnits > 0 ? "danger" : "ok"}
+                  icon={Users}
+                />
+                <StatCard
+                  label="Recaudado este mes"
+                  value={fmtCOP(kpis.collectedThisMonth)}
+                  tone="ok"
+                  icon={HandCoins}
+                />
+                <StatCard
+                  label="Causado este mes"
+                  value={fmtCOP(kpis.chargedThisMonth)}
+                  icon={Receipt}
+                />
               </div>
             )}
 
@@ -608,24 +613,12 @@ export default function CarteraPage() {
               {panelBtn("carta", <Sparkles className="h-3.5 w-3.5" />, "Carta de cobro IA")}
             </div>
 
-            {/* Message */}
-            {msg && (
-              <div
-                className="flex items-start gap-2 px-3 py-2.5 rounded-lg text-[12.5px]"
-                style={
-                  msg.ok
-                    ? { background: "rgba(76,214,160,0.10)", border: "1px solid rgba(76,214,160,0.30)", color: "#4cd6a0" }
-                    : { background: "rgba(255,111,111,0.10)", border: "1px solid rgba(255,111,111,0.30)", color: "#ff8585" }
-                }
-              >
-                {msg.ok && <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-px" />}
-                <span>{msg.text}</span>
-              </div>
-            )}
+            {/* Feedback: floating toast (auto-dismiss) */}
+            <Toast msg={msg as ToastMsg | null} onDone={() => setMsg(null)} />
 
             {/* Causar panel */}
             {panel === "causar" && (
-              <div className="rounded-2xl p-5 space-y-4" style={card}>
+              <div className="ui-card ui-sheen ui-rise p-5 space-y-4">
                 <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
                   Causar cuotas de administración
                 </p>
@@ -656,7 +649,7 @@ export default function CarteraPage() {
                   <button
                     onClick={causar}
                     disabled={busy}
-                    className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-50 cursor-pointer"
+                    className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                     style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
                   >
                     {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarPlus className="h-3.5 w-3.5" />}
@@ -668,7 +661,7 @@ export default function CarteraPage() {
 
             {/* Pago panel */}
             {panel === "pago" && (
-              <form onSubmit={registrarPago} className="rounded-2xl p-5 space-y-4" style={card}>
+              <form onSubmit={registrarPago} className="ui-card ui-sheen ui-rise p-5 space-y-4">
                 <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
                   Registrar pago recibido
                 </p>
@@ -715,7 +708,7 @@ export default function CarteraPage() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-50 cursor-pointer"
+                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                   style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
                 >
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <HandCoins className="h-3.5 w-3.5" />}
@@ -754,7 +747,7 @@ export default function CarteraPage() {
 
             {/* Cobro panel */}
             {panel === "cobro" && (
-              <form onSubmit={crearCobro} className="rounded-2xl p-5 space-y-4" style={card}>
+              <form onSubmit={crearCobro} className="ui-card ui-sheen ui-rise p-5 space-y-4">
                 <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
                   Cobro adicional (extraordinaria u otro)
                 </p>
@@ -797,7 +790,7 @@ export default function CarteraPage() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-50 cursor-pointer"
+                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                   style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
                 >
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
@@ -808,7 +801,7 @@ export default function CarteraPage() {
 
             {/* Intereses panel */}
             {panel === "intereses" && (
-              <div className="rounded-2xl p-5 space-y-4" style={card}>
+              <div className="ui-card ui-sheen ui-rise p-5 space-y-4">
                 <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
                   Liquidar intereses de mora
                 </p>
@@ -849,7 +842,7 @@ export default function CarteraPage() {
                   <button
                     onClick={liquidarIntereses}
                     disabled={busy}
-                    className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-50 cursor-pointer"
+                    className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                     style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
                   >
                     {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Percent className="h-3.5 w-3.5" />}
@@ -861,7 +854,7 @@ export default function CarteraPage() {
 
             {/* Carta de cobro panel (Metra) */}
             {panel === "carta" && (
-              <div className="rounded-2xl p-5 space-y-4" style={{ ...card, borderColor: "rgba(76,214,160,0.25)" }}>
+              <div className="ui-card ui-sheen ui-rise p-5 space-y-4" style={{ borderColor: "rgba(76,214,160,0.25)" }}>
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4" style={{ color: "#4cd6a0" }} />
                   <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
@@ -989,7 +982,7 @@ export default function CarteraPage() {
                 .sort((a, b) => b.summary.balance - a.summary.balance)
                 .slice(0, 5);
               return (
-                <div className="rounded-2xl p-5 space-y-4" style={card}>
+                <div className="ui-card ui-sheen ui-rise p-5 space-y-4">
                   <p style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>
                     Cartera por edades · {fmtCOP(totalOverdue)} en mora
                   </p>
@@ -1067,26 +1060,24 @@ export default function CarteraPage() {
 
             {/* Units table */}
             {units.length === 0 ? (
-              <div className="rounded-2xl p-10 text-center" style={card}>
-                <Users className="h-8 w-8 mx-auto mb-3" style={{ color: "rgba(246,245,247,0.25)" }} />
-                <p className="text-[14px] mb-1" style={{ color: "rgba(246,245,247,0.70)" }}>
-                  Esta propiedad aún no tiene unidades
-                </p>
-                <p className="text-[12.5px] mb-4" style={{ color: "rgba(246,245,247,0.40)" }}>
-                  Agrégalas en Comunicados → Destinatarios. Tip: incluye cuota y coeficiente en
-                  cada línea — &quot;Apto 101, María, maria@x.com, 1,25, 350.000&quot;.
-                </p>
-                <Link
-                  href="/dashboard/comunicados"
-                  className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2"
-                  style={{ background: "rgba(124,92,255,0.15)", color: "#a78bff", border: "1px solid rgba(124,92,255,0.40)" }}
-                >
-                  Agregar unidades
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
+              <EmptyState
+                icon={Users}
+                tone="accent"
+                title="Esta propiedad aún no tiene unidades"
+                description="Importa tu listado desde un archivo y la IA lo organiza, o agrégalas a mano. Puedes incluir cuota y coeficiente en la misma línea."
+                action={
+                  <Link
+                    href="/dashboard/residentes"
+                    className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12.5px] font-medium px-5 py-2.5"
+                    style={{ background: "var(--hifi-accent)", color: "#fff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.5)" }}
+                  >
+                    Agregar unidades
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Link>
+                }
+              />
             ) : (
-              <div className="rounded-2xl overflow-hidden" style={card}>
+              <div className="ui-card ui-sheen overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -1106,7 +1097,7 @@ export default function CarteraPage() {
                       {units.map((u) => {
                         const chip = estadoChip(u);
                         return (
-                          <tr key={u.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                          <tr key={u.id} className="ui-row" style={{ borderBottom: "1px solid var(--hifi-hairline)" }}>
                             <td className="px-4 py-3">
                               <p className="text-[13px] font-medium" style={{ color: "#f6f5f7" }}>{u.label}</p>
                               {u.residentName && (
@@ -1128,7 +1119,7 @@ export default function CarteraPage() {
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                                 }}
-                                className="w-24 h-8 px-2 rounded-lg text-[12.5px] text-right"
+                                className="ui-input ui-focus w-24 h-8 px-2 rounded-lg text-[12.5px] text-right"
                                 style={{
                                   background: "rgba(255,255,255,0.04)",
                                   border: "1px solid rgba(255,255,255,0.08)",
@@ -1152,7 +1143,7 @@ export default function CarteraPage() {
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                                 }}
-                                className="w-16 h-8 px-2 rounded-lg text-[12.5px] text-right"
+                                className="ui-input ui-focus w-16 h-8 px-2 rounded-lg text-[12.5px] text-right"
                                 style={{
                                   background: "rgba(255,255,255,0.04)",
                                   border: "1px solid rgba(255,255,255,0.08)",
@@ -1193,7 +1184,7 @@ export default function CarteraPage() {
                                     setMsg(null);
                                     window.scrollTo({ top: 0, behavior: "smooth" });
                                   }}
-                                  className="p-1.5 rounded-lg transition-colors cursor-pointer hover:bg-white/[0.06]"
+                                  className="ui-press p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.06]"
                                   style={{ color: "#4cd6a0" }}
                                   title="Registrar pago"
                                 >
@@ -1203,7 +1194,7 @@ export default function CarteraPage() {
                                   href={`/cartera/${u.id}/estado`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="p-1.5 rounded-lg transition-colors hover:bg-white/[0.06]"
+                                  className="ui-press p-1.5 rounded-lg hover:bg-white/[0.06]"
                                   style={{ color: "rgba(246,245,247,0.55)" }}
                                   title="Estado de cuenta (imprimir/PDF)"
                                 >
@@ -1224,7 +1215,7 @@ export default function CarteraPage() {
                                       href={href}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="p-1.5 rounded-lg transition-colors hover:bg-white/[0.06]"
+                                      className="ui-press p-1.5 rounded-lg hover:bg-white/[0.06]"
                                       style={{ color: "#25D366" }}
                                       title="Recordar pago por WhatsApp"
                                     >

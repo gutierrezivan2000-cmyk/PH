@@ -279,14 +279,14 @@ export default function CertificadosPage() {
         {!loading && properties.length > 0 && (
           <>
             {/* Property + new */}
-            <div className="rounded-2xl p-4 flex flex-wrap items-center gap-2" style={card}>
+            <div className="ui-card ui-sheen p-4 flex flex-wrap items-center gap-2">
               <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Propiedad</span>
               <div className="flex flex-wrap gap-2 flex-1">
                 {properties.map((p) => (
                   <button
                     key={p.id}
                     onClick={() => setPropertyId(p.id)}
-                    className="px-3 py-1.5 rounded-full text-[12px] transition-all cursor-pointer"
+                    className="ui-chip px-3 py-1.5 rounded-full text-[12px] cursor-pointer"
                     style={{
                       border: `1px solid ${propertyId === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
                       background: propertyId === p.id ? "rgba(124,92,255,0.15)" : "transparent",
@@ -299,7 +299,7 @@ export default function CertificadosPage() {
               </div>
               <button
                 onClick={() => setShowForm((v) => !v)}
-                className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 transition-all cursor-pointer"
+                className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
                 style={{
                   background: showForm ? "rgba(255,255,255,0.06)" : "#7c5cff",
                   color: showForm ? "rgba(246,245,247,0.70)" : "#fff",
@@ -315,14 +315,14 @@ export default function CertificadosPage() {
 
             {/* Issue form */}
             {showForm && (
-              <form onSubmit={createCert} className="rounded-2xl p-5 space-y-4" style={card}>
+              <form onSubmit={createCert} className="ui-card ui-sheen ui-rise p-5 space-y-4">
                 <div className="flex gap-2">
                   {(["paz_y_salvo", "residencia"] as const).map((t) => (
                     <button
                       key={t}
                       type="button"
                       onClick={() => setType(t)}
-                      className="flex-1 px-3 py-2.5 rounded-xl text-[12.5px] font-medium transition-all cursor-pointer"
+                      className="ui-chip flex-1 px-3 py-2.5 rounded-xl text-[12.5px] font-medium cursor-pointer"
                       style={{
                         border: `1px solid ${type === t ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
                         background: type === t ? "rgba(124,92,255,0.15)" : "transparent",
@@ -451,7 +451,7 @@ export default function CertificadosPage() {
                 <button
                   type="submit"
                   disabled={creating}
-                  className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-50 cursor-pointer"
+                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                   style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
                 >
                   {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BadgeCheck className="h-3.5 w-3.5" />}

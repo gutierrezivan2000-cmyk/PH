@@ -279,7 +279,7 @@ export default function ComunicadosPage() {
                   <button
                     key={p.id}
                     onClick={() => setPropertyId(p.id)}
-                    className="px-3 py-1.5 rounded-full text-[12px] transition-all cursor-pointer"
+                    className="ui-chip px-3 py-1.5 rounded-full text-[12px] cursor-pointer"
                     style={{
                       border: `1px solid ${propertyId === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
                       background: propertyId === p.id ? "rgba(124,92,255,0.15)" : "transparent",
@@ -310,7 +310,7 @@ export default function ComunicadosPage() {
             </div>
 
             {/* Recipients */}
-            <div className="rounded-2xl" style={card}>
+            <div className="ui-card ui-sheen">
               <button
                 onClick={() => setShowRecipients((v) => !v)}
                 className="w-full flex items-center gap-3 p-4 cursor-pointer"
@@ -417,7 +417,7 @@ export default function ComunicadosPage() {
             </div>
 
             {/* Compose */}
-            <div className="rounded-2xl p-5 space-y-4" style={card}>
+            <div className="ui-card ui-sheen ui-rise p-5 space-y-4">
               <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
                 Nuevo comunicado
               </p>
@@ -499,7 +499,7 @@ export default function ComunicadosPage() {
                 <button
                   onClick={sendAnnouncement}
                   disabled={sending || !subject.trim() || !content.trim() || emailCount === 0}
-                  className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-40 cursor-pointer"
+                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                   style={{
                     background: confirming ? "#e5484d" : "#7c5cff",
                     boxShadow: confirming ? "none" : "0 8px 24px -8px rgba(124,92,255,0.50)",
@@ -556,7 +556,7 @@ export default function ComunicadosPage() {
                 </p>
                 <div className="space-y-2.5">
                   {announcements.map((a) => (
-                    <div key={a.id} className="rounded-xl p-4" style={card}>
+                    <div key={a.id} className="ui-card p-4">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <p className="text-[13.5px] font-medium flex-1 min-w-0" style={{ color: "#f6f5f7" }}>
                           {a.subject}
