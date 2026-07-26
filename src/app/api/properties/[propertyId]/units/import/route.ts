@@ -93,7 +93,16 @@ Reglas:
 - Si el archivo no contiene un listado de unidades, devuelve [].
 Devuelve máximo 1000 unidades.`;
 
-    const { text: aiText } = await generateWithClaude(system, `Datos crudos:\n\n${content}`);
+    const { text: aiText, tokensUsed } = await generateWithClaude(system, `Datos crudos:\n\n${content}`);
+
+    // Record the spend so it shows up in Consumo IA (imports can be large).
+    const { recordUsage } = await import("@/lib/usage");
+    await recordUsage(
+      session.user.id,
+      tokensUsed,
+      (tokensUsed / 1_000_000) * 9,
+      "import_unidades"
+    ).catch(() => {});
 
     // Parse the JSON array defensively (strip any stray fences/prose).
     let parsed: unknown = [];

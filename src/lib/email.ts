@@ -173,7 +173,8 @@ export async function sendPortalLinkEmails(params: {
       </div>
       <p style="color:#9ca3af;font-size:12px;line-height:1.5;margin:0;word-break:break-all;">
         O copia este enlace: ${rcpt.url}<br/><br/>
-        Este enlace es personal de tu unidad — no lo compartas.
+        Este enlace es personal de tu unidad — no lo compartas. Te recomendamos guardarlo en tus
+        favoritos; si lo pierdes, puedes recuperarlo con tu correo desde la página del portal.
       </p>
     </div>
   </div>

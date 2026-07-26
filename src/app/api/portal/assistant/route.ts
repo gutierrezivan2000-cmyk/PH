@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const { db } = await import("@/lib/db");
     const unit = await db.unit.findUnique({
       where: { portalToken: token },
-      select: { propertyId: true, property: { select: { name: true } } },
+      select: { propertyId: true, property: { select: { name: true, userId: true } } },
     });
     if (!unit) return NextResponse.json({ error: "Enlace inválido." }, { status: 404 });
 
@@ -69,7 +69,18 @@ Reglas:
 ${reglamento}
 === FIN DEL REGLAMENTO ===`;
 
-    const { text } = await generateWithClaude(system, question.trim());
+    const { text, tokensUsed } = await generateWithClaude(system, question.trim());
+
+    // Charge the consumption to the property's administrator so this public
+    // endpoint's cost shows up in their Consumo IA instead of being invisible.
+    const { recordUsage } = await import("@/lib/usage");
+    await recordUsage(
+      unit.property.userId,
+      tokensUsed,
+      (tokensUsed / 1_000_000) * 9,
+      "asistente_reglamento"
+    ).catch(() => {});
+
     return NextResponse.json({ answer: text.trim() });
   } catch (e) {
     console.error("[portal assistant]", e);

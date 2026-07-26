@@ -4,6 +4,8 @@ export const runtime = "nodejs";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
+import QRCode from "qrcode";
 import { fmtCOP, computeUnitSummary } from "@/lib/cartera";
 import { PrintButton } from "./PrintButton";
 
@@ -67,6 +69,24 @@ export default async function EstadoCuentaPage({
       ? admin.brandColor
       : "#7c3aed";
   const issuerName = admin?.company || admin?.name || "La Administración";
+
+  // QR to the resident's own portal: the link travels with every statement the
+  // administrator hands out, so nobody has to ask for it again.
+  let portalQr: string | null = null;
+  let portalUrl: string | null = null;
+  if (unit.portalToken) {
+    const h = await headers();
+    const host = h.get("host") || "";
+    const proto = h.get("x-forwarded-proto") || "https";
+    const base = (process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`).replace(/\/$/, "");
+    portalUrl = `${base}/u/${unit.portalToken}`;
+    portalQr = await QRCode.toString(portalUrl, {
+      type: "svg",
+      margin: 0,
+      width: 76,
+      color: { dark: "#1f2937", light: "#ffffff" },
+    }).catch(() => null);
+  }
 
   const paymentsTotal = unit.payments.reduce((s, p) => s + p.amount, 0);
   const summary = computeUnitSummary(unit.charges, paymentsTotal, new Date());
@@ -259,7 +279,22 @@ export default async function EstadoCuentaPage({
           </tbody>
         </table>
 
-        <p style={{ fontSize: 10.5, color: "#9ca3af", margin: "24px 0 0", lineHeight: 1.6 }}>
+        {portalQr && portalUrl && (
+          <div style={{ display: "flex", alignItems: "center", gap: 14, borderTop: "1px solid #e5e7eb", marginTop: 24, paddingTop: 18 }}>
+            <div style={{ width: 76, height: 76, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: portalQr }} />
+            <div>
+              <p style={{ fontSize: 11.5, fontWeight: 700, color: "#374151", margin: "0 0 3px" }}>
+                Consulte su cuenta en línea cuando quiera
+              </p>
+              <p style={{ fontSize: 11, color: "#6b7280", margin: 0, lineHeight: 1.5 }}>
+                Escanee este código para abrir el portal de su unidad: estado de cuenta al día,
+                comunicados y documentos. No requiere usuario ni contraseña.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <p style={{ fontSize: 10.5, color: "#9ca3af", margin: "20px 0 0", lineHeight: 1.6 }}>
           Documento informativo generado con SOPH.IA a la fecha indicada. Los pagos registrados
           después de esa fecha no aparecen reflejados. Para aclaraciones, comuníquese con la
           administración de {unit.property.name}.
