@@ -263,7 +263,7 @@ export default function PresupuestoPage() {
     if (g.rows.length === 0) return null;
     const accent = group === "ingresos" ? "#4cd6a0" : "#ffb958";
     return (
-      <div className="rounded-2xl overflow-hidden" style={card}>
+      <div className="ui-card ui-sheen overflow-hidden">
         <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <span style={{ ...monoLabel, color: accent }}>{title}</span>
           <span style={{ ...monoMini, color: "rgba(246,245,247,0.45)" }}>
@@ -347,13 +347,13 @@ export default function PresupuestoPage() {
         {!loading && !upgrade && properties.length > 0 && (
           <>
             {/* Selectors */}
-            <div className="rounded-2xl p-4 flex flex-wrap items-center gap-3" style={card}>
+            <div className="ui-card ui-sheen p-4 flex flex-wrap items-center gap-3">
               <div className="flex flex-wrap gap-2 flex-1">
                 {properties.map((p) => (
                   <button
                     key={p.id}
                     onClick={() => setPropertyId(p.id)}
-                    className="px-3 py-1.5 rounded-full text-[12px] transition-all cursor-pointer"
+                    className="ui-chip px-3 py-1.5 rounded-full text-[12px] cursor-pointer"
                     style={{
                       border: `1px solid ${propertyId === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
                       background: propertyId === p.id ? "rgba(124,92,255,0.15)" : "transparent",
@@ -380,7 +380,7 @@ export default function PresupuestoPage() {
                 <button
                   key={t}
                   onClick={() => { setTab(t); setMsg(null); }}
-                  className="px-4 py-2 rounded-full text-[12.5px] font-medium transition-all cursor-pointer capitalize"
+                  className="ui-chip px-4 py-2 rounded-full text-[12.5px] font-medium cursor-pointer capitalize"
                   style={{
                     border: `1px solid ${tab === t ? "rgba(124,92,255,0.45)" : "rgba(255,255,255,0.10)"}`,
                     background: tab === t ? "rgba(124,92,255,0.15)" : "rgba(255,255,255,0.03)",
@@ -447,7 +447,7 @@ export default function PresupuestoPage() {
                         { label: "Resultado", value: fmtCOP(execution.resultado), color: execution.resultado >= 0 ? "#4cd6a0" : "#ff8585" },
                         { label: "Fondo imprevistos", value: fmtCOP(execution.fondo.balance), color: execution.fondo.compliant ? "#4cd6a0" : "#ff8585" },
                       ].map((k) => (
-                        <div key={k.label} className="rounded-2xl p-4" style={card}>
+                        <div key={k.label} className="ui-card p-4">
                           <p style={{ ...monoLabel, color: "rgba(246,245,247,0.40)" }} className="mb-2">{k.label}</p>
                           <p className="text-[17px] font-semibold tracking-tight" style={{ color: k.color }}>{k.value}</p>
                         </div>
@@ -503,7 +503,7 @@ export default function PresupuestoPage() {
 
                 {/* Register movement */}
                 {items.length > 0 && (
-                  <div className="rounded-2xl" style={card}>
+                  <div className="ui-card ui-sheen">
                     <button
                       onClick={() => setShowMov((v) => !v)}
                       className="w-full flex items-center gap-3 p-4 cursor-pointer"
@@ -562,7 +562,7 @@ export default function PresupuestoPage() {
                         <button
                           type="submit"
                           disabled={busy}
-                          className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-50 cursor-pointer"
+                          className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                           style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
                         >
                           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
@@ -575,7 +575,7 @@ export default function PresupuestoPage() {
 
                 {/* Movements list */}
                 {entries.length > 0 && (
-                  <div className="rounded-2xl overflow-hidden" style={card}>
+                  <div className="ui-card ui-sheen overflow-hidden">
                     <div className="px-5 py-3.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
                       <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Movimientos {year}</span>
                     </div>
@@ -630,7 +630,7 @@ export default function PresupuestoPage() {
                   const total = groupItems.reduce((s, i) => s + i.budgeted, 0);
                   const accent = group === "ingreso" ? "#4cd6a0" : "#ffb958";
                   return (
-                    <div key={group} className="rounded-2xl overflow-hidden" style={card}>
+                    <div key={group} className="ui-card ui-sheen overflow-hidden">
                       <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
                         <span style={{ ...monoLabel, color: accent }}>{group === "ingreso" ? "Ingresos" : "Gastos"}</span>
                         <span style={{ ...monoMini, color: "rgba(246,245,247,0.55)" }}>{fmtCOP(total)}</span>
@@ -677,7 +677,7 @@ export default function PresupuestoPage() {
                     <button
                       onClick={saveBudget}
                       disabled={busy || !dirty}
-                      className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-40 cursor-pointer"
+                      className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                       style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
                     >
                       {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}

@@ -331,14 +331,14 @@ export default function ResidentesPage() {
         {!loading && !upgrade && properties.length > 0 && (
           <>
             {/* Property selector */}
-            <div className="rounded-2xl p-4 flex flex-wrap items-center gap-2" style={card}>
+            <div className="ui-card ui-sheen p-4 flex flex-wrap items-center gap-2">
               <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Propiedad</span>
               <div className="flex flex-wrap gap-2 flex-1">
                 {properties.map((p) => (
                   <button
                     key={p.id}
                     onClick={() => setPropertyId(p.id)}
-                    className="px-3 py-1.5 rounded-full text-[12px] transition-all cursor-pointer"
+                    className="ui-chip px-3 py-1.5 rounded-full text-[12px] cursor-pointer"
                     style={{
                       border: `1px solid ${propertyId === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
                       background: propertyId === p.id ? "rgba(124,92,255,0.15)" : "transparent",
@@ -365,7 +365,7 @@ export default function ResidentesPage() {
             </div>
 
             {/* WhatsApp de la administración */}
-            <div className="rounded-2xl p-4" style={card}>
+            <div className="ui-card p-4">
               <div className="flex items-center gap-2 mb-2">
                 <MessageCircle className="h-4 w-4" style={{ color: "#25D366" }} />
                 <span className="text-[13px] font-medium" style={{ color: "#f6f5f7" }}>WhatsApp de la administración</span>
@@ -387,7 +387,7 @@ export default function ResidentesPage() {
                 <button
                   onClick={saveWhatsapp}
                   disabled={waSaving || !waDirty}
-                  className="inline-flex items-center gap-2 rounded-full text-white text-[12.5px] font-medium px-4 py-2 transition-all disabled:opacity-40 cursor-pointer"
+                  className="ui-press inline-flex items-center gap-2 rounded-full text-white text-[12.5px] font-medium px-4 py-2 cursor-pointer"
                   style={{ background: "#25D366" }}
                 >
                   {waSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
@@ -397,7 +397,7 @@ export default function ResidentesPage() {
             </div>
 
             {/* Pago en línea (ePayco) */}
-            <div className="rounded-2xl" style={card}>
+            <div className="ui-card ui-sheen">
               <button onClick={() => setShowPay((v) => !v)} className="w-full flex items-center gap-3 p-4 cursor-pointer">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(95,180,255,0.10)" }}>
                   <CreditCard className="h-4 w-4" style={{ color: "#5fb4ff" }} />
@@ -441,7 +441,7 @@ export default function ResidentesPage() {
                   <button
                     onClick={savePayConfig}
                     disabled={paySaving}
-                    className="inline-flex items-center gap-2 rounded-full text-white text-[12.5px] font-medium px-4 py-2 transition-all disabled:opacity-50 cursor-pointer"
+                    className="ui-press inline-flex items-center gap-2 rounded-full text-white text-[12.5px] font-medium px-4 py-2 cursor-pointer"
                     style={{ background: "#5fb4ff" }}
                   >
                     {paySaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
@@ -457,7 +457,7 @@ export default function ResidentesPage() {
                 <button
                   onClick={generateAll}
                   disabled={busy}
-                  className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-50 cursor-pointer"
+                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                   style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
                 >
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
@@ -517,7 +517,7 @@ export default function ResidentesPage() {
                 </Link>
               </div>
             ) : (
-              <div className="rounded-2xl overflow-hidden" style={card}>
+              <div className="ui-card ui-sheen overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -531,7 +531,7 @@ export default function ResidentesPage() {
                     </thead>
                     <tbody>
                       {units.map((u) => (
-                        <tr key={u.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <tr key={u.id} className="ui-row" style={{ borderBottom: "1px solid var(--hifi-hairline)" }}>
                           <td className="px-4 py-3">
                             <p className="text-[13px] font-medium" style={{ color: "#f6f5f7" }}>{u.label}</p>
                             {u.residentName && <p className="text-[11px]" style={{ color: "rgba(246,245,247,0.40)" }}>{u.residentName}</p>}

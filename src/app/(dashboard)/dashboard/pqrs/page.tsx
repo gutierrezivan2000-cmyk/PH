@@ -189,13 +189,13 @@ export default function PqrsInboxPage() {
             )}
 
             {/* Filters */}
-            <div className="rounded-2xl p-4 flex flex-wrap items-center gap-2" style={card}>
+            <div className="ui-card ui-sheen p-4 flex flex-wrap items-center gap-2">
               <div className="flex flex-wrap gap-2 flex-1">
                 {FILTERS.map((f) => (
                   <button
                     key={f.key}
                     onClick={() => setFilter(f.key)}
-                    className="px-3 py-1.5 rounded-full text-[12px] transition-all cursor-pointer"
+                    className="ui-chip px-3 py-1.5 rounded-full text-[12px] cursor-pointer"
                     style={{
                       border: `1px solid ${filter === f.key ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
                       background: filter === f.key ? "rgba(124,92,255,0.15)" : "transparent",
@@ -235,7 +235,7 @@ export default function PqrsInboxPage() {
                   const st = STATUS_META[p.status] || STATUS_META.radicado;
                   const isOpen = expanded === p.id;
                   return (
-                    <div key={p.id} className="rounded-2xl overflow-hidden" style={card}>
+                    <div key={p.id} className="ui-card ui-sheen overflow-hidden">
                       <button onClick={() => { setExpanded(isOpen ? null : p.id); setReply(""); setMsg(null); }} className="w-full flex items-center gap-3 p-4 cursor-pointer text-left">
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
@@ -289,7 +289,7 @@ export default function PqrsInboxPage() {
                                 <button
                                   onClick={() => act(p.id, { reply, notify })}
                                   disabled={busy || !reply.trim()}
-                                  className="inline-flex items-center gap-2 rounded-full text-white text-[12.5px] font-medium px-4 py-2 transition-all disabled:opacity-40 cursor-pointer"
+                                  className="ui-press inline-flex items-center gap-2 rounded-full text-white text-[12.5px] font-medium px-4 py-2 cursor-pointer"
                                   style={{ background: "#7c5cff" }}
                                 >
                                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}

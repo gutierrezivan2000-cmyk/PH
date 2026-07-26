@@ -396,3 +396,185 @@ select option {
   background: #0e0e12 !important;
   color: #f6f5f7 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   INTERACTION LAYER — shared microinteractions for the whole app.
+   Applying these classes anywhere upgrades a screen without rewriting it.
+   Everything degrades gracefully and respects prefers-reduced-motion.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Springy, "expensive" easing — the single biggest perceived-quality lever */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 420ms;
+  --radius-card: 16px;
+  --shadow-soft: 0 1px 2px rgba(0,0,0,0.20), 0 8px 24px -12px rgba(0,0,0,0.45);
+  --shadow-lift: 0 2px 4px rgba(0,0,0,0.22), 0 18px 40px -16px rgba(0,0,0,0.60);
+}
+
+/* ── Surfaces ─────────────────────────────────────────────────────── */
+.ui-card {
+  background: var(--hifi-surface-1);
+  border: 1px solid var(--hifi-hairline);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-soft);
+  transition: border-color var(--dur-base) var(--ease-out-expo),
+              box-shadow var(--dur-base) var(--ease-out-expo),
+              transform var(--dur-base) var(--ease-out-expo),
+              background var(--dur-base) var(--ease-out-expo);
+}
+/* Only interactive cards lift — static ones stay put (honest affordance) */
+.ui-card-interactive:hover {
+  transform: translateY(-2px);
+  border-color: var(--hifi-hairline-strong);
+  box-shadow: var(--shadow-lift);
+}
+.ui-card-interactive:active { transform: translateY(0) scale(0.995); }
+
+/* Subtle top sheen that makes flat surfaces read as physical */
+.ui-sheen { position: relative; overflow: hidden; }
+.ui-sheen::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.14), transparent);
+  pointer-events: none;
+}
+
+/* Accent-tinted card (for highlighted/primary blocks) */
+.ui-card-accent {
+  background:
+    radial-gradient(120% 100% at 0% 0%, var(--hifi-accent-soft), transparent 62%),
+    var(--hifi-surface-1);
+  border-color: var(--hifi-accent-line);
+}
+
+/* ── Buttons & pressables ─────────────────────────────────────────── */
+.ui-press {
+  transition: transform var(--dur-fast) var(--ease-spring),
+              filter var(--dur-fast) ease,
+              opacity var(--dur-fast) ease,
+              background var(--dur-base) ease,
+              border-color var(--dur-base) ease;
+  will-change: transform;
+}
+.ui-press:hover:not(:disabled) { filter: brightness(1.08); }
+.ui-press:active:not(:disabled) { transform: scale(0.96); }
+.ui-press:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Accent button with a soft moving glow on hover */
+.ui-btn-glow { position: relative; overflow: hidden; }
+.ui-btn-glow::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(120px 60px at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.22), transparent 70%);
+  opacity: 0; transition: opacity var(--dur-base) ease; pointer-events: none;
+}
+.ui-btn-glow:hover::after { opacity: 1; }
+
+/* ── Focus: visible, branded, never ugly ──────────────────────────── */
+.ui-focus:focus-visible,
+input.ui-input:focus-visible,
+textarea.ui-input:focus-visible,
+select.ui-input:focus-visible {
+  outline: none;
+  border-color: var(--hifi-accent) !important;
+  box-shadow: 0 0 0 3px var(--hifi-accent-glow);
+}
+.ui-input {
+  transition: border-color var(--dur-base) ease, box-shadow var(--dur-base) ease, background var(--dur-base) ease;
+}
+
+/* ── Reveal on mount + stagger ────────────────────────────────────── */
+@keyframes ui-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ui-rise { animation: ui-rise var(--dur-slow) var(--ease-out-expo) both; }
+.ui-stagger > * { animation: ui-rise var(--dur-slow) var(--ease-out-expo) both; }
+.ui-stagger > *:nth-child(1) { animation-delay: 20ms; }
+.ui-stagger > *:nth-child(2) { animation-delay: 60ms; }
+.ui-stagger > *:nth-child(3) { animation-delay: 100ms; }
+.ui-stagger > *:nth-child(4) { animation-delay: 140ms; }
+.ui-stagger > *:nth-child(5) { animation-delay: 180ms; }
+.ui-stagger > *:nth-child(6) { animation-delay: 220ms; }
+.ui-stagger > *:nth-child(7) { animation-delay: 260ms; }
+.ui-stagger > *:nth-child(8) { animation-delay: 300ms; }
+
+/* ── Skeletons (shimmer) — replaces bare spinners ─────────────────── */
+@keyframes ui-shimmer { 100% { transform: translateX(100%); } }
+.ui-skeleton {
+  position: relative; overflow: hidden;
+  background: var(--hifi-surface-2);
+  border-radius: 10px;
+}
+.ui-skeleton::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  animation: ui-shimmer 1.6s infinite;
+}
+
+/* ── Toasts ───────────────────────────────────────────────────────── */
+@keyframes ui-toast-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ui-toast-out {
+  to { opacity: 0; transform: translateY(8px) scale(0.98); }
+}
+.ui-toast    { animation: ui-toast-in 320ms var(--ease-spring) both; }
+.ui-toast-out{ animation: ui-toast-out 200ms ease both; }
+
+/* ── Status pulse (live indicators) ───────────────────────────────── */
+@keyframes ui-ping { 75%, 100% { transform: scale(2.2); opacity: 0; } }
+.ui-ping { animation: ui-ping 1.6s cubic-bezier(0,0,0.2,1) infinite; }
+
+/* ── Progress / bars grow into place ──────────────────────────────── */
+.ui-bar-fill { transition: width var(--dur-slow) var(--ease-out-expo); }
+
+/* ── Table rows ───────────────────────────────────────────────────── */
+.ui-row { transition: background var(--dur-fast) ease; }
+.ui-row:hover { background: rgba(255,255,255,0.028); }
+
+/* ── Chips / filters ──────────────────────────────────────────────── */
+.ui-chip {
+  transition: background var(--dur-base) ease, color var(--dur-base) ease,
+              border-color var(--dur-base) ease, transform var(--dur-fast) var(--ease-spring);
+}
+.ui-chip:hover { transform: translateY(-1px); }
+.ui-chip:active { transform: translateY(0) scale(0.97); }
+
+/* ── Nav active indicator ─────────────────────────────────────────── */
+.ui-nav-item { position: relative; transition: color var(--dur-base) ease, background var(--dur-base) ease; }
+.ui-nav-item::before {
+  content: ""; position: absolute; left: 0; top: 50%; height: 0; width: 2.5px;
+  border-radius: 0 3px 3px 0; background: var(--hifi-accent);
+  transform: translateY(-50%);
+  transition: height var(--dur-base) var(--ease-out-expo);
+}
+.ui-nav-item[data-active="true"]::before { height: 60%; }
+
+/* ── Scrollbars (dark, unobtrusive) ───────────────────────────────── */
+.ui-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.ui-scroll::-webkit-scrollbar-track { background: transparent; }
+.ui-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.10); border-radius: 8px;
+  border: 2px solid transparent; background-clip: padding-box;
+}
+.ui-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); background-clip: padding-box; }
+
+/* ── Number roll-in (KPIs) ────────────────────────────────────────── */
+@keyframes ui-count-in {
+  from { opacity: 0; transform: translateY(6px); filter: blur(4px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+.ui-count { animation: ui-count-in var(--dur-slow) var(--ease-out-expo) both; }
+
+/* ── Respect the user's motion preference ─────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .ui-card, .ui-press, .ui-chip, .ui-nav-item, .ui-bar-fill, .ui-input { transition: none !important; }
+  .ui-rise, .ui-stagger > *, .ui-toast, .ui-count, .ui-skeleton::after, .ui-ping {
+    animation: none !important;
+  }
+  .ui-card-interactive:hover { transform: none; }
+}
