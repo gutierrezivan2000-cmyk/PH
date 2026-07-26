@@ -109,6 +109,10 @@ export default async function ResidentPortalPage({
   const summary = computeUnitSummary(unit.charges, paymentsTotal, new Date());
   const owes = summary.balance > 0;
   const payEnabled = owes && !!admin?.epaycoPublicKey;
+  // Host shown in the footer so the resident knows where to recover the link.
+  const issuerHost = (process.env.NEXT_PUBLIC_APP_URL || "")
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "") || "esta misma dirección";
   const waHref = waLink(unit.property.whatsapp, residentToAdminMessage(unit.property.name, unit.label));
 
   const movements: Movement[] = [
@@ -292,7 +296,8 @@ export default async function ResidentPortalPage({
         {/* Footer */}
         <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", margin: "8px 0 0", lineHeight: 1.6 }}>
           Portal de {unit.property.name} · administrado por {issuer}.<br />
-          Este enlace es personal de tu unidad — no lo compartas. Información al día de hoy.
+          Este enlace es personal de tu unidad — no lo compartas. Guárdalo en tus favoritos.<br />
+          ¿Lo pierdes? Recupéralo en <strong>{`${issuerHost}/portal`}</strong>
         </p>
         <p style={{ fontSize: 10, color: "#c4c4c8", textAlign: "center", margin: 0, letterSpacing: "0.08em", textTransform: "uppercase" }}>
           Con tecnología SOPH.IA

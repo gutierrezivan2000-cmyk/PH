@@ -103,6 +103,17 @@ export async function PATCH(req: NextRequest) {
     if (notify && reply?.trim() && pqrs.residentContact && /[^@\s]+@[^@\s]+\.[^@\s]+/.test(pqrs.residentContact)) {
       try {
         const { sendAnnouncementEmails, textToEmailHtml } = await import("@/lib/email");
+        const { checkEmailQuota, recordEmailsSent } = await import("@/lib/email-quota");
+        const { checkSubscriptionAccess } = await import("@/lib/usage");
+
+        // These notifications must count against the monthly email quota like
+        // every other send — otherwise the cost model has a hole.
+        const access = await checkSubscriptionAccess(userId);
+        const quota = await checkEmailQuota(userId, 1, access.status === "beta");
+        if (!quota.allowed) {
+          return NextResponse.json({ ok: true, notified: false, quotaReached: true, quotaReason: quota.reason });
+        }
+
         const admin = await db.user.findUnique({
           where: { id: userId },
           select: { name: true, email: true, company: true, logoUrl: true, brandColor: true },
@@ -118,6 +129,7 @@ export async function PATCH(req: NextRequest) {
           brandColor: admin?.brandColor,
         });
         notified = res.sent > 0;
+        if (res.sent > 0) await recordEmailsSent(userId, res.sent);
       } catch (e) {
         console.error("[pqrs notify]", e);
       }
