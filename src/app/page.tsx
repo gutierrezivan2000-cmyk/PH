@@ -23,6 +23,16 @@ import {
   MapPin,
   Minus,
   AlertCircle,
+  Wallet,
+  PieChart,
+  Users,
+  MessageSquare,
+  CalendarClock,
+  BadgeCheck,
+  Gavel,
+  CreditCard,
+  MessageCircle,
+  QrCode,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────
@@ -146,28 +156,30 @@ const CHAT_SEQUENCE = [
 
 const PRO_FEATURES = [
   "Hasta 3 propiedades",
+  "15 generaciones al mes · PDF, DOCX y PPTX",
   "Themis + Chronos incluidos",
-  "15 generaciones al mes (máx. 3/día)",
-  "Exporta PDF · DOCX · PPTX",
-  "Historial completo de documentos",
-  "Soporte por chat",
+  "Calendario de cumplimiento automático",
+  "Comunicados con IA · 500 correos/mes",
+  "Certificados y paz y salvos con QR",
+  "Convocatorias y control de términos",
 ];
 
 const BUSINESS_FEATURES = [
   "Hasta 10 propiedades",
-  "Themis + Chronos incluidos",
-  "40 generaciones al mes (máx. 5/día)",
-  "Exporta PDF · DOCX · PPTX",
-  "Generar en lote",
-  "Soporte prioritario",
+  "40 generaciones al mes · PDF, DOCX y PPTX",
+  "Todo lo de Pro · 3.000 correos/mes",
+  "Cartera: cuotas, pagos y estados de cuenta",
+  "Cobro con IA, mora e intereses de ley",
+  "Presupuesto, fondo del 1% y export contable",
+  "Portal del residente + PQRS + pago en línea",
 ];
 
 const ELITE_FEATURES = [
   "Propiedades ilimitadas",
-  "Themis + Chronos incluidos",
-  "100 generaciones al mes (máx. 10/día)",
-  "Exporta PDF · DOCX · PPTX",
-  "Generar en lote",
+  "100 generaciones al mes · PDF, DOCX y PPTX",
+  "Todo lo de Business · 15.000 correos/mes",
+  "Portafolio consolidado de tus copropiedades",
+  "Generación en lote de todos los informes",
   "Soporte prioritario · WhatsApp directo",
 ];
 
@@ -761,6 +773,9 @@ export default function LandingPage() {
             </span>
           </div>
           <div className="hidden md:flex items-center gap-7">
+            <Link href="#plataforma" className="sophia-navlink text-sm">
+              Plataforma
+            </Link>
             <Link href="#agentes" className="sophia-navlink text-sm">
               Agentes
             </Link>
@@ -868,7 +883,7 @@ export default function LandingPage() {
                   color: "rgba(255,255,255,0.95)",
                 }}
               >
-                Tu próxima{" "}
+                Administra tu copropiedad{" "}
                 <em
                   style={{
                     fontStyle: "italic",
@@ -876,9 +891,9 @@ export default function LandingPage() {
                     fontWeight: 500,
                   }}
                 >
-                  acta legal
-                </em>{" "}
-                en lo que dura un café.
+                  completa
+                </em>
+                , no solo sus papeles.
               </h1>
 
               {/* Body */}
@@ -886,8 +901,8 @@ export default function LandingPage() {
                 className="text-base leading-relaxed"
                 style={{ color: "rgba(255,255,255,0.5)", maxWidth: 480 }}
               >
-                SOPH.IA combina seis agentes IA especializados en propiedad
-                horizontal con tu reglamento y tus datos del mes — y entrega
+                Cartera y recaudo, presupuesto, asambleas, comunicados y un
+                portal para tus residentes — con seis agentes IA que redactan
                 informe, acta y PPTX listos para firmar.
               </p>
 
@@ -1328,6 +1343,203 @@ export default function LandingPage() {
                 </span>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* ── 6b. PLATAFORMA COMPLETA ── */}
+        <section id="plataforma" className="py-24 px-6" style={{ scrollMarginTop: 80 }}>
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-12 flex flex-col gap-3">
+              <p
+                className="text-xs font-medium tracking-widest uppercase sophia-mono"
+                style={{ color: "rgba(255,255,255,0.35)" }}
+              >
+                La plataforma
+              </p>
+              <h2
+                style={{
+                  fontSize: "clamp(28px, 3vw, 44px)",
+                  fontWeight: 500,
+                  letterSpacing: "-0.025em",
+                  color: "rgba(255,255,255,0.95)",
+                }}
+              >
+                Todo lo que un administrador hace,{" "}
+                <em style={{ fontStyle: "italic", color: "#a78bff" }}>en un solo lugar</em>.
+              </h2>
+              <p
+                className="text-base leading-relaxed"
+                style={{ color: "rgba(255,255,255,0.5)", maxWidth: 640 }}
+              >
+                No es solo generar documentos. SOPH.IA cubre el ciclo completo: cobrar, rendir
+                cuentas, convocar, comunicar y responderle a los residentes.
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                {
+                  Icon: Wallet,
+                  color: "#4cd6a0",
+                  title: "Cartera y recaudo",
+                  desc: "Causa las cuotas del mes con un clic, registra pagos que se aplican solos al cobro más antiguo, y entrega estados de cuenta con tu logo.",
+                  tag: "Business",
+                },
+                {
+                  Icon: MessageSquare,
+                  color: "#ff8585",
+                  title: "Cobro de cartera con IA",
+                  desc: "Cartera por edades, intereses de mora dentro del tope legal, y cartas de cobro —de recordatorio a prejurídico— redactadas con la deuda real.",
+                  tag: "Business",
+                },
+                {
+                  Icon: PieChart,
+                  color: "#ffb958",
+                  title: "Presupuesto y ejecución",
+                  desc: "Presupuesto anual por rubros, ejecutado vs presupuestado, fondo de imprevistos del 1% vigilado, y exporte a Excel para tu contador.",
+                  tag: "Business",
+                },
+                {
+                  Icon: Users,
+                  color: "#5fb4ff",
+                  title: "Portal del residente",
+                  desc: "Cada unidad recibe un enlace privado para ver su estado de cuenta, comunicados y documentos. Sin usuarios ni contraseñas que administrar.",
+                  tag: "Business",
+                },
+                {
+                  Icon: CreditCard,
+                  color: "#a78bff",
+                  title: "Pago en línea",
+                  desc: "Tus residentes pagan la administración desde el portal y el pago se concilia solo en tu cartera. El dinero llega directo a tu cuenta.",
+                  tag: "Business",
+                },
+                {
+                  Icon: MessageCircle,
+                  color: "#25D366",
+                  title: "WhatsApp integrado",
+                  desc: "El residente te escribe desde su portal y el mensaje llega identificado con su unidad. Recordatorios de pago y enlaces, listos para enviar.",
+                },
+                {
+                  Icon: CalendarClock,
+                  color: "#5fd6c6",
+                  title: "Calendario de cumplimiento",
+                  desc: "Asamblea ordinaria, póliza de zonas comunes, ascensores, piscina, SG-SST y fondo de imprevistos: se generan solos según tu edificio.",
+                },
+                {
+                  Icon: Gavel,
+                  color: "#8fa8ff",
+                  title: "Asambleas",
+                  desc: "Convocatoria formal que valida los 15 días de ley, y control automático de términos: acta en 20 días hábiles e impugnación a 2 meses.",
+                },
+                {
+                  Icon: BadgeCheck,
+                  color: "#4cd6a0",
+                  title: "Certificados con QR",
+                  desc: "Paz y salvos y constancias de residencia con código QR: cualquiera verifica en línea si son auténticos, están vencidos o revocados.",
+                },
+                {
+                  Icon: Send,
+                  color: "#ff6fa8",
+                  title: "Comunicados",
+                  desc: "Describe la circular en una línea y la IA la redacta. Se envía con tu marca a cada residente, sin que vean los correos de los demás.",
+                },
+                {
+                  Icon: QrCode,
+                  color: "#ffb958",
+                  title: "PQRS y asistente del reglamento",
+                  desc: "Los residentes radican peticiones con número de seguimiento, y una IA les responde dudas leyendo el reglamento de tu copropiedad.",
+                  tag: "Business",
+                },
+                {
+                  Icon: Layers,
+                  color: "#a78bff",
+                  title: "Portafolio y lote",
+                  desc: "¿Administras decenas de copropiedades? Vista consolidada y generación de todos los informes del mes en una sola acción.",
+                  tag: "Élite",
+                },
+              ].map((f) => (
+                <div
+                  key={f.title}
+                  className="ui-card ui-card-interactive ui-sheen p-6 flex flex-col gap-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div
+                      className="flex items-center justify-center rounded-xl flex-shrink-0"
+                      style={{
+                        width: 40,
+                        height: 40,
+                        background: `${f.color}18`,
+                        border: `1px solid ${f.color}35`,
+                      }}
+                    >
+                      <f.Icon className="h-5 w-5" style={{ color: f.color }} />
+                    </div>
+                    {f.tag && (
+                      <span
+                        className="sophia-mono px-2 py-1 rounded-full"
+                        style={{
+                          fontSize: 9,
+                          letterSpacing: "0.14em",
+                          textTransform: "uppercase",
+                          background: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.10)",
+                          color: "rgba(255,255,255,0.45)",
+                        }}
+                      >
+                        {f.tag}
+                      </span>
+                    )}
+                  </div>
+                  <h3
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 600,
+                      letterSpacing: "-0.01em",
+                      color: "rgba(255,255,255,0.92)",
+                    }}
+                  >
+                    {f.title}
+                  </h3>
+                  <p
+                    className="text-[13.5px] leading-relaxed"
+                    style={{ color: "rgba(255,255,255,0.48)" }}
+                  >
+                    {f.desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Import IA highlight */}
+            <div
+              className="ui-card ui-sheen mt-4 p-6 flex flex-col md:flex-row md:items-center gap-5"
+              style={{ borderColor: "rgba(124,92,255,0.28)" }}
+            >
+              <div
+                className="flex items-center justify-center rounded-2xl flex-shrink-0"
+                style={{
+                  width: 52,
+                  height: 52,
+                  background: "rgba(124,92,255,0.12)",
+                  border: "1px solid rgba(124,92,255,0.30)",
+                }}
+              >
+                <Upload className="h-6 w-6" style={{ color: "#a78bff" }} />
+              </div>
+              <div className="flex-1">
+                <h3 style={{ fontSize: 17, fontWeight: 600, color: "rgba(255,255,255,0.92)" }}>
+                  Empezar no te toma una tarde: toma un archivo
+                </h3>
+                <p
+                  className="text-[13.5px] leading-relaxed mt-1"
+                  style={{ color: "rgba(255,255,255,0.48)" }}
+                >
+                  Sube el Excel, PDF o Word donde ya tienes tus unidades — aunque esté
+                  desordenado. La IA identifica apartamento, propietario, correo, teléfono,
+                  coeficiente y cuota, y te muestra la lista para que la revises antes de crearla.
+                </p>
+              </div>
+            </div>
           </div>
         </section>
 
