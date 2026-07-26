@@ -50,12 +50,12 @@ const monoMini: React.CSSProperties = {
 };
 
 const card: React.CSSProperties = {
-  background: "#15151a",
-  border: "1px solid rgba(255,255,255,0.07)",
+  background: "var(--hifi-surface-1)",
+  border: "1px solid var(--hifi-hairline)",
 };
 
 const inputStyle: React.CSSProperties = {
-  background: "#0f0f13",
+  background: "var(--hifi-bg-elev)",
   border: "1px solid rgba(255,255,255,0.10)",
   color: "#f6f5f7",
   borderRadius: "10px",
@@ -415,9 +415,9 @@ La Administración`;
                         onChange={(e) => setModality(e.target.value)}
                         style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}
                       >
-                        <option value="presencial" style={{ background: "#15151a" }}>Presencial</option>
-                        <option value="virtual" style={{ background: "#15151a" }}>Virtual</option>
-                        <option value="mixta" style={{ background: "#15151a" }}>Mixta</option>
+                        <option value="presencial" style={{ background: "var(--hifi-surface-1)" }}>Presencial</option>
+                        <option value="virtual" style={{ background: "var(--hifi-surface-1)" }}>Virtual</option>
+                        <option value="mixta" style={{ background: "var(--hifi-surface-1)" }}>Mixta</option>
                       </select>
                       <ChevronDown
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5"

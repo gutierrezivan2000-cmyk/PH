@@ -55,12 +55,12 @@ const monoMini: React.CSSProperties = {
 };
 
 const card: React.CSSProperties = {
-  background: "#15151a",
-  border: "1px solid rgba(255,255,255,0.07)",
+  background: "var(--hifi-surface-1)",
+  border: "1px solid var(--hifi-hairline)",
 };
 
 const inputStyle: React.CSSProperties = {
-  background: "#0f0f13",
+  background: "var(--hifi-bg-elev)",
   border: "1px solid rgba(255,255,255,0.10)",
   color: "#f6f5f7",
   borderRadius: "10px",
@@ -352,11 +352,11 @@ export default function CertificadosPage() {
                           }}
                           style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}
                         >
-                          <option value="" style={{ background: "#15151a" }}>
+                          <option value="" style={{ background: "var(--hifi-surface-1)" }}>
                             Escribir manualmente…
                           </option>
                           {units.map((u) => (
-                            <option key={u.id} value={u.id} style={{ background: "#15151a" }}>
+                            <option key={u.id} value={u.id} style={{ background: "var(--hifi-surface-1)" }}>
                               {u.label}
                               {u.residentName ? ` — ${u.residentName}` : ""}
                             </option>

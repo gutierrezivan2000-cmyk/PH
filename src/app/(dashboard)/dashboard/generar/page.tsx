@@ -226,8 +226,8 @@ export default function GenerarPage() {
 
   // Card shared style
   const cardStyle: React.CSSProperties = {
-    background: "#15151a",
-    border: "1px solid rgba(255,255,255,0.07)",
+    background: "var(--hifi-surface-1)",
+    border: "1px solid var(--hifi-hairline)",
   };
 
   return (
@@ -403,7 +403,7 @@ export default function GenerarPage() {
                   className="w-full h-11 rounded-xl px-4 text-sm appearance-none cursor-pointer transition-all outline-none"
                   style={{
                     background: "#1d1d24",
-                    border: "1px solid rgba(255,255,255,0.07)",
+                    border: "1px solid var(--hifi-hairline)",
                     color: "#f6f5f7",
                   }}
                   onFocus={(e) => {
@@ -433,7 +433,7 @@ export default function GenerarPage() {
                 className="w-full sm:w-28 h-11 rounded-xl px-4 text-sm outline-none transition-all"
                 style={{
                   background: "#1d1d24",
-                  border: "1px solid rgba(255,255,255,0.07)",
+                  border: "1px solid var(--hifi-hairline)",
                   color: "#f6f5f7",
                 }}
                 onFocus={(e) => {
@@ -775,7 +775,7 @@ export default function GenerarPage() {
                     className="flex items-center justify-between rounded-xl px-4 py-2.5"
                     style={{
                       background: "#1d1d24",
-                      border: "1px solid rgba(255,255,255,0.07)",
+                      border: "1px solid var(--hifi-hairline)",
                     }}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -796,7 +796,7 @@ export default function GenerarPage() {
                           ...monoLabel,
                           background: "rgba(255,255,255,0.06)",
                           color: "rgba(246,245,247,0.66)",
-                          border: "1px solid rgba(255,255,255,0.07)",
+                          border: "1px solid var(--hifi-hairline)",
                         }}
                       >
                         {(file.size / 1024 / 1024).toFixed(1)}MB
@@ -857,7 +857,7 @@ export default function GenerarPage() {
               className="w-full rounded-xl px-4 py-3 text-sm resize-none outline-none transition-all"
               style={{
                 background: "#1d1d24",
-                border: "1px solid rgba(255,255,255,0.07)",
+                border: "1px solid var(--hifi-hairline)",
                 color: "#f6f5f7",
               }}
               onFocus={(e) => {

@@ -106,8 +106,8 @@ export default function HistorialPage() {
   });
 
   const selectStyle: React.CSSProperties = {
-    background: "#15151a",
-    border: "1px solid rgba(255,255,255,0.07)",
+    background: "var(--hifi-surface-1)",
+    border: "1px solid var(--hifi-hairline)",
     color: "#f6f5f7",
     borderRadius: "10px",
     height: "38px",
@@ -127,8 +127,8 @@ export default function HistorialPage() {
         <div
           className="rounded-2xl p-4 flex flex-wrap items-center gap-4"
           style={{
-            background: "#15151a",
-            border: "1px solid rgba(255,255,255,0.07)",
+            background: "var(--hifi-surface-1)",
+            border: "1px solid var(--hifi-hairline)",
           }}
         >
           <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Filtros</span>
@@ -149,10 +149,10 @@ export default function HistorialPage() {
                   e.currentTarget.style.boxShadow = "none";
                 }}
               >
-                <option value="all" style={{ background: "#15151a" }}>Todos los documentos</option>
-                <option value="informe" style={{ background: "#15151a" }}>Con informe</option>
-                <option value="acta" style={{ background: "#15151a" }}>Con acta</option>
-                <option value="presentacion" style={{ background: "#15151a" }}>Con presentación</option>
+                <option value="all" style={{ background: "var(--hifi-surface-1)" }}>Todos los documentos</option>
+                <option value="informe" style={{ background: "var(--hifi-surface-1)" }}>Con informe</option>
+                <option value="acta" style={{ background: "var(--hifi-surface-1)" }}>Con acta</option>
+                <option value="presentacion" style={{ background: "var(--hifi-surface-1)" }}>Con presentación</option>
               </select>
               <ArrowRight
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none h-3.5 w-3.5"
@@ -175,10 +175,10 @@ export default function HistorialPage() {
                   e.currentTarget.style.boxShadow = "none";
                 }}
               >
-                <option value="all" style={{ background: "#15151a" }}>Todos los estados</option>
-                <option value="completed" style={{ background: "#15151a" }}>Listo</option>
-                <option value="processing" style={{ background: "#15151a" }}>Procesando</option>
-                <option value="failed" style={{ background: "#15151a" }}>Error</option>
+                <option value="all" style={{ background: "var(--hifi-surface-1)" }}>Todos los estados</option>
+                <option value="completed" style={{ background: "var(--hifi-surface-1)" }}>Listo</option>
+                <option value="processing" style={{ background: "var(--hifi-surface-1)" }}>Procesando</option>
+                <option value="failed" style={{ background: "var(--hifi-surface-1)" }}>Error</option>
               </select>
               <ArrowRight
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none h-3.5 w-3.5"
@@ -212,7 +212,7 @@ export default function HistorialPage() {
           <div
             className="rounded-2xl flex flex-col items-center py-16 text-center px-6"
             style={{
-              background: "#15151a",
+              background: "var(--hifi-surface-1)",
               border: "1.5px dashed rgba(255,255,255,0.10)",
             }}
           >
@@ -267,8 +267,8 @@ export default function HistorialPage() {
           <div
             className="rounded-2xl overflow-hidden"
             style={{
-              background: "#15151a",
-              border: "1px solid rgba(255,255,255,0.07)",
+              background: "var(--hifi-surface-1)",
+              border: "1px solid var(--hifi-hairline)",
             }}
           >
             {filtered.map((gen, index) => {

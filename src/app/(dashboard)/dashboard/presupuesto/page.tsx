@@ -62,12 +62,12 @@ const monoMini: React.CSSProperties = {
 };
 
 const card: React.CSSProperties = {
-  background: "#15151a",
-  border: "1px solid rgba(255,255,255,0.07)",
+  background: "var(--hifi-surface-1)",
+  border: "1px solid var(--hifi-hairline)",
 };
 
 const inputStyle: React.CSSProperties = {
-  background: "#0f0f13",
+  background: "var(--hifi-bg-elev)",
   border: "1px solid rgba(255,255,255,0.10)",
   color: "#f6f5f7",
   borderRadius: "10px",
@@ -264,7 +264,7 @@ export default function PresupuestoPage() {
     const accent = group === "ingresos" ? "#4cd6a0" : "#ffb958";
     return (
       <div className="ui-card ui-sheen overflow-hidden">
-        <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+        <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: "1px solid var(--hifi-hairline)" }}>
           <span style={{ ...monoLabel, color: accent }}>{title}</span>
           <span style={{ ...monoMini, color: "rgba(246,245,247,0.45)" }}>
             {fmtCOP(g.executed)} / {fmtCOP(g.budgeted)}
@@ -367,7 +367,7 @@ export default function PresupuestoPage() {
               <div className="relative">
                 <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ ...inputStyle, width: 110, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
                   {years.map((y) => (
-                    <option key={y} value={y} style={{ background: "#15151a" }}>{y}</option>
+                    <option key={y} value={y} style={{ background: "var(--hifi-surface-1)" }}>{y}</option>
                   ))}
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
@@ -524,10 +524,10 @@ export default function PresupuestoPage() {
                             <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Tipo</label>
                             <div className="relative">
                               <select value={movType} onChange={(e) => { setMovType(e.target.value); setMovItem(""); }} style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
-                                <option value="gasto" style={{ background: "#15151a" }}>Gasto</option>
-                                <option value="ingreso" style={{ background: "#15151a" }}>Ingreso</option>
-                                <option value="fondo_aporte" style={{ background: "#15151a" }}>Aporte al fondo</option>
-                                <option value="fondo_retiro" style={{ background: "#15151a" }}>Retiro del fondo</option>
+                                <option value="gasto" style={{ background: "var(--hifi-surface-1)" }}>Gasto</option>
+                                <option value="ingreso" style={{ background: "var(--hifi-surface-1)" }}>Ingreso</option>
+                                <option value="fondo_aporte" style={{ background: "var(--hifi-surface-1)" }}>Aporte al fondo</option>
+                                <option value="fondo_retiro" style={{ background: "var(--hifi-surface-1)" }}>Retiro del fondo</option>
                               </select>
                               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
                             </div>
@@ -537,9 +537,9 @@ export default function PresupuestoPage() {
                               <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Rubro</label>
                               <div className="relative">
                                 <select value={movItem} onChange={(e) => setMovItem(e.target.value)} style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
-                                  <option value="" style={{ background: "#15151a" }}>Sin rubro</option>
+                                  <option value="" style={{ background: "var(--hifi-surface-1)" }}>Sin rubro</option>
                                   {items.filter((i) => i.group === movType).map((i) => (
-                                    <option key={i.id} value={i.id} style={{ background: "#15151a" }}>{i.concept}</option>
+                                    <option key={i.id} value={i.id} style={{ background: "var(--hifi-surface-1)" }}>{i.concept}</option>
                                   ))}
                                 </select>
                                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
@@ -576,7 +576,7 @@ export default function PresupuestoPage() {
                 {/* Movements list */}
                 {entries.length > 0 && (
                   <div className="ui-card ui-sheen overflow-hidden">
-                    <div className="px-5 py-3.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                    <div className="px-5 py-3.5" style={{ borderBottom: "1px solid var(--hifi-hairline)" }}>
                       <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Movimientos {year}</span>
                     </div>
                     <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
@@ -631,7 +631,7 @@ export default function PresupuestoPage() {
                   const accent = group === "ingreso" ? "#4cd6a0" : "#ffb958";
                   return (
                     <div key={group} className="ui-card ui-sheen overflow-hidden">
-                      <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                      <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: "1px solid var(--hifi-hairline)" }}>
                         <span style={{ ...monoLabel, color: accent }}>{group === "ingreso" ? "Ingresos" : "Gastos"}</span>
                         <span style={{ ...monoMini, color: "rgba(246,245,247,0.55)" }}>{fmtCOP(total)}</span>
                       </div>

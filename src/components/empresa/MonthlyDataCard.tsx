@@ -168,7 +168,7 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
             {files.length > 0 && (
               <ul className="space-y-2 mb-4">
                 {files.map((f, i) => (
-                  <li key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ background: "#1d1d24", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <li key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ background: "#1d1d24", border: "1px solid var(--hifi-hairline)" }}>
                     <FileText className="h-4 w-4 text-muted-foreground/70 flex-shrink-0" />
                     <span className="flex-1 min-w-0 truncate text-[13px] text-foreground">{f.name}</span>
                     <span className="text-[11px] text-muted-foreground/60" style={{ fontFamily: "var(--font-mono)" }}>

@@ -53,13 +53,13 @@ const monoLabel: React.CSSProperties = {
 };
 
 const cardStyle: React.CSSProperties = {
-  background: "#15151a",
-  border: "1px solid rgba(255,255,255,0.07)",
+  background: "var(--hifi-surface-1)",
+  border: "1px solid var(--hifi-hairline)",
 };
 
 const inputStyle: React.CSSProperties = {
   background: "#1d1d24",
-  border: "1px solid rgba(255,255,255,0.07)",
+  border: "1px solid var(--hifi-hairline)",
   color: "#f6f5f7",
   borderRadius: "10px",
 };
@@ -428,7 +428,7 @@ export default function PropiedadesPage() {
           <div
             className="rounded-2xl flex flex-col items-center py-16 text-center px-6"
             style={{
-              background: "#15151a",
+              background: "var(--hifi-surface-1)",
               border: "1.5px dashed rgba(255,255,255,0.10)",
             }}
           >
@@ -482,8 +482,8 @@ export default function PropiedadesPage() {
               key={property.id}
               className="group rounded-2xl overflow-hidden transition-all duration-300"
               style={{
-                background: "#15151a",
-                border: "1px solid rgba(255,255,255,0.07)",
+                background: "var(--hifi-surface-1)",
+                border: "1px solid var(--hifi-hairline)",
               }}
               onMouseEnter={(e) => {
                 const el = e.currentTarget as HTMLElement;
@@ -689,7 +689,7 @@ export default function PropiedadesPage() {
                             style={{
                               ...monoLabel,
                               background: "rgba(255,255,255,0.04)",
-                              border: "1px solid rgba(255,255,255,0.07)",
+                              border: "1px solid var(--hifi-hairline)",
                               color: "rgba(246,245,247,0.66)",
                             }}
                           >
@@ -760,7 +760,7 @@ export default function PropiedadesPage() {
                   {expandedId === property.id && (
                     <div
                       className="px-5 pb-5"
-                      style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+                      style={{ borderTop: "1px solid var(--hifi-hairline)" }}
                     >
                       <div className="pt-4 space-y-3">
                         <div className="flex items-center gap-2 mb-1">
@@ -833,7 +833,7 @@ function DocumentSlot({
         className="flex items-center gap-3 p-3 rounded-xl"
         style={{
           background: "#1d1d24",
-          border: "1px solid rgba(255,255,255,0.07)",
+          border: "1px solid var(--hifi-hairline)",
         }}
       >
         {icon}
@@ -852,7 +852,7 @@ function DocumentSlot({
         className="flex items-center gap-3 p-3 rounded-xl"
         style={{
           background: "#1d1d24",
-          border: "1px solid rgba(255,255,255,0.07)",
+          border: "1px solid var(--hifi-hairline)",
         }}
       >
         {icon}

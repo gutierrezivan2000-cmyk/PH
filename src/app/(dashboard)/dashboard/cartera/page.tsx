@@ -84,12 +84,12 @@ const monoMini: React.CSSProperties = {
 };
 
 const card: React.CSSProperties = {
-  background: "#15151a",
-  border: "1px solid rgba(255,255,255,0.07)",
+  background: "var(--hifi-surface-1)",
+  border: "1px solid var(--hifi-hairline)",
 };
 
 const inputStyle: React.CSSProperties = {
-  background: "#0f0f13",
+  background: "var(--hifi-bg-elev)",
   border: "1px solid rgba(255,255,255,0.10)",
   color: "#f6f5f7",
   borderRadius: "10px",
@@ -632,7 +632,7 @@ export default function CarteraPage() {
                     <div className="relative">
                       <select value={month} onChange={(e) => setMonth(Number(e.target.value))} style={{ ...inputStyle, width: 150, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
                         {MONTHS.map((mn, i) => (
-                          <option key={mn} value={i + 1} style={{ background: "#15151a" }}>{mn}</option>
+                          <option key={mn} value={i + 1} style={{ background: "var(--hifi-surface-1)" }}>{mn}</option>
                         ))}
                       </select>
                       <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
@@ -670,9 +670,9 @@ export default function CarteraPage() {
                     <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Unidad</label>
                     <div className="relative">
                       <select value={payUnit} onChange={(e) => setPayUnit(e.target.value)} style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
-                        <option value="" style={{ background: "#15151a" }}>Selecciona…</option>
+                        <option value="" style={{ background: "var(--hifi-surface-1)" }}>Selecciona…</option>
                         {units.map((u) => (
-                          <option key={u.id} value={u.id} style={{ background: "#15151a" }}>
+                          <option key={u.id} value={u.id} style={{ background: "var(--hifi-surface-1)" }}>
                             {u.label}{u.summary.balance > 0 ? ` — debe ${fmtCOP(u.summary.balance)}` : ""}
                           </option>
                         ))}
@@ -688,10 +688,10 @@ export default function CarteraPage() {
                     <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Método</label>
                     <div className="relative">
                       <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
-                        <option value="transferencia" style={{ background: "#15151a" }}>Transferencia</option>
-                        <option value="efectivo" style={{ background: "#15151a" }}>Efectivo</option>
-                        <option value="consignacion" style={{ background: "#15151a" }}>Consignación</option>
-                        <option value="otro" style={{ background: "#15151a" }}>Otro</option>
+                        <option value="transferencia" style={{ background: "var(--hifi-surface-1)" }}>Transferencia</option>
+                        <option value="efectivo" style={{ background: "var(--hifi-surface-1)" }}>Efectivo</option>
+                        <option value="consignacion" style={{ background: "var(--hifi-surface-1)" }}>Consignación</option>
+                        <option value="otro" style={{ background: "var(--hifi-surface-1)" }}>Otro</option>
                       </select>
                       <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
                     </div>
@@ -716,7 +716,7 @@ export default function CarteraPage() {
                 </button>
 
                 {payUnit && recentPayments.length > 0 && (
-                  <div className="pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="pt-2" style={{ borderTop: "1px solid var(--hifi-hairline)" }}>
                     <p style={{ ...monoLabel, color: "rgba(246,245,247,0.40)" }} className="mb-2">
                       Últimos pagos de esta unidad
                     </p>
@@ -756,9 +756,9 @@ export default function CarteraPage() {
                     <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Unidad</label>
                     <div className="relative">
                       <select value={chUnit} onChange={(e) => setChUnit(e.target.value)} style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
-                        <option value="" style={{ background: "#15151a" }}>Selecciona…</option>
+                        <option value="" style={{ background: "var(--hifi-surface-1)" }}>Selecciona…</option>
                         {units.map((u) => (
-                          <option key={u.id} value={u.id} style={{ background: "#15151a" }}>{u.label}</option>
+                          <option key={u.id} value={u.id} style={{ background: "var(--hifi-surface-1)" }}>{u.label}</option>
                         ))}
                       </select>
                       <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
@@ -776,8 +776,8 @@ export default function CarteraPage() {
                     <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Tipo</label>
                     <div className="relative">
                       <select value={chType} onChange={(e) => setChType(e.target.value)} style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
-                        <option value="extraordinaria" style={{ background: "#15151a" }}>Extraordinaria</option>
-                        <option value="otro" style={{ background: "#15151a" }}>Otro</option>
+                        <option value="extraordinaria" style={{ background: "var(--hifi-surface-1)" }}>Extraordinaria</option>
+                        <option value="otro" style={{ background: "var(--hifi-surface-1)" }}>Otro</option>
                       </select>
                       <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
                     </div>
@@ -829,7 +829,7 @@ export default function CarteraPage() {
                     <div className="relative">
                       <select value={intMonth} onChange={(e) => setIntMonth(Number(e.target.value))} style={{ ...inputStyle, width: 150, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
                         {MONTHS.map((mn, i) => (
-                          <option key={mn} value={i + 1} style={{ background: "#15151a" }}>{mn}</option>
+                          <option key={mn} value={i + 1} style={{ background: "var(--hifi-surface-1)" }}>{mn}</option>
                         ))}
                       </select>
                       <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
@@ -880,11 +880,11 @@ export default function CarteraPage() {
                         }}
                         style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}
                       >
-                        <option value="" style={{ background: "#15151a" }}>Selecciona…</option>
+                        <option value="" style={{ background: "var(--hifi-surface-1)" }}>Selecciona…</option>
                         {units
                           .filter((u) => u.summary.balance > 0)
                           .map((u) => (
-                            <option key={u.id} value={u.id} style={{ background: "#15151a" }}>
+                            <option key={u.id} value={u.id} style={{ background: "var(--hifi-surface-1)" }}>
                               {u.label} — debe {fmtCOP(u.summary.balance)}
                               {u.summary.overdueDays > 0 ? ` (${u.summary.overdueDays}d mora)` : ""}
                             </option>
@@ -901,9 +901,9 @@ export default function CarteraPage() {
                         onChange={(e) => setCartaTone(e.target.value as typeof cartaTone)}
                         style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}
                       >
-                        <option value="recordatorio" style={{ background: "#15151a" }}>Recordatorio amable (1er aviso)</option>
-                        <option value="persuasivo" style={{ background: "#15151a" }}>Cobro persuasivo (2do aviso)</option>
-                        <option value="prejuridico" style={{ background: "#15151a" }}>Prejurídico (último aviso)</option>
+                        <option value="recordatorio" style={{ background: "var(--hifi-surface-1)" }}>Recordatorio amable (1er aviso)</option>
+                        <option value="persuasivo" style={{ background: "var(--hifi-surface-1)" }}>Cobro persuasivo (2do aviso)</option>
+                        <option value="prejuridico" style={{ background: "var(--hifi-surface-1)" }}>Prejurídico (último aviso)</option>
                       </select>
                       <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
                     </div>
@@ -920,7 +920,7 @@ export default function CarteraPage() {
                 </button>
 
                 {cartaContent && (
-                  <div className="space-y-3 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="space-y-3 pt-2" style={{ borderTop: "1px solid var(--hifi-hairline)" }}>
                     <div>
                       <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Asunto</label>
                       <input value={cartaSubject} onChange={(e) => setCartaSubject(e.target.value)} style={inputStyle} maxLength={150} />
@@ -1015,7 +1015,7 @@ export default function CarteraPage() {
                     ))}
                   </div>
                   {morosos.length > 0 && (
-                    <div className="pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div className="pt-3" style={{ borderTop: "1px solid var(--hifi-hairline)" }}>
                       <p style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="mb-2">
                         Mayores deudores
                       </p>
@@ -1081,7 +1081,7 @@ export default function CarteraPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr style={{ background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                      <tr style={{ background: "rgba(255,255,255,0.02)", borderBottom: "1px solid var(--hifi-hairline)" }}>
                         {["Unidad", "Cuota mensual", "Coef. %", "Saldo", "Estado", "Último pago", ""].map((h) => (
                           <th
                             key={h}
