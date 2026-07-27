@@ -808,7 +808,7 @@ export default function LandingPage() {
         </nav>
 
         {/* ── 2. HERO ── */}
-        <section className="relative pt-28 pb-24 px-6" style={{ minHeight: "100vh" }}>
+        <section className="relative pt-24 pb-20 px-6" style={{ minHeight: "92vh" }}>
           {/* Background orbs */}
           <div
             className="absolute pointer-events-none"
@@ -818,22 +818,22 @@ export default function LandingPage() {
               width: 560,
               height: 560,
               borderRadius: "50%",
-              background: "radial-gradient(circle, #7c5cff22, transparent 70%)",
+              background: "radial-gradient(circle, rgba(124,92,255,0.30), rgba(124,92,255,0.06) 45%, transparent 72%)",
               animation: "sophiaOrbDrift 14s ease-in-out infinite",
-              filter: "blur(60px)",
+              filter: "blur(90px)",
             }}
           />
           <div
             className="absolute pointer-events-none"
             style={{
-              bottom: 100,
-              right: "15%",
-              width: 420,
-              height: 420,
+              top: 180,
+              right: "8%",
+              width: 620,
+              height: 620,
               borderRadius: "50%",
-              background: "radial-gradient(circle, #a78bff15, transparent 70%)",
+              background: "radial-gradient(circle, rgba(167,139,255,0.22), rgba(90,60,240,0.08) 50%, transparent 74%)",
               animation: "sophiaOrbDrift 18s 3s ease-in-out infinite reverse",
-              filter: "blur(80px)",
+              filter: "blur(100px)",
             }}
           />
 
@@ -877,7 +877,7 @@ export default function LandingPage() {
               <h1
                 className="leading-tight"
                 style={{
-                  fontSize: "clamp(44px, 5.5vw, 72px)",
+                  fontSize: "clamp(38px, 4.6vw, 62px)",
                   fontWeight: 500,
                   letterSpacing: "-0.03em",
                   color: "rgba(255,255,255,0.95)",

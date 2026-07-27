@@ -518,7 +518,7 @@ export default function CarteraPage() {
   return (
     <div>
       <Header title="Cartera" subtitle="Cuotas, pagos y estados de cuenta por unidad" />
-      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-5xl mx-auto space-y-5">
+      <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-8 max-w-[1320px] mx-auto space-y-4">
         {loading && <SkeletonList rows={5} kpis={4} />}
 
         {/* Plan upgrade */}
@@ -554,64 +554,85 @@ export default function CarteraPage() {
 
         {!loading && !upgrade && properties.length > 0 && (
           <>
-            {/* Property selector */}
-            <div className="ui-card ui-sheen p-4 flex flex-wrap items-center gap-2">
-              <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Propiedad</span>
-              <div className="flex flex-wrap gap-2 flex-1">
-                {properties.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setPropertyId(p.id)}
-                    className="ui-chip px-3 py-1.5 rounded-full text-[12px] cursor-pointer"
-                    style={{
-                      border: `1px solid ${propertyId === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
-                      background: propertyId === p.id ? "rgba(124,92,255,0.15)" : "transparent",
-                      color: propertyId === p.id ? "#a78bff" : "rgba(246,245,247,0.55)",
-                    }}
-                  >
-                    {p.name}
-                  </button>
-                ))}
+            {/* Toolbar: property switcher + actions in ONE bar (they used to be
+                two separate blocks, wasting a whole card on two chips). */}
+            <div className="ui-card ui-sheen px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-3">
+              <div className="flex items-center gap-1.5 p-1 rounded-xl" style={{ background: "var(--hifi-bg-elev)", border: "1px solid var(--hifi-hairline)" }}>
+                {properties.map((p) => {
+                  const on = propertyId === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setPropertyId(p.id)}
+                      className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap"
+                      style={{
+                        background: on ? "var(--hifi-accent)" : "transparent",
+                        color: on ? "#fff" : "rgba(246,245,247,0.55)",
+                        boxShadow: on ? "0 6px 16px -8px rgba(124,92,255,0.9)" : "none",
+                      }}
+                    >
+                      {p.name}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="h-6 w-px hidden lg:block" style={{ background: "var(--hifi-hairline)" }} />
+
+              <div className="flex flex-wrap items-center gap-2 flex-1">
+                {panelBtn("causar", <CalendarPlus className="h-3.5 w-3.5" />, "Causar mes")}
+                {panelBtn("pago", <HandCoins className="h-3.5 w-3.5" />, "Registrar pago")}
+                {panelBtn("cobro", <Receipt className="h-3.5 w-3.5" />, "Cobro extra")}
+                {panelBtn("intereses", <Percent className="h-3.5 w-3.5" />, "Intereses")}
+                {panelBtn("carta", <Sparkles className="h-3.5 w-3.5" />, "Carta de cobro IA")}
               </div>
             </div>
 
-            {/* KPIs */}
+            {/* KPIs — each with a coloured accent rail so the row reads as data,
+                not as four identical grey boxes. */}
             {kpis && (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 ui-stagger">
-                <StatCard
-                  label="Cartera pendiente"
-                  value={fmtCOP(kpis.totalOwed)}
-                  tone={kpis.totalOwed > 0 ? "warn" : "ok"}
-                  icon={Wallet}
-                />
-                <StatCard
-                  label="Unidades en mora"
-                  value={`${kpis.overdueUnits} / ${kpis.unitsCount}`}
-                  tone={kpis.overdueUnits > 0 ? "danger" : "ok"}
-                  icon={Users}
-                />
-                <StatCard
-                  label="Recaudado este mes"
-                  value={fmtCOP(kpis.collectedThisMonth)}
-                  tone="ok"
-                  icon={HandCoins}
-                />
-                <StatCard
-                  label="Causado este mes"
-                  value={fmtCOP(kpis.chargedThisMonth)}
-                  icon={Receipt}
-                />
+                {[
+                  { label: "Cartera pendiente", value: fmtCOP(kpis.totalOwed), Icon: Wallet, rail: kpis.totalOwed > 0 ? "#ffb958" : "#4cd6a0", hint: kpis.totalOwed > 0 ? "por recaudar" : "todo recaudado" },
+                  { label: "Unidades en mora", value: `${kpis.overdueUnits}`, sub: `de ${kpis.unitsCount}`, Icon: Users, rail: kpis.overdueUnits > 0 ? "#ff6f6f" : "#4cd6a0", hint: kpis.overdueUnits > 0 ? "requieren gestión" : "ninguna en mora" },
+                  { label: "Recaudado este mes", value: fmtCOP(kpis.collectedThisMonth), Icon: HandCoins, rail: "#4cd6a0", hint: "pagos registrados" },
+                  { label: "Causado este mes", value: fmtCOP(kpis.chargedThisMonth), Icon: Receipt, rail: "#5fb4ff", hint: "cuotas emitidas" },
+                ].map((k) => {
+                  const empty = /^\$?0$/.test(String(k.value).replace(/\./g, ""));
+                  return (
+                    <div key={k.label} className="ui-card ui-sheen relative overflow-hidden p-4 pl-5">
+                      <span
+                        className="absolute left-0 top-0 bottom-0 w-[3px]"
+                        style={{ background: empty ? "rgba(255,255,255,0.10)" : k.rail }}
+                      />
+                      <div className="flex items-start justify-between gap-2 mb-2.5">
+                        <span style={{ ...monoLabel, color: "rgba(246,245,247,0.45)" }}>{k.label}</span>
+                        <span
+                          className="flex items-center justify-center rounded-lg flex-shrink-0"
+                          style={{ width: 26, height: 26, background: empty ? "rgba(255,255,255,0.04)" : `${k.rail}1a` }}
+                        >
+                          <k.Icon className="h-3.5 w-3.5" style={{ color: empty ? "rgba(246,245,247,0.30)" : k.rail }} />
+                        </span>
+                      </div>
+                      <p
+                        className="ui-count font-semibold tracking-tight leading-none"
+                        style={{ fontSize: 26, color: empty ? "rgba(246,245,247,0.38)" : "#f6f5f7" }}
+                      >
+                        {k.value}
+                        {k.sub && (
+                          <span className="ml-1.5 font-normal" style={{ fontSize: 14, color: "rgba(246,245,247,0.35)" }}>
+                            {k.sub}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[11px] mt-1.5" style={{ color: "rgba(246,245,247,0.35)" }}>
+                        {k.hint}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             )}
-
-            {/* Actions */}
-            <div className="flex flex-wrap gap-2">
-              {panelBtn("causar", <CalendarPlus className="h-3.5 w-3.5" />, "Causar mes")}
-              {panelBtn("pago", <HandCoins className="h-3.5 w-3.5" />, "Registrar pago")}
-              {panelBtn("cobro", <Receipt className="h-3.5 w-3.5" />, "Cobro extra")}
-              {panelBtn("intereses", <Percent className="h-3.5 w-3.5" />, "Intereses de mora")}
-              {panelBtn("carta", <Sparkles className="h-3.5 w-3.5" />, "Carta de cobro IA")}
-            </div>
 
             {/* Feedback: floating toast (auto-dismiss) */}
             <Toast msg={msg as ToastMsg | null} onDone={() => setMsg(null)} />
