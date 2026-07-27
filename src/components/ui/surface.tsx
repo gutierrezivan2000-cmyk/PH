@@ -151,19 +151,19 @@ export function EmptyState({
     tone === "accent" ? "var(--hifi-accent-hi)" : tone === "ok" ? "var(--hifi-ok)" : "var(--hifi-ink-faint)";
 
   return (
-    <Surface className="px-8 py-12 text-center ui-rise">
+    <Surface className="px-8 py-9 text-center ui-rise">
       <div
-        className="mx-auto mb-4 flex items-center justify-center rounded-2xl"
-        style={{ width: 56, height: 56, background: glow, border: `1px solid ${ring}` }}
+        className="mx-auto mb-3.5 flex items-center justify-center rounded-xl"
+        style={{ width: 46, height: 46, background: glow, border: `1px solid ${ring}` }}
       >
-        <Icon className="h-6 w-6" style={{ color }} />
+        <Icon className="h-5 w-5" style={{ color }} />
       </div>
       <p className="text-[15px] font-medium mb-1.5" style={{ color: "var(--hifi-ink)" }}>
         {title}
       </p>
       {description && (
         <p
-          className="text-[13px] leading-relaxed mx-auto mb-5"
+          className="text-[13px] leading-relaxed mx-auto mb-4"
           style={{ color: "var(--hifi-ink-faint)", maxWidth: 380 }}
         >
           {description}
