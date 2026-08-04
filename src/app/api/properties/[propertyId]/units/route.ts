@@ -30,6 +30,10 @@ export async function GET(
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
     }
 
+    if (process.env.DEMO_MODE === "true") {
+      const { getDemoUnits } = await import("@/lib/demo-store");
+      return NextResponse.json(getDemoUnits(propertyId));
+    }
     const units = await db.unit.findMany({
       where: { propertyId },
       orderBy: { label: "asc" },

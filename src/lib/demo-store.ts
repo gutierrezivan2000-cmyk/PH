@@ -248,3 +248,85 @@ export function checkUsageLimitDemo(userId: string): { allowed: boolean; reason?
   }
   return { allowed: true };
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Cartera / residentes demo fixtures (F2–F3).
+// The demo is a SALES surface: showing Cartera, Residentes and Presupuesto
+// completely empty sold nothing and made the product look unfinished. These
+// fixtures give a prospect a realistic building to explore.
+// ─────────────────────────────────────────────────────────────────────
+
+export interface DemoUnit {
+  id: string;
+  propertyId: string;
+  label: string;
+  residentName: string | null;
+  email: string | null;
+  phone: string | null;
+  coeficiente: number | null;
+  monthlyFee: number | null;
+  portalToken: string | null;
+  /** charged - paid, in COP. Positive = owes. */
+  balance: number;
+  overdueAmount: number;
+  overdueDays: number;
+  lastPaymentAt: string | null;
+}
+
+const FEE = 350000;
+const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
+
+function mkUnit(
+  n: number,
+  name: string,
+  opts: { balance?: number; overdueDays?: number; lastPay?: number; noEmail?: boolean } = {}
+): DemoUnit {
+  const balance = opts.balance ?? 0;
+  const overdueDays = opts.overdueDays ?? 0;
+  return {
+    id: `unit-demo-${n}`,
+    propertyId: "prop-demo-001",
+    label: `Apto ${n}`,
+    residentName: name,
+    email: opts.noEmail ? null : `${name.split(" ")[0].toLowerCase()}@correo.com`,
+    phone: `30${(10000000 + n * 137).toString().slice(0, 8)}`,
+    coeficiente: Number((0.7 + (n % 9) * 0.06).toFixed(2)),
+    monthlyFee: FEE,
+    portalToken: `demo${String(n).padStart(3, "0")}TokenPortal${n}`,
+    balance,
+    overdueAmount: overdueDays > 0 ? balance : 0,
+    overdueDays,
+    lastPaymentAt: opts.lastPay != null ? daysAgo(opts.lastPay) : null,
+  };
+}
+
+const seededUnits: DemoUnit[] = [
+  mkUnit(101, "María Restrepo", { lastPay: 4 }),
+  mkUnit(102, "Juan Cárdenas", { balance: FEE, overdueDays: 12, lastPay: 42 }),
+  mkUnit(103, "Ana Lucía Peña", { lastPay: 9 }),
+  mkUnit(201, "Carlos Mejía", { balance: FEE * 3, overdueDays: 74, lastPay: 96 }),
+  mkUnit(202, "Sofía Villamil", { balance: -120000, lastPay: 2 }),
+  mkUnit(203, "Diego Ramírez", { lastPay: 15 }),
+  mkUnit(301, "Laura Ochoa", { balance: FEE * 2, overdueDays: 41, lastPay: 63 }),
+  mkUnit(302, "Andrés Gil", { lastPay: 6, noEmail: true }),
+  mkUnit(303, "Paula Jaramillo", { balance: FEE, overdueDays: 5, lastPay: 38 }),
+  mkUnit(401, "Ricardo Suárez", { balance: FEE * 5, overdueDays: 118, lastPay: 140 }),
+  mkUnit(402, "Camila Torres", { lastPay: 11 }),
+  mkUnit(403, "Felipe Arango", { lastPay: 20 }),
+];
+
+export function getDemoUnits(propertyId: string): DemoUnit[] {
+  return propertyId === "prop-demo-001" ? seededUnits : [];
+}
+
+/** KPI block matching what /api/cartera computes from real data. */
+export function getDemoCarteraKpis(propertyId: string) {
+  const units = getDemoUnits(propertyId);
+  return {
+    totalOwed: units.reduce((s, u) => s + Math.max(0, u.balance), 0),
+    overdueUnits: units.filter((u) => u.overdueDays > 0 && u.balance > 0).length,
+    collectedThisMonth: 4 * FEE + 180000,
+    chargedThisMonth: units.length * FEE,
+    unitsCount: units.length,
+  };
+}
