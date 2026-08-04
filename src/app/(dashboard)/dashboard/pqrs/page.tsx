@@ -189,26 +189,47 @@ export default function PqrsInboxPage() {
             )}
 
             {/* Filters */}
-            <div className="ui-card ui-sheen p-4 flex flex-wrap items-center gap-2">
-              <div className="flex flex-wrap gap-2 flex-1">
-                {FILTERS.map((f) => (
-                  <button
-                    key={f.key}
-                    onClick={() => setFilter(f.key)}
-                    className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap"
-                    style={{
-                      border: `1px solid ${filter === f.key ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
-                      background: filter === f.key ? "rgba(124,92,255,0.15)" : "transparent",
-                      color: filter === f.key ? "#a78bff" : "rgba(246,245,247,0.55)",
-                    }}
-                  >
-                    {f.label}
-                    {f.key && counts[f.key] ? ` (${counts[f.key]})` : ""}
-                  </button>
-                ))}
+            <div className="ui-card ui-sheen px-4 py-3 flex items-center gap-3">
+              <div className="ui-scroll flex-1 overflow-x-auto">
+                <div
+                  className="inline-flex items-center gap-1 p-1 rounded-xl"
+                  style={{ background: "var(--hifi-bg-elev)", border: "1px solid var(--hifi-hairline)" }}
+                >
+                  {FILTERS.map((f) => {
+                    const on = filter === f.key;
+                    const n = f.key ? counts[f.key] : undefined;
+                    return (
+                      <button
+                        key={f.key}
+                        onClick={() => setFilter(f.key)}
+                        className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0 inline-flex items-center gap-1.5"
+                        style={{
+                          background: on ? "var(--hifi-accent)" : "transparent",
+                          color: on ? "#fff" : "rgba(246,245,247,0.55)",
+                          boxShadow: on ? "0 6px 16px -8px rgba(124,92,255,0.9)" : "none",
+                        }}
+                      >
+                        {f.label}
+                        {n ? (
+                          <span
+                            className="tabular-nums rounded px-1.5 text-[11px]"
+                            style={{
+                              background: on ? "rgba(255,255,255,0.20)" : "rgba(255,255,255,0.07)",
+                              color: on ? "#fff" : "rgba(246,245,247,0.55)",
+                            }}
+                          >
+                            {n}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               {pending > 0 && (
-                <span style={{ ...monoMini, color: "#ffb958" }}>{pending} pendientes</span>
+                <span className="shrink-0 hidden sm:inline" style={{ ...monoMini, color: "#ffb958" }}>
+                  {pending} pendientes
+                </span>
               )}
             </div>
 
@@ -244,11 +265,22 @@ export default function PqrsInboxPage() {
                             </span>
                             <p className="text-[13.5px] font-medium truncate" style={{ color: "#f6f5f7" }}>{p.subject}</p>
                           </div>
-                          <p style={{ ...monoMini, color: "rgba(246,245,247,0.38)" }} className="mt-1 flex flex-wrap items-center gap-x-2">
-                            <span>{p.code}</span>
-                            {p.property?.name && <span className="inline-flex items-center gap-1"><Building2 className="h-3 w-3" />{p.property.name}</span>}
-                            {p.unitLabel && <span className="inline-flex items-center gap-1"><Home className="h-3 w-3" />{p.unitLabel}</span>}
-                            <span>{fecha(p.createdAt)}</span>
+                          {/* whitespace-nowrap + truncate: on a phone the property
+                              name used to wrap mid-word and orphan its icon. */}
+                          <p style={{ ...monoMini, color: "rgba(246,245,247,0.38)" }} className="mt-1 flex items-center gap-x-2 whitespace-nowrap overflow-hidden">
+                            <span className="shrink-0">{p.code}</span>
+                            {p.property?.name && (
+                              <span className="hidden lg:inline-flex items-center gap-1 min-w-0">
+                                <Building2 className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{p.property.name}</span>
+                              </span>
+                            )}
+                            {p.unitLabel && (
+                              <span className="inline-flex items-center gap-1 shrink-0"><Home className="h-3 w-3" />{p.unitLabel}</span>
+                            )}
+                            {/* Truncated to "01 d…" on a phone — the full date is
+                                one tap away in the expanded thread. */}
+                            <span className="hidden sm:inline truncate">{fecha(p.createdAt)}</span>
                           </p>
                         </div>
                         <span className="px-2.5 py-1 rounded-full text-[10.5px] font-medium flex-shrink-0" style={{ background: st.bg, color: st.color, border: `1px solid ${st.border}` }}>{st.label}</span>

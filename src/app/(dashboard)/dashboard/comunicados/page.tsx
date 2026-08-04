@@ -273,13 +273,13 @@ export default function ComunicadosPage() {
           <>
             {/* Property selector + quota */}
             <div className="rounded-2xl p-4 space-y-3" style={card}>
-              <div className="flex flex-wrap items-center gap-2">
-                <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Propiedad</span>
+              <div className="ui-scroll flex items-center gap-2 overflow-x-auto pb-0.5">
+                <span className="shrink-0" style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Propiedad</span>
                 {properties.map((p) => (
                   <button
                     key={p.id}
                     onClick={() => setPropertyId(p.id)}
-                    className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap"
+                    className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
                     style={{
                       border: `1px solid ${propertyId === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
                       background: propertyId === p.id ? "rgba(124,92,255,0.15)" : "transparent",

@@ -554,32 +554,37 @@ export default function CarteraPage() {
 
         {!loading && !upgrade && properties.length > 0 && (
           <>
-            {/* Toolbar: property switcher + actions in ONE bar (they used to be
-                two separate blocks, wasting a whole card on two chips). */}
-            <div className="ui-card ui-sheen px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-3">
-              <div className="flex items-center gap-1.5 p-1 rounded-xl" style={{ background: "var(--hifi-bg-elev)", border: "1px solid var(--hifi-hairline)" }}>
-                {properties.map((p) => {
-                  const on = propertyId === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => setPropertyId(p.id)}
-                      className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap"
-                      style={{
-                        background: on ? "var(--hifi-accent)" : "transparent",
-                        color: on ? "#fff" : "rgba(246,245,247,0.55)",
-                        boxShadow: on ? "0 6px 16px -8px rgba(124,92,255,0.9)" : "none",
-                      }}
-                    >
-                      {p.name}
-                    </button>
-                  );
-                })}
+            {/* Toolbar: context on top, actions below. Sharing one row made the
+                five actions wrap awkwardly the moment the property name was long. */}
+            <div className="ui-card ui-sheen">
+              <div className="ui-scroll overflow-x-auto px-4 pt-3 pb-3">
+                <div
+                  className="inline-flex items-center gap-1.5 p-1 rounded-xl"
+                  style={{ background: "var(--hifi-bg-elev)", border: "1px solid var(--hifi-hairline)" }}
+                >
+                  {properties.map((p) => {
+                    const on = propertyId === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => setPropertyId(p.id)}
+                        className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap"
+                        style={{
+                          background: on ? "var(--hifi-accent)" : "transparent",
+                          color: on ? "#fff" : "rgba(246,245,247,0.55)",
+                          boxShadow: on ? "0 6px 16px -8px rgba(124,92,255,0.9)" : "none",
+                        }}
+                      >
+                        {p.name}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="h-6 w-px hidden lg:block" style={{ background: "var(--hifi-hairline)" }} />
+              <div className="h-px" style={{ background: "var(--hifi-hairline)" }} />
 
-              <div className="flex flex-wrap items-center gap-2 flex-1">
+              <div className="px-4 py-3 flex flex-wrap items-center gap-2">
                 {panelBtn("causar", <CalendarPlus className="h-3.5 w-3.5" />, "Causar mes")}
                 {panelBtn("pago", <HandCoins className="h-3.5 w-3.5" />, "Registrar pago")}
                 {panelBtn("cobro", <Receipt className="h-3.5 w-3.5" />, "Cobro extra")}
@@ -615,8 +620,13 @@ export default function CarteraPage() {
                         </span>
                       </div>
                       <p
-                        className="ui-count font-semibold tracking-tight leading-none"
-                        style={{ fontSize: 26, color: empty ? "rgba(246,245,247,0.38)" : "#f6f5f7" }}
+                        className="ui-count font-semibold tracking-tight leading-none tabular-nums"
+                        style={{
+                          // Fixed 26px clipped "$4.200.000" inside the 2-column
+                          // mobile grid — scale it down with the viewport instead.
+                          fontSize: "clamp(19px, 5.1vw, 26px)",
+                          color: empty ? "rgba(246,245,247,0.38)" : "#f6f5f7",
+                        }}
                       >
                         {k.value}
                         {k.sub && (

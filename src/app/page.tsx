@@ -964,7 +964,7 @@ export default function LandingPage() {
             <div className="relative flex flex-col items-center">
               <div
                 className="docs-fan relative"
-                style={{ height: 340, width: 320 }}
+                style={{ height: 400, width: 320 }}
               >
                 <div className="doc-card-0">
                   <DocCard
@@ -977,7 +977,7 @@ export default function LandingPage() {
                   />
                 </div>
                 <div
-                  className="doc-card-1 absolute top-10 left-6"
+                  className="doc-card-1 absolute top-16 left-4"
                   style={{ zIndex: 2 }}
                 >
                   <DocCard
@@ -989,7 +989,7 @@ export default function LandingPage() {
                   />
                 </div>
                 <div
-                  className="doc-card-2 absolute top-20 left-12"
+                  className="doc-card-2 absolute top-32 left-8"
                   style={{ zIndex: 3 }}
                 >
                   <DocCard

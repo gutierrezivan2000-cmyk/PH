@@ -19,6 +19,9 @@ import {
   ShieldCheck,
   Landmark,
   ListPlus,
+  TrendingUp,
+  Receipt,
+  Scale,
 } from "lucide-react";
 
 interface Property {
@@ -346,60 +349,72 @@ export default function PresupuestoPage() {
 
         {!loading && !upgrade && properties.length > 0 && (
           <>
-            {/* Selectors */}
-            <div className="ui-card ui-sheen p-4 flex flex-wrap items-center gap-3">
-              <div className="flex flex-wrap gap-2 flex-1">
-                {properties.map((p) => (
+            {/* Toolbar: context (property + year) on top, view tabs below —
+                one bar instead of a card plus a floating row of naked chips. */}
+            <div className="ui-card ui-sheen">
+              <div className="px-4 pt-3 pb-3 flex items-center gap-3">
+                <div className="ui-scroll flex-1 overflow-x-auto">
+                  <div
+                    className="inline-flex items-center gap-1.5 p-1 rounded-xl"
+                    style={{ background: "var(--hifi-bg-elev)", border: "1px solid var(--hifi-hairline)" }}
+                  >
+                    {properties.map((p) => {
+                      const on = propertyId === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => setPropertyId(p.id)}
+                          className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
+                          style={{
+                            background: on ? "var(--hifi-accent)" : "transparent",
+                            color: on ? "#fff" : "rgba(246,245,247,0.55)",
+                            boxShadow: on ? "0 6px 16px -8px rgba(124,92,255,0.9)" : "none",
+                          }}
+                        >
+                          {p.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="relative shrink-0">
+                  <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ ...inputStyle, width: 104, appearance: "none", paddingRight: 30, cursor: "pointer" }}>
+                    {years.map((y) => (
+                      <option key={y} value={y} style={{ background: "var(--hifi-surface-1)" }}>{y}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+                </div>
+              </div>
+
+              <div className="h-px" style={{ background: "var(--hifi-hairline)" }} />
+
+              <div className="px-4 py-3 flex flex-wrap items-center gap-2">
+                {(["ejecucion", "presupuesto"] as const).map((t) => (
                   <button
-                    key={p.id}
-                    onClick={() => setPropertyId(p.id)}
-                    className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap"
+                    key={t}
+                    onClick={() => { setTab(t); setMsg(null); }}
+                    className="ui-chip px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer"
                     style={{
-                      border: `1px solid ${propertyId === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
-                      background: propertyId === p.id ? "rgba(124,92,255,0.15)" : "transparent",
-                      color: propertyId === p.id ? "#a78bff" : "rgba(246,245,247,0.55)",
+                      border: `1px solid ${tab === t ? "rgba(124,92,255,0.45)" : "rgba(255,255,255,0.10)"}`,
+                      background: tab === t ? "rgba(124,92,255,0.15)" : "transparent",
+                      color: tab === t ? "#a78bff" : "rgba(246,245,247,0.60)",
                     }}
                   >
-                    {p.name}
+                    {t === "ejecucion" ? "Ejecución" : "Editar presupuesto"}
                   </button>
                 ))}
+                {tab === "ejecucion" && items.length > 0 && (
+                  <a
+                    href={`/api/presupuesto/export?propertyId=${propertyId}&year=${year}`}
+                    className="ui-chip sm:ml-auto inline-flex items-center gap-1.5 rounded-lg text-[12px] font-medium px-3.5 py-1.5 cursor-pointer"
+                    style={{ background: "rgba(76,214,160,0.12)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.30)" }}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Excel para contador
+                  </a>
+                )}
               </div>
-              <div className="relative">
-                <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ ...inputStyle, width: 110, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
-                  {years.map((y) => (
-                    <option key={y} value={y} style={{ background: "var(--hifi-surface-1)" }}>{y}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex gap-2">
-              {(["ejecucion", "presupuesto"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => { setTab(t); setMsg(null); }}
-                  className="ui-chip px-4 py-2 rounded-full text-[12.5px] font-medium cursor-pointer capitalize"
-                  style={{
-                    border: `1px solid ${tab === t ? "rgba(124,92,255,0.45)" : "rgba(255,255,255,0.10)"}`,
-                    background: tab === t ? "rgba(124,92,255,0.15)" : "rgba(255,255,255,0.03)",
-                    color: tab === t ? "#a78bff" : "rgba(246,245,247,0.60)",
-                  }}
-                >
-                  {t === "ejecucion" ? "Ejecución" : "Editar presupuesto"}
-                </button>
-              ))}
-              {tab === "ejecucion" && items.length > 0 && (
-                <a
-                  href={`/api/presupuesto/export?propertyId=${propertyId}&year=${year}`}
-                  className="ml-auto inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 transition-all cursor-pointer"
-                  style={{ background: "rgba(76,214,160,0.12)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.30)" }}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Excel para contador
-                </a>
-              )}
             </div>
 
             {msg && (
@@ -440,16 +455,31 @@ export default function PresupuestoPage() {
                 ) : execution ? (
                   <>
                     {/* Summary KPIs */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 ui-stagger">
                       {[
-                        { label: "Ingresos ejecutados", value: fmtCOP(execution.ingresos.executed), color: "#4cd6a0" },
-                        { label: "Gastos ejecutados", value: fmtCOP(execution.gastos.executed), color: "#ffb958" },
-                        { label: "Resultado", value: fmtCOP(execution.resultado), color: execution.resultado >= 0 ? "#4cd6a0" : "#ff8585" },
-                        { label: "Fondo imprevistos", value: fmtCOP(execution.fondo.balance), color: execution.fondo.compliant ? "#4cd6a0" : "#ff8585" },
+                        { label: "Ingresos ejecutados", value: fmtCOP(execution.ingresos.executed), color: "#4cd6a0", Icon: TrendingUp, hint: `de ${fmtCOP(execution.ingresos.budgeted)} presupuestado` },
+                        { label: "Gastos ejecutados", value: fmtCOP(execution.gastos.executed), color: "#ffb958", Icon: Receipt, hint: `de ${fmtCOP(execution.gastos.budgeted)} presupuestado` },
+                        { label: "Resultado", value: fmtCOP(execution.resultado), color: execution.resultado >= 0 ? "#4cd6a0" : "#ff8585", Icon: Scale, hint: execution.resultado >= 0 ? "superávit acumulado" : "déficit acumulado" },
+                        { label: "Fondo imprevistos", value: fmtCOP(execution.fondo.balance), color: execution.fondo.compliant ? "#4cd6a0" : "#ff8585", Icon: ShieldCheck, hint: execution.fondo.compliant ? "cumple el 1% de ley" : "por debajo del 1% de ley" },
                       ].map((k) => (
-                        <div key={k.label} className="ui-card p-4">
-                          <p style={{ ...monoLabel, color: "rgba(246,245,247,0.40)" }} className="mb-2">{k.label}</p>
-                          <p className="text-[17px] font-semibold tracking-tight" style={{ color: k.color }}>{k.value}</p>
+                        <div key={k.label} className="ui-card ui-sheen relative overflow-hidden p-4 pl-5">
+                          <span className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: k.color }} />
+                          <div className="flex items-start justify-between gap-2 mb-2.5">
+                            <span style={{ ...monoLabel, color: "rgba(246,245,247,0.45)" }}>{k.label}</span>
+                            <span
+                              className="flex items-center justify-center rounded-lg flex-shrink-0"
+                              style={{ width: 26, height: 26, background: `${k.color}1a` }}
+                            >
+                              <k.Icon className="h-3.5 w-3.5" style={{ color: k.color }} />
+                            </span>
+                          </div>
+                          <p
+                            className="ui-count font-semibold tracking-tight leading-none tabular-nums"
+                            style={{ fontSize: "clamp(18px, 4.6vw, 23px)", color: k.color }}
+                          >
+                            {k.value}
+                          </p>
+                          <p className="text-[11px] mt-1.5" style={{ color: "rgba(246,245,247,0.35)" }}>{k.hint}</p>
                         </div>
                       ))}
                     </div>

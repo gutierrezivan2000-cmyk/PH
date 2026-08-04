@@ -18,7 +18,12 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  if (IS_DEMO) return NextResponse.json({ certificates: [] });
+  if (IS_DEMO) {
+    const { getDemoCertificates } = await import("@/lib/demo-store");
+    return NextResponse.json({
+      certificates: getDemoCertificates(req.nextUrl.searchParams.get("propertyId")),
+    });
+  }
 
   try {
     const { db } = await import("@/lib/db");

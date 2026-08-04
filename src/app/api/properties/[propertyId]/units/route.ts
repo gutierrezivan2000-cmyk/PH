@@ -25,14 +25,17 @@ export async function GET(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     const { propertyId } = await params;
-    const property = await ownedProperty(propertyId, session.user.id);
-    if (!property) {
-      return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
-    }
 
+    // Before the ownership check: in demo mode `db` is a stub, so
+    // ownedProperty() throws and this branch was never reached.
     if (process.env.DEMO_MODE === "true") {
       const { getDemoUnits } = await import("@/lib/demo-store");
       return NextResponse.json(getDemoUnits(propertyId));
+    }
+
+    const property = await ownedProperty(propertyId, session.user.id);
+    if (!property) {
+      return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
     }
     const units = await db.unit.findMany({
       where: { propertyId },
@@ -61,6 +64,14 @@ export async function POST(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     const { propertyId } = await params;
+    // Demo data is a shared, read-only fixture — a mutation here would leak
+    // across every visitor and desync the seeded cartera.
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json(
+        { error: "Las unidades del demo son de ejemplo y no se pueden modificar. Crea tu cuenta para gestionar las tuyas." },
+        { status: 403 }
+      );
+    }
     const property = await ownedProperty(propertyId, session.user.id);
     if (!property) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
@@ -215,6 +226,14 @@ export async function PATCH(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     const { propertyId } = await params;
+    // Demo data is a shared, read-only fixture — a mutation here would leak
+    // across every visitor and desync the seeded cartera.
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json(
+        { error: "Las unidades del demo son de ejemplo y no se pueden modificar. Crea tu cuenta para gestionar las tuyas." },
+        { status: 403 }
+      );
+    }
     const property = await ownedProperty(propertyId, session.user.id);
     if (!property) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
@@ -293,6 +312,14 @@ export async function DELETE(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     const { propertyId } = await params;
+    // Demo data is a shared, read-only fixture — a mutation here would leak
+    // across every visitor and desync the seeded cartera.
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json(
+        { error: "Las unidades del demo son de ejemplo y no se pueden modificar. Crea tu cuenta para gestionar las tuyas." },
+        { status: 403 }
+      );
+    }
     const property = await ownedProperty(propertyId, session.user.id);
     if (!property) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });

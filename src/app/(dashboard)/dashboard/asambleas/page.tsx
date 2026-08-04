@@ -338,14 +338,14 @@ La Administración`;
         {!loading && properties.length > 0 && (
           <>
             {/* Property + new */}
-            <div className="ui-card ui-sheen p-4 flex flex-wrap items-center gap-2">
+            <div className="ui-card ui-sheen p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
               <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Propiedad</span>
-              <div className="flex flex-wrap gap-2 flex-1">
+              <div className="ui-scroll flex gap-2 flex-1 overflow-x-auto pb-0.5">
                 {properties.map((p) => (
                   <button
                     key={p.id}
                     onClick={() => setPropertyId(p.id)}
-                    className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap"
+                    className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
                     style={{
                       border: `1px solid ${propertyId === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
                       background: propertyId === p.id ? "rgba(124,92,255,0.15)" : "transparent",
