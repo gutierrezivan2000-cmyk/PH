@@ -142,7 +142,7 @@ export default function PqrsInboxPage() {
   return (
     <div>
       <Header title="PQRS" subtitle="Peticiones, quejas y reclamos de los residentes" />
-      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-3xl mx-auto space-y-5">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-[1080px] mx-auto space-y-4">
         {loading && list.length === 0 && !upgrade && (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#7c5cff" }} />
@@ -195,7 +195,7 @@ export default function PqrsInboxPage() {
                   <button
                     key={f.key}
                     onClick={() => setFilter(f.key)}
-                    className="ui-chip px-3 py-1.5 rounded-full text-[12px] cursor-pointer"
+                    className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap"
                     style={{
                       border: `1px solid ${filter === f.key ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
                       background: filter === f.key ? "rgba(124,92,255,0.15)" : "transparent",
