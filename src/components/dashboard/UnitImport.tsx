@@ -12,6 +12,22 @@ interface ExtractedUnit {
   monthlyFee?: number | null;
 }
 
+/**
+ * Vercel corta el cuerpo de una petición serverless en 4,5 MB. La ruta decía
+ * aceptar 8 MB, así que un archivo de 5 MB nunca llegaba al handler: la
+ * plataforma cerraba la conexión y el navegador lo reportaba como fallo de red.
+ */
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+function errorForStatus(status: number): string {
+  if (status === 413) return "El archivo es demasiado grande. Guárdalo como CSV e inténtalo de nuevo.";
+  if (status === 429) return "Alcanzaste el límite de importaciones por hora. Intenta más tarde.";
+  if (status === 504 || status === 408)
+    return "El archivo tardó demasiado en procesarse. Prueba con menos filas o guárdalo como CSV.";
+  if (status >= 500) return "El servidor falló al procesar el archivo. Inténtalo de nuevo en un momento.";
+  return "No se pudo procesar el archivo.";
+}
+
 const monoLabel: React.CSSProperties = {
   fontFamily: "'Geist Mono', 'GeistMono', monospace",
   fontSize: "10px",
@@ -42,21 +58,47 @@ export function UnitImport({
     const file = e.target.files?.[0];
     if (!file) return;
     setError("");
-    setParsing(true);
     setPreview(null);
     setFileName(file.name);
+
+    // Se comprueba ANTES de subir: la plataforma corta la petición por encima
+    // de su límite de cuerpo, y el usuario esperaba toda la subida para recibir
+    // un "error de red" sin explicación.
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError(
+        `El archivo pesa ${(file.size / 1024 / 1024).toFixed(1)} MB y el máximo es 4 MB. ` +
+          `Si es un Excel, guárdalo como CSV: pesa muchísimo menos.`
+      );
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+
+    setParsing(true);
     try {
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch(`/api/properties/${propertyId}/units/import`, { method: "POST", body: fd });
-      const data = await res.json();
+
+      // El cuerpo de error de la plataforma (413, 504) es texto plano o HTML,
+      // no JSON. Al hacer res.json() antes de mirar res.ok, el SyntaxError caía
+      // en el catch y TODO fallo se mostraba como "Error de red al subir el
+      // archivo", ocultando la causa real.
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(data.error || "No se pudo procesar el archivo.");
+        setError(data?.error || errorForStatus(res.status));
         return;
       }
-      setPreview(data.units || []);
+      const units = data?.units || [];
+      if (units.length === 0) {
+        setError(
+          "No se reconoció ninguna unidad en el archivo. Revisa que tenga una fila por unidad " +
+            "con al menos el número de apartamento."
+        );
+        return;
+      }
+      setPreview(units);
     } catch {
-      setError("Error de red al subir el archivo.");
+      setError("No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.");
     } finally {
       setParsing(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -73,9 +115,9 @@ export function UnitImport({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ units: preview }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(data.error || "No se pudieron crear las unidades.");
+        setError(data?.error || errorForStatus(res.status));
         return;
       }
       setPreview(null);

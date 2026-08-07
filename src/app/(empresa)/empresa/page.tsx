@@ -23,6 +23,13 @@ const MONTHS = [
 ];
 
 async function loadOverview(userId: string) {
+  // Sin esta rama la página respondía 500 en demo: `db` es un stub y
+  // `db.property.count` es undefined.
+  if (process.env.DEMO_MODE === "true") {
+    const { getDemoPortfolioOverview } = await import("@/lib/demo-store");
+    return getDemoPortfolioOverview(userId);
+  }
+
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const last30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);

@@ -38,17 +38,26 @@ export default async function PropertyDetailPage({
   const elite = await eliteGate();
   const { id } = await params;
 
-  const property = await db.property.findFirst({
-    where: { id, userId: elite.userId },
-    include: { documents: { orderBy: { createdAt: "desc" } } },
-  });
-  if (!property) notFound();
-
-  const generations = await db.generation.findMany({
-    where: { propertyId: id, userId: elite.userId },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
+  const loaded =
+    process.env.DEMO_MODE === "true"
+      ? await import("@/lib/demo-store").then((m) => m.getDemoPortfolioProperty(id, elite.userId))
+      : await (async () => {
+          const p = await db.property.findFirst({
+            where: { id, userId: elite.userId },
+            include: { documents: { orderBy: { createdAt: "desc" } } },
+          });
+          if (!p) return null;
+          return {
+            property: p,
+            generations: await db.generation.findMany({
+              where: { propertyId: id, userId: elite.userId },
+              orderBy: { createdAt: "desc" },
+              take: 20,
+            }),
+          };
+        })();
+  if (!loaded) notFound();
+  const { property, generations } = loaded;
 
   return (
     <EmpresaShell elite={elite}>

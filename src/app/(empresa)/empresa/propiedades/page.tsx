@@ -21,6 +21,11 @@ interface SearchParams {
 }
 
 async function loadProperties(userId: string, sp: SearchParams) {
+  if (process.env.DEMO_MODE === "true") {
+    const { getDemoPortfolioProperties } = await import("@/lib/demo-store");
+    return getDemoPortfolioProperties(userId, sp, PAGE_SIZE);
+  }
+
   const q = sp.q?.trim() || "";
   const group = sp.group || "all";
   const reporte = sp.reporte || "all";

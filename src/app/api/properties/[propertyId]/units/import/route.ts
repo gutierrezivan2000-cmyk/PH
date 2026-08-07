@@ -5,7 +5,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
-const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
+// Vercel corta el cuerpo de una petición serverless en 4,5 MB. Anunciar 8 MB
+// era una promesa que la plataforma no cumple: los archivos entre 4,5 y 8 MB
+// nunca llegaban aquí — la conexión se cerraba y el navegador lo reportaba
+// como fallo de red, sin mensaje.
+const MAX_BYTES = 4 * 1024 * 1024; // 4 MB
 
 interface ExtractedUnit {
   label: string;
@@ -38,7 +42,10 @@ export async function POST(
     return NextResponse.json({ error: "Adjunta un archivo (Excel, CSV, PDF o Word)." }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "El archivo supera el límite de 8 MB." }, { status: 400 });
+    return NextResponse.json(
+      { error: "El archivo supera el límite de 4 MB. Si es un Excel, guárdalo como CSV: pesa mucho menos." },
+      { status: 413 }
+    );
   }
 
   if (IS_DEMO) {
@@ -93,7 +100,9 @@ Reglas:
 - Si el archivo no contiene un listado de unidades, devuelve [].
 Devuelve máximo 1000 unidades.`;
 
-    const { text: aiText, tokensUsed } = await generateWithClaude(system, `Datos crudos:\n\n${content}`);
+    const { text: aiText, tokensUsed } = await generateWithClaude(system, `Datos crudos:\n\n${content}`, undefined, {
+      timeoutMs: 70_000, // maxDuration = 90
+    });
 
     // Record the spend so it shows up in Consumo IA (imports can be large).
     const { recordUsage } = await import("@/lib/usage");

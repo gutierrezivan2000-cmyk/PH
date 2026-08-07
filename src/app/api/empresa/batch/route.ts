@@ -19,6 +19,22 @@ function validPeriod(month: number, year: number) {
 export async function GET(req: NextRequest) {
   const elite = await requireElite();
   if (!elite) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  if (process.env.DEMO_MODE === "true") {
+    // Misma forma exacta que las filas reales de abajo: la UI indexa por
+    // `propertyId` y lo usa como key de React.
+    const { getProperties } = await import("@/lib/demo-store");
+    return NextResponse.json({
+      properties: getProperties(elite.userId).map((p) => ({
+        propertyId: p.id,
+        name: p.name,
+        city: p.city,
+        groupLabel: p.groupLabel,
+        fileCount: 0,
+        ready: false,
+        alreadyGenerated: false,
+      })),
+    });
+  }
 
   const month = parseInt(req.nextUrl.searchParams.get("month") || "", 10);
   const year = parseInt(req.nextUrl.searchParams.get("year") || "", 10);
@@ -72,6 +88,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const elite = await requireElite();
   if (!elite) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json(
+      { error: "La generación en lote no está disponible en el demo. Crea tu cuenta para usarla." },
+      { status: 403 }
+    );
+  }
 
   const body = await req.json().catch(() => ({}));
   const month = parseInt(String(body.month), 10);

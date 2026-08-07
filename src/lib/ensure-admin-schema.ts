@@ -398,14 +398,28 @@ let ensured = false;
 
 export async function ensureAdminSchema(): Promise<void> {
   if (ensured) return;
+  // Demo has no database — running 400+ DDL statements only to catch 400+
+  // failures burned a second per call and flooded the log.
+  if (process.env.DEMO_MODE === "true") {
+    ensured = true;
+    return;
+  }
+
+  let failures = 0;
   for (const sql of STATEMENTS) {
     try {
       await db.$executeRawUnsafe(sql);
     } catch (err) {
+      failures++;
       console.error("[ensureAdminSchema] statement failed:", err);
     }
   }
-  ensured = true;
+  // Only memoize a clean run. Marking it done after failures cached a *failed*
+  // self-heal for the life of the instance: if the very first call landed
+  // while the DB was unreachable (cold start, Neon suspended, blip), every
+  // later request skipped the DDL and the drift it exists to repair persisted
+  // until the instance was recycled — the self-heal died exactly when needed.
+  if (failures === 0) ensured = true;
 }
 
 /** True if an error looks like a missing column/relation (schema drift). */

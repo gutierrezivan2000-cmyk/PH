@@ -16,6 +16,11 @@ export async function GET(
 
     const { propertyId } = await params;
 
+    if (process.env.DEMO_MODE === "true") {
+      const { getDemoDocuments } = await import("@/lib/demo-store");
+      return NextResponse.json(getDemoDocuments(propertyId));
+    }
+
     const property = await db.property.findFirst({
       where: { id: propertyId, userId: session.user.id },
     });
@@ -46,6 +51,13 @@ export async function POST(
     }
 
     const { propertyId } = await params;
+
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json(
+        { error: "El demo es de solo lectura. Crea tu cuenta para guardar cambios." },
+        { status: 403 }
+      );
+    }
 
     const property = await db.property.findFirst({
       where: { id: propertyId, userId: session.user.id },
@@ -89,6 +101,14 @@ export async function DELETE(
     }
 
     const { propertyId } = await params;
+
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json(
+        { error: "El demo es de solo lectura. Crea tu cuenta para guardar cambios." },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const docId = searchParams.get("docId");
 

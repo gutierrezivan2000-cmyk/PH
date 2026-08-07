@@ -26,6 +26,9 @@ function parseMonthYear(req: NextRequest): { month: number; year: number } | nul
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const elite = await requireElite();
   if (!elite) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json({ files: [], additionalText: "" });
+  }
 
   const { id } = await params;
   const my = parseMonthYear(req);
@@ -49,6 +52,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const elite = await requireElite();
   if (!elite) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json(
+      { error: "La generación en lote no está disponible en el demo. Crea tu cuenta para usarla." },
+      { status: 403 }
+    );
+  }
 
   const { id } = await params;
   const body = await req.json().catch(() => ({}));

@@ -65,14 +65,23 @@ let ensured = false;
 
 export async function ensureAgentTables(): Promise<void> {
   if (ensured) return;
+  if (process.env.DEMO_MODE === "true") {
+    ensured = true;
+    return;
+  }
+
+  let failures = 0;
   for (const sql of STATEMENTS) {
     try {
       await db.$executeRawUnsafe(sql);
     } catch (err) {
+      failures++;
       console.error("[ensureAgentTables] statement failed:", err);
     }
   }
-  ensured = true;
+  // See ensureAdminSchema: memoizing after failures cached a failed self-heal
+  // for the life of the instance.
+  if (failures === 0) ensured = true;
 }
 
 export function isMissingRelationError(err: unknown): boolean {

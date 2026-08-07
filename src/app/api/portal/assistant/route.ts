@@ -69,7 +69,9 @@ Reglas:
 ${reglamento}
 === FIN DEL REGLAMENTO ===`;
 
-    const { text, tokensUsed } = await generateWithClaude(system, question.trim());
+    const { text, tokensUsed } = await generateWithClaude(system, question.trim(), undefined, {
+      timeoutMs: 45_000, // maxDuration = 60
+    });
 
     // Charge the consumption to the property's administrator so this public
     // endpoint's cost shows up in their Consumo IA instead of being invisible.

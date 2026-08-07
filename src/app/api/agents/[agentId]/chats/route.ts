@@ -41,6 +41,7 @@ export async function GET(
     console.error("[api/agents/chats] Error:", error);
     return NextResponse.json([]);
   }
+  if (process.env.DEMO_MODE === "true") return NextResponse.json({ chats: [] });
 }
 
 export async function DELETE(
@@ -72,5 +73,8 @@ export async function DELETE(
   } catch (error) {
     console.error("[api/agents/chats] Delete error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
+  }
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json({ error: "El demo es de solo lectura. Crea tu cuenta para guardar cambios." }, { status: 403 });
   }
 }

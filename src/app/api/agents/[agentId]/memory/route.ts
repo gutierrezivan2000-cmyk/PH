@@ -33,6 +33,7 @@ export async function GET(
     console.error("[api/agents/memory] Error:", error);
     return NextResponse.json({ content: "" });
   }
+  if (process.env.DEMO_MODE === "true") return NextResponse.json({ memory: null });
 }
 
 export async function PUT(
@@ -67,5 +68,8 @@ export async function PUT(
   } catch (error) {
     console.error("[api/agents/memory] PUT error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
+  }
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json({ error: "El demo es de solo lectura. Crea tu cuenta para guardar cambios." }, { status: 403 });
   }
 }

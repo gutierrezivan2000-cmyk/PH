@@ -3,10 +3,26 @@ import Anthropic from "@anthropic-ai/sdk";
 // Lazy-init: only create client when actually called
 let _client: Anthropic | null = null;
 
+/**
+ * The SDK defaults to a 10-minute timeout and 2 retries — longer than any of
+ * our routes can run (`maxDuration` is 30–300s). A slow API call was therefore
+ * never surfaced as an error we could report: the platform killed the function
+ * first and answered a 504 with an HTML body, which the browser showed as a
+ * generic network failure. Timing out *inside* the route's own budget turns
+ * that into a catchable error with a message for the user.
+ *
+ * The default suits the long report generations (maxDuration 300). Routes with
+ * a tighter budget pass their own — see `timeoutMs`.
+ */
+const DEFAULT_TIMEOUT_MS = 240_000;
+
 function getClient(): Anthropic {
   if (!_client) {
     _client = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
+      timeout: DEFAULT_TIMEOUT_MS,
+      // One retry, not two: a second retry always lands past the route budget.
+      maxRetries: 1,
     });
   }
   return _client;
@@ -20,26 +36,31 @@ const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 export async function generateWithClaude(
   systemPrompt: string,
   userContent: string,
-  model: string = DEFAULT_MODEL
+  model: string = DEFAULT_MODEL,
+  /** Per-call timeout. Set it below the route's own `maxDuration`. */
+  opts: { timeoutMs?: number } = {}
 ): Promise<{ text: string; tokensUsed: number }> {
   const client = getClient();
 
   try {
     console.log(`[AI] Sending request: system=${systemPrompt.length} chars, user=${userContent.length} chars, model=${model}`);
 
-    const response = await client.messages.create({
-      model,
-      max_tokens: 16384,
-      // Cache the (stable, ~3.4k-token) system prompt so repeat generations —
-      // including across users within the cache window — don't re-pay input
-      // cost for it. The per-request user content stays uncached.
-      system: [
-        { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
-      ],
-      messages: [{ role: "user", content: userContent }],
-      // NOTE: no `temperature` — the Claude 5 family (default claude-sonnet-5)
-      // rejects it ("temperature is deprecated for this model").
-    });
+    const response = await client.messages.create(
+      {
+        model,
+        max_tokens: 16384,
+        // Cache the (stable, ~3.4k-token) system prompt so repeat generations —
+        // including across users within the cache window — don't re-pay input
+        // cost for it. The per-request user content stays uncached.
+        system: [
+          { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
+        ],
+        messages: [{ role: "user", content: userContent }],
+        // NOTE: no `temperature` — the Claude 5 family (default claude-sonnet-5)
+        // rejects it ("temperature is deprecated for this model").
+      },
+      opts.timeoutMs ? { timeout: opts.timeoutMs } : undefined
+    );
 
     const text = response.content
       .filter((block) => block.type === "text")

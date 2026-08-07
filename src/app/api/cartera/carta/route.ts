@@ -165,7 +165,7 @@ En mora (vencido): ${fmtCOP(summary.overdueAmount)} — ${summary.overdueDays} d
 Detalle de conceptos pendientes:
 ${openList || "- (sin detalle)"}`;
 
-    const { text, tokensUsed } = await generateWithClaude(system, user);
+    const { text, tokensUsed } = await generateWithClaude(system, user, undefined, { timeoutMs: 45_000 }); // maxDuration = 60
 
     let letterSubject = `Estado de su cuenta — ${unit.property.name}`;
     let letterContent = text.trim();

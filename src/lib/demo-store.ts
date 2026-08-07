@@ -18,6 +18,8 @@ export interface DemoProperty {
   address: string | null;
   city: string | null;
   units: number | null;
+  /** Etiqueta de zona/grupo — la usa la tabla de portafolio de /empresa. */
+  groupLabel: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +52,7 @@ const seededProperties: DemoProperty[] = [
     address: "Carrera 45 # 23-67",
     city: "Bogota",
     units: 120,
+    groupLabel: "Zona Norte",
     createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
     updatedAt: new Date(),
   },
@@ -60,6 +63,7 @@ const seededProperties: DemoProperty[] = [
     address: "Calle 80 # 55-12",
     city: "Medellin",
     units: 80,
+    groupLabel: "Zona Centro",
     createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
     updatedAt: new Date(),
   },
@@ -144,6 +148,7 @@ export function createProperty(data: {
     address: data.address ?? null,
     city: data.city ?? null,
     units: data.units ?? null,
+    groupLabel: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -610,4 +615,200 @@ const seededCertificates = [
 
 export function getDemoCertificates(propertyId?: string | null) {
   return !propertyId || propertyId === "prop-demo-001" ? seededCertificates : [];
+}
+
+// ── Documentos de propiedad ──────────────────────────────────────────
+const seededDocuments = [
+  {
+    id: "doc-demo-1",
+    propertyId: "prop-demo-001",
+    type: "reglamento_interno",
+    name: "Reglamento de propiedad horizontal 2024.pdf",
+    url: "/api/demo/files/doc-demo-1/reglamento",
+    size: 842_113,
+    mimeType: "application/pdf",
+    extractedText: null,
+    createdAt: daysAgo(52),
+  },
+  {
+    id: "doc-demo-2",
+    propertyId: "prop-demo-001",
+    type: "manual_convivencia",
+    name: "Manual de convivencia.pdf",
+    url: "/api/demo/files/doc-demo-2/manual",
+    size: 315_886,
+    mimeType: "application/pdf",
+    extractedText: null,
+    createdAt: daysAgo(52),
+  },
+];
+
+export function getDemoDocuments(propertyId: string) {
+  return seededDocuments.filter((d) => d.propertyId === propertyId);
+}
+
+// ── Tickets de soporte ───────────────────────────────────────────────
+const seededTickets = [
+  {
+    id: "tkt-demo-1",
+    userId: DEMO_USER.id,
+    subject: "¿Cómo importo las unidades desde un Excel?",
+    category: "general",
+    priority: "normal",
+    status: "resolved",
+    assignedTo: null,
+    createdAt: daysAgo(9),
+    updatedAt: daysAgo(8),
+    _count: { messages: 2 },
+    messages: [
+      {
+        id: "tktm-demo-1b",
+        ticketId: "tkt-demo-1",
+        fromAdmin: true,
+        authorId: "soporte",
+        content:
+          "En Residentes > Importar puedes soltar el Excel directamente: la IA lee las columnas y arma las unidades. Revisas el resultado antes de guardar.",
+        attachments: null,
+        internal: false,
+        createdAt: daysAgo(8),
+      },
+    ],
+  },
+  {
+    id: "tkt-demo-2",
+    userId: DEMO_USER.id,
+    subject: "Quiero conectar ePayco para recibir pagos en línea",
+    category: "billing",
+    priority: "high",
+    status: "open",
+    assignedTo: null,
+    createdAt: daysAgo(2),
+    updatedAt: daysAgo(2),
+    _count: { messages: 1 },
+    messages: [
+      {
+        id: "tktm-demo-2a",
+        ticketId: "tkt-demo-2",
+        fromAdmin: false,
+        authorId: DEMO_USER.id,
+        content:
+          "Ya tengo la cuenta de ePayco. ¿Dónde pongo las llaves y cómo pruebo antes de cobrarle de verdad a los residentes?",
+        attachments: null,
+        internal: false,
+        createdAt: daysAgo(2),
+      },
+    ],
+  },
+];
+
+export function getDemoTickets(userId: string) {
+  return userId === DEMO_USER.id ? seededTickets : [];
+}
+
+export function getDemoTicket(id: string, userId: string) {
+  return getDemoTickets(userId).find((t) => t.id === id) ?? null;
+}
+
+// ── Portafolio (/empresa) ────────────────────────────────────────────
+// Las páginas de /empresa consultaban `db` directamente y devolvían 500 en
+// demo. Estos helpers reproducen exactamente la forma que esperan.
+
+function lastGenByProperty(userId: string): Record<string, Date | null> {
+  const out: Record<string, Date | null> = {};
+  for (const g of getGenerations(userId)) {
+    const prev = out[g.propertyId];
+    if (!prev || g.createdAt > prev) out[g.propertyId] = g.createdAt;
+  }
+  return out;
+}
+
+export function getDemoPortfolioOverview(userId: string) {
+  const properties = getProperties(userId);
+  const generations = getGenerations(userId);
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const last30 = new Date(Date.now() - 30 * 86400000);
+
+  const reportedRecently = new Set(
+    generations
+      .filter((g) => g.status === "completed" && g.createdAt >= last30)
+      .map((g) => g.propertyId)
+  );
+
+  return {
+    totalProperties: properties.length,
+    generationsThisMonth: generations.filter(
+      (g) => g.status === "completed" && g.createdAt >= startOfMonth
+    ).length,
+    totalDocuments: properties.reduce((s, p) => s + getDemoDocuments(p.id).length, 0),
+    withoutRecentReport: Math.max(0, properties.length - reportedRecently.size),
+    recent: generations.slice(0, 8),
+  };
+}
+
+export function getDemoPortfolioProperties(
+  userId: string,
+  sp: { q?: string; group?: string; reporte?: string; sort?: string; page?: string },
+  pageSize: number
+) {
+  const q = (sp.q || "").trim().toLowerCase();
+  const group = sp.group || "all";
+  const reporte = sp.reporte || "all";
+  const sort = sp.sort || "recent";
+  const page = Math.max(1, parseInt(sp.page || "1", 10));
+  const last30 = new Date(Date.now() - 30 * 86400000);
+
+  const all = getProperties(userId);
+  const generations = getGenerations(userId);
+  const recentlyReported = new Set(
+    generations
+      .filter((g) => g.status === "completed" && g.createdAt >= last30)
+      .map((g) => g.propertyId)
+  );
+
+  let filtered = all;
+  if (q) {
+    filtered = filtered.filter(
+      (p) => p.name.toLowerCase().includes(q) || (p.city || "").toLowerCase().includes(q)
+    );
+  }
+  if (group !== "all") filtered = filtered.filter((p) => p.groupLabel === group);
+  if (reporte === "con") filtered = filtered.filter((p) => recentlyReported.has(p.id));
+  else if (reporte === "sin") filtered = filtered.filter((p) => !recentlyReported.has(p.id));
+
+  filtered = [...filtered].sort((a, b) =>
+    sort === "name"
+      ? a.name.localeCompare(b.name, "es")
+      : sort === "units"
+        ? (b.units ?? 0) - (a.units ?? 0)
+        : b.createdAt.getTime() - a.createdAt.getTime()
+  );
+
+  const lastGen = lastGenByProperty(userId);
+  const total = filtered.length;
+  const rows = filtered.slice((page - 1) * pageSize, page * pageSize).map((p) => ({
+    ...p,
+    lastGenAt: lastGen[p.id] ?? null,
+    _count: {
+      generations: generations.filter((g) => g.propertyId === p.id).length,
+      documents: getDemoDocuments(p.id).length,
+    },
+  }));
+
+  return {
+    rows,
+    total,
+    page,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    groups: [...new Set(all.map((p) => p.groupLabel).filter((g): g is string => !!g))].sort(),
+  };
+}
+
+export function getDemoPortfolioProperty(id: string, userId: string) {
+  const property = getPropertyById(id, userId);
+  if (!property) return null;
+  return {
+    property: { ...property, documents: getDemoDocuments(id) },
+    generations: getGenerations(userId).filter((g) => g.propertyId === id),
+  };
 }

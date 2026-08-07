@@ -11,23 +11,38 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
-  await ensureAdminSchema();
-  const tickets = await db.ticket.findMany({
-    where: { userId: session.user.id },
-    include: {
-      _count: { select: { messages: true } },
-      messages: { take: 1, orderBy: { createdAt: "desc" } },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
+  if (process.env.DEMO_MODE === "true") {
+    const { getDemoTickets } = await import("@/lib/demo-store");
+    return NextResponse.json({ tickets: getDemoTickets(session.user.id) });
+  }
 
-  return NextResponse.json({ tickets });
+  // Without try/catch an unhandled throw here answered 500 with an EMPTY body,
+  // and the settings page died on `res.json()` with "Unexpected end of JSON
+  // input" instead of showing an error.
+  try {
+    await ensureAdminSchema();
+    const tickets = await db.ticket.findMany({
+      where: { userId: session.user.id },
+      include: {
+        _count: { select: { messages: true } },
+        messages: { take: 1, orderBy: { createdAt: "desc" } },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+    return NextResponse.json({ tickets });
+  } catch (error) {
+    console.error("[api/tickets GET]", error);
+    return NextResponse.json({ error: "Error al cargar los tickets" }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json({ error: "El demo es de solo lectura. Crea tu cuenta para guardar cambios." }, { status: 403 });
   }
 
   const body = await req.json().catch(() => ({}));

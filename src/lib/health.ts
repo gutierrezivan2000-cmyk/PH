@@ -77,7 +77,9 @@ export async function runHealthChecks(opts: {
     const t = Date.now();
     try {
       const { generateWithClaude } = await import("@/lib/ai-client");
-      const res = await generateWithClaude("Responde en una sola linea.", "Di 'ok' y nada mas.");
+      const res = await generateWithClaude("Responde en una sola linea.", "Di 'ok' y nada mas.", undefined, {
+        timeoutMs: 20_000, // sonda de salud: fallar rápido es lo correcto
+      });
       const text = (res.text || "").toLowerCase();
       if (text.includes("ok")) {
         checks.push({ name: "ai", status: "ok", detail: `Modelo ${modelId} respondió (${res.tokensUsed} tokens)`, ms: Date.now() - t });
