@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
+import { ComingSoon } from "@/components/dashboard/ComingSoon";
+import { COMING_SOON } from "@/lib/feature-flags";
 import { addBusinessDays } from "@/lib/compliance";
 import {
   Gavel,
@@ -311,6 +313,20 @@ La Administración`;
     } finally {
       setBusyId(null);
     }
+  }
+
+  // Pausado para el lanzamiento — ver src/lib/feature-flags.ts.
+  if (COMING_SOON.asambleas) {
+    return (
+      <div>
+        <Header title="Asambleas" subtitle="Convocatorias y control de términos legales (Ley 675)" />
+        <ComingSoon
+          icon={Gavel}
+          title="Asambleas"
+          description="La convocatoria de asambleas y el control de términos de la Ley 675 vuelven pronto — los estamos afinando antes de activarlos."
+        />
+      </div>
+    );
   }
 
   return (

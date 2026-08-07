@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
+import { ComingSoon } from "@/components/dashboard/ComingSoon";
+import { COMING_SOON } from "@/lib/feature-flags";
 import {
   MessageSquare,
   Loader2,
@@ -138,6 +140,20 @@ export default function PqrsInboxPage() {
   }
 
   const pending = (counts.radicado || 0) + (counts.en_proceso || 0);
+
+  // Pausado para el lanzamiento — ver src/lib/feature-flags.ts.
+  if (COMING_SOON.pqrs) {
+    return (
+      <div>
+        <Header title="PQRS" subtitle="Peticiones, quejas y reclamos de los residentes" />
+        <ComingSoon
+          icon={MessageSquare}
+          title="PQRS"
+          description="La bandeja de peticiones, quejas y reclamos de los residentes vuelve pronto — la estamos afinando antes de activarla."
+        />
+      </div>
+    );
+  }
 
   return (
     <div>

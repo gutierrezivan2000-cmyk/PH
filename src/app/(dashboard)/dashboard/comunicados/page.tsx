@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
+import { ComingSoon } from "@/components/dashboard/ComingSoon";
+import { COMING_SOON } from "@/lib/feature-flags";
 import { UnitImport } from "@/components/dashboard/UnitImport";
 import {
   Send,
@@ -246,6 +248,20 @@ export default function ComunicadosPage() {
   }
 
   const quotaPct = quota.limit > 0 ? Math.min(100, (quota.used / quota.limit) * 100) : 0;
+
+  // Pausado para el lanzamiento — ver src/lib/feature-flags.ts.
+  if (COMING_SOON.comunicados) {
+    return (
+      <div>
+        <Header title="Comunicados" subtitle="Circulares oficiales para tus copropiedades, redactadas con IA" />
+        <ComingSoon
+          icon={Send}
+          title="Comunicados"
+          description="El envío de circulares oficiales redactadas con IA vuelve pronto — lo estamos afinando antes de activarlo."
+        />
+      </div>
+    );
+  }
 
   return (
     <div>

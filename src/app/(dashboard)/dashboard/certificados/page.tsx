@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
+import { ComingSoon } from "@/components/dashboard/ComingSoon";
+import { COMING_SOON } from "@/lib/feature-flags";
 import {
   BadgeCheck,
   Loader2,
@@ -252,6 +254,20 @@ export default function CertificadosPage() {
     } catch {
       // clipboard unavailable
     }
+  }
+
+  // Pausado para el lanzamiento — ver src/lib/feature-flags.ts.
+  if (COMING_SOON.certificados) {
+    return (
+      <div>
+        <Header title="Certificados" subtitle="Paz y salvos y constancias con verificación QR" />
+        <ComingSoon
+          icon={BadgeCheck}
+          title="Certificados"
+          description="La expedición de paz y salvos y constancias con verificación QR vuelve pronto — la estamos afinando antes de activarla."
+        />
+      </div>
+    );
   }
 
   return (

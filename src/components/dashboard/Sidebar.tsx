@@ -27,8 +27,17 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { COMING_SOON, type ComingSoonKey } from "@/lib/feature-flags";
 
-type NavEntry = { name: string; href: string; icon: typeof Home; n: string; badge?: string };
+type NavEntry = {
+  name: string;
+  href: string;
+  icon: typeof Home;
+  n: string;
+  badge?: string;
+  /** Si la función está en COMING_SOON, el ítem muestra la insignia "Pronto". */
+  comingSoon?: ComingSoonKey;
+};
 type NavGroup = { label: string; items: NavEntry[] };
 
 // Grouped navigation: 15 flat entries were hard to scan. Sections mirror how
@@ -46,18 +55,18 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Finanzas",
     items: [
-      { name: "Cartera", href: "/dashboard/cartera", icon: Wallet, n: "05" },
-      { name: "Presupuesto", href: "/dashboard/presupuesto", icon: PieChart, n: "06" },
+      { name: "Cartera", href: "/dashboard/cartera", icon: Wallet, n: "05", comingSoon: "cartera" },
+      { name: "Presupuesto", href: "/dashboard/presupuesto", icon: PieChart, n: "06", comingSoon: "presupuesto" },
     ],
   },
   {
     label: "Comunidad",
     items: [
       { name: "Residentes", href: "/dashboard/residentes", icon: Users, n: "07" },
-      { name: "PQRS", href: "/dashboard/pqrs", icon: MessageSquare, n: "08" },
-      { name: "Comunicados", href: "/dashboard/comunicados", icon: Send, n: "09" },
-      { name: "Asambleas", href: "/dashboard/asambleas", icon: Gavel, n: "10" },
-      { name: "Certificados", href: "/dashboard/certificados", icon: BadgeCheck, n: "11" },
+      { name: "PQRS", href: "/dashboard/pqrs", icon: MessageSquare, n: "08", comingSoon: "pqrs" },
+      { name: "Comunicados", href: "/dashboard/comunicados", icon: Send, n: "09", comingSoon: "comunicados" },
+      { name: "Asambleas", href: "/dashboard/asambleas", icon: Gavel, n: "10", comingSoon: "asambleas" },
+      { name: "Certificados", href: "/dashboard/certificados", icon: BadgeCheck, n: "11", comingSoon: "certificados" },
     ],
   },
   {
@@ -174,18 +183,34 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
         {showLabel && (
           <>
             <span className="flex-1 truncate text-[13px] font-medium">{item.name}</span>
-            {item.badge && (
+            {item.comingSoon && COMING_SOON[item.comingSoon] ? (
               <span
-                className="text-[9.5px] px-1.5 py-0.5 rounded-md transition-colors"
+                className="text-[9px] px-1.5 py-0.5 rounded-md"
                 style={{
                   fontFamily: "var(--hifi-mono)",
                   letterSpacing: "0.06em",
-                  background: isActive ? "rgba(124,92,255,0.16)" : "rgba(255,255,255,0.05)",
-                  color: isActive ? "#9a7fff" : "var(--hifi-ink-faint)",
+                  textTransform: "uppercase",
+                  background: "rgba(255,255,255,0.04)",
+                  color: "var(--hifi-ink-faint)",
+                  border: "1px solid var(--hifi-hairline)",
                 }}
               >
-                {item.badge}
+                Pronto
               </span>
+            ) : (
+              item.badge && (
+                <span
+                  className="text-[9.5px] px-1.5 py-0.5 rounded-md transition-colors"
+                  style={{
+                    fontFamily: "var(--hifi-mono)",
+                    letterSpacing: "0.06em",
+                    background: isActive ? "rgba(124,92,255,0.16)" : "rgba(255,255,255,0.05)",
+                    color: isActive ? "#9a7fff" : "var(--hifi-ink-faint)",
+                  }}
+                >
+                  {item.badge}
+                </span>
+              )
             )}
           </>
         )}

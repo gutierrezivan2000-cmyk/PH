@@ -4,10 +4,11 @@ export const runtime = "nodejs";
 import { db } from "@/lib/db";
 import { fmtCOP, computeUnitSummary } from "@/lib/cartera";
 import { waLink, residentToAdminMessage } from "@/lib/whatsapp";
-import { Home, FileText, Megaphone, Wallet, CheckCircle2, AlertCircle } from "lucide-react";
+import { Home, FileText, Megaphone, Wallet, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 import { PortalPqrs } from "./PortalPqrs";
 import { PortalAssistant } from "./PortalAssistant";
 import { PortalPay } from "./PortalPay";
+import { COMING_SOON } from "@/lib/feature-flags";
 
 const DOC_LABELS: Record<string, string> = {
   reglamento_interno: "Reglamento interno",
@@ -52,61 +53,145 @@ export default async function ResidentPortalPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  const IS_DEMO = process.env.DEMO_MODE === "true";
+  if (!IS_DEMO && !/^[A-Za-z0-9_-]{16,48}$/.test(token)) return <NotFound />;
 
-  if (process.env.DEMO_MODE === "true") return <NotFound />;
-  if (!/^[A-Za-z0-9_-]{16,48}$/.test(token)) return <NotFound />;
-
-  try {
-    const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
-    await ensureAdminSchema();
-  } catch {
-    /* best effort */
+  interface UnitView {
+    label: string;
+    residentName: string | null;
+    propertyId: string;
+    property: { name: string; city: string | null; whatsapp: string | null };
+  }
+  interface AdminView {
+    name: string | null;
+    company: string | null;
+    logoUrl: string | null;
+    brandColor: string | null;
+    epaycoPublicKey: string | null;
+  }
+  interface AnnouncementView {
+    id: string;
+    subject: string;
+    content: string;
+    sentAt: Date | string | null;
+    createdAt: Date | string;
+  }
+  interface DocumentView {
+    id: string;
+    type: string;
+    name: string;
+    url: string;
   }
 
-  const unit = await db.unit
-    .findUnique({
-      where: { portalToken: token },
-      include: {
-        property: {
-          select: {
-            name: true,
-            city: true,
-            userId: true,
-            whatsapp: true,
-          },
+  let unit: UnitView | null = null;
+  let admin: AdminView | null = null;
+  let announcements: AnnouncementView[] = [];
+  let documents: DocumentView[] = [];
+  let summary: ReturnType<typeof computeUnitSummary>;
+  let movements: Movement[] = [];
+
+  if (IS_DEMO) {
+    // El demo es una superficie de venta: los tokens sembrados en
+    // demo-store deben abrir un portal real, no "enlace no válido" — igual
+    // que /dashboard/residentes ya muestra esos mismos enlaces como activos.
+    const { getProperties, getDemoUnits, getDemoAnnouncements, getDemoDocuments, DEMO_USER } = await import(
+      "@/lib/demo-store"
+    );
+    const props = getProperties(DEMO_USER.id);
+    let match: ReturnType<typeof getDemoUnits>[number] | null = null;
+    let propName = "";
+    let propCity: string | null = null;
+    for (const p of props) {
+      const found = getDemoUnits(p.id).find((u) => u.portalToken === token);
+      if (found) {
+        match = found;
+        propName = p.name;
+        propCity = p.city;
+        break;
+      }
+    }
+    if (!match) return <NotFound />;
+
+    unit = {
+      label: match.label,
+      residentName: match.residentName,
+      propertyId: match.propertyId,
+      property: { name: propName, city: propCity, whatsapp: "3001234567" },
+    };
+    admin = { name: DEMO_USER.name, company: null, logoUrl: null, brandColor: null, epaycoPublicKey: null };
+    announcements = getDemoAnnouncements(match.propertyId).map((a) => ({
+      id: a.id,
+      subject: a.subject,
+      content: a.content,
+      sentAt: a.sentAt,
+      createdAt: a.createdAt,
+    }));
+    documents = getDemoDocuments(match.propertyId);
+    summary = {
+      charged: 0,
+      paid: 0,
+      balance: match.balance,
+      overdueAmount: match.overdueAmount,
+      overdueDays: match.overdueDays,
+    };
+    // Sin cargos/pagos individuales en el demo — el resumen ya cuenta la
+    // historia; el detalle de movimientos es decorativo y opcional.
+    movements = [];
+  } else {
+    try {
+      const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+      await ensureAdminSchema();
+    } catch {
+      /* best effort */
+    }
+
+    const dbUnit = await db.unit
+      .findUnique({
+        where: { portalToken: token },
+        include: {
+          property: { select: { name: true, city: true, userId: true, whatsapp: true } },
+          charges: { orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }] },
+          payments: { orderBy: { receivedAt: "asc" } },
         },
-        charges: { orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }] },
-        payments: { orderBy: { receivedAt: "asc" } },
-      },
-    })
-    .catch(() => null);
+      })
+      .catch(() => null);
+    if (!dbUnit) return <NotFound />;
+    unit = dbUnit;
 
-  if (!unit) return <NotFound />;
+    const [dbAdmin, dbAnnouncements, dbDocuments] = await Promise.all([
+      db.user.findUnique({
+        where: { id: dbUnit.property.userId },
+        select: { name: true, company: true, logoUrl: true, brandColor: true, epaycoPublicKey: true },
+      }),
+      db.announcement.findMany({
+        where: { propertyId: dbUnit.propertyId },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: { id: true, subject: true, content: true, sentAt: true, createdAt: true },
+      }),
+      db.propertyDocument.findMany({
+        where: { propertyId: dbUnit.propertyId },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, type: true, name: true, url: true },
+      }),
+    ]);
+    admin = dbAdmin;
+    announcements = dbAnnouncements;
+    documents = dbDocuments;
 
-  const [admin, announcements, documents] = await Promise.all([
-    db.user.findUnique({
-      where: { id: unit.property.userId },
-      select: { name: true, company: true, logoUrl: true, brandColor: true, epaycoPublicKey: true },
-    }),
-    db.announcement.findMany({
-      where: { propertyId: unit.propertyId },
-      orderBy: { createdAt: "desc" },
-      take: 8,
-      select: { id: true, subject: true, content: true, sentAt: true, createdAt: true },
-    }),
-    db.propertyDocument.findMany({
-      where: { propertyId: unit.propertyId },
-      orderBy: { createdAt: "desc" },
-      select: { id: true, type: true, name: true, url: true },
-    }),
-  ]);
+    const paymentsTotal = dbUnit.payments.reduce((s, p) => s + p.amount, 0);
+    summary = computeUnitSummary(dbUnit.charges, paymentsTotal, new Date());
+    movements = [
+      ...dbUnit.charges.map((c) => ({ date: c.dueDate, concept: c.concept, charge: c.amount, payment: null })),
+      ...dbUnit.payments.map((p) => ({ date: p.receivedAt, concept: "Pago recibido", charge: null, payment: p.amount })),
+    ]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 12);
+  }
 
   const accent =
     admin?.brandColor && /^#[0-9a-fA-F]{6}$/.test(admin.brandColor) ? admin.brandColor : "#7c3aed";
   const issuer = admin?.company || admin?.name || "Administración";
-
-  const paymentsTotal = unit.payments.reduce((s, p) => s + p.amount, 0);
-  const summary = computeUnitSummary(unit.charges, paymentsTotal, new Date());
   const owes = summary.balance > 0;
   const payEnabled = owes && !!admin?.epaycoPublicKey;
   // Host shown in the footer so the resident knows where to recover the link.
@@ -114,13 +199,6 @@ export default async function ResidentPortalPage({
     .replace(/^https?:\/\//, "")
     .replace(/\/$/, "") || "esta misma dirección";
   const waHref = waLink(unit.property.whatsapp, residentToAdminMessage(unit.property.name, unit.label));
-
-  const movements: Movement[] = [
-    ...unit.charges.map((c) => ({ date: c.dueDate, concept: c.concept, charge: c.amount, payment: null })),
-    ...unit.payments.map((p) => ({ date: p.receivedAt, concept: "Pago recibido", charge: null, payment: p.amount })),
-  ]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 12);
 
   const cardStyle: React.CSSProperties = {
     background: "#fff",
@@ -169,46 +247,66 @@ export default async function ResidentPortalPage({
       </div>
 
       <div className="ui-stagger" style={{ maxWidth: 640, margin: "0 auto", padding: "20px 16px 48px", display: "flex", flexDirection: "column", gap: 16 }}>
-        {/* Estado de cuenta */}
-        <div style={cardStyle}>
-          <div style={{ padding: "18px 20px", background: owes ? "#fef2f2" : "#f0fdf4", borderBottom: "1px solid #ececef" }}>
-            <p style={{ ...sectionTitle, margin: "0 0 6px", color: owes ? "#b91c1c" : "#15803d" }}>
-              <Wallet style={{ width: 14, height: 14 }} />
-              Estado de cuenta
-            </p>
-            <p className="ui-count" style={{ fontSize: 30, fontWeight: 800, margin: 0, letterSpacing: "-0.02em", color: owes ? "#b91c1c" : "#15803d" }}>
-              {summary.balance === 0 ? "Al día" : summary.balance < 0 ? `${fmtCOP(-summary.balance)} a favor` : fmtCOP(summary.balance)}
-            </p>
-            {owes ? (
-              <p style={{ fontSize: 13, color: "#b91c1c", margin: "4px 0 0" }}>
-                Saldo pendiente
-                {summary.overdueAmount > 0 ? ` · ${fmtCOP(summary.overdueAmount)} en mora (${summary.overdueDays} días)` : ""}
+        {/* Estado de cuenta — pausado junto con Cartera en el panel del
+            administrador (ver src/lib/feature-flags.ts). Mostrar un saldo que
+            nadie puede gestionar del otro lado sería peor que no mostrarlo. */}
+        {COMING_SOON.cartera ? (
+          <div style={cardStyle}>
+            <div style={{ padding: "18px 20px" }}>
+              <p style={{ ...sectionTitle, margin: "0 0 6px" }}>
+                <Wallet style={{ width: 14, height: 14 }} />
+                Estado de cuenta
               </p>
-            ) : (
-              <p style={{ fontSize: 13, color: "#15803d", margin: "4px 0 0", display: "flex", alignItems: "center", gap: 4 }}>
-                <CheckCircle2 style={{ width: 14, height: 14 }} /> No tienes saldos pendientes
+              <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: "#4b5563", display: "flex", alignItems: "center", gap: 6 }}>
+                <Sparkles style={{ width: 14, height: 14, color: accent }} />
+                Muy pronto
               </p>
-            )}
-            {payEnabled && (
-              <div style={{ marginTop: 14 }}>
-                <PortalPay token={token} balanceText={fmtCOP(summary.balance)} />
+              <p style={{ fontSize: 12.5, color: "#9ca3af", margin: "4px 0 0", lineHeight: 1.5 }}>
+                La consulta de saldo y el pago en línea estarán disponibles aquí próximamente.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div style={cardStyle}>
+            <div style={{ padding: "18px 20px", background: owes ? "#fef2f2" : "#f0fdf4", borderBottom: "1px solid #ececef" }}>
+              <p style={{ ...sectionTitle, margin: "0 0 6px", color: owes ? "#b91c1c" : "#15803d" }}>
+                <Wallet style={{ width: 14, height: 14 }} />
+                Estado de cuenta
+              </p>
+              <p className="ui-count" style={{ fontSize: 30, fontWeight: 800, margin: 0, letterSpacing: "-0.02em", color: owes ? "#b91c1c" : "#15803d" }}>
+                {summary.balance === 0 ? "Al día" : summary.balance < 0 ? `${fmtCOP(-summary.balance)} a favor` : fmtCOP(summary.balance)}
+              </p>
+              {owes ? (
+                <p style={{ fontSize: 13, color: "#b91c1c", margin: "4px 0 0" }}>
+                  Saldo pendiente
+                  {summary.overdueAmount > 0 ? ` · ${fmtCOP(summary.overdueAmount)} en mora (${summary.overdueDays} días)` : ""}
+                </p>
+              ) : (
+                <p style={{ fontSize: 13, color: "#15803d", margin: "4px 0 0", display: "flex", alignItems: "center", gap: 4 }}>
+                  <CheckCircle2 style={{ width: 14, height: 14 }} /> No tienes saldos pendientes
+                </p>
+              )}
+              {payEnabled && (
+                <div style={{ marginTop: 14 }}>
+                  <PortalPay token={token} balanceText={fmtCOP(summary.balance)} />
+                </div>
+              )}
+            </div>
+            {movements.length > 0 && (
+              <div>
+                {movements.map((m, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 20px", borderBottom: i < movements.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                    <span style={{ fontSize: 11, color: "#9ca3af", minWidth: 54, fontVariantNumeric: "tabular-nums" }}>{fecha(m.date)}</span>
+                    <span style={{ flex: 1, fontSize: 13.5 }}>{m.concept}</span>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", color: m.payment ? "#15803d" : "#b45309" }}>
+                      {m.payment ? `− ${fmtCOP(m.payment)}` : `+ ${fmtCOP(m.charge || 0)}`}
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
-          {movements.length > 0 && (
-            <div>
-              {movements.map((m, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 20px", borderBottom: i < movements.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                  <span style={{ fontSize: 11, color: "#9ca3af", minWidth: 54, fontVariantNumeric: "tabular-nums" }}>{fecha(m.date)}</span>
-                  <span style={{ flex: 1, fontSize: 13.5 }}>{m.concept}</span>
-                  <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", color: m.payment ? "#15803d" : "#b45309" }}>
-                    {m.payment ? `− ${fmtCOP(m.payment)}` : `+ ${fmtCOP(m.charge || 0)}`}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        )}
 
         {/* WhatsApp — contactar a la administración (llega identificado por unidad) */}
         {waHref && (
@@ -263,8 +361,26 @@ export default async function ResidentPortalPage({
         {/* Asistente del reglamento (solo si hay documentos cargados) */}
         {documents.length > 0 && <PortalAssistant token={token} accent={accent} />}
 
-        {/* PQRS */}
-        <PortalPqrs token={token} accent={accent} />
+        {/* PQRS — pausado junto con el resto de PQRS (ver feature-flags.ts).
+            Dejar el formulario activo enviaría solicitudes a una bandeja que
+            hoy nadie revisa. */}
+        {COMING_SOON.pqrs ? (
+          <div style={cardStyle}>
+            <div style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+              <Sparkles style={{ width: 16, height: 16, color: accent, flexShrink: 0 }} />
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: "#1f2937" }}>
+                  Peticiones, quejas y reclamos — muy pronto
+                </p>
+                <p style={{ fontSize: 12.5, color: "#9ca3af", margin: "2px 0 0" }}>
+                  Mientras tanto, escríbenos por WhatsApp.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <PortalPqrs token={token} accent={accent} />
+        )}
 
         {/* Documentos */}
         {documents.length > 0 && (

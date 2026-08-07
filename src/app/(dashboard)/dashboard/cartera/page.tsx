@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
+import { ComingSoon } from "@/components/dashboard/ComingSoon";
+import { COMING_SOON } from "@/lib/feature-flags";
 import { fmtCOP, computeAgingReport } from "@/lib/cartera";
 import { waLink, paymentReminderMessage } from "@/lib/whatsapp";
 import { StatCard, EmptyState, SkeletonList, Toast, type ToastMsg } from "@/components/ui/surface";
@@ -514,6 +516,21 @@ export default function CarteraPage() {
       {label}
     </button>
   );
+
+  // Pausado para el lanzamiento — ver src/lib/feature-flags.ts. El código de
+  // abajo sigue intacto y funcionando; reactivarla es poner cartera: false.
+  if (COMING_SOON.cartera) {
+    return (
+      <div>
+        <Header title="Cartera" subtitle="Cuotas, pagos y estados de cuenta por unidad" />
+        <ComingSoon
+          icon={Wallet}
+          title="Cartera"
+          description="La gestión de cuotas, pagos, mora y estados de cuenta por unidad vuelve pronto — la estamos afinando antes de activarla."
+        />
+      </div>
+    );
+  }
 
   return (
     <div>

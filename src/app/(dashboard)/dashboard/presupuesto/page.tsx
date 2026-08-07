@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
+import { ComingSoon } from "@/components/dashboard/ComingSoon";
+import { COMING_SOON } from "@/lib/feature-flags";
 import { fmtCOP } from "@/lib/cartera";
 import { defaultBudgetItems, type BudgetItem, type BudgetExecution } from "@/lib/presupuesto";
 import {
@@ -303,6 +305,20 @@ export default function PresupuestoPage() {
             );
           })}
         </div>
+      </div>
+    );
+  }
+
+  // Pausado para el lanzamiento — ver src/lib/feature-flags.ts.
+  if (COMING_SOON.presupuesto) {
+    return (
+      <div>
+        <Header title="Presupuesto" subtitle="Presupuesto anual, ejecución y fondo de imprevistos" />
+        <ComingSoon
+          icon={PieChart}
+          title="Presupuesto"
+          description="El presupuesto anual, la ejecución por rubro y el fondo de imprevistos vuelven pronto — los estamos afinando antes de activarlos."
+        />
       </div>
     );
   }
