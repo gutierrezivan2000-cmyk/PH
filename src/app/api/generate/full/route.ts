@@ -55,9 +55,12 @@ async function handleDemo(req: NextRequest) {
   const month = parseInt(String(body.month));
   const year = parseInt(String(body.year));
   const type = (body.type as string) || "custom";
-  const demoIncludeInforme = body.includeInforme !== false;
-  const demoIncludeActa = body.includeActa === true;
-  const demoIncludePptx = body.includePptx === true;
+  const { normalizeDocSelection, toDocFlags } = await import("@/lib/generation/doc-kind");
+  const {
+    includeInforme: demoIncludeInforme,
+    includeActa: demoIncludeActa,
+    includePptx: demoIncludePptx,
+  } = toDocFlags(normalizeDocSelection(body));
   const additionalText = (body.additionalText as string | undefined) ?? null;
   const blobFiles: BlobFileRef[] = Array.isArray(body.blobFiles) ? body.blobFiles : [];
   const files: File[] = [];
@@ -283,6 +286,8 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     month?: number | string;
     year?: number | string;
     type?: string;
+    /** Canónico: "informe" | "acta". Los booleanos siguen aceptándose. */
+    docKind?: string;
     includeInforme?: boolean;
     includeActa?: boolean;
     includePptx?: boolean;
@@ -303,9 +308,10 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
   const year = parseInt(String(body.year ?? ""));
   const additionalText = body.additionalText ?? null;
   const type = body.type || "custom";
-  const includeInforme = body.includeInforme !== false;
-  const includeActa = body.includeActa === true;
-  const includePptx = body.includePptx === true;
+  // Informe y acta son excluyentes: normalizeDocSelection lo garantiza aunque
+  // llegue una petición antigua pidiendo los dos.
+  const { normalizeDocSelection, toDocFlags } = await import("@/lib/generation/doc-kind");
+  const { includeInforme, includeActa, includePptx } = toDocFlags(normalizeDocSelection(body));
   const blobFiles: BlobFileRef[] = Array.isArray(body.blobFiles) ? body.blobFiles : [];
 
   if (!propertyId || !month || !year) {

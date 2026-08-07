@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { Header } from "@/components/dashboard/Header";
+import { DOC_KIND_LABELS, type DocKind } from "@/lib/generation/doc-kind";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -65,11 +66,16 @@ export default function GenerarPage() {
   const [selectedProperty, setSelectedProperty] = useState("");
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
-  const [includeInforme, setIncludeInforme] = useState(true);
-  const [includeActa, setIncludeActa] = useState(false);
+  // Informe y acta son documentos distintos, con insumos distintos: la
+  // selección es excluyente y cada uno tiene su propia bandeja de archivos,
+  // para que la grabación de una reunión no acabe alimentando un informe.
+  const [docKind, setDocKind] = useState<DocKind>("informe");
   const [includePptx, setIncludePptx] = useState(false);
   const [additionalText, setAdditionalText] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
+  const [filesByKind, setFilesByKind] = useState<Record<DocKind, File[]>>({
+    informe: [],
+    acta: [],
+  });
   const [loading, setLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [error, setError] = useState("");
@@ -84,18 +90,26 @@ export default function GenerarPage() {
       .catch(console.error);
   }, []);
 
-  const handlePptxChange = useCallback((checked: boolean) => {
-    setIncludePptx(checked);
-    if (checked) setIncludeInforme(true);
+  // Elegir acta descarta la presentación: un acta no tiene diapositivas.
+  const selectDocKind = useCallback((kind: DocKind) => {
+    setDocKind(kind);
+    if (kind === "acta") setIncludePptx(false);
   }, []);
 
-  const handleInformeChange = useCallback((checked: boolean) => {
-    setIncludeInforme(checked);
-    if (!checked) setIncludePptx(false);
-  }, []);
+  // Los archivos entran SIEMPRE en la bandeja del documento seleccionado.
+  const addFiles = useCallback(
+    (incoming: File[]) => {
+      setFilesByKind((prev) => ({
+        ...prev,
+        [docKind]: [...prev[docKind], ...incoming].slice(0, 20),
+      }));
+    },
+    [docKind]
+  );
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files) return;
       const newFiles = Array.from(e.target.files);
       const oversized = newFiles.find((f) => f.size > MAX_FILE_SIZE);
       if (oversized) {
@@ -103,9 +117,10 @@ export default function GenerarPage() {
         return;
       }
       setError("");
-      setFiles((prev) => [...prev, ...newFiles].slice(0, 20));
-    }
-  }, []);
+      addFiles(newFiles);
+    },
+    [addFiles]
+  );
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -117,14 +132,23 @@ export default function GenerarPage() {
       return;
     }
     setError("");
-    setFiles((prev) => [...prev, ...droppedFiles].slice(0, 20));
-  }, []);
+    addFiles(droppedFiles);
+  }, [addFiles]);
 
-  const removeFile = useCallback((index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  }, []);
+  const removeFile = useCallback(
+    (index: number) => {
+      setFilesByKind((prev) => ({
+        ...prev,
+        [docKind]: prev[docKind].filter((_, i) => i !== index),
+      }));
+    },
+    [docKind]
+  );
 
-  const nothingSelected = !includeInforme && !includeActa && !includePptx;
+  // La bandeja activa es la del documento seleccionado.
+  const files = filesByKind[docKind];
+  const otherKind: DocKind = docKind === "informe" ? "acta" : "informe";
+  const otherCount = filesByKind[otherKind].length;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,11 +157,6 @@ export default function GenerarPage() {
 
     if (!selectedProperty) {
       setError("Selecciona una propiedad");
-      return;
-    }
-
-    if (nothingSelected) {
-      setError("Selecciona al menos un tipo de documento a generar");
       return;
     }
 
@@ -179,8 +198,7 @@ export default function GenerarPage() {
           month,
           year,
           type: "custom",
-          includeInforme,
-          includeActa,
+          docKind,
           includePptx,
           additionalText: additionalText.trim() || undefined,
           blobFiles,
@@ -474,133 +492,108 @@ export default function GenerarPage() {
               Que documentos necesitas?
             </h3>
 
-            <div className="space-y-2">
-              {/* Informe */}
-              <label
-                className="flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all"
-                style={{
-                  background: includeInforme ? "rgba(124,92,255,0.10)" : "#1d1d24",
-                  border: includeInforme
-                    ? "1px solid rgba(124,92,255,0.40)"
-                    : "1px solid rgba(255,255,255,0.07)",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={includeInforme}
-                  onChange={(e) => handleInformeChange(e.target.checked)}
-                  className="h-4 w-4 rounded"
-                  style={{ accentColor: "#7c5cff" }}
-                />
-                <FileBarChart
-                  className="h-5 w-5 flex-shrink-0"
-                  style={{ color: includeInforme ? "#9a7fff" : "rgba(246,245,247,0.42)" }}
-                />
-                <div className="flex-1">
-                  <span
-                    className="text-sm font-medium block"
-                    style={{ color: includeInforme ? "#9a7fff" : "#f6f5f7" }}
+            <div className="grid sm:grid-cols-2 gap-3">
+              {([
+                {
+                  kind: "informe" as const,
+                  Icon: FileBarChart,
+                  accent: "#9a7fff",
+                  tint: "rgba(124,92,255,0.10)",
+                  edge: "rgba(124,92,255,0.40)",
+                  desc: "Resumen ejecutivo de la gestión mensual de la copropiedad.",
+                },
+                {
+                  kind: "acta" as const,
+                  Icon: Scale,
+                  accent: "#4cd6a0",
+                  tint: "rgba(76,214,160,0.08)",
+                  edge: "rgba(76,214,160,0.35)",
+                  desc: "Acta de reunión del Consejo de Administración con formato legal.",
+                },
+              ]).map(({ kind, Icon, accent, tint, edge, desc }) => {
+                const on = docKind === kind;
+                const count = filesByKind[kind].length;
+                return (
+                  <label
+                    key={kind}
+                    className="ui-card-interactive flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all"
+                    style={{
+                      background: on ? tint : "#1d1d24",
+                      border: `1px solid ${on ? edge : "rgba(255,255,255,0.07)"}`,
+                    }}
                   >
-                    Informe de Gestion
-                  </span>
-                  <span className="text-xs block mt-0.5" style={{ color: "rgba(246,245,247,0.42)" }}>
-                    Resumen ejecutivo de la gestion mensual de la copropiedad
-                  </span>
-                </div>
-              </label>
-
-              {/* Acta */}
-              <label
-                className="flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all"
-                style={{
-                  background: includeActa ? "rgba(76,214,160,0.07)" : "#1d1d24",
-                  border: includeActa
-                    ? "1px solid rgba(76,214,160,0.30)"
-                    : "1px solid rgba(255,255,255,0.07)",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={includeActa}
-                  onChange={(e) => setIncludeActa(e.target.checked)}
-                  className="h-4 w-4 rounded"
-                  style={{ accentColor: "#4cd6a0" }}
-                />
-                <Scale
-                  className="h-5 w-5 flex-shrink-0"
-                  style={{ color: includeActa ? "#4cd6a0" : "rgba(246,245,247,0.42)" }}
-                />
-                <div className="flex-1">
-                  <span
-                    className="text-sm font-medium block"
-                    style={{ color: includeActa ? "#4cd6a0" : "#f6f5f7" }}
-                  >
-                    Acta Legal
-                  </span>
-                  <span className="text-xs block mt-0.5" style={{ color: "rgba(246,245,247,0.42)" }}>
-                    Acta de reunion del Consejo de Administracion con formato legal
-                  </span>
-                </div>
-              </label>
-
-              {/* PPTX */}
-              <label
-                className="flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all"
-                style={{
-                  background: includePptx ? "rgba(255,185,88,0.07)" : "#1d1d24",
-                  border: includePptx
-                    ? "1px solid rgba(255,185,88,0.30)"
-                    : "1px solid rgba(255,255,255,0.07)",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={includePptx}
-                  onChange={(e) => handlePptxChange(e.target.checked)}
-                  className="h-4 w-4 rounded"
-                  style={{ accentColor: "#ffb958" }}
-                />
-                <Presentation
-                  className="h-5 w-5 flex-shrink-0"
-                  style={{ color: includePptx ? "#ffb958" : "rgba(246,245,247,0.42)" }}
-                />
-                <div className="flex-1">
-                  <span
-                    className="text-sm font-medium block"
-                    style={{ color: includePptx ? "#ffb958" : "#f6f5f7" }}
-                  >
-                    Presentacion PPTX
-                  </span>
-                  <span className="text-xs block mt-0.5" style={{ color: "rgba(246,245,247,0.42)" }}>
-                    Diapositivas PowerPoint basadas en el informe de gestion
-                  </span>
-                  {!includeInforme && (
-                    <span
-                      className="flex items-center gap-1 text-xs mt-1"
-                      style={{ color: "#ffb958" }}
-                    >
-                      <Info className="h-3 w-3" />
-                      Al seleccionar PPTX se incluira el informe automaticamente
-                    </span>
-                  )}
-                </div>
-              </label>
+                    <input
+                      type="radio"
+                      name="docKind"
+                      checked={on}
+                      onChange={() => selectDocKind(kind)}
+                      className="h-4 w-4 mt-0.5 flex-shrink-0"
+                      style={{ accentColor: accent }}
+                    />
+                    <Icon
+                      className="h-5 w-5 flex-shrink-0 mt-0.5"
+                      style={{ color: on ? accent : "rgba(246,245,247,0.42)" }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span
+                        className="text-sm font-medium block"
+                        style={{ color: on ? accent : "#f6f5f7" }}
+                      >
+                        {DOC_KIND_LABELS[kind]}
+                      </span>
+                      <span className="text-xs block mt-0.5" style={{ color: "rgba(246,245,247,0.42)" }}>
+                        {desc}
+                      </span>
+                      {count > 0 && (
+                        <span className="text-[11px] block mt-1.5" style={{ color: accent }}>
+                          {count} {count === 1 ? "archivo" : "archivos"} en su bandeja
+                        </span>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
             </div>
 
-            {nothingSelected && (
-              <div
-                className="mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl"
-                style={{
-                  background: "rgba(255,185,88,0.07)",
-                  border: "1px solid rgba(255,185,88,0.25)",
-                }}
-              >
-                <AlertCircle className="h-4 w-4 flex-shrink-0" style={{ color: "#ffb958" }} />
-                <span className="text-xs" style={{ color: "#ffb958" }}>
-                  Selecciona al menos un tipo de documento para continuar
+            {/* La presentación no es un tercer documento: son las diapositivas
+                del informe, así que solo acompaña al informe. */}
+            <label
+              className={`flex items-center gap-3 p-4 rounded-xl mt-3 transition-all ${
+                docKind === "informe" ? "cursor-pointer" : "cursor-not-allowed opacity-45"
+              }`}
+              style={{
+                background: includePptx ? "rgba(255,185,88,0.07)" : "#1d1d24",
+                border: includePptx
+                  ? "1px solid rgba(255,185,88,0.30)"
+                  : "1px solid rgba(255,255,255,0.07)",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={includePptx}
+                disabled={docKind !== "informe"}
+                onChange={(e) => setIncludePptx(e.target.checked)}
+                className="h-4 w-4 rounded"
+                style={{ accentColor: "#ffb958" }}
+              />
+              <Presentation
+                className="h-5 w-5 flex-shrink-0"
+                style={{ color: includePptx ? "#ffb958" : "rgba(246,245,247,0.42)" }}
+              />
+              <div className="flex-1">
+                <span
+                  className="text-sm font-medium block"
+                  style={{ color: includePptx ? "#ffb958" : "#f6f5f7" }}
+                >
+                  Añadir presentación PPTX
+                </span>
+                <span className="text-xs block mt-0.5" style={{ color: "rgba(246,245,247,0.42)" }}>
+                  {docKind === "informe"
+                    ? "Diapositivas construidas a partir del mismo informe. Opcional."
+                    : "Solo disponible con el informe de gestión — un acta no tiene diapositivas."}
                 </span>
               </div>
-            )}
+            </label>
           </div>
 
           {/* Step 4 — Files */}
@@ -623,11 +616,19 @@ export default function GenerarPage() {
               </span>
             </div>
             <h3
-              className="font-medium mb-4"
+              className="font-medium mb-1"
               style={{ color: "#f6f5f7", fontSize: "16px", fontWeight: 500 }}
             >
-              Sube tus archivos de soporte
+              Archivos para el {DOC_KIND_LABELS[docKind].toLowerCase()}
             </h3>
+            {/* Cada documento tiene su propia bandeja: los archivos del otro no
+                se mezclan ni se pierden al cambiar de tipo. */}
+            <p className="text-xs mb-4" style={{ color: "rgba(246,245,247,0.42)" }}>
+              Bandeja independiente
+              {otherCount > 0
+                ? ` — el ${DOC_KIND_LABELS[otherKind].toLowerCase()} conserva sus ${otherCount} ${otherCount === 1 ? "archivo" : "archivos"} aparte.`
+                : ": lo que subas aquí solo alimenta este documento."}
+            </p>
 
             {/* Recommendations panel */}
             <div
@@ -647,12 +648,14 @@ export default function GenerarPage() {
                 No es obligatorio subir todo, pero entre mas informacion le des a la IA, mejores seran los documentos.
               </p>
 
-              {includeInforme && (
+              {/* Solo se muestran las recomendaciones del documento elegido:
+                  mezclarlas era justo lo que hacía que se mezclaran los insumos. */}
+              {docKind === "informe" ? (
                 <div className="mb-3">
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <FileBarChart className="h-3.5 w-3.5" style={{ color: "#9a7fff" }} />
                     <span className="text-xs font-semibold" style={{ color: "#9a7fff" }}>
-                      Para el Informe de Gestion:
+                      Para el informe de gestión:
                     </span>
                   </div>
                   <ul className="space-y-1 ml-5">
@@ -660,7 +663,7 @@ export default function GenerarPage() {
                       "Estados financieros del mes (Excel o PDF)",
                       "Reporte de cartera y recaudos",
                       "Registros de mantenimientos realizados",
-                      "Fotos de obras, mejoras o danos",
+                      "Fotos de obras, mejoras o daños",
                       "Novedades de seguridad, personal o proveedores",
                     ].map((item) => (
                       <li key={item} className="flex items-start gap-1.5">
@@ -670,20 +673,18 @@ export default function GenerarPage() {
                     ))}
                   </ul>
                 </div>
-              )}
-
-              {includeActa && (
+              ) : (
                 <div className="mb-3">
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Scale className="h-3.5 w-3.5" style={{ color: "#4cd6a0" }} />
                     <span className="text-xs font-semibold" style={{ color: "#4cd6a0" }}>
-                      Para el Acta Legal:
+                      Para el acta de reunión:
                     </span>
                   </div>
                   <ul className="space-y-1 ml-5">
                     {[
-                      "Grabacion de audio de la reunion (MP3, M4A, WAV)",
-                      "Orden del dia o agenda de la reunion",
+                      "Grabación de audio de la reunión (MP3, M4A, WAV)",
+                      "Orden del día o agenda de la reunión",
                       "Lista de asistentes",
                       "Actas anteriores como referencia de formato",
                     ].map((item) => (
@@ -692,25 +693,6 @@ export default function GenerarPage() {
                         <span className="text-xs" style={{ color: "rgba(246,245,247,0.66)" }}>{item}</span>
                       </li>
                     ))}
-                  </ul>
-                </div>
-              )}
-
-              {!includeInforme && !includeActa && includePptx && (
-                <div className="mb-3">
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <Presentation className="h-3.5 w-3.5" style={{ color: "#ffb958" }} />
-                    <span className="text-xs font-semibold" style={{ color: "#ffb958" }}>
-                      Para la Presentacion:
-                    </span>
-                  </div>
-                  <ul className="space-y-1 ml-5">
-                    <li className="flex items-start gap-1.5">
-                      <ChevronRight className="h-3 w-3 mt-0.5 flex-shrink-0" style={{ color: "#ffb958" }} />
-                      <span className="text-xs" style={{ color: "rgba(246,245,247,0.66)" }}>
-                        Los mismos insumos del informe de gestion
-                      </span>
-                    </li>
                   </ul>
                 </div>
               )}
@@ -874,23 +856,23 @@ export default function GenerarPage() {
           {/* Submit button */}
           <button
             type="submit"
-            disabled={loading || nothingSelected}
+            disabled={loading}
             className="w-full h-14 rounded-xl flex items-center justify-center gap-2.5 text-base font-medium transition-all"
             style={{
-              background: loading || nothingSelected ? "rgba(124,92,255,0.40)" : "#7c5cff",
+              background: loading ? "rgba(124,92,255,0.40)" : "#7c5cff",
               color: "#ffffff",
-              cursor: loading || nothingSelected ? "not-allowed" : "pointer",
-              boxShadow: loading || nothingSelected ? "none" : "0 4px 24px rgba(124,92,255,0.35)",
+              cursor: loading ? "not-allowed" : "pointer",
+              boxShadow: loading ? "none" : "0 4px 24px rgba(124,92,255,0.35)",
               border: "none",
             }}
             onMouseEnter={(e) => {
-              if (!loading && !nothingSelected) {
+              if (!loading) {
                 e.currentTarget.style.background = "#9a7fff";
                 e.currentTarget.style.boxShadow = "0 6px 32px rgba(124,92,255,0.50)";
               }
             }}
             onMouseLeave={(e) => {
-              if (!loading && !nothingSelected) {
+              if (!loading) {
                 e.currentTarget.style.background = "#7c5cff";
                 e.currentTarget.style.boxShadow = "0 4px 24px rgba(124,92,255,0.35)";
               }

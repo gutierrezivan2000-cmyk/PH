@@ -100,15 +100,13 @@ export async function POST(req: NextRequest) {
   const year = parseInt(String(body.year), 10);
   if (!validPeriod(month, year)) return NextResponse.json({ error: "Periodo inválido" }, { status: 400 });
 
-  const docTypes: string[] = Array.isArray(body.docTypes)
-    ? body.docTypes.filter((d: string) => ["informe", "acta", "pptx"].includes(d))
-    : [];
-  const includeInforme = docTypes.includes("informe");
-  const includeActa = docTypes.includes("acta");
-  const includePptx = docTypes.includes("pptx");
-  if (!includeInforme && !includeActa) {
-    return NextResponse.json({ error: "Elige al menos informe o acta." }, { status: 400 });
+  // Un lote produce UN tipo de documento: informe o acta, nunca ambos.
+  const { docSelectionFromTypes, docTypesFromSelection } = await import("@/lib/generation/doc-kind");
+  const selection = docSelectionFromTypes(body.docTypes);
+  if (!selection) {
+    return NextResponse.json({ error: "Elige el documento a generar: informe o acta." }, { status: 400 });
   }
+  const docTypes = docTypesFromSelection(selection);
 
   const requestedIds: string[] = Array.isArray(body.propertyIds) ? body.propertyIds.map(String) : [];
   if (requestedIds.length === 0) {
@@ -205,6 +203,6 @@ export async function POST(req: NextRequest) {
     skippedNoData,
     skippedExisting,
     skippedCap,
-    docTypes: { includeInforme, includeActa, includePptx },
+    docTypes: selection,
   });
 }

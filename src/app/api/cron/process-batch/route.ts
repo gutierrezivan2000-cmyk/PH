@@ -43,20 +43,20 @@ export async function GET(req: NextRequest) {
     });
     if (!gen) continue;
 
-    let includeInforme = true;
-    let includeActa = false;
-    let includePptx = false;
+    // Un lote encolado antes de este cambio puede llevar informe y acta a la
+    // vez en docTypes; docSelectionFromTypes lo resuelve a uno solo.
+    const { docSelectionFromTypes, normalizeDocSelection, toDocFlags } = await import(
+      "@/lib/generation/doc-kind"
+    );
+    let selection = normalizeDocSelection({ docKind: "informe" });
     if (gen.batchId) {
       const batch = await db.generationBatch.findUnique({
         where: { id: gen.batchId },
         select: { docTypes: true },
       });
-      const dt = batch?.docTypes ?? [];
-      includeInforme = dt.includes("informe");
-      includeActa = dt.includes("acta");
-      includePptx = dt.includes("pptx");
-      if (!includeInforme && !includeActa) includeInforme = true; // safety net
+      selection = docSelectionFromTypes(batch?.docTypes) ?? selection;
     }
+    const { includeInforme, includeActa, includePptx } = toDocFlags(selection);
 
     const blobFiles = (gen.inputFiles as BlobFileRef[] | null) ?? [];
     try {

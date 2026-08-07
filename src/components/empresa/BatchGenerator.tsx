@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { DOC_KIND_LABELS, docTypesFromSelection, type DocKind } from "@/lib/generation/doc-kind";
 import {
   Layers, Loader2, CheckCircle2, AlertTriangle, RefreshCw, FileText, Search, ArrowRight, Clock,
 } from "lucide-react";
@@ -32,7 +33,10 @@ export function BatchGenerator() {
   const [year, setYear] = useState(now.getFullYear());
   const years = [now.getFullYear(), now.getFullYear() - 1];
 
-  const [docTypes, setDocTypes] = useState({ informe: true, acta: true, pptx: false });
+  // Un lote produce UN tipo de documento. Informe y acta necesitan insumos
+  // distintos, así que mezclarlos en el mismo lote ensuciaba ambos resultados.
+  const [docKind, setDocKind] = useState<DocKind>("informe");
+  const [includePptx, setIncludePptx] = useState(false);
   const [rows, setRows] = useState<PreviewRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [regenerate, setRegenerate] = useState(false);
@@ -87,8 +91,7 @@ export function BatchGenerator() {
 
   const launch = async () => {
     setError("");
-    const docs = Object.entries(docTypes).filter(([, v]) => v).map(([k]) => k);
-    if (!docTypes.informe && !docTypes.acta) { setError("Elige al menos informe o acta."); return; }
+    const docs = docTypesFromSelection({ kind: docKind, includePptx });
     if (selected.size === 0) { setError("Selecciona al menos una propiedad lista."); return; }
     setLaunching(true);
     try {
@@ -223,12 +226,31 @@ export function BatchGenerator() {
         </div>
         <div className="flex items-center gap-3 ml-auto flex-wrap">
           <span className="text-[11px] uppercase text-muted-foreground/70" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }}>Documentos</span>
-          {([["informe", "Informe"], ["acta", "Acta"], ["pptx", "Presentación"]] as const).map(([k, label]) => (
+          {(["informe", "acta"] as const).map((k) => (
             <label key={k} className="inline-flex items-center gap-1.5 text-[13px] text-foreground cursor-pointer">
-              <input type="checkbox" checked={docTypes[k]} onChange={(e) => setDocTypes((d) => ({ ...d, [k]: e.target.checked }))} className="accent-[#7c5cff]" />
-              {label}
+              <input
+                type="radio"
+                name="batchDocKind"
+                checked={docKind === k}
+                onChange={() => { setDocKind(k); if (k === "acta") setIncludePptx(false); }}
+                className="accent-[#7c5cff]"
+              />
+              {DOC_KIND_LABELS[k]}
             </label>
           ))}
+          <label
+            className={`inline-flex items-center gap-1.5 text-[13px] ${docKind === "informe" ? "text-foreground cursor-pointer" : "text-muted-foreground/50 cursor-not-allowed"}`}
+            title={docKind === "informe" ? undefined : "Un acta no tiene diapositivas"}
+          >
+            <input
+              type="checkbox"
+              checked={includePptx}
+              disabled={docKind !== "informe"}
+              onChange={(e) => setIncludePptx(e.target.checked)}
+              className="accent-[#7c5cff]"
+            />
+            + Presentación
+          </label>
         </div>
       </div>
 
