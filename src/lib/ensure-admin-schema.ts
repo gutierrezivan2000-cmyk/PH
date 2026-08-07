@@ -392,6 +392,30 @@ const STATEMENTS: string[] = [
     ALTER TABLE "Certificate" ADD CONSTRAINT "Certificate_propertyId_fkey"
       FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // Bitácora: zonas comunes y pólizas con fecha relevante (mantenimiento / vencimiento).
+  `CREATE TABLE IF NOT EXISTS "CommonAsset" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "kind" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "provider" TEXT,
+    "reference" TEXT,
+    "notes" TEXT,
+    "dueDate" TIMESTAMP(3) NOT NULL,
+    "recurrenceMonths" INTEGER,
+    "lastDoneAt" TIMESTAMP(3),
+    "status" TEXT NOT NULL DEFAULT 'active',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "CommonAsset_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "CommonAsset_userId_idx" ON "CommonAsset"("userId")`,
+  `CREATE INDEX IF NOT EXISTS "CommonAsset_propertyId_idx" ON "CommonAsset"("propertyId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "CommonAsset" ADD CONSTRAINT "CommonAsset_propertyId_fkey"
+      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 ];
 
 let ensured = false;

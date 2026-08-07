@@ -39,7 +39,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { name: "Inicio", href: "/dashboard", icon: Home, n: "01" },
       { name: "Generar", href: "/dashboard/generar", icon: FilePlus2, n: "02" },
-      { name: "Calendario", href: "/dashboard/calendario", icon: CalendarClock, n: "03" },
+      { name: "Bitácora", href: "/dashboard/calendario", icon: CalendarClock, n: "03" },
       { name: "Asistente IA", href: "/dashboard/asistente", icon: Sparkles, n: "04", badge: "6" },
     ],
   },

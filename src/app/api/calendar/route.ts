@@ -10,7 +10,8 @@ import {
   type BuildingFeatures,
   type AssemblyDerivedItem,
 } from "@/lib/compliance";
-import { getProperties, DEMO_USER } from "@/lib/demo-store";
+import { categoryForKind, defaultTitle, assetDescription } from "@/lib/common-assets";
+import { getProperties, getDemoCommonAssets, DEMO_USER } from "@/lib/demo-store";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -22,7 +23,7 @@ export interface CalendarItemDto {
   description: string;
   category: string;
   dueDate: string; // "YYYY-MM-DD"
-  source: "auto" | "custom";
+  source: "auto" | "custom" | "asset";
   status: "pending" | "done" | "dismissed";
   doneAt?: string | null;
 }
@@ -199,6 +200,38 @@ export async function GET() {
         source: "custom",
         status: (rec.status as CalendarItemDto["status"]) || "pending",
         doneAt: rec.doneAt?.toISOString() ?? null,
+      });
+    }
+
+    // Bitácora: zonas comunes y pólizas (source = "asset"). Cada activo activo
+    // aporta exactamente un ítem — "hecho" en uno recurrente ya adelantó su
+    // fecha al guardarlo (ver /api/common-assets PATCH), así que aquí solo se
+    // listan y siempre como "pending".
+    const assetRows = IS_DEMO
+      ? getDemoCommonAssets(null).filter((a) => propNameById.has(a.propertyId))
+      : properties.length > 0
+        ? await (async () => {
+            const { db } = await import("@/lib/db");
+            const rows = await db.commonAsset.findMany({
+              where: { propertyId: { in: properties.map((p) => p.id) }, status: "active" },
+            });
+            return rows.map((a) => ({ ...a, dueDate: a.dueDate.toISOString() }));
+          })()
+        : [];
+    for (const a of assetRows) {
+      const name = propNameById.get(a.propertyId);
+      if (!name) continue;
+      items.push({
+        key: `asset-${a.id}`,
+        propertyId: a.propertyId,
+        propertyName: name,
+        title: defaultTitle(a),
+        description: assetDescription(a),
+        category: categoryForKind(a.kind),
+        dueDate: a.dueDate.slice(0, 10),
+        source: "asset",
+        status: "pending",
+        doneAt: null,
       });
     }
 

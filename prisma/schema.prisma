@@ -195,6 +195,7 @@ model Property {
   budgets       Budget[]
   ledgerEntries LedgerEntry[]
   pqrs          Pqrs[]
+  commonAssets  CommonAsset[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -536,6 +537,40 @@ model Certificate {
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([propertyId])
+}
+
+// ============================================
+// Bitácora: zonas comunes y pólizas (registro con fecha relevante)
+// ============================================
+
+model CommonAsset {
+  id         String  @id @default(cuid())
+  userId     String
+  propertyId String
+  kind       String // "zona_comun" | "poliza"
+  name       String // "Ascensor Torre A", "Póliza responsabilidad civil"...
+  provider   String? // contratista de mantenimiento / aseguradora
+  reference  String? // número de contrato / número de póliza
+  notes      String? @db.Text
+
+  // Próxima fecha que importa: revisión/mantenimiento o vencimiento de póliza.
+  dueDate DateTime
+
+  // Si se repite (ej. mantenimiento trimestral, póliza anual), cada cuántos
+  // meses. Al marcar "hecho" se recalcula dueDate en vez de simplemente
+  // marcarlo, para que reaparezca en su próximo ciclo.
+  recurrenceMonths Int?
+  lastDoneAt       DateTime?
+
+  status String @default("active") // "active" | "archived"
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([propertyId])

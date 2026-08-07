@@ -812,3 +812,133 @@ export function getDemoPortfolioProperty(id: string, userId: string) {
     generations: getGenerations(userId).filter((g) => g.propertyId === id),
   };
 }
+
+// ── Bitácora: zonas comunes y pólizas ───────────────────────────────
+export interface DemoCommonAsset {
+  id: string;
+  propertyId: string;
+  kind: "zona_comun" | "poliza";
+  name: string;
+  provider: string | null;
+  reference: string | null;
+  notes: string | null;
+  dueDate: string; // ISO
+  recurrenceMonths: number | null;
+  lastDoneAt: string | null;
+  status: "active" | "archived";
+}
+
+const inDaysIso = (n: number) => new Date(Date.now() + n * 86400000).toISOString();
+
+const seededCommonAssets: DemoCommonAsset[] = [
+  {
+    id: "asset-demo-1",
+    propertyId: "prop-demo-001",
+    kind: "poliza",
+    name: "Todo riesgo (área común)",
+    provider: "Seguros Bolívar",
+    reference: "POL-4471203",
+    notes: null,
+    dueDate: inDaysIso(-6),
+    recurrenceMonths: 12,
+    lastDoneAt: null,
+    status: "active",
+  },
+  {
+    id: "asset-demo-2",
+    propertyId: "prop-demo-001",
+    kind: "poliza",
+    name: "Responsabilidad civil extracontractual",
+    provider: "Seguros Bolívar",
+    reference: "POL-4471204",
+    notes: "Cubre consejo de administración",
+    dueDate: inDaysIso(21),
+    recurrenceMonths: 12,
+    lastDoneAt: null,
+    status: "active",
+  },
+  {
+    id: "asset-demo-3",
+    propertyId: "prop-demo-001",
+    kind: "zona_comun",
+    name: "Ascensor Torre A",
+    provider: "Schindler",
+    reference: "CT-8842",
+    notes: null,
+    dueDate: inDaysIso(9),
+    recurrenceMonths: 3,
+    lastDoneAt: daysAgo(82),
+    status: "active",
+  },
+  {
+    id: "asset-demo-4",
+    propertyId: "prop-demo-001",
+    kind: "zona_comun",
+    name: "Piscina",
+    provider: "AquaClor",
+    reference: null,
+    notes: "Análisis de agua + mantenimiento de filtros",
+    dueDate: inDaysIso(45),
+    recurrenceMonths: 1,
+    lastDoneAt: daysAgo(15),
+    status: "active",
+  },
+  {
+    id: "asset-demo-5",
+    propertyId: "prop-demo-001",
+    kind: "zona_comun",
+    name: "Planta eléctrica",
+    provider: "Generadores del Valle",
+    reference: null,
+    notes: null,
+    dueDate: inDaysIso(2),
+    recurrenceMonths: 6,
+    lastDoneAt: daysAgo(178),
+    status: "active",
+  },
+];
+
+let _commonAssets = [...seededCommonAssets];
+
+export function getDemoCommonAssets(propertyId?: string | null): DemoCommonAsset[] {
+  return _commonAssets
+    .filter((a) => a.status === "active" && (!propertyId || a.propertyId === propertyId))
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+}
+
+export function createDemoCommonAsset(
+  data: Omit<DemoCommonAsset, "id" | "lastDoneAt" | "status">
+): DemoCommonAsset {
+  const asset: DemoCommonAsset = { ...data, id: `asset-${Date.now()}`, lastDoneAt: null, status: "active" };
+  _commonAssets.push(asset);
+  return asset;
+}
+
+export function updateDemoCommonAsset(
+  id: string,
+  action: "done" | "archive" | "restore"
+): DemoCommonAsset | null {
+  const idx = _commonAssets.findIndex((a) => a.id === id);
+  if (idx === -1) return null;
+  const a = _commonAssets[idx];
+  if (action === "done") {
+    _commonAssets[idx] = a.recurrenceMonths
+      ? {
+          ...a,
+          dueDate: new Date(
+            new Date(a.dueDate).setMonth(new Date(a.dueDate).getMonth() + a.recurrenceMonths)
+          ).toISOString(),
+          lastDoneAt: new Date().toISOString(),
+        }
+      : { ...a, status: "archived", lastDoneAt: new Date().toISOString() };
+  } else if (action === "archive") {
+    _commonAssets[idx] = { ...a, status: "archived" };
+  } else if (action === "restore") {
+    _commonAssets[idx] = { ...a, status: "active" };
+  }
+  return _commonAssets[idx];
+}
+
+export function deleteDemoCommonAsset(id: string): void {
+  _commonAssets = _commonAssets.filter((a) => a.id !== id);
+}
