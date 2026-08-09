@@ -296,6 +296,18 @@ export async function POST(
     let isNewChat = false;
 
     try {
+      if (chatId) {
+        // El GET sí comprueba la propiedad del chat; el POST lo tomaba del
+        // cuerpo y lo usaba tal cual. Con un chatId ajeno se leía el historial
+        // de otro usuario (entra al contexto del modelo y vuelve en la
+        // respuesta) y se le escribían mensajes en su conversación.
+        const owned = await db.agentChat
+          .findFirst({ where: { id: chatId, userId, agentId }, select: { id: true } })
+          .catch(() => null);
+        if (!owned) {
+          return NextResponse.json({ error: "Chat no encontrado" }, { status: 404 });
+        }
+      }
       if (!chatId) {
         try {
           const chat = await db.agentChat.create({

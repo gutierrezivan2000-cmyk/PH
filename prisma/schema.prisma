@@ -141,7 +141,10 @@ model PendingOrder {
   amount      Int       // expected charge amount (COP)
   currency    String    @default("cop")
   status      String    @default("pending") // "pending" | "completed" | "rejected"
-  epaycoRef   String? // x_ref_payco once ePayco confirms
+  // Único: una misma transacción de ePayco no puede cerrar dos órdenes. Sin
+  // esta restricción, una tupla firmada reutilizada renovaba la suscripción
+  // gratis (la firma de ePayco no cubre x_id_invoice).
+  epaycoRef   String?   @unique
   createdAt   DateTime  @default(now())
   completedAt DateTime?
 

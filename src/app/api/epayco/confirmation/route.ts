@@ -91,6 +91,35 @@ export async function POST(req: NextRequest) {
         .catch(() => null);
     }
 
+    // 3b) ANTI-REPLAY: la firma de ePayco NO cubre x_id_invoice, así que una
+    // tupla firmada legítima puede reapuntarse a OTRA orden del mismo monto.
+    // Sin esto, quien pagó una vez podía guardar su tupla, crear cada mes una
+    // orden nueva, abandonar el checkout y renovar gratis: la idempotencia de
+    // abajo solo mira order.status, y la orden nueva está en "pending".
+    // La ruta hermana de pagos de residentes ya se defendía así.
+    const verifiedInvoice = verification.data?.x_id_invoice;
+    if (order && verifiedInvoice && String(verifiedInvoice) !== x_id_invoice) {
+      console.error("[ePayco confirmation] invoice mismatch — posible replay", {
+        x_ref_payco,
+        callbackInvoice: x_id_invoice,
+        verifiedInvoice,
+      });
+      return NextResponse.json({ error: "Invoice mismatch" }, { status: 400 });
+    }
+
+    // 3c) Esa misma referencia no puede haber cerrado ya OTRA orden: es la
+    // defensa que faltaba para el caso en que la orden actual sigue "pending".
+    const refYaUsada = await db.pendingOrder
+      .findFirst({
+        where: { epaycoRef: x_ref_payco, status: "completed" },
+        select: { id: true },
+      })
+      .catch(() => null);
+    if (refYaUsada && (!order || refYaUsada.id !== order.id)) {
+      console.error("[ePayco confirmation] referencia ya aplicada a otra orden", { x_ref_payco });
+      return NextResponse.json({ received: true, alreadyProcessed: true });
+    }
+
     // Resolve userId, plan, and the amount we EXPECTED to be charged.
     let userId: string | undefined;
     let plan: CanonicalPlan;

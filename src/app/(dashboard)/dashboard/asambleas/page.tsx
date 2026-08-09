@@ -104,7 +104,7 @@ function fmtShort(d: Date): string {
   return d.toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export default function AsambleasPage() {
+function AsambleasPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState("");
   const [assemblies, setAssemblies] = useState<Assembly[]>([]);
@@ -313,20 +313,6 @@ La Administración`;
     } finally {
       setBusyId(null);
     }
-  }
-
-  // Pausado para el lanzamiento — ver src/lib/feature-flags.ts.
-  if (COMING_SOON.asambleas) {
-    return (
-      <div>
-        <Header title="Asambleas" subtitle="Convocatorias y control de términos legales (Ley 675)" />
-        <ComingSoon
-          icon={Gavel}
-          title="Asambleas"
-          description="La convocatoria de asambleas y el control de términos de la Ley 675 vuelven pronto — los estamos afinando antes de activarlos."
-        />
-      </div>
-    );
   }
 
   return (
@@ -703,4 +689,26 @@ La Administración`;
       </div>
     </div>
   );
+}
+
+/**
+ * Envoltorio del gate. La comprobación va en un componente SIN hooks para que
+ * AsambleasPage no llegue a montarse cuando la función está pausada: con el
+ * early-return dentro, sus useEffect ya habían disparado las peticiones de
+ * carga y se descargaban datos que nadie iba a ver.
+ */
+export default function AsambleasRoute() {
+  if (COMING_SOON.asambleas) {
+    return (
+      <div>
+        <Header title="Asambleas" subtitle="Convocatorias y control de términos legales (Ley 675)" />
+        <ComingSoon
+          icon={Gavel}
+          title="Asambleas"
+          description="La convocatoria de asambleas y el control de términos de la Ley 675 vuelven pronto — los estamos afinando antes de activarlos."
+        />
+      </div>
+    );
+  }
+  return <AsambleasPage />;
 }

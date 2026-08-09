@@ -107,7 +107,7 @@ function todayIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export default function CarteraPage() {
+function CarteraPage() {
   const now = new Date();
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState("");
@@ -516,21 +516,6 @@ export default function CarteraPage() {
       {label}
     </button>
   );
-
-  // Pausado para el lanzamiento — ver src/lib/feature-flags.ts. El código de
-  // abajo sigue intacto y funcionando; reactivarla es poner cartera: false.
-  if (COMING_SOON.cartera) {
-    return (
-      <div>
-        <Header title="Cartera" subtitle="Cuotas, pagos y estados de cuenta por unidad" />
-        <ComingSoon
-          icon={Wallet}
-          title="Cartera"
-          description="La gestión de cuotas, pagos, mora y estados de cuenta por unidad vuelve pronto — la estamos afinando antes de activarla."
-        />
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -1286,4 +1271,26 @@ export default function CarteraPage() {
       </div>
     </div>
   );
+}
+
+/**
+ * Envoltorio del gate. La comprobación va en un componente SIN hooks para que
+ * CarteraPage no llegue a montarse cuando la función está pausada: con el
+ * early-return dentro, sus useEffect ya habían disparado las peticiones de
+ * carga y se descargaban datos que nadie iba a ver.
+ */
+export default function CarteraRoute() {
+  if (COMING_SOON.cartera) {
+    return (
+      <div>
+        <Header title="Cartera" subtitle="Cuotas, pagos y estados de cuenta por unidad" />
+        <ComingSoon
+          icon={Wallet}
+          title="Cartera"
+          description="La gestión de cuotas, pagos, mora y estados de cuenta por unidad vuelve pronto — la estamos afinando antes de activarla."
+        />
+      </div>
+    );
+  }
+  return <CarteraPage />;
 }

@@ -3,6 +3,26 @@ import { parseFile, detectFileType } from "@/lib/parsers";
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_EXTRACTED_CHARS = 20000; // limit to keep prompt size reasonable
 
+/**
+ * Los adjuntos son URLs que manda el CLIENTE, y el servidor las descarga: sin
+ * filtro, esto es un SSRF — bastaba apuntar a un servicio interno o al endpoint
+ * de metadatos del proveedor para que su contenido acabara en el prompt del
+ * modelo y volviera al atacante en la respuesta del chat.
+ *
+ * Solo se aceptan HTTPS del almacenamiento de blobs, que es de donde vienen los
+ * adjuntos legítimos que sube la propia app.
+ */
+function isAllowedAttachmentUrl(raw: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:") return false;
+  return u.hostname === "blob.vercel-storage.com" || u.hostname.endsWith(".blob.vercel-storage.com");
+}
+
 export interface AttachmentInput {
   name: string;
   url: string;
@@ -39,6 +59,16 @@ export async function parseAttachment(
       isImage: false,
       url: att.url,
       text: `[Archivo ${att.name}: demasiado grande para analizar (${(att.size / 1024 / 1024).toFixed(1)}MB, max 10MB)]`,
+    };
+  }
+
+  if (!isAllowedAttachmentUrl(att.url)) {
+    return {
+      name: att.name,
+      type: att.type,
+      isImage: false,
+      url: att.url,
+      text: `[Archivo ${att.name}: origen no permitido]`,
     };
   }
 

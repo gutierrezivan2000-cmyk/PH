@@ -392,6 +392,15 @@ const STATEMENTS: string[] = [
     ALTER TABLE "Certificate" ADD CONSTRAINT "Certificate_propertyId_fkey"
       FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // Anti-replay de suscripciones: una transacción de ePayco no puede cerrar dos
+  // órdenes. Va dentro de un DO/EXCEPTION porque si una base heredada ya tiene
+  // refs duplicadas el índice no se puede crear, y una sentencia que falla
+  // siempre impediría memoizar el auto-reparado en cada petición.
+  `DO $$ BEGIN
+    CREATE UNIQUE INDEX IF NOT EXISTS "PendingOrder_epaycoRef_key" ON "PendingOrder"("epaycoRef");
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'PendingOrder_epaycoRef_key no se pudo crear: %', SQLERRM;
+  END $$`,
   // Bitácora: zonas comunes y pólizas con fecha relevante (mantenimiento / vencimiento).
   `CREATE TABLE IF NOT EXISTS "CommonAsset" (
     "id" TEXT NOT NULL,

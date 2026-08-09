@@ -4,6 +4,8 @@
  * DEMO_MODE=true bypasses all external services.
  */
 
+import { advanceDueDate } from "@/lib/common-assets";
+
 export const DEMO_USER = {
   id: "demo-user-001",
   name: "Carlos Ramirez",
@@ -906,10 +908,20 @@ export function getDemoCommonAssets(propertyId?: string | null): DemoCommonAsset
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 }
 
+// Contador monótono: `Date.now()` daba el MISMO id a todas las filas creadas
+// dentro del mismo milisegundo, y el import en lote crea hasta 300 seguidas.
+// Con ids repetidos, marcar "hecho" o eliminar una fila afectaba a otra.
+let _assetSeq = 0;
+
 export function createDemoCommonAsset(
   data: Omit<DemoCommonAsset, "id" | "lastDoneAt" | "status">
 ): DemoCommonAsset {
-  const asset: DemoCommonAsset = { ...data, id: `asset-${Date.now()}`, lastDoneAt: null, status: "active" };
+  const asset: DemoCommonAsset = {
+    ...data,
+    id: `asset-${Date.now()}-${++_assetSeq}`,
+    lastDoneAt: null,
+    status: "active",
+  };
   _commonAssets.push(asset);
   return asset;
 }
@@ -922,12 +934,13 @@ export function updateDemoCommonAsset(
   if (idx === -1) return null;
   const a = _commonAssets[idx];
   if (action === "done") {
+    // Reutiliza advanceDueDate en vez de repetir el cálculo aquí: esta copia
+    // en línea arrastraba el desbordamiento de setMonth y solo avanzaba un
+    // ciclo, así que el demo se comportaba distinto que la app real.
     _commonAssets[idx] = a.recurrenceMonths
       ? {
           ...a,
-          dueDate: new Date(
-            new Date(a.dueDate).setMonth(new Date(a.dueDate).getMonth() + a.recurrenceMonths)
-          ).toISOString(),
+          dueDate: advanceDueDate(new Date(a.dueDate), a.recurrenceMonths).toISOString(),
           lastDoneAt: new Date().toISOString(),
         }
       : { ...a, status: "archived", lastDoneAt: new Date().toISOString() };

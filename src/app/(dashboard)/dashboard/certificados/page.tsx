@@ -79,7 +79,7 @@ function endOfMonthIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export default function CertificadosPage() {
+function CertificadosPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState("");
   const [units, setUnits] = useState<Unit[]>([]);
@@ -254,20 +254,6 @@ export default function CertificadosPage() {
     } catch {
       // clipboard unavailable
     }
-  }
-
-  // Pausado para el lanzamiento — ver src/lib/feature-flags.ts.
-  if (COMING_SOON.certificados) {
-    return (
-      <div>
-        <Header title="Certificados" subtitle="Paz y salvos y constancias con verificación QR" />
-        <ComingSoon
-          icon={BadgeCheck}
-          title="Certificados"
-          description="La expedición de paz y salvos y constancias con verificación QR vuelve pronto — la estamos afinando antes de activarla."
-        />
-      </div>
-    );
   }
 
   return (
@@ -616,4 +602,26 @@ export default function CertificadosPage() {
       </div>
     </div>
   );
+}
+
+/**
+ * Envoltorio del gate. La comprobación va en un componente SIN hooks para que
+ * CertificadosPage no llegue a montarse cuando la función está pausada: con el
+ * early-return dentro, sus useEffect ya habían disparado las peticiones de
+ * carga y se descargaban datos que nadie iba a ver.
+ */
+export default function CertificadosRoute() {
+  if (COMING_SOON.certificados) {
+    return (
+      <div>
+        <Header title="Certificados" subtitle="Paz y salvos y constancias con verificación QR" />
+        <ComingSoon
+          icon={BadgeCheck}
+          title="Certificados"
+          description="La expedición de paz y salvos y constancias con verificación QR vuelve pronto — la estamos afinando antes de activarla."
+        />
+      </div>
+    );
+  }
+  return <CertificadosPage />;
 }

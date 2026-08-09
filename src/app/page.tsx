@@ -33,7 +33,9 @@ import {
   CreditCard,
   MessageCircle,
   QrCode,
+  Clock,
 } from "lucide-react";
+import { COMING_SOON, type ComingSoonKey } from "@/lib/feature-flags";
 
 // ─────────────────────────────────────────────
 // Data
@@ -154,27 +156,35 @@ const CHAT_SEQUENCE = [
   },
 ];
 
-const PRO_FEATURES = [
+/**
+ * Un bullet de plan. `soon` lo ata a COMING_SOON (src/lib/feature-flags.ts):
+ * mientras esa función esté pausada, el bullet se muestra atenuado y con la
+ * marca "pronto", en vez de venderse como incluido. Sin esto se cobraba Pro y
+ * Business por seis módulos que en el panel dicen "Próximamente".
+ */
+type PlanFeature = string | { text: string; soon: ComingSoonKey };
+
+const PRO_FEATURES: PlanFeature[] = [
   "Hasta 3 propiedades",
   "15 generaciones al mes · PDF, DOCX y PPTX",
   "Themis + Chronos incluidos",
   "Calendario de cumplimiento automático",
-  "Comunicados con IA · 500 correos/mes",
-  "Certificados y paz y salvos con QR",
-  "Convocatorias y control de términos",
+  { text: "Comunicados con IA · 500 correos/mes", soon: "comunicados" },
+  { text: "Certificados y paz y salvos con QR", soon: "certificados" },
+  { text: "Convocatorias y control de términos", soon: "asambleas" },
 ];
 
-const BUSINESS_FEATURES = [
+const BUSINESS_FEATURES: PlanFeature[] = [
   "Hasta 10 propiedades",
   "40 generaciones al mes · PDF, DOCX y PPTX",
   "Todo lo de Pro · 3.000 correos/mes",
-  "Cartera: cuotas, pagos y estados de cuenta",
-  "Cobro con IA, mora e intereses de ley",
-  "Presupuesto, fondo del 1% y export contable",
-  "Portal del residente + PQRS + pago en línea",
+  { text: "Cartera: cuotas, pagos y estados de cuenta", soon: "cartera" },
+  { text: "Cobro con IA, mora e intereses de ley", soon: "cartera" },
+  { text: "Presupuesto, fondo del 1% y export contable", soon: "presupuesto" },
+  { text: "Portal del residente + PQRS + pago en línea", soon: "pqrs" },
 ];
 
-const ELITE_FEATURES = [
+const ELITE_FEATURES: PlanFeature[] = [
   "Propiedades ilimitadas",
   "100 generaciones al mes · PDF, DOCX y PPTX",
   "Todo lo de Business · 15.000 correos/mes",
@@ -182,6 +192,32 @@ const ELITE_FEATURES = [
   "Generación en lote de todos los informes",
   "Soporte prioritario · WhatsApp directo",
 ];
+
+/** Renderiza un bullet de plan, atenuándolo si su función está pausada. */
+function PlanFeatureRow({ feature, color }: { feature: PlanFeature; color: string }) {
+  const text = typeof feature === "string" ? feature : feature.text;
+  const pending = typeof feature !== "string" && COMING_SOON[feature.soon];
+  return (
+    <li className="flex items-center gap-2.5 text-sm">
+      {pending ? (
+        <Clock size={15} style={{ color: "rgba(255,255,255,0.28)", flexShrink: 0 }} />
+      ) : (
+        <Check size={15} style={{ color, flexShrink: 0 }} />
+      )}
+      <span style={{ color: pending ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.68)" }}>
+        {text}
+        {pending && (
+          <span
+            className="sophia-mono ml-1.5"
+            style={{ fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "#a78bff" }}
+          >
+            pronto
+          </span>
+        )}
+      </span>
+    </li>
+  );
+}
 
 const ADDON_AGENTS = [
   { name: "Metra", role: "Analista financiera", color: "#4cd6a0" },
@@ -901,9 +937,13 @@ export default function LandingPage() {
                 className="text-base leading-relaxed"
                 style={{ color: "rgba(255,255,255,0.5)", maxWidth: 480 }}
               >
-                Cartera y recaudo, presupuesto, asambleas, comunicados y un
-                portal para tus residentes — con seis agentes IA que redactan
-                informe, acta y PPTX listos para firmar.
+                {/* Encabeza con lo que HOY funciona. Cartera, presupuesto,
+                    asambleas y comunicados siguen en el mapa de la sección
+                    Plataforma, marcados como próximos — prometerlos aquí como
+                    disponibles era vender lo que el panel aún no entrega. */}
+                Informe de gestión, acta y presentación listos para firmar, la
+                bitácora de zonas comunes y pólizas al día, y un portal para tus
+                residentes — con seis agentes IA que conocen la Ley 675.
               </p>
 
               {/* Buttons */}
@@ -1382,6 +1422,7 @@ export default function LandingPage() {
                   Icon: Wallet,
                   color: "#4cd6a0",
                   title: "Cartera y recaudo",
+                  soon: "cartera" as const,
                   desc: "Causa las cuotas del mes con un clic, registra pagos que se aplican solos al cobro más antiguo, y entrega estados de cuenta con tu logo.",
                   tag: "Business",
                 },
@@ -1389,6 +1430,7 @@ export default function LandingPage() {
                   Icon: MessageSquare,
                   color: "#ff8585",
                   title: "Cobro de cartera con IA",
+                  soon: "cartera" as const,
                   desc: "Cartera por edades, intereses de mora dentro del tope legal, y cartas de cobro —de recordatorio a prejurídico— redactadas con la deuda real.",
                   tag: "Business",
                 },
@@ -1396,6 +1438,7 @@ export default function LandingPage() {
                   Icon: PieChart,
                   color: "#ffb958",
                   title: "Presupuesto y ejecución",
+                  soon: "presupuesto" as const,
                   desc: "Presupuesto anual por rubros, ejecutado vs presupuestado, fondo de imprevistos del 1% vigilado, y exporte a Excel para tu contador.",
                   tag: "Business",
                 },
@@ -1429,24 +1472,28 @@ export default function LandingPage() {
                   Icon: Gavel,
                   color: "#8fa8ff",
                   title: "Asambleas",
+                  soon: "asambleas" as const,
                   desc: "Convocatoria formal que valida los 15 días de ley, y control automático de términos: acta en 20 días hábiles e impugnación a 2 meses.",
                 },
                 {
                   Icon: BadgeCheck,
                   color: "#4cd6a0",
                   title: "Certificados con QR",
+                  soon: "certificados" as const,
                   desc: "Paz y salvos y constancias de residencia con código QR: cualquiera verifica en línea si son auténticos, están vencidos o revocados.",
                 },
                 {
                   Icon: Send,
                   color: "#ff6fa8",
                   title: "Comunicados",
+                  soon: "comunicados" as const,
                   desc: "Describe la circular en una línea y la IA la redacta. Se envía con tu marca a cada residente, sin que vean los correos de los demás.",
                 },
                 {
                   Icon: QrCode,
                   color: "#ffb958",
                   title: "PQRS y asistente del reglamento",
+                  soon: "pqrs" as const,
                   desc: "Los residentes radican peticiones con número de seguimiento, y una IA les responde dudas leyendo el reglamento de tu copropiedad.",
                   tag: "Business",
                 },
@@ -1474,20 +1521,40 @@ export default function LandingPage() {
                     >
                       <f.Icon className="h-5 w-5" style={{ color: f.color }} />
                     </div>
-                    {f.tag && (
+                    {/* La insignia se deriva de COMING_SOON: si una función se
+                        reactiva en feature-flags.ts, la venta se actualiza sola.
+                        Sin esto la landing seguía ofreciendo como disponibles
+                        seis módulos que en el panel dicen "Próximamente". */}
+                    {"soon" in f && f.soon && COMING_SOON[f.soon] ? (
                       <span
-                        className="sophia-mono px-2 py-1 rounded-full"
+                        className="sophia-mono px-2 py-1 rounded-full whitespace-nowrap"
                         style={{
                           fontSize: 9,
                           letterSpacing: "0.14em",
                           textTransform: "uppercase",
-                          background: "rgba(255,255,255,0.05)",
-                          border: "1px solid rgba(255,255,255,0.10)",
-                          color: "rgba(255,255,255,0.45)",
+                          background: "rgba(124,92,255,0.12)",
+                          border: "1px solid rgba(124,92,255,0.30)",
+                          color: "#a78bff",
                         }}
                       >
-                        {f.tag}
+                        Próximamente
                       </span>
+                    ) : (
+                      f.tag && (
+                        <span
+                          className="sophia-mono px-2 py-1 rounded-full"
+                          style={{
+                            fontSize: 9,
+                            letterSpacing: "0.14em",
+                            textTransform: "uppercase",
+                            background: "rgba(255,255,255,0.05)",
+                            border: "1px solid rgba(255,255,255,0.10)",
+                            color: "rgba(255,255,255,0.45)",
+                          }}
+                        >
+                          {f.tag}
+                        </span>
+                      )
                     )}
                   </div>
                   <h3
@@ -1728,13 +1795,7 @@ export default function LandingPage() {
                 </div>
                 <ul className="flex flex-col gap-3">
                   {PRO_FEATURES.map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm">
-                      <Check
-                        size={15}
-                        style={{ color: "#7c5cff", flexShrink: 0 }}
-                      />
-                      <span style={{ color: "rgba(255,255,255,0.65)" }}>{f}</span>
-                    </li>
+                    <PlanFeatureRow key={typeof f === "string" ? f : f.text} feature={f} color="#7c5cff" />
                   ))}
                   <li className="flex items-center gap-2.5 text-sm">
                     <Minus
@@ -1813,13 +1874,7 @@ export default function LandingPage() {
                 </div>
                 <ul className="flex flex-col gap-3">
                   {BUSINESS_FEATURES.map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm">
-                      <Check
-                        size={15}
-                        style={{ color: "#a78bff", flexShrink: 0 }}
-                      />
-                      <span style={{ color: "rgba(255,255,255,0.7)" }}>{f}</span>
-                    </li>
+                    <PlanFeatureRow key={typeof f === "string" ? f : f.text} feature={f} color="#a78bff" />
                   ))}
                 </ul>
                 <Link
@@ -1870,10 +1925,7 @@ export default function LandingPage() {
                 </div>
                 <ul className="flex flex-col gap-3">
                   {ELITE_FEATURES.map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm">
-                      <Check size={15} style={{ color: "#7c5cff", flexShrink: 0 }} />
-                      <span style={{ color: "rgba(255,255,255,0.65)" }}>{f}</span>
-                    </li>
+                    <PlanFeatureRow key={typeof f === "string" ? f : f.text} feature={f} color="#7c5cff" />
                   ))}
                 </ul>
                 <Link

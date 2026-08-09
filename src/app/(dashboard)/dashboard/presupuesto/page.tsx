@@ -96,7 +96,7 @@ function todayIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export default function PresupuestoPage() {
+function PresupuestoPage() {
   const now = new Date();
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState("");
@@ -305,20 +305,6 @@ export default function PresupuestoPage() {
             );
           })}
         </div>
-      </div>
-    );
-  }
-
-  // Pausado para el lanzamiento — ver src/lib/feature-flags.ts.
-  if (COMING_SOON.presupuesto) {
-    return (
-      <div>
-        <Header title="Presupuesto" subtitle="Presupuesto anual, ejecución y fondo de imprevistos" />
-        <ComingSoon
-          icon={PieChart}
-          title="Presupuesto"
-          description="El presupuesto anual, la ejecución por rubro y el fondo de imprevistos vuelven pronto — los estamos afinando antes de activarlos."
-        />
       </div>
     );
   }
@@ -741,4 +727,26 @@ export default function PresupuestoPage() {
       </div>
     </div>
   );
+}
+
+/**
+ * Envoltorio del gate. La comprobación va en un componente SIN hooks para que
+ * PresupuestoPage no llegue a montarse cuando la función está pausada: con el
+ * early-return dentro, sus useEffect ya habían disparado las peticiones de
+ * carga y se descargaban datos que nadie iba a ver.
+ */
+export default function PresupuestoRoute() {
+  if (COMING_SOON.presupuesto) {
+    return (
+      <div>
+        <Header title="Presupuesto" subtitle="Presupuesto anual, ejecución y fondo de imprevistos" />
+        <ComingSoon
+          icon={PieChart}
+          title="Presupuesto"
+          description="El presupuesto anual, la ejecución por rubro y el fondo de imprevistos vuelven pronto — los estamos afinando antes de activarlos."
+        />
+      </div>
+    );
+  }
+  return <PresupuestoPage />;
 }

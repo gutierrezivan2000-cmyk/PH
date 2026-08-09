@@ -70,7 +70,7 @@ const inputStyle: React.CSSProperties = {
   width: "100%",
 };
 
-export default function ComunicadosPage() {
+function ComunicadosPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState<string>("");
   const [units, setUnits] = useState<Unit[]>([]);
@@ -248,20 +248,6 @@ export default function ComunicadosPage() {
   }
 
   const quotaPct = quota.limit > 0 ? Math.min(100, (quota.used / quota.limit) * 100) : 0;
-
-  // Pausado para el lanzamiento — ver src/lib/feature-flags.ts.
-  if (COMING_SOON.comunicados) {
-    return (
-      <div>
-        <Header title="Comunicados" subtitle="Circulares oficiales para tus copropiedades, redactadas con IA" />
-        <ComingSoon
-          icon={Send}
-          title="Comunicados"
-          description="El envío de circulares oficiales redactadas con IA vuelve pronto — lo estamos afinando antes de activarlo."
-        />
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -624,4 +610,26 @@ export default function ComunicadosPage() {
       </div>
     </div>
   );
+}
+
+/**
+ * Envoltorio del gate. La comprobación va en un componente SIN hooks para que
+ * ComunicadosPage no llegue a montarse cuando la función está pausada: con el
+ * early-return dentro, sus useEffect ya habían disparado las peticiones de
+ * carga y se descargaban datos que nadie iba a ver.
+ */
+export default function ComunicadosRoute() {
+  if (COMING_SOON.comunicados) {
+    return (
+      <div>
+        <Header title="Comunicados" subtitle="Circulares oficiales para tus copropiedades, redactadas con IA" />
+        <ComingSoon
+          icon={Send}
+          title="Comunicados"
+          description="El envío de circulares oficiales redactadas con IA vuelve pronto — lo estamos afinando antes de activarlo."
+        />
+      </div>
+    );
+  }
+  return <ComunicadosPage />;
 }

@@ -130,10 +130,15 @@ Devuelve máximo 1000 unidades.`;
       .map((r) => {
         const o = (r || {}) as Record<string, unknown>;
         const label = typeof o.label === "string" ? o.label.trim().slice(0, 60) : "";
-        const email =
-          typeof o.email === "string" && /[^@\s]+@[^@\s]+\.[^@\s]+/.test(o.email)
-            ? o.email.trim().toLowerCase().slice(0, 120)
+        // Extraer en vez de validar-y-guardar-crudo: la IA suele devolver la
+        // celda entera ("María Pérez maria@x.com"), y esa cadena pasaba el
+        // .test() sin anclas y se guardaba tal cual como correo. Después
+        // tumbaba el lote completo del envío masivo de enlaces.
+        const emailMatch =
+          typeof o.email === "string"
+            ? o.email.trim().toLowerCase().match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
             : null;
+        const email = emailMatch ? emailMatch[0].slice(0, 120) : null;
         const phoneDigits = typeof o.phone === "string" || typeof o.phone === "number"
           ? String(o.phone).replace(/[^\d]/g, "").slice(0, 15)
           : "";

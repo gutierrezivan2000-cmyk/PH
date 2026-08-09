@@ -76,7 +76,7 @@ const FILTERS = [
   { key: "cerrado", label: "Cerrado" },
 ];
 
-export default function PqrsInboxPage() {
+function PqrsInboxPage() {
   const [list, setList] = useState<Pqrs[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -140,20 +140,6 @@ export default function PqrsInboxPage() {
   }
 
   const pending = (counts.radicado || 0) + (counts.en_proceso || 0);
-
-  // Pausado para el lanzamiento — ver src/lib/feature-flags.ts.
-  if (COMING_SOON.pqrs) {
-    return (
-      <div>
-        <Header title="PQRS" subtitle="Peticiones, quejas y reclamos de los residentes" />
-        <ComingSoon
-          icon={MessageSquare}
-          title="PQRS"
-          description="La bandeja de peticiones, quejas y reclamos de los residentes vuelve pronto — la estamos afinando antes de activarla."
-        />
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -381,4 +367,26 @@ export default function PqrsInboxPage() {
       </div>
     </div>
   );
+}
+
+/**
+ * Envoltorio del gate. La comprobación va en un componente SIN hooks para que
+ * PqrsInboxPage no llegue a montarse cuando la función está pausada: con el
+ * early-return dentro, sus useEffect ya habían disparado las peticiones de
+ * carga y se descargaban datos que nadie iba a ver.
+ */
+export default function PqrsRoute() {
+  if (COMING_SOON.pqrs) {
+    return (
+      <div>
+        <Header title="PQRS" subtitle="Peticiones, quejas y reclamos de los residentes" />
+        <ComingSoon
+          icon={MessageSquare}
+          title="PQRS"
+          description="La bandeja de peticiones, quejas y reclamos de los residentes vuelve pronto — la estamos afinando antes de activarla."
+        />
+      </div>
+    );
+  }
+  return <PqrsInboxPage />;
 }
