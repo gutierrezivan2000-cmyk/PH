@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
 import { UnitImport } from "@/components/dashboard/UnitImport";
 import { waLink, portalLinkMessage } from "@/lib/whatsapp";
+import { COMING_SOON } from "@/lib/feature-flags";
 import {
   Users,
   Loader2,
@@ -21,6 +22,8 @@ import {
   Save,
   CreditCard,
   ChevronDown,
+  Plus,
+  X,
 } from "lucide-react";
 
 interface Property {
@@ -50,6 +53,17 @@ const monoMini: React.CSSProperties = {
   letterSpacing: "0.06em",
 };
 
+const inputStyle: React.CSSProperties = {
+  background: "var(--hifi-bg-elev)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  color: "#f6f5f7",
+  borderRadius: "10px",
+  padding: "10px 12px",
+  fontSize: "13px",
+  outline: "none",
+  width: "100%",
+};
+
 const card: React.CSSProperties = {
   background: "var(--hifi-surface-1)",
   border: "1px solid var(--hifi-hairline)",
@@ -70,6 +84,14 @@ export default function ResidentesPage() {
   const [waSaving, setWaSaving] = useState(false);
 
   // ePayco config (account-level, applies to all properties)
+  // Alta de unidades. Vivía en Comunicados, que quedó pausado, y en Residentes
+  // el importador solo aparecía con la lista vacía: tras importar la primera
+  // unidad no quedaba NINGUNA forma de añadir más.
+  const [showAdd, setShowAdd] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState("");
+
   const [showPay, setShowPay] = useState(false);
   const [payConfigured, setPayConfigured] = useState(false);
   const [payPublicKey, setPayPublicKey] = useState("");
@@ -103,7 +125,12 @@ export default function ResidentesPage() {
         body: JSON.stringify({ publicKey: payPublicKey, pCustId: payCustId, pKey: payKey, test: payTest }),
       });
       if (res.ok) {
-        setMsg({ ok: true, text: "Pago en línea configurado. Los residentes con saldo ya pueden pagar desde su portal." });
+        setMsg({
+          ok: true,
+          text: COMING_SOON.cartera
+            ? "Pago en línea configurado. Se activará en el portal cuando Cartera esté disponible."
+            : "Pago en línea configurado. Los residentes con saldo ya pueden pagar desde su portal.",
+        });
         setPayConfigured(!!(payPublicKey && payCustId && (payKey && !payKey.includes("•") || payConfigured)));
         setShowPay(false);
       } else {
@@ -111,6 +138,33 @@ export default function ResidentesPage() {
       }
     } finally {
       setPaySaving(false);
+    }
+  }
+
+  async function addUnitsFromText() {
+    if (!bulkText.trim() || !propertyId) return;
+    setBulkBusy(true);
+    setBulkMsg("");
+    try {
+      const res = await fetch(`/api/properties/${propertyId}/units`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lines: bulkText }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setBulkMsg(data?.error || "No se pudo agregar.");
+        return;
+      }
+      setBulkMsg(
+        `${data.created} agregadas${data.skipped ? ` · ${data.skipped} omitidas (duplicadas)` : ""}`
+      );
+      setBulkText("");
+      await load(propertyId);
+    } catch {
+      setBulkMsg("Error de red.");
+    } finally {
+      setBulkBusy(false);
     }
   }
 
@@ -405,7 +459,14 @@ export default function ResidentesPage() {
                 <div className="flex-1 text-left">
                   <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>Pago en línea (ePayco)</p>
                   <p className="text-[11.5px]" style={{ color: payConfigured ? "#4cd6a0" : "rgba(246,245,247,0.45)" }}>
-                    {payConfigured ? "Configurado — los residentes con saldo pueden pagar desde su portal" : "Sin configurar — conéctalo para recibir pagos en línea"}
+                    {payConfigured
+                      ? COMING_SOON.cartera
+                        // El botón de pago del portal vive en la sección de
+                        // estado de cuenta, hoy pausada con Cartera: decir que
+                        // "ya pueden pagar" sería falso.
+                        ? "Configurado — se activará cuando Cartera esté disponible"
+                        : "Configurado — los residentes con saldo pueden pagar desde su portal"
+                      : "Sin configurar — conéctalo para recibir pagos en línea"}
                   </p>
                 </div>
                 <ChevronDown className="h-4 w-4 transition-transform" style={{ color: "rgba(246,245,247,0.35)", transform: showPay ? "rotate(180deg)" : "none" }} />
@@ -494,6 +555,62 @@ export default function ResidentesPage() {
               </div>
             )}
 
+            {/* Alta de unidades — siempre disponible, no solo con la lista vacía */}
+            <div className="ui-card ui-sheen p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <UnitImport
+                  propertyId={propertyId}
+                  onImported={(n) => {
+                    setMsg({ ok: true, text: `${n} ${n === 1 ? "unidad importada" : "unidades importadas"}.` });
+                    load(propertyId);
+                  }}
+                />
+                <button
+                  onClick={() => { setShowAdd((v) => !v); setBulkMsg(""); }}
+                  className="ui-chip inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
+                  style={{
+                    background: showAdd ? "rgba(255,255,255,0.06)" : "rgba(124,92,255,0.15)",
+                    color: showAdd ? "rgba(246,245,247,0.70)" : "#a78bff",
+                    border: `1px solid ${showAdd ? "rgba(255,255,255,0.10)" : "rgba(124,92,255,0.40)"}`,
+                  }}
+                >
+                  {showAdd ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                  {showAdd ? "Cancelar" : "Agregar a mano"}
+                </button>
+              </div>
+
+              {showAdd && (
+                <div className="mt-4 space-y-3 ui-rise">
+                  <div>
+                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                      Una unidad por línea
+                    </label>
+                    <textarea
+                      value={bulkText}
+                      onChange={(e) => setBulkText(e.target.value)}
+                      rows={4}
+                      placeholder={"Apto 101, María Pérez, maria@correo.com, 3001112233\nApto 102, juan@correo.com\ncarlos@correo.com"}
+                      style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={addUnitsFromText}
+                      disabled={bulkBusy || !bulkText.trim()}
+                      className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 transition-all disabled:opacity-40 cursor-pointer"
+                      style={{ background: "rgba(76,214,160,0.14)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.30)" }}
+                    >
+                      {bulkBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                      Agregar
+                    </button>
+                    {bulkMsg && (
+                      <span className="text-[12px]" style={{ color: "rgba(246,245,247,0.55)" }}>{bulkMsg}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Units */}
             {units.length === 0 ? (
               <div className="rounded-2xl p-8 text-center" style={card}>
@@ -501,20 +618,9 @@ export default function ResidentesPage() {
                 <p className="text-[14px] mb-1" style={{ color: "rgba(246,245,247,0.70)" }}>
                   Esta propiedad aún no tiene unidades
                 </p>
-                <p className="text-[12.5px] mb-4" style={{ color: "rgba(246,245,247,0.40)" }}>
-                  Importa tu listado desde un archivo (Excel, PDF…) y la IA lo organiza, o agrégalas a mano.
+                <p className="text-[12.5px]" style={{ color: "rgba(246,245,247,0.40)" }}>
+                  Usa <strong>Importar de archivo</strong> o <strong>Agregar a mano</strong>, aquí arriba.
                 </p>
-                <div className="flex justify-center mb-3">
-                  <UnitImport propertyId={propertyId} onImported={(n) => { setMsg({ ok: true, text: `${n} ${n === 1 ? "unidad importada" : "unidades importadas"}.` }); load(propertyId); }} />
-                </div>
-                <Link
-                  href="/dashboard/comunicados"
-                  className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2"
-                  style={{ background: "rgba(124,92,255,0.15)", color: "#a78bff", border: "1px solid rgba(124,92,255,0.40)" }}
-                >
-                  Agregar a mano
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </Link>
               </div>
             ) : (
               <div className="ui-card ui-sheen overflow-hidden">

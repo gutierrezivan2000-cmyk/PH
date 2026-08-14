@@ -166,7 +166,7 @@ export async function sendPortalLinkEmails(params: {
     <div style="padding:28px 24px;">
       <h2 style="color:#1f2937;font-size:18px;margin:0 0 8px;">Portal de tu unidad (${escapeHtml(rcpt.unitLabel)})</h2>
       <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 20px;">
-        Consulta tu estado de cuenta, los comunicados y los documentos de la copropiedad desde este enlace personal. No necesitas usuario ni contraseña.
+        Consulta los comunicados y los documentos de la copropiedad, y resuelve dudas del reglamento, desde este enlace personal. No necesitas usuario ni contraseña.
       </p>
       <div style="text-align:center;margin:0 0 20px;">
         <a href="${rcpt.url}" style="display:inline-block;background:${accent};color:#fff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;">Abrir mi portal</a>

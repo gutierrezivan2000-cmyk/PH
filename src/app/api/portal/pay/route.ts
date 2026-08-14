@@ -20,6 +20,18 @@ function origin(req: NextRequest): string {
 export async function POST(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ error: "No disponible en demo" }, { status: 400 });
 
+  // El portal ya no muestra el botón de pago mientras Cartera está pausada,
+  // pero la ruta seguía viva y aceptando cobros reales de quien la llamara
+  // directamente. Cerrarla evita mover dinero de una función que no se está
+  // operando: nadie estaría del otro lado para conciliar ni responder.
+  const { COMING_SOON } = await import("@/lib/feature-flags");
+  if (COMING_SOON.cartera) {
+    return NextResponse.json(
+      { error: "El pago en línea no está disponible por ahora." },
+      { status: 503 }
+    );
+  }
+
   const body = await req.json().catch(() => ({}));
   const { token, amount } = body as { token?: string; amount?: number };
   if (!token || !TOKEN_RE.test(token)) {

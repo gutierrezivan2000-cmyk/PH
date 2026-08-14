@@ -52,7 +52,7 @@ export default function RecuperarPortalPage() {
           </h1>
           <p style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6, margin: "0 0 22px" }}>
             Escribe el correo que registraste en tu copropiedad y te reenviamos el enlace privado de
-            tu unidad, donde ves tu estado de cuenta, los comunicados y los documentos.
+            tu unidad, donde ves los comunicados y los documentos de la copropiedad.
             <strong> No necesitas usuario ni contraseña.</strong>
           </p>
 
