@@ -100,7 +100,7 @@ Reglas:
 Devuelve máximo 300 elementos.`;
 
     const { text: aiText, tokensUsed } = await generateWithClaude(system, `Datos crudos:\n\n${content}`, undefined, {
-      timeoutMs: 70_000, // maxDuration = 90
+      timeoutMs: 35_000, // 35s x2 intentos = 70s < maxDuration 90
     });
 
     const { recordUsage } = await import("@/lib/usage");

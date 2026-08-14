@@ -386,6 +386,10 @@ function RegistroTab({
   assetBusy,
   markAsset,
   deleteAsset,
+  restoreAsset,
+  archived,
+  showArchived,
+  setShowArchived,
   reloadAll,
 }: {
   assets: CommonAsset[];
@@ -398,6 +402,10 @@ function RegistroTab({
   assetBusy: string | null;
   markAsset: (a: CommonAsset, action: "done" | "archive") => void;
   deleteAsset: (a: CommonAsset) => void;
+  restoreAsset: (a: CommonAsset) => void;
+  archived: CommonAsset[];
+  showArchived: boolean;
+  setShowArchived: React.Dispatch<React.SetStateAction<boolean>>;
   reloadAll: () => Promise<void>;
 }) {
   const filtered = assets
@@ -487,6 +495,55 @@ function RegistroTab({
         </div>
       )}
 
+      {!assetsLoading && archived.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className="flex items-center gap-2 mb-2.5 cursor-pointer"
+          >
+            <span style={{ ...monoLabel, color: "rgba(246,245,247,0.35)" }}>Archivados</span>
+            <span
+              className="px-1.5 py-0.5 rounded-md text-[10px]"
+              style={{ ...monoMini, background: "rgba(255,255,255,0.05)", color: "rgba(246,245,247,0.45)" }}
+            >
+              {archived.length}
+            </span>
+            <ChevronDown
+              className="h-3.5 w-3.5 transition-transform"
+              style={{ color: "rgba(246,245,247,0.35)", transform: showArchived ? "rotate(180deg)" : "none" }}
+            />
+          </button>
+          {showArchived && (
+            <div className="space-y-2.5 mb-4">
+              {archived.map((a) => (
+                <div
+                  key={a.id}
+                  className="rounded-xl p-4 flex items-center gap-3.5"
+                  style={{ ...card, opacity: 0.65 }}
+                >
+                  <Archive className="h-4 w-4 flex-shrink-0" style={{ color: "rgba(246,245,247,0.35)" }} />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>{a.name}</span>
+                    <p className="text-[11.5px] mt-0.5" style={{ color: "rgba(246,245,247,0.40)" }}>
+                      {ASSET_KIND_LABELS[a.kind]} · archivado
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => restoreAsset(a)}
+                    disabled={assetBusy === a.id}
+                    className="ui-chip inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-3 py-1.5 cursor-pointer"
+                    style={{ background: "rgba(124,92,255,0.15)", color: "#a78bff", border: "1px solid rgba(124,92,255,0.35)" }}
+                  >
+                    {assetBusy === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                    Restaurar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {!assetsLoading && filtered.length > 0 && (
         <div className="space-y-2.5">
           {filtered.map((a) => (
@@ -532,6 +589,11 @@ export default function CalendarioPage() {
   const [assetsLoading, setAssetsLoading] = useState(true);
   const [assetBusy, setAssetBusy] = useState<string | null>(null);
   const [showAssetForm, setShowAssetForm] = useState(false);
+  // Los archivados no se listan por defecto, pero deben poder recuperarse: un
+  // activo sin recurrencia marcado como "hecho" se archiva, y sin esto quedaba
+  // invisible para siempre aunque la API ya soportara "restore".
+  const [archived, setArchived] = useState<CommonAsset[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -550,8 +612,13 @@ export default function CalendarioPage() {
 
   const loadAssets = useCallback(async () => {
     try {
-      const res = await fetch("/api/common-assets");
+      const [res, resArch] = await Promise.all([
+        fetch("/api/common-assets"),
+        fetch("/api/common-assets?status=archived"),
+      ]);
       const data = await res.json();
+      const dataArch = await resArch.json().catch(() => ({}));
+      if (resArch.ok) setArchived(dataArch.assets || []);
       if (res.ok) setAssets(data.assets || []);
     } catch {
       // keep whatever we had
@@ -634,6 +701,20 @@ export default function CalendarioPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: asset.id, action }),
+      });
+      if (res.ok) await reloadAll();
+    } finally {
+      setAssetBusy(null);
+    }
+  }
+
+  async function restoreAsset(asset: CommonAsset) {
+    setAssetBusy(asset.id);
+    try {
+      const res = await fetch("/api/common-assets", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: asset.id, action: "restore" }),
       });
       if (res.ok) await reloadAll();
     } finally {
@@ -1203,6 +1284,10 @@ export default function CalendarioPage() {
           assetBusy={assetBusy}
           markAsset={markAsset}
           deleteAsset={deleteAsset}
+          restoreAsset={restoreAsset}
+          archived={archived}
+          showArchived={showArchived}
+          setShowArchived={setShowArchived}
           reloadAll={reloadAll}
         />
       )}

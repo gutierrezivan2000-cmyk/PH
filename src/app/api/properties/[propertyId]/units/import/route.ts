@@ -101,7 +101,7 @@ Reglas:
 Devuelve máximo 1000 unidades.`;
 
     const { text: aiText, tokensUsed } = await generateWithClaude(system, `Datos crudos:\n\n${content}`, undefined, {
-      timeoutMs: 70_000, // maxDuration = 90
+      timeoutMs: 35_000, // 35s x2 intentos = 70s < maxDuration 90
     });
 
     // Record the spend so it shows up in Consumo IA (imports can be large).

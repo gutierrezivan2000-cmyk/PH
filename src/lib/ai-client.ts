@@ -37,7 +37,16 @@ export async function generateWithClaude(
   systemPrompt: string,
   userContent: string,
   model: string = DEFAULT_MODEL,
-  /** Per-call timeout. Set it below the route's own `maxDuration`. */
+  /**
+   * Timeout por llamada. INVARIANTE: con `maxRetries: 1` el SDK hace hasta DOS
+   * intentos completos, así que debe cumplirse
+   *
+   *     timeoutMs * 2 + trabajo_de_la_ruta  <  maxDuration
+   *
+   * Ponerlo solo por debajo de maxDuration no basta: el reintento se pasaba
+   * siempre del presupuesto y la plataforma mataba la función, devolviendo el
+   * 504 con cuerpo HTML que estos timeouts existen para evitar.
+   */
   opts: { timeoutMs?: number } = {}
 ): Promise<{ text: string; tokensUsed: number }> {
   const client = getClient();

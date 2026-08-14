@@ -73,7 +73,7 @@ No agregues nada fuera de ese formato. No uses markdown ni asteriscos.`;
     const user = `Copropiedad: ${propertyName || "la copropiedad"}.
 Lo que debe comunicar: ${brief.trim()}`;
 
-    const { text, tokensUsed } = await generateWithClaude(system, user, undefined, { timeoutMs: 45_000 }); // maxDuration = 60
+    const { text, tokensUsed } = await generateWithClaude(system, user, undefined, { timeoutMs: 25_000 }); // 25s x2 intentos = 50s < maxDuration 60
 
     // Parse "ASUNTO: ..." first line; the rest is the body.
     let subject = "Comunicado de la administración";

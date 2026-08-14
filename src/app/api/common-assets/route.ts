@@ -22,10 +22,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   const propertyId = req.nextUrl.searchParams.get("propertyId");
+  // La acción "restore" existía pero era inalcanzable: sin poder listar los
+  // archivados, un activo sin recurrencia marcado como "hecho" desaparecía
+  // para siempre.
+  const wantArchived = req.nextUrl.searchParams.get("status") === "archived";
 
   if (IS_DEMO) {
     const { getDemoCommonAssets } = await import("@/lib/demo-store");
-    return NextResponse.json({ assets: getDemoCommonAssets(propertyId) });
+    return NextResponse.json({ assets: wantArchived ? [] : getDemoCommonAssets(propertyId) });
   }
 
   try {
@@ -35,7 +39,7 @@ export async function GET(req: NextRequest) {
 
     const where: { userId: string; status: string; propertyId?: string } = {
       userId: session.user.id,
-      status: "active",
+      status: wantArchived ? "archived" : "active",
     };
     if (propertyId) where.propertyId = propertyId;
 

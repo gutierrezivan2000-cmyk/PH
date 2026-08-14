@@ -20,6 +20,12 @@ export async function GET(
       return NextResponse.json({ error: "Agente no valido" }, { status: 400 });
     }
 
+    // En demo `db` lanza excepción: la guarda va ANTES de tocarla, y devuelve
+    // un arreglo, que es lo que espera el cliente.
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json([]);
+    }
+
     try {
       const chats = await db.agentChat.findMany({
         where: { userId: session.user.id, agentId },
@@ -41,7 +47,6 @@ export async function GET(
     console.error("[api/agents/chats] Error:", error);
     return NextResponse.json([]);
   }
-  if (process.env.DEMO_MODE === "true") return NextResponse.json({ chats: [] });
 }
 
 export async function DELETE(
@@ -59,6 +64,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Agente no valido" }, { status: 400 });
     }
 
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json(
+        { error: "El demo es de solo lectura. Crea tu cuenta para guardar cambios." },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const chatId = searchParams.get("chatId");
     if (!chatId) {
@@ -73,8 +85,5 @@ export async function DELETE(
   } catch (error) {
     console.error("[api/agents/chats] Delete error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
-  }
-  if (process.env.DEMO_MODE === "true") {
-    return NextResponse.json({ error: "El demo es de solo lectura. Crea tu cuenta para guardar cambios." }, { status: 403 });
   }
 }

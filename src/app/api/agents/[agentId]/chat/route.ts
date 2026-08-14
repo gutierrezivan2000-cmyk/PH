@@ -619,6 +619,26 @@ export async function POST(
               }
             }
 
+            // El chat es el consumo de IA MÁS FRECUENTE de la app y era el
+            // único que no registraba nada: no aparecía en Consumo IA ni en las
+            // métricas de admin, así que el costo real quedaba invisible.
+            // Las demás rutas (carta, refine, imports, draft) sí lo registran.
+            try {
+              const final = await stream.finalMessage();
+              const inTok = final.usage?.input_tokens ?? 0;
+              const outTok = final.usage?.output_tokens ?? 0;
+              const total = inTok + outTok;
+              if (total > 0) {
+                // Haiku 4.5: $1/M entrada, $5/M salida.
+                const costUsd = (inTok / 1_000_000) * 1 + (outTok / 1_000_000) * 5;
+                await db.usageRecord.create({
+                  data: { userId, type: "agente_chat", tokens: total, costUsd },
+                });
+              }
+            } catch (err) {
+              console.error("[api/agents/chat] record chat usage failed:", err);
+            }
+
             // Auto-generate a semantic 3-5 word title for new chats. We already
             // pushed a truncated-message title in the meta event for instant
             // feedback; this replaces it with something better and emits a
