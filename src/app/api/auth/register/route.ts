@@ -48,9 +48,22 @@ export async function POST(req: NextRequest) {
       if (existing.emailVerified) {
         return NextResponse.json({ error: "Ya existe una cuenta con este correo" }, { status: 409 });
       }
-      // Unverified account re-registering (e.g. the verification email never
-      // arrived): refresh credentials and send a new code instead of locking
-      // them out with a 409 forever.
+      // Las cuentas creadas con Google NUNCA tienen emailVerified (auth.ts no lo
+      // escribe), así que caían aquí: cualquiera que supiera el correo podía
+      // pisarles la contraseña y el nombre sin probar que es suyo. Una cuenta
+      // sin passwordHash es de OAuth y no se toca.
+      if (!existing.passwordHash) {
+        return NextResponse.json(
+          {
+            error:
+              "Ya existe una cuenta con este correo, creada con Google. Ingresa con el botón de Google.",
+          },
+          { status: 409 }
+        );
+      }
+      // Reregistro de una cuenta por credenciales sin verificar (p. ej. el
+      // correo de verificación nunca llegó): se refrescan las credenciales y se
+      // manda un código nuevo, en vez de dejarla bloqueada con un 409 para siempre.
       await db.user.update({
         where: { id: existing.id },
         data: { passwordHash, ...(name ? { name } : {}) },

@@ -117,15 +117,37 @@ function safeHex(c?: string | null): string | null {
   return /^#[0-9a-fA-F]{6}$/.test(c.trim()) ? c.trim() : null;
 }
 
+/**
+ * Escapa los campos de METADATOS (título, propiedad, periodo, empresa) antes de
+ * interpolarlos. `content` NO pasa por aquí: es markdown que se convierte a
+ * HTML a propósito.
+ *
+ * Hacía falta por dos vías: el nombre de la propiedad lo escribe el propio
+ * administrador, y en el modo demo /api/demo/files toma ese nombre del query
+ * param `?p=` y devuelve el resultado como text/html — un XSS reflejado sin
+ * autenticación.
+ */
+function esc(v: string): string {
+  return v
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function generatePdfHtml(data: PdfDocumentData): string {
-  const { title, propertyName, period, content, type } = data;
+  const { content, type } = data;
+  const title = esc(data.title);
+  const propertyName = esc(data.propertyName);
+  const period = esc(data.period);
   const contentHtml = markdownToSimpleHtml(content);
 
   const brand = safeHex(data.brandColor);
   const accentColor = brand || (type === "informe" ? "#4338ca" : "#166534");
   const accentLight = type === "informe" ? "#eef2ff" : "#f0fdf4";
-  const logo = data.logoUrl && /^https:\/\//.test(data.logoUrl) ? data.logoUrl : null;
-  const company = (data.companyName || "").trim();
+  const logo = data.logoUrl && /^https:\/\//.test(data.logoUrl) ? encodeURI(data.logoUrl) : null;
+  const company = esc((data.companyName || "").trim());
 
   return `<!DOCTYPE html>
 <html lang="es">
