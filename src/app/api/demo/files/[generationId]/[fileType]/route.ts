@@ -14,6 +14,63 @@ const SEEDED_CONTENT: Record<string, { month: number; year: number }> = {
 
 const PROPERTY_NAME = "Conjunto Residencial Los Pinos";
 
+/**
+ * Documentos de la copropiedad que el portal del residente enlaza en su sección
+ * "Documentos" (ver getDemoDocuments en demo-store). Sin esto la ruta solo
+ * conocía ids de GENERACIÓN, así que al pulsar "Abrir" el residente recibía
+ * {"error":"Archivo no encontrado"} en JSON — comprobado con curl.
+ */
+const SEEDED_DOCS: Record<string, { title: string; body: string }> = {
+  "doc-demo-1": {
+    title: "Reglamento de propiedad horizontal",
+    body: `## Capítulo I — Objeto y ámbito
+
+**Artículo 1.** El presente reglamento regula las relaciones entre los copropietarios del Conjunto Residencial Los Pinos, sometido al régimen de propiedad horizontal de la Ley 675 de 2001.
+
+**Artículo 2.** Son bienes comunes las zonas verdes, el salón comunal, la piscina, los parqueaderos de visitantes, las porterías, los ascensores y las redes de servicios públicos hasta el punto de acometida de cada unidad privada.
+
+## Capítulo II — Obligaciones de los propietarios
+
+**Artículo 8.** Pagar oportunamente las expensas comunes necesarias, en proporción al coeficiente de copropiedad, dentro de los diez (10) primeros días de cada mes.
+
+**Artículo 9.** Usar los bienes comunes conforme a su destinación, sin restringir el derecho de los demás copropietarios.
+
+**Artículo 12.** Responder por los daños causados a los bienes comunes por sí, por su familia, sus visitantes o sus arrendatarios.
+
+## Capítulo III — Uso de zonas comunes
+
+**Artículo 20.** El salón comunal se reserva con mínimo tres (3) días de antelación ante la administración y su uso termina a las 11:00 p.m.
+
+**Artículo 22.** La piscina opera de martes a domingo, de 8:00 a.m. a 6:00 p.m. Los menores de doce (12) años deben estar acompañados por un adulto responsable.`,
+  },
+  "doc-demo-2": {
+    title: "Manual de convivencia",
+    body: `## Presentación
+
+Este manual recoge los acuerdos de convivencia del Conjunto Residencial Los Pinos. Complementa el reglamento de propiedad horizontal y se apoya en la Ley 1801 de 2016 (Código Nacional de Seguridad y Convivencia).
+
+## 1. Ruido y horarios
+
+El horario de silencio va de las 10:00 p.m. a las 7:00 a.m. de domingo a jueves, y de las 11:00 p.m. a las 8:00 a.m. viernes y sábados. Las obras y remodelaciones solo se autorizan de lunes a viernes de 8:00 a.m. a 5:00 p.m.
+
+## 2. Mascotas
+
+Las mascotas deben transitar por zonas comunes con collar y correa. El propietario recoge sus excrementos. Las razas señaladas como potencialmente peligrosas requieren bozal y el seguro de responsabilidad civil que exige la ley.
+
+## 3. Basuras y reciclaje
+
+La separación en la fuente es obligatoria. Los residuos se bajan al shut en bolsa cerrada; los voluminosos se coordinan con la administración.
+
+## 4. Parqueaderos
+
+Cada unidad usa el parqueadero asignado en la escritura. Los de visitantes tienen un máximo de doce (12) horas continuas y no pueden usarse como parqueadero permanente de residentes.
+
+## 5. Solución de conflictos
+
+Las diferencias de convivencia se llevan primero al comité de convivencia, conforme al artículo 58 de la Ley 675, antes de acudir a cualquier otra instancia.`,
+  },
+};
+
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
 export async function GET(
@@ -27,6 +84,20 @@ export async function GET(
   }
 
   const { generationId, fileType } = await params;
+
+  const seededDoc = SEEDED_DOCS[generationId];
+  if (seededDoc) {
+    return new NextResponse(
+      generatePdfHtml({
+        title: seededDoc.title,
+        propertyName: PROPERTY_NAME,
+        period: "Documento de ejemplo · modo demo",
+        content: seededDoc.body,
+        type: "acta",
+      }),
+      { headers: { "Content-Type": "text/html; charset=utf-8" } }
+    );
+  }
 
   // Try live buffers first (from a just-completed generation in same invocation)
   let buffers = getFileBuffers(generationId);

@@ -353,7 +353,10 @@ export default function JobResultPage() {
                   </div>
                   <Download className="h-5 w-5 text-purple-500 group-hover:translate-y-0.5 transition-transform" />
                 </a>
-              ) : generation.outputFiles.informeMarkdown ? (
+              ) : generation.outputFiles.pptxRequested && generation.outputFiles.informeMarkdown ? (
+              // Mismo marcador que usa el efecto que dispara la generación: sin
+              // esto, todo informe SIN presentación pintaba una tarjeta
+              // "Preparando…" que nadie iba a completar nunca.
                 <div className="p-5 bg-gradient-to-r from-purple-50/80 to-violet-50/50 dark:from-purple-500/10 dark:to-violet-500/10 backdrop-blur rounded-2xl border border-purple-100/50 dark:border-purple-500/20">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-purple-100/80 dark:bg-purple-500/20 backdrop-blur rounded-xl flex items-center justify-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
 import { UnitImport } from "@/components/dashboard/UnitImport";
@@ -87,6 +87,15 @@ export default function ResidentesPage() {
   // Alta de unidades. Vivía en Comunicados, que quedó pausado, y en Residentes
   // el importador solo aparecía con la lista vacía: tras importar la primera
   // unidad no quedaba NINGUNA forma de añadir más.
+  // Distinguir "no hay unidades" de "no se pudieron cargar": el catch silencioso
+  // dejaba la pantalla diciendo que la propiedad estaba vacía y empujaba a
+  // re-importar un listado que en realidad ya estaba en la base.
+  const [loadError, setLoadError] = useState(false);
+  // Descarta respuestas obsoletas: al cambiar de propiedad con la red lenta, la
+  // respuesta de la anterior llegaba después y pintaba SUS unidades bajo el
+  // nombre de la nueva.
+  const reqSeq = useRef(0);
+
   const [showAdd, setShowAdd] = useState(false);
   const [bulkText, setBulkText] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -170,21 +179,26 @@ export default function ResidentesPage() {
 
   const load = useCallback(async (pid: string) => {
     if (!pid) return;
+    const seq = ++reqSeq.current;
+    setLoadError(false);
     try {
       const res = await fetch(`/api/portal/tokens?propertyId=${pid}`);
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (seq !== reqSeq.current) return; // llegó tarde: ya se cambió de propiedad
       if (res.status === 403 && data.code === "plan_upgrade") {
         setUpgrade(true);
         return;
       }
-      if (res.ok) {
-        setUpgrade(false);
-        setUnits(data.units || []);
-        setWhatsapp(data.whatsapp || "");
-        setWaDirty(false);
+      if (!res.ok) {
+        setLoadError(true);
+        return;
       }
+      setUpgrade(false);
+      setUnits(data.units || []);
+      setWhatsapp(data.whatsapp || "");
+      setWaDirty(false);
     } catch {
-      /* keep */
+      if (seq === reqSeq.current) setLoadError(true);
     }
   }, []);
 
@@ -223,6 +237,7 @@ export default function ResidentesPage() {
   useEffect(() => {
     if (propertyId) {
       setMsg(null);
+      setUnits([]);
       load(propertyId);
     }
   }, [propertyId, load]);
@@ -612,7 +627,29 @@ export default function ResidentesPage() {
             </div>
 
             {/* Units */}
-            {units.length === 0 ? (
+            {loadError ? (
+              <div
+                className="rounded-2xl p-8 text-center"
+                style={{ ...card, borderColor: "rgba(255,111,111,0.30)" }}
+              >
+                <Ban className="h-8 w-8 mx-auto mb-3" style={{ color: "#ff8585" }} />
+                <p className="text-[14px] mb-1" style={{ color: "rgba(246,245,247,0.75)" }}>
+                  No se pudieron cargar las unidades
+                </p>
+                <p className="text-[12.5px] mb-4" style={{ color: "rgba(246,245,247,0.45)" }}>
+                  Es un problema de conexión, no que la propiedad esté vacía. No importes de nuevo
+                  el listado: podrías duplicar unidades.
+                </p>
+                <button
+                  onClick={() => load(propertyId)}
+                  className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
+                  style={{ background: "rgba(124,92,255,0.15)", color: "#a78bff", border: "1px solid rgba(124,92,255,0.40)" }}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Reintentar
+                </button>
+              </div>
+            ) : units.length === 0 ? (
               <div className="rounded-2xl p-8 text-center" style={card}>
                 <Users className="h-8 w-8 mx-auto mb-3" style={{ color: "rgba(246,245,247,0.25)" }} />
                 <p className="text-[14px] mb-1" style={{ color: "rgba(246,245,247,0.70)" }}>

@@ -441,7 +441,7 @@ export async function POST(
         select: { role: true, content: true, attachments: true },
       });
 
-      const kept: typeof recentMessages = [];
+      let kept: typeof recentMessages = [];
       let totalChars = 0;
       for (const m of desc) {
         let content = m.content || "";
@@ -453,6 +453,15 @@ export async function POST(
         if (totalChars + content.length > HISTORY_CHAR_BUDGET && kept.length >= 4) break;
         kept.unshift({ role: m.role, content, attachments: m.attachments });
         totalChars += content.length;
+      }
+
+      // La API de Anthropic exige que el PRIMER mensaje sea del usuario. El
+      // recorte por presupuesto podía dejar uno 'assistant' al frente y la
+      // llamada devolvía 400; como el recorte es determinista, la conversación
+      // quedaba rota en cada turno siguiente, para siempre.
+      while (kept.length > 0 && kept[0].role !== "user") kept.shift();
+      if (kept.length === 0) {
+        kept = [{ role: "user", content: message, attachments: reqAttachments ?? null }];
       }
 
       recentMessages = kept;

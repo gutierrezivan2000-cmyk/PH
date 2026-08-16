@@ -13,7 +13,12 @@
  */
 export function normalizePhoneCO(raw: string | null | undefined): string | null {
   if (!raw) return null;
-  let d = String(raw).replace(/[^\d]/g, "");
+  // Una celda de listado suele traer DOS números ("300 111 2233 / 310 444 5566")
+  // o una extensión. Concatenar todos sus dígitos fabricaba un número que no
+  // existe, y el botón de WhatsApp abría un chat con nadie. Nos quedamos con
+  // el primero.
+  const first = String(raw).split(/[\/;,]|\s+(?:o|ó|y)\s+|\bext\.?\b/i)[0] || "";
+  let d = first.replace(/[^\d]/g, "");
   if (d.length === 0) return null;
   // Drop a leading international "00".
   if (d.startsWith("00")) d = d.slice(2);
@@ -22,7 +27,9 @@ export function normalizePhoneCO(raw: string | null | undefined): string | null 
   // Already 57 + 10 digits.
   if (d.length === 12 && d.startsWith("57")) return d;
   // Landline with indicative or other formats: require at least 7 digits.
-  if (d.length >= 7) return d;
+  // Tope superior: E.164 no pasa de 15 dígitos, así que algo más largo es
+  // basura pegada, no un número marcable.
+  if (d.length >= 7 && d.length <= 15) return d;
   return null;
 }
 

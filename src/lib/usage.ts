@@ -359,6 +359,18 @@ export async function getUsageSummary(userId: string) {
     if (grandfathered) planStatus = "beta";
   }
 
+  // La prueba gratis se crea con planId "pro", así que getPlanLimits devolvía
+  // los topes de Pro (3/día, 15/mes) mientras checkUsageLimits aplicaba de
+  // verdad los de TRIAL_LIMITS (2/día, 5 en total): la tarjeta de uso prometía
+  // el triple de lo que el usuario podía hacer y el corte llegaba por sorpresa.
+  if (planStatus === "trialing") {
+    limits = {
+      ...limits,
+      generationsPerDay: TRIAL_LIMITS.generationsPerDay,
+      generationsPerMonth: TRIAL_LIMITS.totalGenerations,
+    };
+  }
+
   const [monthlyGenerations, dailyGenerations, monthlyTokens] = await Promise.all([
     db.generation.count({
       where: { userId, createdAt: { gte: startOfMonth }, status: "completed" },

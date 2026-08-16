@@ -9,6 +9,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email requerido" }, { status: 400 });
     }
 
+    // El único freno era un token reciente en base, que solo cuenta por correo
+    // y solo tras haber enviado uno: no impedía barrer miles de direcciones ni
+    // bombardear un buzón alternando correos. Se limita por IP y por correo,
+    // igual que en register.
+    const { rateLimit, clientIp } = await import("@/lib/rate-limit");
+    const HOUR = 60 * 60 * 1000;
+    const [ipRl, mailRl] = await Promise.all([
+      rateLimit(`resend:ip:${clientIp(req)}`, { max: 10, windowMs: HOUR }),
+      rateLimit(`resend:email:${email}`, { max: 5, windowMs: HOUR }),
+    ]);
+    if (!ipRl.allowed || !mailRl.allowed) {
+      return NextResponse.json(
+        { error: "Demasiados intentos. Espera un momento." },
+        { status: 429 }
+      );
+    }
+
     const { db } = await import("@/lib/db");
 
     const user = await db.user.findUnique({ where: { email } });
@@ -17,8 +34,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
+    // Antes respondía 400 "ya esta verificado" solo para las cuentas que
+    // existen y están verificadas: comparando esa respuesta con el 200 de una
+    // dirección desconocida se podía saber qué correos tienen cuenta.
     if (user.emailVerified) {
-      return NextResponse.json({ error: "Este correo ya esta verificado" }, { status: 400 });
+      return NextResponse.json({ success: true });
     }
 
     // Rate limit: check if a token was created recently (< 60 seconds)
