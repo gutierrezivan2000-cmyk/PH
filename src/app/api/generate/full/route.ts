@@ -321,10 +321,24 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
   // Enforce per-plan file caps (trial: 5 files/10 MB; paid: 20 files/25 MB).
   // The count is authoritative; the declared size is a best-effort early reject
   // on top of the hard 25 MB cap enforced by the upload token.
+  // Si se rechaza aquí, los blobs ya subidos no sirven para nada: sin borrarlos
+  // quedaban en el store para siempre (facturados) porque el `cleanupInputs`
+  // solo corre al terminar bien una generación.
+  const discardBlobs = async () => {
+    if (blobFiles.length === 0) return;
+    try {
+      const { del } = await import("@vercel/blob");
+      await del(blobFiles.map((f) => f.url));
+    } catch (e) {
+      console.error("[generate/full] no se pudieron borrar los archivos rechazados:", e);
+    }
+  };
+
   try {
     const { getGenerationFileLimits } = await import("@/lib/usage");
     const fileLimits = await getGenerationFileLimits(dbUserId);
     if (blobFiles.length > fileLimits.maxFiles) {
+      await discardBlobs();
       return NextResponse.json(
         { error: `Tu plan permite hasta ${fileLimits.maxFiles} archivos por generación.` },
         { status: 400 }
@@ -332,6 +346,7 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     }
     const oversized = blobFiles.find((f) => f.size > fileLimits.maxFileSizeMb * 1024 * 1024);
     if (oversized) {
+      await discardBlobs();
       return NextResponse.json(
         { error: `El archivo "${oversized.name}" supera el límite de ${fileLimits.maxFileSizeMb} MB de tu plan.` },
         { status: 400 }

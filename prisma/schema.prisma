@@ -18,6 +18,10 @@ model User {
   emailVerified DateTime?
   image         String?
   passwordHash  String?
+  // Sello del último cambio de contraseña. Con estrategia JWT la sesión vive en
+  // la cookie: sin esto, restablecer la contraseña no desconectaba las sesiones
+  // ya emitidas (hasta 30 días). El callback jwt lo compara en su recheck.
+  passwordChangedAt DateTime?
 
   // Profile fields
   cargo         String?

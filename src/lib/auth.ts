@@ -151,6 +151,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (existing) {
             token.id = existing.id;
             token.role = existing.role;
+            // Sellar también en Google: sin esto, un usuario de Google que
+            // alguna vez restableció su contraseña entraba en bucle de cierre
+            // de sesión (el recheck veía passwordChangedAt y ningún sello).
+            token.pwdAt = existing.passwordChangedAt?.getTime() ?? 0;
           } else {
             // Auto-grant admin if email is in ADMIN_EMAILS env var
             const adminEmails = (process.env.ADMIN_EMAILS || "")
@@ -168,6 +172,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             });
             token.id = created.id;
             token.role = created.role;
+            token.pwdAt = 0;
 
             // Start the 7-day free trial for brand-new Google accounts.
             try {
@@ -197,9 +202,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const { db } = await import("@/lib/db");
           const dbUser = await db.user.findUnique({
             where: { id: user.id },
-            select: { role: true },
+            select: { role: true, passwordChangedAt: true },
           });
           token.role = dbUser?.role || "user";
+          // Sello con el que se compara en el recheck: una sesión abierta ANTES
+          // del último cambio de contraseña se revoca.
+          token.pwdAt = dbUser?.passwordChangedAt?.getTime() ?? 0;
         } catch {
           token.role = "user";
         }
@@ -240,19 +248,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             const { db } = await import("@/lib/db");
             const byId = await db.user.findUnique({
               where: { id: token.id as string },
-              select: { id: true, role: true, banned: true },
+              select: { id: true, role: true, banned: true, passwordChangedAt: true },
             });
             if (byId) {
               // Banned mid-session — revoke within one recheck window.
               if (byId.banned) return null;
+              // Contraseña cambiada después de emitir esta sesión: se revoca,
+              // igual que el baneo y con la misma ventana de 5 minutos.
+              // Los tokens emitidos antes de que existiera el sello no llevan
+              // `pwdAt`: se sellan ahora en vez de cerrarles la sesión de golpe.
+              if (typeof token.pwdAt !== "number") {
+                token.pwdAt = byId.passwordChangedAt?.getTime() ?? 0;
+              } else if (byId.passwordChangedAt && byId.passwordChangedAt.getTime() > token.pwdAt) {
+                return null;
+              }
               token.role = byId.role;
             } else {
               const byEmail = await db.user.findUnique({
                 where: { email: (token.email as string).trim().toLowerCase() },
-                select: { id: true, role: true, banned: true },
+                select: { id: true, role: true, banned: true, passwordChangedAt: true },
               });
               if (byEmail) {
                 if (byEmail.banned) return null;
+                if (typeof token.pwdAt !== "number") {
+                  token.pwdAt = byEmail.passwordChangedAt?.getTime() ?? 0;
+                } else if (byEmail.passwordChangedAt && byEmail.passwordChangedAt.getTime() > token.pwdAt) {
+                  return null;
+                }
                 token.id = byEmail.id;
                 token.role = byEmail.role;
               } else {

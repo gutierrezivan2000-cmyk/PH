@@ -53,12 +53,15 @@ export function UnitImport({
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<ExtractedUnit[] | null>(null);
   const [fileName, setFileName] = useState("");
+  // Aviso del servidor cuando el archivo no cupo en una sola lectura.
+  const [note, setNote] = useState("");
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setError("");
     setPreview(null);
+    setNote("");
     setFileName(file.name);
 
     // Se comprueba ANTES de subir: la plataforma corta la petición por encima
@@ -96,6 +99,7 @@ export function UnitImport({
         );
         return;
       }
+      setNote(data?.truncated ? data?.note || "" : "");
       setPreview(units);
     } catch {
       setError("No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.");
@@ -122,6 +126,7 @@ export function UnitImport({
       }
       setPreview(null);
       setFileName("");
+      setNote("");
       onImported(data.created || 0);
     } catch {
       setError("Error de red.");
@@ -172,10 +177,19 @@ export function UnitImport({
               </span>
               <span style={{ ...monoLabel, color: "rgba(246,245,247,0.40)" }}>· {withEmail} con correo</span>
             </div>
-            <button onClick={() => { setPreview(null); setFileName(""); }} className="p-1 rounded cursor-pointer hover:bg-white/[0.06]" style={{ color: "rgba(246,245,247,0.45)" }}>
+            <button onClick={() => { setPreview(null); setFileName(""); setNote(""); }} className="p-1 rounded cursor-pointer hover:bg-white/[0.06]" style={{ color: "rgba(246,245,247,0.45)" }}>
               <X className="h-4 w-4" />
             </button>
           </div>
+
+          {note && (
+            <p
+              className="px-4 py-2.5 text-[11.5px]"
+              style={{ background: "rgba(255,193,94,0.10)", color: "#ffc15e", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              {note}
+            </p>
+          )}
 
           <div className="max-h-72 overflow-y-auto">
             {preview.map((u, i) => (

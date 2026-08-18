@@ -72,7 +72,8 @@ export async function POST(req: NextRequest) {
 
     const base = origin(req);
     const { sendPortalLinkEmails } = await import("@/lib/email");
-    const { recordEmailsSent } = await import("@/lib/email-quota");
+    const { checkEmailQuota, recordEmailsSent } = await import("@/lib/email-quota");
+    const { checkSubscriptionAccess } = await import("@/lib/usage");
 
     // Group by administrator so each email carries their branding, and charge
     // the send to that administrator's quota.
@@ -84,6 +85,18 @@ export async function POST(req: NextRequest) {
     }
 
     for (const [ownerId, list] of byOwner) {
+      // Era la única ruta de envío que gastaba cuota sin comprobarla. Como es
+      // pública, cualquiera que conozca correos registrados podía vaciar la
+      // cuota mensual del administrador (con 10 solicitudes/hora por IP) y
+      // dejarlo sin poder mandar comunicados. El `continue` mantiene la
+      // respuesta genérica: el solicitante no aprende nada.
+      const access = await checkSubscriptionAccess(ownerId).catch(() => ({ status: "" as string }));
+      const quota = await checkEmailQuota(ownerId, list.length, access.status === "beta").catch(() => ({ allowed: true }));
+      if (!quota.allowed) {
+        console.warn(`[portal recuperar] cuota de correos agotada para ${ownerId}; envío omitido`);
+        continue;
+      }
+
       const admin = await db.user.findUnique({
         where: { id: ownerId },
         select: { name: true, email: true, company: true, logoUrl: true, brandColor: true },

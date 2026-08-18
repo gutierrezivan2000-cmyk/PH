@@ -559,7 +559,13 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
 
       const docs = (data.documentsUpdated as string[]) || [];
       const docNames = docs.map((d: string) => d === "informe" ? "Informe" : "Acta").join(" y ");
-      setSuccess(`${docNames} actualizado${docs.length > 1 ? "s" : ""} exitosamente.${hasInforme ? " La presentacion PPTX se regenerara." : ""}`);
+      // `warning` llega cuando algún documento quedó fuera (demasiado extenso o
+      // respuesta cortada). Callarlo dejaba creer que se corrigió todo.
+      const warning = typeof data.warning === "string" ? data.warning : "";
+      setSuccess(
+        `${docNames} actualizado${docs.length > 1 ? "s" : ""} exitosamente.${hasInforme ? " La presentacion PPTX se regenerara." : ""}` +
+          (warning ? ` ${warning}` : "")
+      );
       setInstruction("");
       setFiles([]);
 

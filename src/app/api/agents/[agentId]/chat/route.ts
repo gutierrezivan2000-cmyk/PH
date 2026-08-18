@@ -14,7 +14,15 @@ const IS_DEMO = process.env.DEMO_MODE === "true";
 
 type ContentBlock =
   | { type: "text"; text: string }
-  | { type: "image"; source: { type: "url"; url: string } };
+  | { type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } };
+
+// Formatos de imagen que acepta la API de Anthropic.
+type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+const IMAGE_MEDIA_TYPES: ImageMediaType[] = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const isImageMediaType = (t: string): t is ImageMediaType => (IMAGE_MEDIA_TYPES as string[]).includes(t);
+// Tope por imagen: en base64 crece ~33%, así que 3,7 MB en crudo se queda
+// justo por debajo del máximo de 5 MB por imagen.
+const MAX_IMAGE_BYTES = 3_700_000;
 
 export async function GET(
   req: NextRequest,
@@ -491,6 +499,48 @@ export async function POST(
     }
     const parsedByUrl = new Map(parsedCurrent.map((p) => [p.url, p]));
 
+    // ── Imágenes del turno actual ────────────────────────────────────────
+    // Se descargan aquí y viajan en base64. Antes se mandaba `source: {type:
+    // "url"}` apuntando al blob, pero los adjuntos se suben con access:
+    // "private": Anthropic no puede leer esa URL, así que CUALQUIER mensaje
+    // con una imagen hacía fallar la llamada entera.
+    // Solo las del último turno: reenviar las del historial en cada mensaje
+    // sumaba ~1.590 tokens por imagen que ni siquiera contaban en el
+    // presupuesto de recorte (que solo mide caracteres de texto), y 125
+    // imágenes acumuladas agotaban por sí solas la ventana del modelo.
+    step = "download-current-images";
+    const imagesByUrl = new Map<string, { media_type: ImageMediaType; data: string }>();
+    const imageProblems: string[] = [];
+    const lastUserAtts = Array.isArray(reqAttachments) ? reqAttachments : [];
+    const currentImages = lastUserAtts.filter((a) => a.type?.startsWith("image/")).slice(0, 5);
+    if (currentImages.length > 0) {
+      const { blobRefToFile } = await import("@/lib/generation/run");
+      await Promise.all(
+        currentImages.map(async (img) => {
+          try {
+            if (!isImageMediaType(img.type)) {
+              imageProblems.push(`${img.name}: formato no admitido (usa JPG, PNG, WEBP o GIF)`);
+              return;
+            }
+            if (typeof img.size === "number" && img.size > MAX_IMAGE_BYTES) {
+              imageProblems.push(`${img.name}: pesa más de 3,5 MB y no se pudo enviar`);
+              return;
+            }
+            const file = await blobRefToFile({ url: img.url, name: img.name, type: img.type, size: img.size });
+            const buf = Buffer.from(await file.arrayBuffer());
+            if (buf.byteLength > MAX_IMAGE_BYTES) {
+              imageProblems.push(`${img.name}: pesa más de 3,5 MB y no se pudo enviar`);
+              return;
+            }
+            imagesByUrl.set(img.url, { media_type: img.type, data: buf.toString("base64") });
+          } catch (err) {
+            console.error("[api/agents/chat] imagen no descargada:", img.name, err);
+            imageProblems.push(`${img.name}: no se pudo leer`);
+          }
+        })
+      );
+    }
+
     // Record transcription usage now that we've actually processed audio
     // (size-based estimate: 1 MB ~ 1 minute of voice audio).
     if (estimatedMinutesForThisRequest > 0 && allAudioAtts.length > 0) {
@@ -524,14 +574,23 @@ export async function POST(
       if (m.role === "user" && (imageAtts.length > 0 || docAtts.length > 0)) {
         const contentBlocks: ContentBlock[] = [];
 
-        for (const img of imageAtts) {
-          contentBlocks.push({
-            type: "image",
-            source: { type: "url", url: img.url },
-          });
-        }
-
         let textContent = m.content;
+
+        if (isLastUser) {
+          for (const img of imageAtts) {
+            const data = imagesByUrl.get(img.url);
+            if (data) {
+              contentBlocks.push({ type: "image", source: { type: "base64", ...data } });
+            }
+          }
+          if (imageProblems.length > 0) {
+            textContent = `[Imágenes que no se pudieron adjuntar: ${imageProblems.join("; ")}]\n\n${textContent}`;
+          }
+        } else if (imageAtts.length > 0) {
+          // En el historial la imagen se sustituye por su rastro: el modelo
+          // sabe que existió sin volver a pagarla en cada turno.
+          textContent = `[Imagen adjunta en un mensaje anterior: ${imageAtts.map((i) => i.name).join(", ")}]\n${textContent}`;
+        }
         if (docAtts.length > 0) {
           const docSections = docAtts.map((d) => {
             const parsed = isLastUser ? parsedByUrl.get(d.url) : undefined;

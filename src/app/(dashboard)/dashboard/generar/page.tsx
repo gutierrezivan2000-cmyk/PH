@@ -23,7 +23,11 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-const MAX_FILE_SIZE = 500 * 1024 * 1024;
+// Topes por defecto hasta que /api/usage responda con los del plan. El 500 MB
+// que se anunciaba antes era imposible: el token de subida corta en 25 MB, así
+// que el archivo ni llegaba a Blob y el usuario veía un fallo de subida sin
+// explicación tras esperar toda la carga.
+const DEFAULT_FILE_LIMITS = { maxFiles: 20, maxFileSizeMb: 25 };
 
 interface Property {
   id: string;
@@ -80,6 +84,8 @@ export default function GenerarPage() {
   const [uploadStatus, setUploadStatus] = useState("");
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [fileLimits, setFileLimits] = useState(DEFAULT_FILE_LIMITS);
+  const maxBytes = fileLimits.maxFileSizeMb * 1024 * 1024;
 
   useEffect(() => {
     fetch("/api/properties")
@@ -88,6 +94,16 @@ export default function GenerarPage() {
         if (Array.isArray(data)) setProperties(data);
       })
       .catch(console.error);
+
+    fetch("/api/usage")
+      .then((res) => res.json())
+      .then((data) => {
+        const l = data?.fileLimits;
+        if (l && Number.isFinite(l.maxFiles) && Number.isFinite(l.maxFileSizeMb)) {
+          setFileLimits({ maxFiles: l.maxFiles, maxFileSizeMb: l.maxFileSizeMb });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Elegir acta descarta la presentación: un acta no tiene diapositivas.
@@ -99,36 +115,45 @@ export default function GenerarPage() {
   // Los archivos entran SIEMPRE en la bandeja del documento seleccionado.
   const addFiles = useCallback(
     (incoming: File[]) => {
-      setFilesByKind((prev) => ({
-        ...prev,
-        [docKind]: [...prev[docKind], ...incoming].slice(0, 20),
-      }));
+      setFilesByKind((prev) => {
+        const merged = [...prev[docKind], ...incoming];
+        // Recortar en silencio hacía desaparecer archivos sin que el usuario
+        // se enterara; ahora se dice cuántos quedaron fuera.
+        if (merged.length > fileLimits.maxFiles) {
+          const sobran = merged.length - fileLimits.maxFiles;
+          setError(
+            `Tu plan permite hasta ${fileLimits.maxFiles} archivos por generación: ` +
+              (sobran === 1 ? "no se agregó el último." : `no se agregaron los últimos ${sobran}.`)
+          );
+        }
+        return { ...prev, [docKind]: merged.slice(0, fileLimits.maxFiles) };
+      });
     },
-    [docKind]
+    [docKind, fileLimits.maxFiles]
   );
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!e.target.files) return;
       const newFiles = Array.from(e.target.files);
-      const oversized = newFiles.find((f) => f.size > MAX_FILE_SIZE);
+      const oversized = newFiles.find((f) => f.size > maxBytes);
       if (oversized) {
-        setError(`"${oversized.name}" supera el limite de 500 MB.`);
+        setError(`"${oversized.name}" supera el limite de ${fileLimits.maxFileSizeMb} MB de tu plan.`);
         return;
       }
       setError("");
       addFiles(newFiles);
     },
-    [addFiles]
+    [addFiles, maxBytes, fileLimits.maxFileSizeMb]
   );
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOver(false);
     const droppedFiles = Array.from(e.dataTransfer.files);
-    const oversized = droppedFiles.find((f) => f.size > MAX_FILE_SIZE);
+    const oversized = droppedFiles.find((f) => f.size > maxBytes);
     if (oversized) {
-      setError(`"${oversized.name}" supera el limite de 500 MB.`);
+      setError(`"${oversized.name}" supera el limite de ${fileLimits.maxFileSizeMb} MB de tu plan.`);
       return;
     }
     setError("");
@@ -163,6 +188,20 @@ export default function GenerarPage() {
     const isDemo = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
     if (!isDemo && files.length === 0 && !additionalText.trim()) {
       setError("Debes subir al menos un archivo o escribir informacion");
+      return;
+    }
+
+    // Validar ANTES de subir. Antes se subía todo a Blob y solo después
+    // /api/generate/full rechazaba por plan: los archivos quedaban huérfanos
+    // en el store (facturados) y el usuario había esperado la subida entera
+    // para recibir un 400.
+    if (files.length > fileLimits.maxFiles) {
+      setError(`Tu plan permite hasta ${fileLimits.maxFiles} archivos por generación. Quita ${files.length - fileLimits.maxFiles}.`);
+      return;
+    }
+    const tooBig = files.find((f) => f.size > maxBytes);
+    if (tooBig) {
+      setError(`"${tooBig.name}" pesa ${(tooBig.size / 1024 / 1024).toFixed(1)} MB y tu plan permite hasta ${fileLimits.maxFileSizeMb} MB por archivo.`);
       return;
     }
 
@@ -702,7 +741,7 @@ export default function GenerarPage() {
                 style={{ borderTop: "1px solid rgba(124,92,255,0.15)" }}
               >
                 <p className="text-xs italic" style={{ color: "rgba(246,245,247,0.42)" }}>
-                  Tambien puedes subir: PDFs, documentos Word, archivos de texto, hojas de calculo, imagenes y audios de hasta 500 MB.
+                  {`Tambien puedes subir: PDFs, documentos Word, archivos de texto, hojas de calculo, imagenes y audios de hasta ${fileLimits.maxFileSizeMb} MB.`}
                 </p>
               </div>
             </div>
@@ -736,7 +775,7 @@ export default function GenerarPage() {
                   Arrastra archivos o haz clic para seleccionar
                 </span>
                 <span className="text-xs mt-1" style={{ color: "rgba(246,245,247,0.42)" }}>
-                  PDF, Word, Excel, imagenes, audio — hasta 20 archivos
+                  {`PDF, Word, Excel, imagenes, audio — hasta ${fileLimits.maxFiles} archivos de ${fileLimits.maxFileSizeMb} MB`}
                 </span>
                 <input
                   type="file"
