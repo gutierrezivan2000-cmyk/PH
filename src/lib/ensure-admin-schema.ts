@@ -122,6 +122,10 @@ const STATEMENTS: string[] = [
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
   // Enterprise batch generation.
   `ALTER TABLE "Generation" ADD COLUMN IF NOT EXISTS "batchId" TEXT`,
+  // Marca de actividad para el watchdog de lotes (ver process-batch). DEFAULT
+  // now() para que las filas existentes no aparezcan como colgadas.
+  `ALTER TABLE "Generation" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+  `CREATE INDEX IF NOT EXISTS "Generation_status_updatedAt_idx" ON "Generation"("status", "updatedAt")`,
   `CREATE INDEX IF NOT EXISTS "Generation_batchId_idx" ON "Generation"("batchId")`,
   `CREATE TABLE IF NOT EXISTS "GenerationBatch" (
     "id" TEXT NOT NULL,

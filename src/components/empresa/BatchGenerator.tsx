@@ -56,7 +56,7 @@ export function BatchGenerator() {
     let active = true;
     setLoading(true);
     setError("");
-    fetch(`/api/empresa/batch?month=${month}&year=${year}`)
+    fetch(`/api/empresa/batch?month=${month}&year=${year}&docKind=${docKind}`)
       .then((r) => (r.ok ? r.json() : { properties: [] }))
       .then((d) => {
         if (!active) return;
@@ -68,7 +68,7 @@ export function BatchGenerator() {
       .catch(() => setError("No se pudo cargar la lista de propiedades."))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [month, year, batchId]);
+  }, [month, year, docKind, batchId]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

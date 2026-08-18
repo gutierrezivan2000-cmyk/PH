@@ -21,6 +21,33 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
+  // Watchdog. Si la función muere sin llegar a su catch —timeout duro de los
+  // 300s, despliegue a mitad, OOM— la fila queda en "processing" para siempre:
+  // el cron solo recoge "pending", el cierre del lote cuenta processing como
+  // trabajo vivo, y el lote nunca se completa ni se puede reintentar desde la
+  // UI (el botón "Reintentar fallidas" solo mira status "failed").
+  // Se pasan a "failed" y no a "pending" para que no entren en un bucle de
+  // reintento infinito y para que ese botón las rescate.
+  // El filtro va por updatedAt (ACTIVIDAD) y no por createdAt: en un lote las
+  // 50 filas se crean en el mismo instante y se drenan de a pocas por minuto,
+  // así que por creación se mataría trabajo vivo.
+  const STUCK_MS = 15 * 60 * 1000;
+  const reaped = await db.generation.updateMany({
+    where: {
+      batchId: { not: null },
+      status: "processing",
+      updatedAt: { lt: new Date(Date.now() - STUCK_MS) },
+    },
+    data: {
+      status: "failed",
+      progress: 0,
+      errorMessage: "La generación se interrumpió y se canceló. Reintenta las fallidas.",
+    },
+  });
+  if (reaped.count > 0) {
+    console.warn(`[cron/process-batch] ${reaped.count} generaciones colgadas marcadas como fallidas`);
+  }
+
   const pending = await db.generation.findMany({
     where: { status: "pending", batchId: { not: null } },
     orderBy: { createdAt: "asc" },

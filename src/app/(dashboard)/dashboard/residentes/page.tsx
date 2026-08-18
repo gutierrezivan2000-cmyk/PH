@@ -320,7 +320,23 @@ export default function ResidentesPage() {
         setMsg({ ok: false, text: data.error || "No se pudo enviar." });
         return;
       }
-      setMsg({ ok: true, text: `Enlace enviado a ${data.sent} ${data.sent === 1 ? "residente" : "residentes"}.` });
+      if (data.failed > 0) {
+        // Nombrar las unidades que fallaron: el botón de correo de cada fila
+        // permite reenviar solo a esas, sin duplicarle el correo al resto ni
+        // volver a gastar cuota en los que sí lo recibieron.
+        const fallidas = (data.failedUnits || []) as string[];
+        setMsg({
+          ok: false,
+          text:
+            `Enviado a ${data.sent}; fallaron ${data.failed}` +
+            (fallidas.length
+              ? `: ${fallidas.slice(0, 12).join(", ")}${fallidas.length > 12 ? `… y ${fallidas.length - 12} más` : ""}. ` +
+                `Reenvíalos uno a uno con el botón de correo de cada fila.`
+              : "."),
+        });
+      } else {
+        setMsg({ ok: true, text: `Enlace enviado a ${data.sent} ${data.sent === 1 ? "residente" : "residentes"}.` });
+      }
       await load(propertyId);
     } catch {
       setMsg({ ok: false, text: "Error de red." });

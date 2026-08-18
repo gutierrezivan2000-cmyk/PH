@@ -138,7 +138,7 @@ export async function sendPortalLinkEmails(params: {
   replyTo?: string;
   logoUrl?: string | null;
   brandColor?: string | null;
-}): Promise<{ sent: number; failed: number }> {
+}): Promise<{ sent: number; failed: number; failedUnits: string[] }> {
   const resend = getResend();
   const accent =
     params.brandColor && /^#[0-9a-fA-F]{6}$/.test(params.brandColor) ? params.brandColor : "#7c3aed";
@@ -148,6 +148,11 @@ export async function sendPortalLinkEmails(params: {
 
   let sent = 0;
   let failed = 0;
+  // Qué unidades quedaron sin enviar. Sin esto el administrador solo veía un
+  // número y no tenía forma de saber a quién reenviar: la única salida era
+  // repetir el envío masivo, duplicando el correo a los que sí lo recibieron
+  // y volviendo a descontar cuota.
+  const failedUnits: string[] = [];
   const CHUNK = 100;
   for (let i = 0; i < params.recipients.length; i += CHUNK) {
     const chunk = params.recipients.slice(i, i + CHUNK);
@@ -184,15 +189,17 @@ export async function sendPortalLinkEmails(params: {
       if (res.error) {
         console.error("[email] portal batch error:", res.error);
         failed += chunk.length;
+        failedUnits.push(...chunk.map((c) => c.unitLabel));
       } else {
         sent += chunk.length;
       }
     } catch (e) {
       console.error("[email] portal send failed:", e);
       failed += chunk.length;
+      failedUnits.push(...chunk.map((c) => c.unitLabel));
     }
   }
-  return { sent, failed };
+  return { sent, failed, failedUnits };
 }
 
 export interface AnnouncementEmailParams {

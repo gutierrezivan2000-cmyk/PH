@@ -52,8 +52,7 @@ export async function GET(req: NextRequest) {
     }),
     db.generation.findMany({
       where: { userId: elite.userId, month, year, status: "completed" },
-      select: { propertyId: true },
-      distinct: ["propertyId"],
+      select: { propertyId: true, outputFiles: true },
     }),
   ]);
 
@@ -62,7 +61,15 @@ export async function GET(req: NextRequest) {
     const files = (s.files as FileRef[] | null) ?? [];
     fileCountByProp.set(s.propertyId, files.length);
   }
-  const completedSet = new Set(completed.map((c) => c.propertyId));
+  // "Ya generado" depende del documento que se vaya a pedir: con informe y acta
+  // como tipos excluyentes, marcar una propiedad por tener el informe hecho
+  // hacía que BatchGenerator la deseleccionara al preparar un lote de actas.
+  const previewKind = req.nextUrl.searchParams.get("docKind") === "acta" ? "actaHtml" : "informeHtml";
+  const completedSet = new Set(
+    completed
+      .filter((c) => !!(c.outputFiles as Record<string, string> | null)?.[previewKind])
+      .map((c) => c.propertyId)
+  );
 
   const rows = properties.map((p) => {
     const fileCount = fileCountByProp.get(p.id) ?? 0;
@@ -131,15 +138,25 @@ export async function POST(req: NextRequest) {
   });
   const stagedByProp = new Map(staged.map((s) => [s.propertyId, s]));
 
-  // Idempotency: skip properties already generated for this period unless regenerate.
+  // Idempotencia POR TIPO DE DOCUMENTO. Antes solo miraba mes+año+completada,
+  // así que un lote de ACTAS de agosto saltaba todas las propiedades que ya
+  // tenían INFORME de agosto y respondía "ninguna propiedad quedó lista": el
+  // lote de actas era literalmente imposible sin marcar "regenerar", que a su
+  // vez rehace informes que nadie quiso tocar.
+  // Se mira `outputFiles` y no `type`, porque las filas de lote se crean todas
+  // con type:"custom" y el tipo real solo vive en GenerationBatch.docTypes.
+  const doneKey = selection.kind === "acta" ? "actaHtml" : "informeHtml";
   const already = regenerate
     ? []
     : await db.generation.findMany({
         where: { userId: elite.userId, month, year, status: "completed", propertyId: { in: ownedIds } },
-        select: { propertyId: true },
-        distinct: ["propertyId"],
+        select: { propertyId: true, outputFiles: true },
       });
-  const alreadySet = new Set(already.map((a) => a.propertyId));
+  const alreadySet = new Set(
+    already
+      .filter((a) => !!(a.outputFiles as Record<string, string> | null)?.[doneKey])
+      .map((a) => a.propertyId)
+  );
 
   // Monthly cap for real Elite (beta/demo = unlimited).
   let remaining = Infinity;
