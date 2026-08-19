@@ -1,5 +1,20 @@
 import { describe, it, expect } from "vitest";
+import * as XLSX from "xlsx";
 import { chunkRowsForExtraction, salvageJsonArray, dedupeByLabel } from "./units-extract";
+import { parseSpreadsheet } from "./parsers/spreadsheet";
+
+/** Excel de verdad, como el que sube un administrador. */
+function libro(hojas: Record<string, (string | number)[][]>): Buffer {
+  const wb = XLSX.utils.book_new();
+  for (const [nombre, filas] of Object.entries(hojas)) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filas), nombre);
+  }
+  return XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+}
+
+const COLUMNAS = ["Apto", "Propietario", "Correo", "Celular", "Coef", "Cuota"];
+const filasDe = (n: number, desde = 101): (string | number)[][] =>
+  Array.from({ length: n }, (_, i) => [`${desde + i}`, `Persona ${i}`, `p${i}@correo.com`, "3001234567", 1.25, 350000]);
 
 describe("chunkRowsForExtraction", () => {
   const header = "Apto,Propietario,Correo,Coef,Cuota";
@@ -46,7 +61,68 @@ describe("chunkRowsForExtraction", () => {
   it("devuelve vacío con texto vacío y descarta líneas en blanco", () => {
     expect(chunkRowsForExtraction("")).toEqual([]);
     expect(chunkRowsForExtraction("   \n\n  ")).toEqual([]);
-    expect(chunkRowsForExtraction([header, "", "Apto 1,a", "", "Apto 2,b"].join("\n"))[0].rows).toBe(2);
+    // Filas con la misma forma que el encabezado: se descartan las líneas en
+    // blanco y el encabezado no cuenta como dato.
+    const hoja = [header, "", "Apto 1,Ana,a@x.com,1.2,350000", "", "Apto 2,Beto,b@x.com,1.1,330000"].join("\n");
+    expect(chunkRowsForExtraction(hoja)[0].rows).toBe(2);
+  });
+});
+
+// Estas pruebas alimentan el troceador con la SALIDA LITERAL del parser, no
+// con un CSV escrito a mano: el parser antepone un rótulo y un separador de
+// hoja, así que la fila de columnas es la tercera línea. Tomar la primera como
+// encabezado dejaba los trozos 2 en adelante sin nombres de columna y el
+// modelo tenía que adivinar qué número era el coeficiente y cuál la cuota.
+describe("chunkRowsForExtraction con la salida real del parser", () => {
+  it("repite la fila de columnas en TODOS los trozos, no el rótulo del parser", async () => {
+    const texto = await parseSpreadsheet(libro({ Hoja1: [COLUMNAS, ...filasDe(400)] }), "padron.xlsx");
+    const chunks = chunkRowsForExtraction(texto, { maxLines: 120, maxChars: 20_000 });
+    expect(chunks.length).toBeGreaterThan(1);
+    for (const c of chunks) {
+      expect(c.text).toContain("Apto,Propietario,Correo");
+    }
+  });
+
+  it("no pierde ninguna unidad al trocear la hoja real", async () => {
+    const texto = await parseSpreadsheet(libro({ Hoja1: [COLUMNAS, ...filasDe(400)] }), "padron.xlsx");
+    const chunks = chunkRowsForExtraction(texto, { maxLines: 120, maxChars: 20_000 });
+    expect(chunks.reduce((s, c) => s + c.rows, 0)).toBe(400);
+    const cuerpo = chunks.flatMap((c) => c.text.split("\n").filter((l) => /^\d+,Persona /.test(l)));
+    expect(new Set(cuerpo).size).toBe(400);
+  });
+
+  it("el rótulo del archivo va solo en el primer trozo", async () => {
+    const texto = await parseSpreadsheet(libro({ Hoja1: [COLUMNAS, ...filasDe(400)] }), "padron.xlsx");
+    const chunks = chunkRowsForExtraction(texto, { maxLines: 120, maxChars: 20_000 });
+    const conRotulo = chunks.filter((c) => c.text.includes("[Datos de hoja de cálculo:"));
+    expect(conRotulo).toHaveLength(1);
+    expect(chunks[0].text).toContain("[Datos de hoja de cálculo: padron.xlsx]");
+  });
+
+  it("cada hoja lleva SUS columnas cuando el libro tiene varias", async () => {
+    const texto = await parseSpreadsheet(
+      libro({
+        Unidades: [COLUMNAS, ...filasDe(150)],
+        Saldos: [["Apto", "Saldo", "Mora"], ...Array.from({ length: 150 }, (_, i) => [`${101 + i}`, 120000, 2])],
+      }),
+      "padron.xlsx"
+    );
+    const chunks = chunkRowsForExtraction(texto, { maxLines: 120, maxChars: 20_000 });
+    // Ningún trozo puede mezclar los encabezados de las dos hojas.
+    for (const c of chunks) {
+      const tieneUnidades = c.text.includes("Apto,Propietario,Correo");
+      const tieneSaldos = c.text.includes("Apto,Saldo,Mora");
+      expect(tieneUnidades && tieneSaldos).toBe(false);
+    }
+    expect(chunks.some((c) => c.text.includes("Apto,Propietario,Correo"))).toBe(true);
+    expect(chunks.some((c) => c.text.includes("Apto,Saldo,Mora"))).toBe(true);
+  });
+
+  it("en texto corrido no inventa encabezado ni descarta la primera línea", () => {
+    const pdf = ["[Contenido de PDF: censo.pdf]", "Apartamento 101 - Juan Pérez - 3001112233", "Apartamento 102 - Ana Ruiz - 3002223344", "Apartamento 103 - Luis Gómez - 3003334455"].join("\n");
+    const chunks = chunkRowsForExtraction(pdf, { maxLines: 2 });
+    const datos = chunks.flatMap((c) => c.text.split("\n").filter((l) => l.startsWith("Apartamento")));
+    expect(new Set(datos).size).toBe(3);
   });
 });
 

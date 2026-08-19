@@ -2,6 +2,12 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 import { NextRequest, NextResponse } from "next/server";
+import {
+  MAX_IMAGE_BYTES,
+  MAX_IMAGE_MB_LABEL,
+  isImageMediaType,
+  type ImageMediaType,
+} from "@/lib/chat-limits";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AGENTS, isValidAgentId, isComingSoonAgent } from "@/lib/agents";
@@ -16,13 +22,7 @@ type ContentBlock =
   | { type: "text"; text: string }
   | { type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } };
 
-// Formatos de imagen que acepta la API de Anthropic.
-type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
-const IMAGE_MEDIA_TYPES: ImageMediaType[] = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const isImageMediaType = (t: string): t is ImageMediaType => (IMAGE_MEDIA_TYPES as string[]).includes(t);
-// Tope por imagen: en base64 crece ~33%, así que 3,7 MB en crudo se queda
-// justo por debajo del máximo de 5 MB por imagen.
-const MAX_IMAGE_BYTES = 3_700_000;
+
 
 export async function GET(
   req: NextRequest,
@@ -523,13 +523,13 @@ export async function POST(
               return;
             }
             if (typeof img.size === "number" && img.size > MAX_IMAGE_BYTES) {
-              imageProblems.push(`${img.name}: pesa más de 3,5 MB y no se pudo enviar`);
+              imageProblems.push(`${img.name}: pesa más de ${MAX_IMAGE_MB_LABEL} y no se pudo enviar`);
               return;
             }
             const file = await blobRefToFile({ url: img.url, name: img.name, type: img.type, size: img.size });
             const buf = Buffer.from(await file.arrayBuffer());
             if (buf.byteLength > MAX_IMAGE_BYTES) {
-              imageProblems.push(`${img.name}: pesa más de 3,5 MB y no se pudo enviar`);
+              imageProblems.push(`${img.name}: pesa más de ${MAX_IMAGE_MB_LABEL} y no se pudo enviar`);
               return;
             }
             imagesByUrl.set(img.url, { media_type: img.type, data: buf.toString("base64") });
@@ -599,7 +599,10 @@ export async function POST(
             }
             return `[Archivo adjunto: ${d.name} (${d.type})]`;
           });
-          textContent = `${docSections.join("\n\n")}\n\n${m.content}`;
+          // Se antepone a lo YA construido, no a `m.content`: reasignar desde
+          // cero borraba el aviso de imágenes rechazadas y el marcador del
+          // historial cada vez que el mensaje llevaba también un PDF o un audio.
+          textContent = `${docSections.join("\n\n")}\n\n${textContent}`;
         }
         contentBlocks.push({ type: "text", text: textContent });
 

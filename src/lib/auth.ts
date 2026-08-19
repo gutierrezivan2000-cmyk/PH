@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { DEMO_USER } from "@/lib/demo-store";
+import { revokedByPasswordChange } from "@/lib/session-revocation";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -151,10 +152,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (existing) {
             token.id = existing.id;
             token.role = existing.role;
-            // Sellar también en Google: sin esto, un usuario de Google que
-            // alguna vez restableció su contraseña entraba en bucle de cierre
-            // de sesión (el recheck veía passwordChangedAt y ningún sello).
-            token.pwdAt = existing.passwordChangedAt?.getTime() ?? 0;
+            // Momento en que nació ESTA sesión (ver el recheck más abajo).
+            token.sessionAt = Date.now();
           } else {
             // Auto-grant admin if email is in ADMIN_EMAILS env var
             const adminEmails = (process.env.ADMIN_EMAILS || "")
@@ -172,7 +171,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             });
             token.id = created.id;
             token.role = created.role;
-            token.pwdAt = 0;
+            token.sessionAt = Date.now();
 
             // Start the 7-day free trial for brand-new Google accounts.
             try {
@@ -198,16 +197,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // On credentials sign-in, ensure token has the DB user id + role
       if (account?.provider === "credentials" && user?.id) {
         token.id = user.id;
+        // Se sella FUERA del try: quien acaba de entrar demostró la contraseña
+        // actual, así que su sesión es posterior a cualquier cambio anterior.
+        // Dejarlo dentro hacía que un fallo puntual de la BD produjera una
+        // sesión sin sello, y el recheck la cerraba a los 5 minutos.
+        token.sessionAt = Date.now();
         try {
           const { db } = await import("@/lib/db");
           const dbUser = await db.user.findUnique({
             where: { id: user.id },
-            select: { role: true, passwordChangedAt: true },
+            select: { role: true },
           });
           token.role = dbUser?.role || "user";
-          // Sello con el que se compara en el recheck: una sesión abierta ANTES
-          // del último cambio de contraseña se revoca.
-          token.pwdAt = dbUser?.passwordChangedAt?.getTime() ?? 0;
         } catch {
           token.role = "user";
         }
@@ -246,6 +247,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (Date.now() - checkedAt > 5 * 60 * 1000) {
           try {
             const { db } = await import("@/lib/db");
+            // Este bloque lee `passwordChangedAt`, una columna que en runtime
+            // solo existe si corrió el DDL (el `prisma db push` del build puede
+            // fallar sin romper el despliegue). Sin esta llamada, la consulta
+            // lanzaba P2022, el catch se lo tragaba y con ella se perdían
+            // TAMBIÉN el corte de los baneados y el auto-sanado del id.
+            const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+            await ensureAdminSchema();
             const byId = await db.user.findUnique({
               where: { id: token.id as string },
               select: { id: true, role: true, banned: true, passwordChangedAt: true },
@@ -255,13 +263,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               if (byId.banned) return null;
               // Contraseña cambiada después de emitir esta sesión: se revoca,
               // igual que el baneo y con la misma ventana de 5 minutos.
-              // Los tokens emitidos antes de que existiera el sello no llevan
-              // `pwdAt`: se sellan ahora en vez de cerrarles la sesión de golpe.
-              if (typeof token.pwdAt !== "number") {
-                token.pwdAt = byId.passwordChangedAt?.getTime() ?? 0;
-              } else if (byId.passwordChangedAt && byId.passwordChangedAt.getTime() > token.pwdAt) {
-                return null;
-              }
+              if (revokedByPasswordChange(token.sessionAt, byId.passwordChangedAt)) return null;
               token.role = byId.role;
             } else {
               const byEmail = await db.user.findUnique({
@@ -270,11 +272,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               });
               if (byEmail) {
                 if (byEmail.banned) return null;
-                if (typeof token.pwdAt !== "number") {
-                  token.pwdAt = byEmail.passwordChangedAt?.getTime() ?? 0;
-                } else if (byEmail.passwordChangedAt && byEmail.passwordChangedAt.getTime() > token.pwdAt) {
-                  return null;
-                }
+                if (revokedByPasswordChange(token.sessionAt, byEmail.passwordChangedAt)) return null;
                 token.id = byEmail.id;
                 token.role = byEmail.role;
               } else {

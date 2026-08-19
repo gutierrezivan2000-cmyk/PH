@@ -35,6 +35,7 @@ import { upload } from "@vercel/blob/client";
 import { Badge } from "@/components/ui/badge";
 import { AudioRecorder } from "@/components/dashboard/AudioRecorder";
 import { saveAudio, getPendingAudios, deleteAudio } from "@/lib/audio-storage";
+import { MAX_IMAGE_BYTES, MAX_IMAGE_MB_LABEL, isImageMediaType } from "@/lib/chat-limits";
 
 interface Chat {
   id: string;
@@ -108,6 +109,8 @@ export default function AgentPage() {
   const [showMemory, setShowMemory] = useState(false);
   const [savingMemory, setSavingMemory] = useState(false);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  // Aviso de adjunto rechazado ANTES de subirlo (ver MAX_IMAGE_BYTES).
+  const [attachError, setAttachError] = useState("");
   const [uploadStatus, setUploadStatus] = useState("");
   const [exporting, setExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -299,7 +302,31 @@ export default function AgentPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
-    const newFiles = Array.from(e.target.files).slice(0, 5);
+    const seleccionados = Array.from(e.target.files).slice(0, 5);
+
+    // Las imágenes se comprueban aquí y no en el servidor: antes se subía la
+    // foto entera (una de móvil pasa de 5 MB), quedaba almacenada y facturada
+    // en el blob, y el modelo la descartaba después. Una foto de 12 MP se
+    // rechaza ahora en un instante y sin gastar datos.
+    const grandes = seleccionados.filter(
+      (f) => f.type.startsWith("image/") && f.size > MAX_IMAGE_BYTES
+    );
+    const noAdmitidas = seleccionados.filter(
+      (f) => f.type.startsWith("image/") && !isImageMediaType(f.type)
+    );
+    const newFiles = seleccionados.filter((f) => !grandes.includes(f) && !noAdmitidas.includes(f));
+
+    const avisos: string[] = [];
+    if (grandes.length > 0) {
+      avisos.push(
+        `${grandes.map((f) => f.name).join(", ")}: la imagen supera ${MAX_IMAGE_MB_LABEL}. Redúcela o toma la foto en menor resolución.`
+      );
+    }
+    if (noAdmitidas.length > 0) {
+      avisos.push(`${noAdmitidas.map((f) => f.name).join(", ")}: formato de imagen no admitido (usa JPG, PNG, WEBP o GIF).`);
+    }
+    setAttachError(avisos.join(" "));
+
     const newAttachments: PendingAttachment[] = newFiles.map((file) => {
       const att: PendingAttachment = { file };
       if (file.type.startsWith("image/")) att.preview = URL.createObjectURL(file);
@@ -355,6 +382,7 @@ export default function AgentPage() {
         if (a.persistedId) deleteAudio(a.persistedId).catch(() => {});
       });
       setAttachments([]);
+      setAttachError("");
       if (textareaRef.current) textareaRef.current.style.height = "auto";
 
       const res = await fetch(`/api/agents/${agentId}/chat`, {
@@ -1258,6 +1286,14 @@ export default function AgentPage() {
               </div>
             )}
           </div>
+
+          {attachError && (
+            <div className="px-4 sm:px-6 lg:px-8 pt-2">
+              <p className="max-w-3xl mx-auto text-[12px]" style={{ color: "#ff8585" }}>
+                {attachError}
+              </p>
+            </div>
+          )}
 
           {/* Attachment previews */}
           {attachments.length > 0 && (

@@ -125,13 +125,15 @@ Reglas:
     const rawRows: unknown[] = [];
     let aiTruncated = false;
     let chunksDone = 0;
+    let failedChunks = 0;
+    let deadlineHit = false;
     let totalTokens = 0;
     let lastError: unknown = null;
 
     for (const chunk of chunks) {
       // No arrancar una pasada que no alcanza a terminar: con maxRetries 1 el
       // SDK hace hasta dos intentos, así que el peor caso son 2 x CHUNK_TIMEOUT.
-      if (Date.now() - startedAt > SOFT_DEADLINE_MS) break;
+      if (Date.now() - startedAt > SOFT_DEADLINE_MS) { deadlineHit = true; break; }
       try {
         const { text: aiText, tokensUsed } = await generateWithClaude(
           system,
@@ -144,8 +146,15 @@ Reglas:
         if (salvaged) {
           rawRows.push(...salvaged.rows);
           if (salvaged.truncated) aiTruncated = true;
+          chunksDone++;
+        } else {
+          // El modelo contestó algo que no es un arreglo (prosa, o un JSON
+          // irrescatable). Ese trozo NO está hecho: contarlo como hecho dejaba
+          // la importación a medias con `truncated: false`, y el administrador
+          // creaba 300 de 400 unidades convencido de que estaban todas.
+          failedChunks++;
+          console.warn(`[units import] trozo sin unidades legibles (${aiText.slice(0, 120)})`);
         }
-        chunksDone++;
       } catch (e) {
         // Un trozo caído no debe tumbar la importación completa: se conserva lo
         // ya extraído y se avisa que quedó incompleta.
@@ -226,14 +235,26 @@ Reglas:
     // Lo que quedó fuera se dice, no se calla. Antes la respuesta era `{units}`
     // a secas y la UI anunciaba «330 unidades detectadas» sobre un archivo de
     // 400 sin una sola advertencia.
-    const incomplete = inputTruncated || aiTruncated || chunksDone < chunks.length;
-    return NextResponse.json({
-      units,
-      truncated: incomplete,
-      note: incomplete
-        ? `El archivo era demasiado grande para una sola lectura: solo se alcanzaron a leer ${units.length} unidades. Crea estas y sube el resto en un segundo archivo.`
-        : undefined,
-    });
+    // La nota dice la causa REAL en vez de culpar siempre al tamaño.
+    const pendientes = chunks.length - chunksDone - failedChunks;
+    const incomplete =
+      inputTruncated || aiTruncated || failedChunks > 0 || pendientes > 0;
+    let note: string | undefined;
+    if (incomplete) {
+      const cola = ` Se leyeron ${units.length} unidades: créalas y sube el resto en un segundo archivo.`;
+      if (inputTruncated) {
+        note = "El archivo es tan grande que no cupo entero en una sola lectura." + cola;
+      } else if (lastError) {
+        note = "El servicio de IA falló a mitad de la lectura." + cola;
+      } else if (deadlineHit || pendientes > 0) {
+        note = "El archivo era tan grande que se agotó el tiempo de lectura." + cola;
+      } else if (failedChunks > 0) {
+        note = `Una parte del archivo (${failedChunks} de ${chunks.length} bloques) no se pudo interpretar.` + cola;
+      } else {
+        note = "La lectura quedó incompleta." + cola;
+      }
+    }
+    return NextResponse.json({ units, truncated: incomplete, note });
   } catch (error) {
     console.error("[units import]", error);
     const msg =
