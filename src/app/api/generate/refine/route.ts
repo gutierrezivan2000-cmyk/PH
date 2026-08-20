@@ -282,8 +282,11 @@ export async function POST(req: NextRequest) {
 
     await Promise.all(uploads);
 
-    // Re-analyze acta requirements if acta was corrected
-    const actaResult = results.find((r) => r.type === "acta");
+    // Re-analyze acta requirements if acta was corrected.
+    // `!cut` es imprescindible: un acta cortada no se guarda, así que analizar
+    // su texto a medias dejaba los requisitos legales describiendo un documento
+    // que no existe, y contradiciendo al acta que sigue almacenada.
+    const actaResult = results.find((r) => r.type === "acta" && !r.cut);
     if (actaResult?.text.trim()) {
       try {
         const { analyzeActaRequirements } = await import("@/lib/ai/acta-requirements");
