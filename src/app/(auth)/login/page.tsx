@@ -59,13 +59,20 @@ function LoginContent() {
         }
         // Keep the password OUT of the URL (history/logs). The verify page
         // reads it from sessionStorage to auto-login after verification.
-        try {
-          sessionStorage.setItem("sophia-pending-pw", password);
-        } catch {
-          // sessionStorage unavailable → verify page falls back to /login
+        //
+        // Si la cuenta ya existía sin verificar, el servidor NO cambia la
+        // contraseña (plantarla era una vía de toma de cuenta), así que la
+        // recién tecleada no sirve para entrar: no se guarda y se avisa.
+        if (!data.passwordUnchanged) {
+          try {
+            sessionStorage.setItem("sophia-pending-pw", password);
+          } catch {
+            // sessionStorage unavailable → verify page falls back to /login
+          }
         }
         const params = new URLSearchParams({ email });
         if (data.emailSent === false) params.set("sent", "0");
+        if (data.passwordUnchanged) params.set("pw", "previa");
         window.location.href = `/verify?${params.toString()}`;
         return;
       }

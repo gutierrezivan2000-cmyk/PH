@@ -72,6 +72,19 @@ export async function POST(
       return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
     }
 
+    // La `url` llega del cuerpo de la petición y después se usa para descargar
+    // el documento del lado del servidor. Sin este filtro se podía guardar un
+    // host cualquiera y convertir esta fila en un apuntador a un servidor
+    // ajeno. Es defensa en profundidad: quien descarga ya no manda la
+    // credencial fuera, pero tampoco tiene sentido almacenar esto.
+    const { isAllowedBlobUrl } = await import("@/lib/blob-url");
+    if (!isAllowedBlobUrl(url)) {
+      return NextResponse.json(
+        { error: "El archivo debe subirse desde esta aplicación." },
+        { status: 400 }
+      );
+    }
+
     const doc = await db.propertyDocument.create({
       data: {
         propertyId,

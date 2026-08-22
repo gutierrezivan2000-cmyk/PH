@@ -51,11 +51,25 @@ const productionProviders = [
         const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
         await ensureAdminSchema();
 
+        // Límite de intentos. Era la ÚNICA entrada sin freno: registro,
+        // verificación, recuperación y el portal sí lo tienen. Se comprueba
+        // antes de la consulta y del bcrypt, así que un ataque tampoco cuesta
+        // CPU. La ventana es por correo: no castiga a toda una oficina detrás
+        // de la misma IP.
+        const { rateLimit } = await import("@/lib/rate-limit");
+        const rlKey = `login:email:${email}`;
+        const rl = await rateLimit(rlKey, { max: 10, windowMs: 15 * 60 * 1000 });
+        if (!rl.allowed) return null;
+
         const user = await db.user.findUnique({ where: { email } });
         if (!user || !user.passwordHash) return null;
 
         const isValid = await bcrypt.compare(password, user.passwordHash);
         if (!isValid) return null;
+
+        // Entrada correcta: se borra el contador para que quien acierta a la
+        // décima no arrastre el freno el resto de la ventana.
+        await db.rateLimit.delete({ where: { key: rlKey } }).catch(() => {});
 
         // Block unverified email accounts
         if (!user.emailVerified) return null;

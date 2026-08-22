@@ -16,10 +16,28 @@ export async function GET() {
 
   try {
     const { db } = await import("@/lib/db");
+    // Tope y columnas explícitas. Era el único listado del proyecto sin `take`
+    // (certificados 100, asambleas 50, comunicados 50, PQRS 100), y con
+    // `include: { property: true }` mandaba al navegador la fila entera de la
+    // propiedad más `inputText` (hasta 20.000 caracteres por fila) e
+    // `inputFiles` con las URLs de los blobs. La UI no lee ninguno de los dos:
+    // el historial usa lo que se selecciona aquí y el panel solo los 4 primeros.
     const generations = await db.generation.findMany({
       where: { userId: session.user.id },
-      include: { property: true },
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        month: true,
+        year: true,
+        tokensUsed: true,
+        costUsd: true,
+        createdAt: true,
+        outputFiles: true,
+        property: { select: { name: true } },
+      },
       orderBy: { createdAt: "desc" },
+      take: 100,
     });
 
     // Replace raw blob URLs with proxy download URLs

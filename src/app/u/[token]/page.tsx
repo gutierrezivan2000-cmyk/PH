@@ -393,7 +393,11 @@ export default async function ResidentPortalPage({
               {documents.map((d, i) => (
                 <a
                   key={d.id}
-                  href={d.url}
+                  // Los documentos viven en Blob privado: enlazar su URL
+                  // directamente hacía que «Abrir» no descargara nada. Se
+                  // sirven por un proxy que valida el enlace del portal. En
+                  // demo la url ya es relativa y funciona tal cual.
+                  href={d.url.startsWith("/") ? d.url : `/api/portal/doc?token=${encodeURIComponent(token)}&id=${encodeURIComponent(d.id)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="ui-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderBottom: i < documents.length - 1 ? "1px solid #f3f4f6" : "none", textDecoration: "none", color: "#1f2937" }}

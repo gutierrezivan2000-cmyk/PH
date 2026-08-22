@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
+    let credencialesIntactas = false;
     const existing = await db.user.findUnique({ where: { email } });
     if (existing) {
       if (existing.emailVerified) {
@@ -62,12 +63,16 @@ export async function POST(req: NextRequest) {
         );
       }
       // Reregistro de una cuenta por credenciales sin verificar (p. ej. el
-      // correo de verificación nunca llegó): se refrescan las credenciales y se
-      // manda un código nuevo, en vez de dejarla bloqueada con un 409 para siempre.
-      await db.user.update({
-        where: { id: existing.id },
-        data: { passwordHash, ...(name ? { name } : {}) },
-      });
+      // correo de verificación nunca llegó): se manda un código nuevo, pero NO
+      // se tocan las credenciales.
+      //
+      // Antes se pisaban `passwordHash` y `name` sin probar que la cuenta fuera
+      // tuya. Eso permitía plantar una contraseña ajena: el atacante se
+      // registra sobre la cuenta sin verificar de la víctima, y en cuanto la
+      // víctima verifica con el código que le llega A SU buzón, la cuenta queda
+      // con la contraseña del atacante. Quien controla el correo sigue pudiendo
+      // verificar y entrar; quien no, ya no puede cambiar nada.
+      credencialesIntactas = true;
     } else {
       const created = await db.user.create({
         data: {
@@ -118,7 +123,14 @@ export async function POST(req: NextRequest) {
       emailSent = false;
     }
 
-    return NextResponse.json({ success: true, needsVerification: true, emailSent });
+    return NextResponse.json({
+      success: true,
+      needsVerification: true,
+      emailSent,
+      // La pantalla lo usa para avisar de que la contraseña NO cambió, y que
+      // quien no la recuerde use la recuperación.
+      passwordUnchanged: credencialesIntactas,
+    });
   } catch (e) {
     console.error("[register] Error:", e);
     return NextResponse.json(
