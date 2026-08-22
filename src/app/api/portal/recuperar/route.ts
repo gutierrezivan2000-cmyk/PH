@@ -47,8 +47,20 @@ export async function POST(req: NextRequest) {
     await ensureAdminSchema();
     const { db } = await import("@/lib/db");
 
+    // Solo unidades con portal ACTIVO. Revocar el portal deja el token en NULL
+    // (PATCH /api/portal/tokens con action="revoke"), así que esta ruta pública
+    // —que antes acuñaba un token nuevo para cualquier unidad sin él— deshacía
+    // la revocación: bastaba una petición desde fuera para que el residente
+    // expulsado recuperase el acceso y la pantalla volviera a decir «Activo»,
+    // sin avisar al administrador que había pulsado «Desactivar portal»
+    // aceptando que «el residente perderá el acceso».
+    //
+    // Contrapartida asumida: una unidad a la que nunca se le generó enlace
+    // tampoco recibe nada por aquí. Es indistinguible de una revocada (ambas
+    // tienen el token en NULL) y quien manda es el administrador desde su
+    // panel. La respuesta sigue siendo genérica, así que no se revela nada.
     const units = await db.unit.findMany({
-      where: { email },
+      where: { email, portalToken: { not: null } },
       select: {
         id: true,
         label: true,
@@ -59,16 +71,6 @@ export async function POST(req: NextRequest) {
       take: 10,
     });
     if (units.length === 0) return NextResponse.json(generic);
-
-    // Generate a token for any unit that doesn't have one yet.
-    const { randomBytes } = await import("node:crypto");
-    for (const u of units) {
-      if (!u.portalToken) {
-        const t = randomBytes(15).toString("base64url");
-        await db.unit.update({ where: { id: u.id }, data: { portalToken: t } }).catch(() => {});
-        u.portalToken = t;
-      }
-    }
 
     const base = origin(req);
     const { sendPortalLinkEmails } = await import("@/lib/email");

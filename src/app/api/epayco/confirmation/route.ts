@@ -213,9 +213,26 @@ export async function POST(req: NextRequest) {
       // declined) must NOT break the still-paid current plan, and a rejected
       // first payment must NOT revoke a valid trial.
       const current = await db.subscription
-        .findUnique({ where: { userId }, select: { status: true, planId: true } })
+        .findUnique({
+          where: { userId },
+          select: { status: true, planId: true, currentPeriodEnd: true },
+        })
         .catch(() => null);
-      if (current?.status === "active" && normalizePlanId(current.planId) === plan) {
+      // Un periodo YA PAGADO no se degrada. Es posible tener dos órdenes
+      // pendientes del mismo plan (un doble clic en el checkout basta: la
+      // comprobación de compra duplicada solo corta si ya hay acceso activo, y
+      // en prueba el estado es "trialing"). Si una se aprueba y la otra se
+      // rechaza después, esta rama marcaba "past_due" una suscripción recién
+      // pagada y vigente: el administrador perdía el acceso que acababa de
+      // comprar. Solo se degrada cuando el periodo ya venció, que es el caso
+      // real de una renovación fallida.
+      const periodoVigente =
+        !!current?.currentPeriodEnd && new Date(current.currentPeriodEnd).getTime() > now.getTime();
+      if (
+        current?.status === "active" &&
+        normalizePlanId(current.planId) === plan &&
+        !periodoVigente
+      ) {
         await db.subscription.updateMany({
           where: { userId, status: "active" },
           data: { status: "past_due", epaycoRef: x_ref_payco },

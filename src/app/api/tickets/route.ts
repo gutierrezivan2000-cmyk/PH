@@ -24,8 +24,12 @@ export async function GET(_req: NextRequest) {
     const tickets = await db.ticket.findMany({
       where: { userId: session.user.id },
       include: {
-        _count: { select: { messages: true } },
-        messages: { take: 1, orderBy: { createdAt: "desc" } },
+        // El mismo filtro que el detalle («Never expose internal notes to
+        // users»). Sin él, la nota interna que un administrador escribe con el
+        // candado se convertía en el mensaje más reciente del ticket y su
+        // contenido íntegro viajaba al usuario en este listado.
+        _count: { select: { messages: { where: { internal: false } } } },
+        messages: { where: { internal: false }, take: 1, orderBy: { createdAt: "desc" } },
       },
       orderBy: { updatedAt: "desc" },
     });

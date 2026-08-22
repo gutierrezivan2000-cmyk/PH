@@ -5,8 +5,19 @@ function parseMarkdownTable(tableBlock: string): string {
   const lines = tableBlock.trim().split("\n");
   if (lines.length < 2) return tableBlock;
 
-  const parseRow = (line: string) =>
-    line.split("|").map((c) => c.trim()).filter(Boolean);
+  // Solo se descartan los vacíos de las barras de los EXTREMOS. El
+  // `.filter(Boolean)` anterior también se comía las celdas vacías interiores,
+  // y entonces las demás se corrían una columna a la izquierda: en una tabla
+  // «Rubro | Presupuesto | Ejecutado | Saldo», la fila
+  // `| Seguridad | 48.000.000 | | 48.000.000 |` salía con el SALDO impreso bajo
+  // «Ejecutado». El informe mostraba cifras que decían algo distinto de la
+  // verdad, que es el peor defecto posible en este producto.
+  const parseRow = (line: string) => {
+    const cells = line.split("|").map((c) => c.trim());
+    if (cells.length > 0 && cells[0] === "") cells.shift();
+    if (cells.length > 0 && cells[cells.length - 1] === "") cells.pop();
+    return cells;
+  };
 
   const headers = parseRow(lines[0]);
   // Skip separator line (line[1] is |---|---|)
@@ -20,11 +31,14 @@ function parseMarkdownTable(tableBlock: string): string {
 
   bodyLines.forEach((line) => {
     const cells = parseRow(line);
-    if (cells.length === 0) return;
+    if (cells.length === 0 || cells.every((c) => c === "")) return;
     html += '<tr>';
-    cells.forEach((c) => {
+    // Se rellena hasta el ancho del encabezado para que una fila corta no
+    // desalinee la tabla, y se recorta si trae de más.
+    for (let i = 0; i < headers.length; i++) {
+      const c = cells[i] ?? "";
       html += `<td>${c.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")}</td>`;
-    });
+    }
     html += '</tr>';
   });
 
@@ -71,23 +85,52 @@ export function markdownToSimpleHtml(markdown: string): string {
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.*?)\*/g, "<em>$1</em>");
 
-    // Unordered list
-    if (/^- /m.test(block)) {
-      const items = block.split("\n")
-        .filter((l) => l.startsWith("- "))
-        .map((l) => `<li>${l.slice(2)}</li>`)
-        .join("");
-      htmlBlocks.push(`<ul>${items}</ul>`);
-      continue;
-    }
+    // Listas. Se recorre el bloque EN ORDEN en vez de filtrar solo las líneas
+    // de viñeta: al filtrar, todo lo demás del bloque se perdía sin dejar
+    // rastro — la frase que presenta la lista («Compromisos del Consejo
+    // pendientes de ejecución:») y las sub-viñetas indentadas desaparecían del
+    // informe, cifras incluidas.
+    const VINETA = /^\s*[-*]\s+(.*)$/;
+    const NUMERAL = /^\s*\d+[.)]\s+(.*)$/;
+    const lineas = block.split("\n");
+    if (lineas.some((l) => VINETA.test(l) || NUMERAL.test(l))) {
+      const partes: string[] = [];
+      let items: string[] = [];
+      let tipo: "ul" | "ol" | null = null;
+      let sueltas: string[] = [];
 
-    // Ordered list
-    if (/^\d+\. /m.test(block)) {
-      const items = block.split("\n")
-        .filter((l) => /^\d+\. /.test(l))
-        .map((l) => `<li>${l.replace(/^\d+\. /, "")}</li>`)
-        .join("");
-      htmlBlocks.push(`<ol>${items}</ol>`);
+      const cerrarLista = () => {
+        if (tipo && items.length > 0) partes.push(`<${tipo}>${items.join("")}</${tipo}>`);
+        items = [];
+        tipo = null;
+      };
+      const cerrarParrafo = () => {
+        if (sueltas.length > 0) {
+          partes.push(`<p>${sueltas.join("<br/>")}</p>`);
+          sueltas = [];
+        }
+      };
+
+      for (const l of lineas) {
+        const vin = l.match(VINETA);
+        const num = !vin ? l.match(NUMERAL) : null;
+        if (vin || num) {
+          const nuevoTipo: "ul" | "ol" = vin ? "ul" : "ol";
+          cerrarParrafo();
+          if (tipo && tipo !== nuevoTipo) cerrarLista();
+          tipo = nuevoTipo;
+          // La indentación de las sub-viñetas se conserva como sangría: no hay
+          // anidamiento real, pero el texto ya no se pierde.
+          const sangrada = /^\s{2,}/.test(l);
+          items.push(`<li${sangrada ? ' style="margin-left:1.2em"' : ""}>${(vin ? vin[1] : num![1]).trim()}</li>`);
+        } else if (l.trim()) {
+          cerrarLista();
+          sueltas.push(l.trim());
+        }
+      }
+      cerrarLista();
+      cerrarParrafo();
+      htmlBlocks.push(partes.join(""));
       continue;
     }
 
