@@ -113,6 +113,10 @@ export default function AgentPage() {
   const [attachError, setAttachError] = useState("");
   const [uploadStatus, setUploadStatus] = useState("");
   const [exporting, setExporting] = useState(false);
+  // Sin esto, cualquier fallo de exportación (403 del demo, 500 al render del
+  // PDF, red caída) se tragaba en un catch vacío: el usuario pulsaba
+  // «Exportar PDF» y no ocurría nada, sin descarga y sin explicación.
+  const [exportError, setExportError] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [sidebarSearch, setSidebarSearch] = useState("");
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
@@ -392,6 +396,12 @@ export default function AgentPage() {
           chatId: activeChatId,
           message: trimmed || "(adjuntos)",
           attachments: uploaded,
+          // En el demo no hay base de datos donde guardar el hilo, así que el
+          // navegador lo lleva consigo para que la conversación tenga memoria.
+          // El servidor lo ignora fuera del demo.
+          ...(process.env.NEXT_PUBLIC_DEMO_MODE === "true"
+            ? { history: messages.slice(-20).map((m) => ({ role: m.role, content: m.content })) }
+            : {}),
         }),
       });
 
@@ -578,9 +588,14 @@ export default function AgentPage() {
     if (!activeChatId || exporting) return;
     setExporting(true);
     setShowExportMenu(false);
+    setExportError("");
     try {
       const res = await fetch(`/api/agents/${agentId}/chat/export?chatId=${activeChatId}&format=${format}`);
-      if (!res.ok) throw new Error("Export failed");
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setExportError(data?.error || `No se pudo exportar la conversación (${res.status}).`);
+        return;
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -592,8 +607,9 @@ export default function AgentPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch { /* ignore */ }
-    finally { setExporting(false); }
+    } catch {
+      setExportError("No se pudo conectar para exportar la conversación.");
+    } finally { setExporting(false); }
   };
 
   const getFileIcon = (type: string) => {
@@ -1010,6 +1026,17 @@ export default function AgentPage() {
               )}
             </div>
           </div>
+
+          {exportError && (
+            <div className="px-4 sm:px-6 lg:px-8 pt-2">
+              <p className="max-w-3xl mx-auto text-[12px] flex items-start gap-2" style={{ color: "#ff8585" }}>
+                <span className="flex-1">{exportError}</span>
+                <button onClick={() => setExportError("")} className="cursor-pointer" style={{ color: "rgba(246,245,247,0.45)" }}>
+                  Cerrar
+                </button>
+              </p>
+            </div>
+          )}
 
           {/* Messages area */}
           <div className="flex-1 overflow-y-auto">

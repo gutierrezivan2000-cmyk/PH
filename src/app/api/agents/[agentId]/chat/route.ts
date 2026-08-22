@@ -142,10 +142,12 @@ export async function POST(
 
     step = "parse-body";
     const body = await req.json();
-    const { chatId: existingChatId, message, attachments: reqAttachments } = body as {
+    const { chatId: existingChatId, message, attachments: reqAttachments, history: demoHistory } = body as {
       chatId?: string;
       message: string;
       attachments?: { name: string; url: string; type: string; size: number }[];
+      /** Solo en demo: el hilo lo guarda el navegador, no la base de datos. */
+      history?: { role: string; content: string }[];
     };
 
     if (!message || typeof message !== "string") {
@@ -235,13 +237,15 @@ export async function POST(
       transcriptionMinutesPerMonth: number;
     } = { ...PLANS.pro.limits };
 
-    try {
-      const subscription = await db.subscription.findFirst({ where: { userId } });
-      if (normalizePlanId(subscription?.planId) === "elite") {
-        planLimits = { ...PLANS.elite.limits };
+    if (!IS_DEMO) {
+      try {
+        const subscription = await db.subscription.findFirst({ where: { userId } });
+        if (normalizePlanId(subscription?.planId) === "elite") {
+          planLimits = { ...PLANS.elite.limits };
+        }
+      } catch (err) {
+        console.error("[api/agents/chat] subscription check failed:", err);
       }
-    } catch (err) {
-      console.error("[api/agents/chat] subscription check failed:", err);
     }
 
     const now = new Date();
@@ -253,7 +257,7 @@ export async function POST(
     startOfWeek.setHours(0, 0, 0, 0);
 
     try {
-      const chatIds = await db.agentChat.findMany({
+      const chatIds = IS_DEMO ? [] : await db.agentChat.findMany({
         where: { userId },
         select: { id: true },
       });
@@ -303,8 +307,17 @@ export async function POST(
     let chatId = existingChatId;
     let isNewChat = false;
 
+    // En demo no hay dónde guardar: `db` es un Proxy que LANZA, así que esta
+    // misma línea tumbaba TODOS los mensajes del asistente en cualquier
+    // despliegue con DEMO_MODE=true y clave de IA. El chat pasa a ser efímero:
+    // el hilo vive en el navegador y viaja en `history`.
+    if (IS_DEMO) {
+      chatId = existingChatId || `demo-${Date.now()}`;
+      isNewChat = !existingChatId;
+    }
+
     try {
-      if (chatId) {
+      if (!IS_DEMO && chatId) {
         // El GET sí comprueba la propiedad del chat; el POST lo tomaba del
         // cuerpo y lo usaba tal cual. Con un chatId ajeno se leía el historial
         // de otro usuario (entra al contexto del modelo y vuelve en la
@@ -316,7 +329,7 @@ export async function POST(
           return NextResponse.json({ error: "Chat no encontrado" }, { status: 404 });
         }
       }
-      if (!chatId) {
+      if (!IS_DEMO && !chatId) {
         try {
           const chat = await db.agentChat.create({
             data: { userId, agentId, title: "Nuevo chat" },
@@ -362,7 +375,7 @@ export async function POST(
 
     // ── Save user message ───────────────────────────────────────────────────
     step = "save-user-message";
-    try {
+    if (!IS_DEMO) try {
       await db.agentMessage.create({
         data: {
           chatId: chatId!,
@@ -439,7 +452,17 @@ export async function POST(
     let totalMessageCount = 0;
     let droppedOlderCount = 0;
 
-    try {
+    if (IS_DEMO) {
+      // El hilo lo manda el cliente y por tanto NO es de fiar: se acota igual
+      // que el histórico real para que un cuerpo manipulado no cuele roles ni
+      // infle el contexto y el costo.
+      const { sanitizeDemoHistory } = await import("@/lib/demo-history");
+      recentMessages = sanitizeDemoHistory(demoHistory, message, {
+        perMessageCap: PER_MESSAGE_CAP,
+        currentAttachments: reqAttachments ?? null,
+      });
+      totalMessageCount = recentMessages.length;
+    } else try {
       totalMessageCount = await db.agentMessage.count({ where: { chatId: chatId! } });
 
       const desc = await db.agentMessage.findMany({
@@ -617,10 +640,12 @@ export async function POST(
     let title: string | undefined;
     if (isNewChat) {
       title = message.length > 60 ? message.slice(0, 60) + "..." : message;
-      try {
-        await db.agentChat.update({ where: { id: chatId! }, data: { title } });
-      } catch (err) {
-        console.error("[api/agents/chat] update title failed:", err);
+      if (!IS_DEMO) {
+        try {
+          await db.agentChat.update({ where: { id: chatId! }, data: { title } });
+        } catch (err) {
+          console.error("[api/agents/chat] update title failed:", err);
+        }
       }
     }
 
@@ -680,7 +705,7 @@ export async function POST(
               }
             }
 
-            if (fullReply) {
+            if (fullReply && !IS_DEMO) {
               try {
                 await db.agentMessage.create({
                   data: { chatId: chatId!, role: "assistant", content: fullReply },
@@ -699,7 +724,7 @@ export async function POST(
               const inTok = final.usage?.input_tokens ?? 0;
               const outTok = final.usage?.output_tokens ?? 0;
               const total = inTok + outTok;
-              if (total > 0) {
+              if (total > 0 && !IS_DEMO) {
                 // Haiku 4.5: $1/M entrada, $5/M salida.
                 const costUsd = (inTok / 1_000_000) * 1 + (outTok / 1_000_000) * 5;
                 await db.usageRecord.create({
@@ -739,10 +764,12 @@ export async function POST(
                   .slice(0, 80);
                 if (generatedTitle && generatedTitle.length >= 3) {
                   try {
-                    await db.agentChat.update({
-                      where: { id: chatId },
-                      data: { title: generatedTitle },
-                    });
+                    if (!IS_DEMO) {
+                      await db.agentChat.update({
+                        where: { id: chatId },
+                        data: { title: generatedTitle },
+                      });
+                    }
                     controller.enqueue(
                       encoder.encode(
                         `event: title_update\ndata: ${JSON.stringify({ title: generatedTitle })}\n\n`
