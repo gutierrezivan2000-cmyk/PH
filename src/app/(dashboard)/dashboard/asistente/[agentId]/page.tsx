@@ -117,6 +117,8 @@ export default function AgentPage() {
   // PDF, red caída) se tragaba en un catch vacío: el usuario pulsaba
   // «Exportar PDF» y no ocurría nada, sin descarga y sin explicación.
   const [exportError, setExportError] = useState("");
+  // Id del chat recién creado por el envío en curso (ver el efecto de carga).
+  const skipReloadForChatId = useRef<string | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [sidebarSearch, setSidebarSearch] = useState("");
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
@@ -199,6 +201,17 @@ export default function AgentPage() {
   // Load messages for active chat
   useEffect(() => {
     if (!activeChatId) { setMessages([]); return; }
+    // El chat que ACABA de crear este mismo envío no se recarga: su respuesta
+    // todavía se está escribiendo y aún no existe en la base. Recargar aquí
+    // reemplazaba el estado por lo guardado —solo el mensaje del usuario—, la
+    // burbuja del asistente desaparecía a media escritura y los deltas
+    // siguientes ya no encontraban a quién actualizar. El texto sí quedaba
+    // guardado, así que reaparecía al recargar: parecía que el agente no había
+    // contestado.
+    if (skipReloadForChatId.current === activeChatId) {
+      skipReloadForChatId.current = null;
+      return;
+    }
     setLoadingMessages(true);
     fetch(`/api/agents/${agentId}/chat?chatId=${activeChatId}`)
       .then((r) => r.json())
@@ -465,6 +478,7 @@ export default function AgentPage() {
                 const meta = JSON.parse(data);
                 newChatId = meta.chatId;
                 if (meta.chatId && !activeChatId) {
+                  skipReloadForChatId.current = meta.chatId;
                   setActiveChatId(meta.chatId);
                   setChats((prev) => [
                     {
