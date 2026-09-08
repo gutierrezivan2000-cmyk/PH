@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
+import { esAudio, limiteMbPara, MAX_AUDIO_MB, MAX_DOC_MB } from "@/lib/upload-limits";
 import { Header } from "@/components/dashboard/Header";
 import { DOC_KIND_LABELS, type DocKind } from "@/lib/generation/doc-kind";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,46 @@ import {
 // que el archivo ni llegaba a Blob y el usuario veía un fallo de subida sin
 // explicación tras esperar toda la carga.
 const DEFAULT_FILE_LIMITS = { maxFiles: 20, maxFileSizeMb: 25 };
+
+/**
+ * Tipo MIME por extensión, para cuando el navegador no lo sabe.
+ *
+ * Pasaba a menudo con las grabaciones de asamblea: muchos móviles y gestores de
+ * archivos entregan el archivo con `type` vacío, el cliente mandaba
+ * "application/octet-stream" —que la lista del servidor no admite— y la subida
+ * moría con un mensaje en inglés de la librería de almacenamiento.
+ */
+const TIPOS_POR_EXTENSION: Record<string, string> = {
+  mp3: "audio/mpeg", m4a: "audio/mp4", mp4: "audio/mp4", aac: "audio/aac",
+  wav: "audio/wav", ogg: "audio/ogg", oga: "audio/ogg", opus: "audio/ogg",
+  webm: "audio/webm", amr: "audio/amr", "3gp": "audio/3gpp", "3gpp": "audio/3gpp",
+  flac: "audio/flac", caf: "audio/x-caf", wma: "audio/x-ms-wma",
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  csv: "text/csv", txt: "text/plain",
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
+};
+
+/** Explica el tope del archivo concreto, no un número genérico. */
+function mensajeDeTamano(f: File): string {
+  const mb = (f.size / 1024 / 1024).toFixed(1);
+  const tope = limiteMbPara(f.name);
+  return esAudio(f.name)
+    ? `"${f.name}" pesa ${mb} MB y el máximo para audio es ${tope} MB. Si la grabación es más larga, súbela partida en dos archivos.`
+    : `"${f.name}" pesa ${mb} MB y el máximo para documentos es ${tope} MB.`;
+}
+
+export function tipoDeArchivo(file: { name: string; type?: string }): string {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "";
+  const porExtension = TIPOS_POR_EXTENSION[ext];
+  // La extensión manda sobre un `type` genérico: los navegadores mandan
+  // "application/octet-stream" para audios que sí sabemos identificar.
+  if (porExtension && (!file.type || file.type === "application/octet-stream")) return porExtension;
+  return file.type || porExtension || "application/octet-stream";
+}
 
 interface Property {
   id: string;
@@ -85,7 +126,6 @@ export default function GenerarPage() {
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [fileLimits, setFileLimits] = useState(DEFAULT_FILE_LIMITS);
-  const maxBytes = fileLimits.maxFileSizeMb * 1024 * 1024;
 
   useEffect(() => {
     fetch("/api/properties")
@@ -136,24 +176,24 @@ export default function GenerarPage() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!e.target.files) return;
       const newFiles = Array.from(e.target.files);
-      const oversized = newFiles.find((f) => f.size > maxBytes);
+      const oversized = newFiles.find((f) => f.size > limiteMbPara(f.name) * 1024 * 1024);
       if (oversized) {
-        setError(`"${oversized.name}" supera el limite de ${fileLimits.maxFileSizeMb} MB de tu plan.`);
+        setError(mensajeDeTamano(oversized));
         return;
       }
       setError("");
       addFiles(newFiles);
     },
-    [addFiles, maxBytes, fileLimits.maxFileSizeMb]
+    [addFiles]
   );
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOver(false);
     const droppedFiles = Array.from(e.dataTransfer.files);
-    const oversized = droppedFiles.find((f) => f.size > maxBytes);
+    const oversized = droppedFiles.find((f) => f.size > limiteMbPara(f.name) * 1024 * 1024);
     if (oversized) {
-      setError(`"${oversized.name}" supera el limite de ${fileLimits.maxFileSizeMb} MB de tu plan.`);
+      setError(mensajeDeTamano(oversized));
       return;
     }
     setError("");
@@ -199,9 +239,9 @@ export default function GenerarPage() {
       setError(`Tu plan permite hasta ${fileLimits.maxFiles} archivos por generación. Quita ${files.length - fileLimits.maxFiles}.`);
       return;
     }
-    const tooBig = files.find((f) => f.size > maxBytes);
+    const tooBig = files.find((f) => f.size > limiteMbPara(f.name) * 1024 * 1024);
     if (tooBig) {
-      setError(`"${tooBig.name}" pesa ${(tooBig.size / 1024 / 1024).toFixed(1)} MB y tu plan permite hasta ${fileLimits.maxFileSizeMb} MB por archivo.`);
+      setError(mensajeDeTamano(tooBig));
       return;
     }
 
@@ -211,13 +251,21 @@ export default function GenerarPage() {
       const blobFiles: { url: string; name: string; type: string; size: number }[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        setUploadStatus(`Subiendo archivo ${i + 1} de ${files.length}: ${file.name}`);
+        const mb = (file.size / 1024 / 1024).toFixed(0);
+        setUploadStatus(`Subiendo ${i + 1} de ${files.length}: ${file.name} (${mb} MB)`);
         const safeName = file.name.replace(/[^\w.\-]+/g, "_");
         const result = await upload(`uploads/${Date.now()}-${safeName}`, file, {
           access: "private",
           handleUploadUrl: "/api/upload/token",
-          contentType: file.type || "application/octet-stream",
+          contentType: tipoDeArchivo(file),
           multipart: file.size > 10 * 1024 * 1024,
+          // Sin esto, subir una grabación de 200 MB son varios minutos de
+          // pantalla quieta y el usuario no sabe si va o se colgó.
+          onUploadProgress: ({ percentage }) => {
+            setUploadStatus(
+              `Subiendo ${i + 1} de ${files.length}: ${file.name} (${mb} MB) — ${Math.round(percentage)}%`
+            );
+          },
         });
         blobFiles.push({
           url: result.url,
@@ -268,12 +316,28 @@ export default function GenerarPage() {
       router.push(`/dashboard/generar/${data.id}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      // Los errores del almacenamiento vienen en inglés y sin contexto («Vercel
+      // Blob: Content type mismatch…»). Se traducen a algo accionable, que era
+      // buena parte de lo que los usuarios reportaban como «error al subir».
       if (/No autorizado/i.test(msg)) {
         setError("Sesion expirada. Recarga la pagina e inicia sesion de nuevo.");
       } else if (/aborted/i.test(msg)) {
         setError("La subida fue cancelada. Intenta de nuevo.");
+      } else if (/content type|not allowed|mismatch/i.test(msg)) {
+        setError(
+          "Uno de los archivos tiene un formato que no reconocemos. Convierte la grabación a MP3 o M4A " +
+            "y vuelve a intentarlo."
+        );
+      } else if (/too large|maximum size|exceeded/i.test(msg)) {
+        setError(
+          `Un archivo supera el tamaño permitido (${MAX_AUDIO_MB} MB para audio, ${MAX_DOC_MB} MB para documentos).`
+        );
+      } else if (/token|expired|unauthorized|403/i.test(msg)) {
+        setError("El permiso de subida caducó, seguramente por una conexión lenta. Vuelve a intentarlo.");
+      } else if (/network|fetch|failed to fetch|econn/i.test(msg)) {
+        setError("Se perdió la conexión durante la subida. Revisa tu internet e inténtalo de nuevo.");
       } else {
-        setError(`Error al subir archivos: ${msg}`);
+        setError(`No se pudo subir el archivo: ${msg}`);
       }
     } finally {
       setLoading(false);
@@ -741,7 +805,7 @@ export default function GenerarPage() {
                 style={{ borderTop: "1px solid rgb(var(--accent-rgb) / 0.15)" }}
               >
                 <p className="text-xs italic" style={{ color: "var(--ink-3)" }}>
-                  {`Tambien puedes subir: PDFs, documentos Word, archivos de texto, hojas de calculo, imagenes y audios de hasta ${fileLimits.maxFileSizeMb} MB.`}
+                  {`Tambien puedes subir: PDFs, documentos Word, archivos de texto, hojas de calculo e imagenes de hasta ${MAX_DOC_MB} MB, y grabaciones de audio de hasta ${MAX_AUDIO_MB} MB.`}
                 </p>
               </div>
             </div>
@@ -775,14 +839,14 @@ export default function GenerarPage() {
                   Arrastra archivos o haz clic para seleccionar
                 </span>
                 <span className="text-xs mt-1" style={{ color: "var(--ink-3)" }}>
-                  {`PDF, Word, Excel, imagenes, audio — hasta ${fileLimits.maxFiles} archivos de ${fileLimits.maxFileSizeMb} MB`}
+                  {`PDF, Word, Excel, imagenes — hasta ${fileLimits.maxFiles} archivos · audio hasta ${MAX_AUDIO_MB} MB`}
                 </span>
                 <input
                   type="file"
                   multiple
                   onChange={handleFileChange}
                   className="hidden"
-                  accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.m4a,.webm"
+                  accept=".pdf,.doc,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.oga,.opus,.m4a,.mp4,.aac,.webm,.amr,.3gp,.flac"
                 />
               </label>
             </div>
