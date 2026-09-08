@@ -65,6 +65,23 @@ export function calcMrr(planId?: string | null, addonAgents?: string[] | null): 
 
 // ── Subscription access (trial + paid gating) ────────────────────────────────
 
+/**
+ * FASE DE PRUEBAS ABIERTA.
+ *
+ * Mientras está activa NO hay periodo de prueba ni bloqueo por suscripción:
+ * cualquier usuario tiene las funciones del plan Pro, sin cuenta atrás ni
+ * avisos de vencimiento. Es una sola puerta a propósito — el gating estaba
+ * repartido por una docena de rutas, y apagarlo sitio por sitio dejaría alguna
+ * encendida.
+ *
+ * Para volver a cobrar basta con `OPEN_TESTING="false"` en el entorno: la
+ * lógica de suscripción sigue intacta debajo y vuelve a mandar sola.
+ */
+export const OPEN_TESTING = process.env.OPEN_TESTING !== "false";
+
+/** Plan cuyas funciones y topes recibe todo el mundo durante las pruebas. */
+export const TESTING_PLAN_ID = "pro";
+
 export const TRIAL_DAYS = 7;
 
 // Days of continued access AFTER a paid period ends, before we hard-block. The
@@ -75,7 +92,7 @@ export const GRACE_DAYS = 7;
 
 export interface AccessCheck {
   allowed: boolean;
-  /** Machine-readable: "active" | "grace" | "expired" | "trialing" | "trial_expired" | "past_due" | "canceled" | "inactive" | "none" */
+  /** Machine-readable: "testing" | "active" | "grace" | "expired" | "trialing" | "trial_expired" | "past_due" | "canceled" | "inactive" | "none" */
   status: string;
   /** Human-readable Spanish reason when blocked or in grace. */
   reason?: string;

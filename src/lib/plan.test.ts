@@ -125,3 +125,32 @@ describe("agent access", () => {
     expect(list).not.toContain("hermes");
   });
 });
+
+describe("fase de pruebas abierta", () => {
+  it("está activa por defecto y se apaga con OPEN_TESTING=false", async () => {
+    // El interruptor se lee del entorno al importar el módulo, así que se
+    // comprueba el valor efectivo y la regla que lo decide.
+    const { OPEN_TESTING, TESTING_PLAN_ID } = await import("./plan");
+    expect(OPEN_TESTING).toBe(process.env.OPEN_TESTING !== "false");
+    expect(TESTING_PLAN_ID).toBe("pro");
+  });
+
+  it("el plan de pruebas resuelve a Pro, no a un plan inventado", async () => {
+    const { TESTING_PLAN_ID, normalizePlanId } = await import("./plan");
+    expect(normalizePlanId(TESTING_PLAN_ID)).toBe("pro");
+  });
+
+  it("la lógica de suscripción sigue intacta debajo, para cuando se apague", () => {
+    // Apagar la fase no debe haber roto el gating de pago: una suscripción
+    // vencida hace mucho sigue bloqueando.
+    const hace60dias = new Date(Date.now() - 60 * 86400000);
+    const r = hasActiveAccess({ status: "active", currentPeriodEnd: hace60dias });
+    expect(r.allowed).toBe(false);
+    expect(r.status).toBe("expired");
+  });
+
+  it("los agentes de pago siguen siendo de pago (la fase abre Pro, no Élite)", () => {
+    expect(canAccessAgent("themis", null)).toBe(true);
+    expect(canAccessAgent("metra", { addonAgents: ["metra"] })).toBe(false);
+  });
+});

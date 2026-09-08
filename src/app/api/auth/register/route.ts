@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { TRIAL_DAYS } from "@/lib/plan";
+import { TRIAL_DAYS, OPEN_TESTING } from "@/lib/plan";
 
 export async function POST(req: NextRequest) {
   try {
@@ -83,10 +83,12 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      // Fase de pruebas: no se crea suscripción de prueba. Esa fila vencería a
+      // los 7 días y bloquearía al usuario en cuanto la fase termine.
       // Start the advertised 7-day free trial (Pro limits, no card).
       try {
         const now = new Date();
-        await db.subscription.create({
+        if (!OPEN_TESTING) await db.subscription.create({
           data: {
             userId: created.id,
             status: "trialing",

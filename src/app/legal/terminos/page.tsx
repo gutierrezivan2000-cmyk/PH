@@ -87,9 +87,10 @@ export default function TerminosPage() {
           salvo cancelación previa por parte del usuario.
         </p>
         <p>
-          Los nuevos usuarios cuentan con una prueba gratuita de 7 días.
-          Vencida la prueba sin cancelación, se efectuará el primer cobro del
-          plan seleccionado. La cancelación surte efectos al término del
+          Durante la fase de pruebas de la plataforma, el acceso a las
+          funciones del plan Pro es gratuito y no se efectúa ningún cobro ni se
+          solicita medio de pago. SOPH.IA informará a los usuarios antes de
+          iniciar el cobro de suscripciones. La cancelación surte efectos al término del
           periodo en curso: no se realizan reembolsos parciales por
           fracciones del periodo ya facturado.
         </p>
