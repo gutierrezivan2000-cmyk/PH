@@ -3,34 +3,11 @@ export const runtime = "nodejs";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { ALLOWED_CONTENT_TYPES, limiteBytesPara, limiteMbPara } from "@/lib/upload-limits";
 
-const ALLOWED_CONTENT_TYPES = [
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/msword", // legacy .doc (Word 97-2003) — the UI offers it
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-excel",
-  "text/plain",
-  "text/csv",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "audio/mpeg",
-  "audio/mp3",
-  "audio/mp4",
-  "audio/wav",
-  "audio/x-wav",
-  "audio/ogg",
-  "audio/webm",
-  "audio/x-m4a",
-  "audio/m4a",
-  "audio/aac",
-];
-
-// Matches the plan limit (maxFileSizeMb / transcriptionMaxFileMb = 25). The old
-// 500 MB cap let any user drive unbounded Blob storage + Whisper cost.
-const MAX_FILE_SIZE = 25 * 1024 * 1024;
-
+// La lista de tipos y los topes viven en @/lib/upload-limits, compartidos con
+// la pantalla de generación: cuando estaban duplicados, la pantalla dejaba
+// soltar audios de móvil que este lado rechazaba.
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const body = (await req.json()) as HandleUploadBody;
 
@@ -43,10 +20,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         if (!session?.user?.id) {
           throw new Error("No autorizado");
         }
+        // Tope POR TIPO: una grabación de asamblea necesita mucho más que un
+        // PDF, y un único número para todo dejaba fuera el insumo del acta.
+        const maximumSizeInBytes = limiteBytesPara(pathname);
+        console.log(`[upload/token] ${pathname} — tope ${limiteMbPara(pathname)} MB`);
         return {
           allowedContentTypes: ALLOWED_CONTENT_TYPES,
           addRandomSuffix: true,
-          maximumSizeInBytes: MAX_FILE_SIZE,
+          maximumSizeInBytes,
+          // Seis horas en vez de la hora por defecto: una grabación de 200 MB
+          // por una conexión lenta puede tardar más de una hora, y el token
+          // caducaba justo al final, después de haber subido todo.
+          validUntil: Date.now() + 6 * 60 * 60 * 1000,
           tokenPayload: JSON.stringify({ userId: session.user.id, pathname }),
         };
       },

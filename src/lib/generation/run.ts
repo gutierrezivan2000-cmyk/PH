@@ -112,6 +112,38 @@ export async function runGeneration(p: RunGenerationParams): Promise<void> {
     ];
     const period = `${monthNames[p.month - 1]} ${p.year}`;
 
+    // ── No se redacta sobre la nada ─────────────────────────────────────
+    // Cuando un archivo no se puede leer (una transcripción que falla, un PDF
+    // escaneado, un blob ilegible) los parsers devuelven un MARCADOR de error
+    // como si fuera contenido. Eso entraba al prompt tal cual y el modelo
+    // redactaba igual: salía un acta completa —con asistentes, quórum y
+    // decisiones inventados— marcada como «completada» y lista para descargar.
+    // Un acta es un documento legal: es preferible fallar y decirlo.
+    const MARCADOR_FALLO = /—\s*(no se pudo procesar|Error al procesar)/i;
+    const ilegibles = fileContents.filter((f) => MARCADOR_FALLO.test(f.text)).map((f) => f.name);
+    const utiles = fileContents.filter(
+      (f) => !MARCADOR_FALLO.test(f.text) && f.text.replace(/\[[^\]]*\]/g, "").trim().length > 40
+    );
+    const textoDelAdmin = (p.additionalText || "").trim();
+
+    if (p.blobFiles.length > 0 && utiles.length === 0 && textoDelAdmin.length < 80) {
+      throw new Error(
+        `No se pudo leer ninguno de los archivos subidos (${ilegibles.join(", ")}). ` +
+          `No se generó el documento para no redactarlo sin información. ` +
+          `Revisa que el audio no esté dañado o sube la transcripción como archivo de texto.`
+      );
+    }
+
+    // Un ACTA se redacta desde lo que ocurrió en la reunión. Si la grabación no
+    // se pudo transcribir y el administrador no escribió lo sucedido, no hay
+    // acta que redactar: solo quedaría inventarla.
+    if (p.includeActa && transcriptionParts.length === 0 && ilegibles.length > 0 && textoDelAdmin.length < 200) {
+      throw new Error(
+        `La grabación no se pudo transcribir (${ilegibles.join(", ")}), así que no hay de dónde ` +
+          `redactar el acta. Vuelve a subir el audio, o pega lo ocurrido en «Información adicional».`
+      );
+    }
+
     await updateProgress(10);
 
     const { generateWithAssistant } = await import("@/lib/ai-client");

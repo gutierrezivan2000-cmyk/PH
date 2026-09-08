@@ -6,7 +6,11 @@ export type FileType = "audio" | "spreadsheet" | "pdf" | "docx" | "image" | "tex
 export function detectFileType(filename: string, mimeType: string): FileType {
   const ext = filename.split(".").pop()?.toLowerCase();
 
-  if (mimeType.startsWith("audio/") || ["mp3", "wav", "ogg", "m4a", "webm"].includes(ext ?? "")) {
+  // La lista por extensión importa cuando el MIME llega vacío o genérico, que
+  // es lo habitual con las grabadoras de móvil.
+  const EXT_AUDIO = ["mp3", "wav", "ogg", "oga", "opus", "m4a", "mp4", "aac",
+                     "webm", "amr", "3gp", "3gpp", "flac", "caf", "wma"];
+  if (mimeType.startsWith("audio/") || EXT_AUDIO.includes(ext ?? "")) {
     return "audio";
   }
   if (["xlsx", "xls", "csv"].includes(ext ?? "") || mimeType.includes("spreadsheet")) {

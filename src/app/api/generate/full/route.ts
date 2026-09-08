@@ -344,11 +344,20 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
         { status: 400 }
       );
     }
-    const oversized = blobFiles.find((f) => f.size > fileLimits.maxFileSizeMb * 1024 * 1024);
+    // El tope depende del TIPO: una grabación de asamblea necesita mucho más
+    // que un PDF. Se comparte con el token de subida y con la pantalla, para
+    // que los tres digan lo mismo.
+    const { limiteBytesPara, limiteMbPara, esAudio } = await import("@/lib/upload-limits");
+    const oversized = blobFiles.find((f) => f.size > limiteBytesPara(f.name));
     if (oversized) {
       await discardBlobs();
+      const tope = limiteMbPara(oversized.name);
       return NextResponse.json(
-        { error: `El archivo "${oversized.name}" supera el límite de ${fileLimits.maxFileSizeMb} MB de tu plan.` },
+        {
+          error: esAudio(oversized.name)
+            ? `La grabación "${oversized.name}" supera el límite de ${tope} MB. Súbela partida en dos archivos.`
+            : `El archivo "${oversized.name}" supera el límite de ${tope} MB.`,
+        },
         { status: 400 }
       );
     }
