@@ -138,7 +138,7 @@ export async function sendPortalLinkEmails(params: {
   replyTo?: string;
   logoUrl?: string | null;
   brandColor?: string | null;
-}): Promise<{ sent: number; failed: number }> {
+}): Promise<{ sent: number; failed: number; failedUnits: string[] }> {
   const resend = getResend();
   const accent =
     params.brandColor && /^#[0-9a-fA-F]{6}$/.test(params.brandColor) ? params.brandColor : "#7c3aed";
@@ -148,6 +148,11 @@ export async function sendPortalLinkEmails(params: {
 
   let sent = 0;
   let failed = 0;
+  // Qué unidades quedaron sin enviar. Sin esto el administrador solo veía un
+  // número y no tenía forma de saber a quién reenviar: la única salida era
+  // repetir el envío masivo, duplicando el correo a los que sí lo recibieron
+  // y volviendo a descontar cuota.
+  const failedUnits: string[] = [];
   const CHUNK = 100;
   for (let i = 0; i < params.recipients.length; i += CHUNK) {
     const chunk = params.recipients.slice(i, i + CHUNK);
@@ -166,7 +171,7 @@ export async function sendPortalLinkEmails(params: {
     <div style="padding:28px 24px;">
       <h2 style="color:#1f2937;font-size:18px;margin:0 0 8px;">Portal de tu unidad (${escapeHtml(rcpt.unitLabel)})</h2>
       <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 20px;">
-        Consulta tu estado de cuenta, los comunicados y los documentos de la copropiedad desde este enlace personal. No necesitas usuario ni contraseña.
+        Consulta los comunicados y los documentos de la copropiedad, y resuelve dudas del reglamento, desde este enlace personal. No necesitas usuario ni contraseña.
       </p>
       <div style="text-align:center;margin:0 0 20px;">
         <a href="${rcpt.url}" style="display:inline-block;background:${accent};color:#fff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;">Abrir mi portal</a>
@@ -184,15 +189,17 @@ export async function sendPortalLinkEmails(params: {
       if (res.error) {
         console.error("[email] portal batch error:", res.error);
         failed += chunk.length;
+        failedUnits.push(...chunk.map((c) => c.unitLabel));
       } else {
         sent += chunk.length;
       }
     } catch (e) {
       console.error("[email] portal send failed:", e);
       failed += chunk.length;
+      failedUnits.push(...chunk.map((c) => c.unitLabel));
     }
   }
-  return { sent, failed };
+  return { sent, failed, failedUnits };
 }
 
 export interface AnnouncementEmailParams {

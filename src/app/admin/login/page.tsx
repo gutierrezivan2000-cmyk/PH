@@ -51,20 +51,20 @@ export default function AdminLoginPage() {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center px-4"
-      style={{ background: "#0a0a0a" }}
+      style={{ background: "var(--surface-0)" }}
     >
       {/* Background orb */}
       <div
         className="fixed top-1/4 left-1/4 w-[400px] h-[400px] rounded-full pointer-events-none hifi-orb-drift"
         style={{
-          background: "rgba(124,92,255,0.15)",
+          background: "rgb(var(--accent-rgb) / 0.15)",
           filter: "blur(80px)",
         }}
       />
       <div
         className="fixed bottom-1/4 right-1/4 w-[300px] h-[300px] rounded-full pointer-events-none hifi-orb-drift"
         style={{
-          background: "rgba(124,92,255,0.10)",
+          background: "rgb(var(--accent-rgb) / 0.1)",
           filter: "blur(60px)",
           animationDelay: "4s",
         }}
@@ -76,8 +76,8 @@ export default function AdminLoginPage() {
           <div
             className="h-14 w-14 rounded-2xl flex items-center justify-center text-xl font-bold text-white mb-4"
             style={{
-              background: "linear-gradient(135deg, #7c5cff, #5a3cf0)",
-              boxShadow: "0 0 40px rgba(124,92,255,0.40)",
+              background: "linear-gradient(135deg, var(--accent), var(--accent-lo))",
+              boxShadow: "0 0 40px rgb(var(--accent-rgb) / 0.4)",
             }}
           >
             S
@@ -98,12 +98,12 @@ export default function AdminLoginPage() {
           className="rounded-2xl border p-7"
           style={{
             background:
-              "radial-gradient(120% 100% at 0% 0%, rgba(124,92,255,0.10), transparent 70%), #15151a",
-            borderColor: "rgba(255,255,255,0.08)",
+              "radial-gradient(120% 100% at 0% 0%, rgb(var(--accent-rgb) / 0.1), transparent 70%), var(--surface-2)",
+            borderColor: "rgb(var(--veil-rgb) / 0.08)",
           }}
         >
           <div className="flex items-center gap-2 mb-5">
-            <Lock className="h-4 w-4" style={{ color: "#9a7fff" }} />
+            <Lock className="h-4 w-4" style={{ color: "var(--accent-text)" }} />
             <span
               className="text-[10px] uppercase text-muted-foreground/70"
               style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.16em" }}
@@ -116,9 +116,9 @@ export default function AdminLoginPage() {
             <div
               className="flex items-start gap-2 px-3 py-2.5 rounded-lg mb-4 text-[12.5px]"
               style={{
-                background: "rgba(255,111,111,0.10)",
-                border: "1px solid rgba(255,111,111,0.30)",
-                color: "#ff8585",
+                background: "rgb(var(--danger-rgb) / 0.1)",
+                border: "1px solid rgb(var(--danger-rgb) / 0.3)",
+                color: "var(--danger-text)",
               }}
             >
               <AlertCircle className="h-4 w-4 flex-shrink-0 mt-px" />
@@ -131,7 +131,7 @@ export default function AdminLoginPage() {
             type="button"
             onClick={() => signIn("google", { callbackUrl: "/admin" })}
             className="w-full inline-flex items-center justify-center gap-3 rounded-full border text-[13px] font-medium py-3 transition-all hover:bg-secondary"
-            style={{ borderColor: "rgba(255,255,255,0.14)", color: "#f6f5f7" }}
+            style={{ borderColor: "rgb(var(--veil-rgb) / 0.14)", color: "var(--ink)" }}
           >
             <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
@@ -143,14 +143,14 @@ export default function AdminLoginPage() {
           </button>
 
           <div className="flex items-center gap-3 my-5">
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+            <div style={{ flex: 1, height: 1, background: "rgb(var(--veil-rgb) / 0.08)" }} />
             <span
               className="text-[10px] uppercase text-muted-foreground/50"
               style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.16em" }}
             >
               o con email
             </span>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+            <div style={{ flex: 1, height: 1, background: "rgb(var(--veil-rgb) / 0.08)" }} />
           </div>
 
           <form onSubmit={submit} className="space-y-4">
@@ -160,7 +160,7 @@ export default function AdminLoginPage() {
                 style={{
                   fontFamily: "var(--font-mono)",
                   letterSpacing: "0.16em",
-                  color: "rgba(255,255,255,0.50)",
+                  color: "var(--ink-3)",
                 }}
               >
                 Email
@@ -175,8 +175,8 @@ export default function AdminLoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   autoFocus
-                  className="w-full pl-9 pr-3 py-2.5 rounded-lg border bg-secondary text-[13px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-[#7c5cff] focus:ring-[3px] focus:ring-[rgba(124,92,255,0.15)] transition-all"
-                  style={{ borderColor: "rgba(255,255,255,0.10)" }}
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg border bg-secondary text-[13px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-[var(--accent)] focus:ring-[3px] focus:ring-[rgb(var(--accent-rgb) / 0.15)] transition-all"
+                  style={{ borderColor: "rgb(var(--veil-rgb) / 0.1)" }}
                   placeholder="admin@sophia.app"
                 />
               </div>
@@ -188,7 +188,7 @@ export default function AdminLoginPage() {
                 style={{
                   fontFamily: "var(--font-mono)",
                   letterSpacing: "0.16em",
-                  color: "rgba(255,255,255,0.50)",
+                  color: "var(--ink-3)",
                 }}
               >
                 Contraseña
@@ -202,8 +202,8 @@ export default function AdminLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full pl-9 pr-3 py-2.5 rounded-lg border bg-secondary text-[13px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-[#7c5cff] focus:ring-[3px] focus:ring-[rgba(124,92,255,0.15)] transition-all"
-                  style={{ borderColor: "rgba(255,255,255,0.10)" }}
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg border bg-secondary text-[13px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-[var(--accent)] focus:ring-[3px] focus:ring-[rgb(var(--accent-rgb) / 0.15)] transition-all"
+                  style={{ borderColor: "rgb(var(--veil-rgb) / 0.1)" }}
                   placeholder="••••••••"
                 />
               </div>
@@ -214,8 +214,8 @@ export default function AdminLoginPage() {
               disabled={loading}
               className="w-full inline-flex items-center justify-center gap-2 rounded-full text-white text-[13px] font-medium py-3 transition-all disabled:opacity-50"
               style={{
-                background: "#7c5cff",
-                boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)",
+                background: "var(--accent)",
+                boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)",
               }}
             >
               {loading ? (

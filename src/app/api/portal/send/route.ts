@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       .map((u) => ({ email: u.email!, url: `${origin}/u/${u.portalToken}`, unitLabel: u.label }));
 
     const { sendPortalLinkEmails } = await import("@/lib/email");
-    const { sent, failed } = await sendPortalLinkEmails({
+    const { sent, failed, failedUnits } = await sendPortalLinkEmails({
       recipients,
       propertyName: property.name,
       senderName: admin?.company || admin?.name || "Administración",
@@ -99,7 +99,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No se pudo enviar el enlace. Intenta de nuevo." }, { status: 502 });
     }
     await recordEmailsSent(userId, sent);
-    return NextResponse.json({ ok: true, sent, failed });
+    // ok:false cuando hubo fallos parciales — antes siempre iba true y la UI
+    // pintaba el mensaje verde de éxito aunque no hubiera salido ningún correo.
+    return NextResponse.json({ ok: failed === 0, sent, failed, failedUnits });
   } catch (error) {
     console.error("[portal send]", error);
     return NextResponse.json({ error: "Error al enviar los enlaces" }, { status: 500 });

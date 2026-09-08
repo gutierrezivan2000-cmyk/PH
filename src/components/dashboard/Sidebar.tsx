@@ -26,9 +26,19 @@ import {
   Users,
   MessageSquare,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { signOut } from "next-auth/react";
+import { COMING_SOON, type ComingSoonKey } from "@/lib/feature-flags";
 
-type NavEntry = { name: string; href: string; icon: typeof Home; n: string; badge?: string };
+type NavEntry = {
+  name: string;
+  href: string;
+  icon: typeof Home;
+  n: string;
+  badge?: string;
+  /** Si la función está en COMING_SOON, el ítem muestra la insignia "Pronto". */
+  comingSoon?: ComingSoonKey;
+};
 type NavGroup = { label: string; items: NavEntry[] };
 
 // Grouped navigation: 15 flat entries were hard to scan. Sections mirror how
@@ -39,25 +49,25 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { name: "Inicio", href: "/dashboard", icon: Home, n: "01" },
       { name: "Generar", href: "/dashboard/generar", icon: FilePlus2, n: "02" },
-      { name: "Calendario", href: "/dashboard/calendario", icon: CalendarClock, n: "03" },
+      { name: "Bitácora", href: "/dashboard/calendario", icon: CalendarClock, n: "03" },
       { name: "Asistente IA", href: "/dashboard/asistente", icon: Sparkles, n: "04", badge: "6" },
     ],
   },
   {
     label: "Finanzas",
     items: [
-      { name: "Cartera", href: "/dashboard/cartera", icon: Wallet, n: "05" },
-      { name: "Presupuesto", href: "/dashboard/presupuesto", icon: PieChart, n: "06" },
+      { name: "Cartera", href: "/dashboard/cartera", icon: Wallet, n: "05", comingSoon: "cartera" },
+      { name: "Presupuesto", href: "/dashboard/presupuesto", icon: PieChart, n: "06", comingSoon: "presupuesto" },
     ],
   },
   {
     label: "Comunidad",
     items: [
       { name: "Residentes", href: "/dashboard/residentes", icon: Users, n: "07" },
-      { name: "PQRS", href: "/dashboard/pqrs", icon: MessageSquare, n: "08" },
-      { name: "Comunicados", href: "/dashboard/comunicados", icon: Send, n: "09" },
-      { name: "Asambleas", href: "/dashboard/asambleas", icon: Gavel, n: "10" },
-      { name: "Certificados", href: "/dashboard/certificados", icon: BadgeCheck, n: "11" },
+      { name: "PQRS", href: "/dashboard/pqrs", icon: MessageSquare, n: "08", comingSoon: "pqrs" },
+      { name: "Comunicados", href: "/dashboard/comunicados", icon: Send, n: "09", comingSoon: "comunicados" },
+      { name: "Asambleas", href: "/dashboard/asambleas", icon: Gavel, n: "10", comingSoon: "asambleas" },
+      { name: "Certificados", href: "/dashboard/certificados", icon: BadgeCheck, n: "11", comingSoon: "certificados" },
     ],
   },
   {
@@ -93,8 +103,8 @@ function BrandMark({ collapsed = false }: { collapsed?: boolean }) {
       <div
         className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white flex-shrink-0"
         style={{
-          background: "linear-gradient(135deg, #7c5cff, #5a3cf0)",
-          boxShadow: "0 0 18px rgba(124,92,255,0.30)",
+          background: "linear-gradient(135deg, var(--accent), var(--accent-lo))",
+          boxShadow: "0 0 18px rgb(var(--accent-rgb) / 0.3)",
         }}
       >
         S
@@ -102,7 +112,7 @@ function BrandMark({ collapsed = false }: { collapsed?: boolean }) {
       {!collapsed && (
         <span className="text-[15px] font-bold tracking-tight text-foreground">
           SOPH<span className="text-muted-foreground/60 font-normal">.</span>
-          <span style={{ color: "#7c5cff" }}>IA</span>
+          <span style={{ color: "var(--accent-text)" }}>IA</span>
         </span>
       )}
     </div>
@@ -154,10 +164,10 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
           isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
         )}
         style={{
-          background: isActive ? "rgba(124,92,255,0.10)" : undefined,
+          background: isActive ? "rgb(var(--accent-rgb) / 0.1)" : undefined,
         }}
         onMouseEnter={(e) => {
-          if (!isActive) e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+          if (!isActive) e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.04)";
         }}
         onMouseLeave={(e) => {
           if (!isActive) e.currentTarget.style.background = "";
@@ -167,25 +177,41 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
           className={cn(
             "h-[16px] w-[16px] flex-shrink-0 transition-all duration-200",
             isActive
-              ? "text-[#9a7fff] scale-105"
+              ? "text-[var(--accent-hi)] scale-105"
               : "text-muted-foreground/70 group-hover/item:text-foreground group-hover/item:scale-105"
           )}
         />
         {showLabel && (
           <>
             <span className="flex-1 truncate text-[13px] font-medium">{item.name}</span>
-            {item.badge && (
+            {item.comingSoon && COMING_SOON[item.comingSoon] ? (
               <span
-                className="text-[9.5px] px-1.5 py-0.5 rounded-md transition-colors"
+                className="text-[9px] px-1.5 py-0.5 rounded-md"
                 style={{
                   fontFamily: "var(--hifi-mono)",
                   letterSpacing: "0.06em",
-                  background: isActive ? "rgba(124,92,255,0.16)" : "rgba(255,255,255,0.05)",
-                  color: isActive ? "#9a7fff" : "var(--hifi-ink-faint)",
+                  textTransform: "uppercase",
+                  background: "rgb(var(--veil-rgb) / 0.04)",
+                  color: "var(--hifi-ink-faint)",
+                  border: "1px solid var(--hifi-hairline)",
                 }}
               >
-                {item.badge}
+                Pronto
               </span>
+            ) : (
+              item.badge && (
+                <span
+                  className="text-[9.5px] px-1.5 py-0.5 rounded-md transition-colors"
+                  style={{
+                    fontFamily: "var(--hifi-mono)",
+                    letterSpacing: "0.06em",
+                    background: isActive ? "rgb(var(--accent-rgb) / 0.16)" : "rgb(var(--veil-rgb) / 0.05)",
+                    color: isActive ? "var(--accent-text)" : "var(--hifi-ink-faint)",
+                  }}
+                >
+                  {item.badge}
+                </span>
+              )
             )}
           </>
         )}
@@ -203,7 +229,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
               fontFamily: "var(--hifi-mono)",
               letterSpacing: "0.18em",
               textTransform: "uppercase",
-              color: "rgba(246,245,247,0.28)",
+              color: "var(--ink-4)",
             }}
           >
             {group.label}
@@ -241,7 +267,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
         {/* Collapse toggle */}
         <button
           onClick={onToggleCollapse}
-          className="absolute -right-3 top-[56px] w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center opacity-0 group-hover/sidebar:opacity-100 transition-all duration-200 hover:border-[#7c5cff]/40 z-10"
+          className="absolute -right-3 top-[56px] w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center opacity-0 group-hover/sidebar:opacity-100 transition-all duration-200 hover:border-[var(--accent)]/40 z-10"
         >
           {collapsed ? (
             <ChevronsRight className="h-3 w-3 text-muted-foreground" />
@@ -261,7 +287,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
             onClick={() => signOut({ callbackUrl: "/" })}
             title={collapsed ? "Cerrar sesión" : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-[#ff6f6f] hover:bg-[#ff6f6f]/10 w-full transition-all duration-200",
+              "flex items-center gap-3 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 w-full transition-all duration-200",
               collapsed ? "px-3 py-3 justify-center" : "px-3 py-2.5"
             )}
           >
@@ -292,9 +318,15 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
         <nav className="ui-scroll flex-1 px-3 py-4 overflow-y-auto">{renderGroups(true)}</nav>
 
         <div className="px-3 py-3 border-t border-border flex-shrink-0">
+          {/* En móvil el control de la cabecera está oculto: este es el único
+              sitio desde el que se puede cambiar el tema. */}
+          <div className="flex items-center justify-between gap-2 px-3 pb-3">
+            <span className="text-[12px] text-muted-foreground">Tema</span>
+            <ThemeToggle />
+          </div>
           <button
             onClick={() => signOut({ callbackUrl: "/" })}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-[#ff6f6f] hover:bg-[#ff6f6f]/10 w-full transition-all duration-200"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 w-full transition-all duration-200"
           >
             <LogOut className="h-[16px] w-[16px]" />
             Cerrar sesión

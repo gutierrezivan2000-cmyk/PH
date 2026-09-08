@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center px-4"
-      style={{ background: "#0a0a0a" }}
+      style={{ background: "var(--surface-0)" }}
     >
       <div
         className="hifi-orb-drift pointer-events-none fixed"
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
           top: "10%",
           left: "15%",
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(124,92,255,0.14) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgb(var(--accent-rgb) / 0.14) 0%, transparent 70%)",
           filter: "blur(50px)",
         }}
       />
@@ -58,8 +58,8 @@ export default function ForgotPasswordPage() {
             style={{
               width: 48,
               height: 48,
-              background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
-              boxShadow: "0 0 32px rgba(124,92,255,0.35)",
+              background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
+              boxShadow: "0 0 32px rgb(var(--accent-rgb) / 0.35)",
             }}
           >
             <KeyRound className="h-5 w-5 text-white" />
@@ -70,7 +70,7 @@ export default function ForgotPasswordPage() {
               fontSize: 10,
               letterSpacing: "0.16em",
               textTransform: "uppercase",
-              color: "rgba(246,245,247,0.42)",
+              color: "var(--ink-3)",
             }}
           >
             Recuperar acceso
@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
               fontWeight: 500,
               fontSize: 26,
               letterSpacing: "-0.025em",
-              color: "#f6f5f7",
+              color: "var(--ink)",
             }}
           >
             ¿Olvidaste tu contraseña?
@@ -91,27 +91,27 @@ export default function ForgotPasswordPage() {
 
         <div
           className="rounded-2xl p-6"
-          style={{ background: "#15151a", border: "1px solid rgba(255,255,255,0.07)" }}
+          style={{ background: "var(--surface-2)", border: "1px solid rgb(var(--veil-rgb) / 0.07)" }}
         >
           {sent ? (
             <div className="text-center space-y-4 py-2">
               <div
                 className="w-12 h-12 rounded-full flex items-center justify-center mx-auto"
-                style={{ background: "rgba(76,214,160,0.12)" }}
+                style={{ background: "rgb(var(--ok-rgb) / 0.12)" }}
               >
-                <CheckCircle2 className="h-6 w-6" style={{ color: "#4cd6a0" }} />
+                <CheckCircle2 className="h-6 w-6" style={{ color: "var(--ok-text)" }} />
               </div>
-              <p style={{ fontSize: 14, color: "#f6f5f7", fontWeight: 500 }}>
+              <p style={{ fontSize: 14, color: "var(--ink)", fontWeight: 500 }}>
                 Revisa tu correo
               </p>
-              <p style={{ fontSize: 13, color: "rgba(246,245,247,0.55)", lineHeight: 1.6 }}>
-                Si existe una cuenta con <span style={{ color: "#9a7fff" }}>{email}</span>,
+              <p style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.6 }}>
+                Si existe una cuenta con <span style={{ color: "var(--accent-text)" }}>{email}</span>,
                 enviamos un enlace para crear una nueva contraseña. El enlace expira en 30 minutos.
               </p>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
-              <p style={{ fontSize: 13, color: "rgba(246,245,247,0.55)", lineHeight: 1.6 }}>
+              <p style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.6 }}>
                 Escribe el correo de tu cuenta y te enviaremos un enlace para restablecerla.
               </p>
 
@@ -119,18 +119,18 @@ export default function ForgotPasswordPage() {
                 <div
                   className="rounded-xl px-4 py-3"
                   style={{
-                    background: "rgba(255,111,111,0.10)",
-                    border: "1px solid rgba(255,111,111,0.25)",
+                    background: "rgb(var(--danger-rgb) / 0.1)",
+                    border: "1px solid rgb(var(--danger-rgb) / 0.25)",
                   }}
                 >
-                  <p style={{ fontSize: 13, color: "#ff6f6f" }}>{error}</p>
+                  <p style={{ fontSize: 13, color: "var(--danger-text)" }}>{error}</p>
                 </div>
               )}
 
               <div className="relative">
                 <Mail
                   className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
-                  style={{ color: "rgba(246,245,247,0.3)" }}
+                  style={{ color: "var(--ink-4)" }}
                 />
                 <input
                   type="email"
@@ -141,16 +141,16 @@ export default function ForgotPasswordPage() {
                   autoFocus
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm transition-all duration-200 focus:outline-none"
                   style={{
-                    background: "#1d1d24",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                    color: "#f6f5f7",
+                    background: "var(--surface-3)",
+                    border: "1px solid rgb(var(--veil-rgb) / 0.07)",
+                    color: "var(--ink)",
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.border = "1px solid rgba(124,92,255,0.50)";
-                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.12)";
+                    e.currentTarget.style.border = "1px solid rgb(var(--accent-rgb) / 0.5)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.12)";
                   }}
                   onBlur={(e) => {
-                    e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                    e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                     e.currentTarget.style.boxShadow = "none";
                   }}
                 />
@@ -161,8 +161,8 @@ export default function ForgotPasswordPage() {
                 disabled={loading}
                 className="w-full flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                 style={{
-                  background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
-                  boxShadow: "0 4px 20px rgba(124,92,255,0.30)",
+                  background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
+                  boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.3)",
                   fontSize: 14,
                   fontWeight: 600,
                   color: "#fff",
@@ -178,7 +178,7 @@ export default function ForgotPasswordPage() {
           <Link
             href="/login"
             className="inline-flex items-center gap-2 transition-colors hover:opacity-80"
-            style={{ fontSize: 13, color: "rgba(246,245,247,0.42)" }}
+            style={{ fontSize: 13, color: "var(--ink-3)" }}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Volver al inicio de sesión

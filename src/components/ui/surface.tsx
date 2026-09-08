@@ -139,14 +139,14 @@ export function EmptyState({
     tone === "accent"
       ? "var(--hifi-accent-line)"
       : tone === "ok"
-        ? "rgba(76,214,160,0.30)"
+        ? "rgb(var(--ok-rgb) / 0.3)"
         : "var(--hifi-hairline-strong)";
   const glow =
     tone === "accent"
       ? "var(--hifi-accent-soft)"
       : tone === "ok"
-        ? "rgba(76,214,160,0.08)"
-        : "rgba(255,255,255,0.04)";
+        ? "rgb(var(--ok-rgb) / 0.08)"
+        : "rgb(var(--veil-rgb) / 0.04)";
   const color =
     tone === "accent" ? "var(--hifi-accent-hi)" : tone === "ok" ? "var(--hifi-ok)" : "var(--hifi-ink-faint)";
 
@@ -196,7 +196,7 @@ export function StatCard({
     value === "0" ||
     (typeof value === "string" && /^\$?0(\s|$)/.test(value.replace(/\./g, "")));
   const color = isEmpty
-    ? "rgba(246,245,247,0.42)"
+    ? "var(--ink-3)"
     : {
         neutral: "var(--hifi-ink)",
         ok: "var(--hifi-ok)",
@@ -238,9 +238,9 @@ export function Callout({
 }) {
   const c = {
     info: { fg: "var(--hifi-accent-hi)", bg: "var(--hifi-accent-soft)", bd: "var(--hifi-accent-line)" },
-    ok: { fg: "var(--hifi-ok)", bg: "rgba(76,214,160,0.09)", bd: "rgba(76,214,160,0.28)" },
-    warn: { fg: "var(--hifi-warn)", bg: "rgba(255,185,88,0.09)", bd: "rgba(255,185,88,0.28)" },
-    danger: { fg: "var(--hifi-danger)", bg: "rgba(255,111,111,0.09)", bd: "rgba(255,111,111,0.28)" },
+    ok: { fg: "var(--hifi-ok)", bg: "rgb(var(--ok-rgb) / 0.09)", bd: "rgb(var(--ok-rgb) / 0.28)" },
+    warn: { fg: "var(--hifi-warn)", bg: "rgb(var(--warn-rgb) / 0.09)", bd: "rgb(var(--warn-rgb) / 0.28)" },
+    danger: { fg: "var(--hifi-danger)", bg: "rgb(var(--danger-rgb) / 0.09)", bd: "rgb(var(--danger-rgb) / 0.28)" },
   }[tone];
 
   return (
@@ -299,7 +299,7 @@ export function Toast({
         className={cn("flex items-start gap-2.5 rounded-xl px-4 py-3 text-[13px]", leaving ? "ui-toast-out" : "ui-toast")}
         style={{
           background: msg.ok ? "rgba(20,42,33,0.96)" : "rgba(48,22,22,0.96)",
-          border: `1px solid ${msg.ok ? "rgba(76,214,160,0.35)" : "rgba(255,111,111,0.35)"}`,
+          border: `1px solid ${msg.ok ? "rgb(var(--ok-rgb) / 0.35)" : "rgb(var(--danger-rgb) / 0.35)"}`,
           color: msg.ok ? "var(--hifi-ok)" : "var(--hifi-danger)",
           boxShadow: "var(--shadow-lift)",
           backdropFilter: "blur(12px)",

@@ -91,6 +91,35 @@ export async function POST(req: NextRequest) {
         .catch(() => null);
     }
 
+    // 3b) ANTI-REPLAY: la firma de ePayco NO cubre x_id_invoice, así que una
+    // tupla firmada legítima puede reapuntarse a OTRA orden del mismo monto.
+    // Sin esto, quien pagó una vez podía guardar su tupla, crear cada mes una
+    // orden nueva, abandonar el checkout y renovar gratis: la idempotencia de
+    // abajo solo mira order.status, y la orden nueva está en "pending".
+    // La ruta hermana de pagos de residentes ya se defendía así.
+    const verifiedInvoice = verification.data?.x_id_invoice;
+    if (order && verifiedInvoice && String(verifiedInvoice) !== x_id_invoice) {
+      console.error("[ePayco confirmation] invoice mismatch — posible replay", {
+        x_ref_payco,
+        callbackInvoice: x_id_invoice,
+        verifiedInvoice,
+      });
+      return NextResponse.json({ error: "Invoice mismatch" }, { status: 400 });
+    }
+
+    // 3c) Esa misma referencia no puede haber cerrado ya OTRA orden: es la
+    // defensa que faltaba para el caso en que la orden actual sigue "pending".
+    const refYaUsada = await db.pendingOrder
+      .findFirst({
+        where: { epaycoRef: x_ref_payco, status: "completed" },
+        select: { id: true },
+      })
+      .catch(() => null);
+    if (refYaUsada && (!order || refYaUsada.id !== order.id)) {
+      console.error("[ePayco confirmation] referencia ya aplicada a otra orden", { x_ref_payco });
+      return NextResponse.json({ received: true, alreadyProcessed: true });
+    }
+
     // Resolve userId, plan, and the amount we EXPECTED to be charged.
     let userId: string | undefined;
     let plan: CanonicalPlan;
@@ -184,9 +213,26 @@ export async function POST(req: NextRequest) {
       // declined) must NOT break the still-paid current plan, and a rejected
       // first payment must NOT revoke a valid trial.
       const current = await db.subscription
-        .findUnique({ where: { userId }, select: { status: true, planId: true } })
+        .findUnique({
+          where: { userId },
+          select: { status: true, planId: true, currentPeriodEnd: true },
+        })
         .catch(() => null);
-      if (current?.status === "active" && normalizePlanId(current.planId) === plan) {
+      // Un periodo YA PAGADO no se degrada. Es posible tener dos órdenes
+      // pendientes del mismo plan (un doble clic en el checkout basta: la
+      // comprobación de compra duplicada solo corta si ya hay acceso activo, y
+      // en prueba el estado es "trialing"). Si una se aprueba y la otra se
+      // rechaza después, esta rama marcaba "past_due" una suscripción recién
+      // pagada y vigente: el administrador perdía el acceso que acababa de
+      // comprar. Solo se degrada cuando el periodo ya venció, que es el caso
+      // real de una renovación fallida.
+      const periodoVigente =
+        !!current?.currentPeriodEnd && new Date(current.currentPeriodEnd).getTime() > now.getTime();
+      if (
+        current?.status === "active" &&
+        normalizePlanId(current.planId) === plan &&
+        !periodoVigente
+      ) {
         await db.subscription.updateMany({
           where: { userId, status: "active" },
           data: { status: "past_due", epaycoRef: x_ref_payco },

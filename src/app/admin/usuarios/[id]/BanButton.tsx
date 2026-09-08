@@ -62,7 +62,7 @@ export function BanButton({ userId, banned, isSelf }: Props) {
           <ShieldCheck className="h-3.5 w-3.5" />
           {submitting || isPending ? "Reactivando…" : "Reactivar acceso"}
         </Button>
-        {error && <p className="text-[11px] text-[#ff6f6f]">{error}</p>}
+        {error && <p className="text-[11px] text-[var(--danger)]">{error}</p>}
       </div>
     );
   }
@@ -74,7 +74,7 @@ export function BanButton({ userId, banned, isSelf }: Props) {
         variant="outline"
         size="sm"
         onClick={() => setConfirming(true)}
-        className="gap-2 border-[rgba(255,111,111,0.35)] text-[#ff8585] hover:bg-[rgba(255,111,111,0.08)]"
+        className="gap-2 border-[rgb(var(--danger-rgb) / 0.35)] text-[var(--danger)] hover:bg-[rgb(var(--danger-rgb) / 0.08)]"
       >
         <Ban className="h-3.5 w-3.5" />
         Banear usuario
@@ -86,12 +86,12 @@ export function BanButton({ userId, banned, isSelf }: Props) {
     <div
       className="flex flex-col gap-2 rounded-xl border p-3 w-full sm:w-[320px]"
       style={{
-        background: "rgba(255,111,111,0.06)",
-        borderColor: "rgba(255,111,111,0.25)",
+        background: "rgb(var(--danger-rgb) / 0.06)",
+        borderColor: "rgb(var(--danger-rgb) / 0.25)",
       }}
     >
       <div className="flex items-center justify-between">
-        <p className="text-[12px] font-medium text-[#ff8585]">
+        <p className="text-[12px] font-medium text-[var(--danger)]">
           Banear a este usuario
         </p>
         <button
@@ -114,7 +114,7 @@ export function BanButton({ userId, banned, isSelf }: Props) {
         onChange={(e) => setReason(e.target.value)}
         placeholder="Motivo (opcional)"
         className="h-8 px-2.5 rounded-lg border bg-background text-[12px] focus:outline-none"
-        style={{ borderColor: "rgba(255,255,255,0.12)" }}
+        style={{ borderColor: "rgb(var(--veil-rgb) / 0.12)" }}
       />
       <div className="flex items-center gap-2">
         <Button
@@ -128,7 +128,7 @@ export function BanButton({ userId, banned, isSelf }: Props) {
           {submitting ? "Baneando…" : "Confirmar ban"}
         </Button>
       </div>
-      {error && <p className="text-[11px] text-[#ff6f6f]">{error}</p>}
+      {error && <p className="text-[11px] text-[var(--danger)]">{error}</p>}
     </div>
   );
 }

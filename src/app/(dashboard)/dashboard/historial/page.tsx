@@ -45,18 +45,18 @@ const TYPE_LABELS: Record<string, string> = {
 
 // Doc type visual config: tag color (text), bg, border, Geist Mono label
 const DOC_TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  custom:       { label: "DOC",  color: "#a78bff", bg: "rgba(124,92,255,0.10)",  border: "rgba(124,92,255,0.30)"  },
-  full:         { label: "PDF",  color: "#ff6f6f", bg: "rgba(255,111,111,0.10)", border: "rgba(255,111,111,0.30)" },
-  informe:      { label: "DOCX", color: "#5fb4ff", bg: "rgba(95,180,255,0.10)",  border: "rgba(95,180,255,0.30)"  },
-  acta:         { label: "DOCX", color: "#5fb4ff", bg: "rgba(95,180,255,0.10)",  border: "rgba(95,180,255,0.30)"  },
-  presentacion: { label: "PPTX", color: "#ffb958", bg: "rgba(255,185,88,0.10)",  border: "rgba(255,185,88,0.30)"  },
+  custom:       { label: "DOC",  color: "var(--accent-text)", bg: "rgb(var(--accent-rgb) / 0.1)",  border: "rgb(var(--accent-rgb) / 0.3)"  },
+  full:         { label: "PDF",  color: "var(--danger-text)", bg: "rgb(var(--danger-rgb) / 0.1)", border: "rgb(var(--danger-rgb) / 0.3)" },
+  informe:      { label: "DOCX", color: "var(--info-text)", bg: "rgb(var(--info-rgb) / 0.1)",  border: "rgb(var(--info-rgb) / 0.3)"  },
+  acta:         { label: "DOCX", color: "var(--info-text)", bg: "rgb(var(--info-rgb) / 0.1)",  border: "rgb(var(--info-rgb) / 0.3)"  },
+  presentacion: { label: "PPTX", color: "var(--warn-text)", bg: "rgb(var(--warn-rgb) / 0.1)",  border: "rgb(var(--warn-rgb) / 0.3)"  },
 };
 
 // Status visual config
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  completed:  { label: "Listo",      color: "#4cd6a0", bg: "rgba(76,214,160,0.08)",  border: "rgba(76,214,160,0.25)"  },
-  processing: { label: "Procesando", color: "#ffb958", bg: "rgba(255,185,88,0.08)",  border: "rgba(255,185,88,0.25)"  },
-  failed:     { label: "Error",      color: "#ff6f6f", bg: "rgba(255,111,111,0.08)", border: "rgba(255,111,111,0.25)" },
+  completed:  { label: "Listo",      color: "var(--ok-text)", bg: "rgb(var(--ok-rgb) / 0.08)",  border: "rgb(var(--ok-rgb) / 0.25)"  },
+  processing: { label: "Procesando", color: "var(--warn-text)", bg: "rgb(var(--warn-rgb) / 0.08)",  border: "rgb(var(--warn-rgb) / 0.25)"  },
+  failed:     { label: "Error",      color: "var(--danger-text)", bg: "rgb(var(--danger-rgb) / 0.08)", border: "rgb(var(--danger-rgb) / 0.25)" },
 };
 
 const monoLabel: React.CSSProperties = {
@@ -108,7 +108,7 @@ export default function HistorialPage() {
   const selectStyle: React.CSSProperties = {
     background: "var(--hifi-surface-1)",
     border: "1px solid var(--hifi-hairline)",
-    color: "#f6f5f7",
+    color: "var(--ink)",
     borderRadius: "10px",
     height: "38px",
     padding: "0 12px",
@@ -131,7 +131,7 @@ export default function HistorialPage() {
             border: "1px solid var(--hifi-hairline)",
           }}
         >
-          <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Filtros</span>
+          <span style={{ ...monoLabel, color: "var(--ink-3)" }}>Filtros</span>
 
           <div className="flex flex-wrap gap-3 flex-1">
             {/* Type filter */}
@@ -141,11 +141,11 @@ export default function HistorialPage() {
                 onChange={(e) => setTypeFilter(e.target.value)}
                 style={{ ...selectStyle, paddingRight: "32px" }}
                 onFocus={(e) => {
-                  e.currentTarget.style.border = "1px solid #7c5cff";
-                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                  e.currentTarget.style.border = "1px solid var(--accent)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
                 }}
                 onBlur={(e) => {
-                  e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                  e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                   e.currentTarget.style.boxShadow = "none";
                 }}
               >
@@ -156,7 +156,7 @@ export default function HistorialPage() {
               </select>
               <ArrowRight
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none h-3.5 w-3.5"
-                style={{ color: "rgba(246,245,247,0.42)" }}
+                style={{ color: "var(--ink-3)" }}
               />
             </div>
 
@@ -167,11 +167,11 @@ export default function HistorialPage() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 style={{ ...selectStyle, paddingRight: "32px" }}
                 onFocus={(e) => {
-                  e.currentTarget.style.border = "1px solid #7c5cff";
-                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                  e.currentTarget.style.border = "1px solid var(--accent)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
                 }}
                 onBlur={(e) => {
-                  e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                  e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                   e.currentTarget.style.boxShadow = "none";
                 }}
               >
@@ -182,13 +182,13 @@ export default function HistorialPage() {
               </select>
               <ArrowRight
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none h-3.5 w-3.5"
-                style={{ color: "rgba(246,245,247,0.42)" }}
+                style={{ color: "var(--ink-3)" }}
               />
             </div>
           </div>
 
           {filtered.length > 0 && (
-            <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>
+            <span style={{ ...monoLabel, color: "var(--ink-3)" }}>
               {filtered.length} {filtered.length === 1 ? "resultado" : "resultados"}
             </span>
           )}
@@ -200,8 +200,8 @@ export default function HistorialPage() {
             <div
               className="w-10 h-10 rounded-full animate-spin"
               style={{
-                border: "3px solid rgba(124,92,255,0.15)",
-                borderTopColor: "#7c5cff",
+                border: "3px solid rgb(var(--accent-rgb) / 0.15)",
+                borderTopColor: "var(--accent)",
               }}
             />
           </div>
@@ -213,30 +213,30 @@ export default function HistorialPage() {
             className="rounded-2xl flex flex-col items-center py-16 text-center px-6"
             style={{
               background: "var(--hifi-surface-1)",
-              border: "1.5px dashed rgba(255,255,255,0.10)",
+              border: "1.5px dashed rgb(var(--veil-rgb) / 0.1)",
             }}
           >
             <div
               className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
               style={{
-                background: "rgba(124,92,255,0.10)",
-                border: "1px solid rgba(124,92,255,0.20)",
+                background: "rgb(var(--accent-rgb) / 0.1)",
+                border: "1px solid rgb(var(--accent-rgb) / 0.2)",
               }}
             >
-              <History className="h-8 w-8" style={{ color: "#9a7fff" }} />
+              <History className="h-8 w-8" style={{ color: "var(--accent-text)" }} />
             </div>
             <span
               className="block mb-2"
-              style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}
+              style={{ ...monoLabel, color: "var(--ink-3)" }}
             >
               Sin resultados
             </span>
-            <p className="font-medium mb-1" style={{ color: "#f6f5f7", fontSize: "15px" }}>
+            <p className="font-medium mb-1" style={{ color: "var(--ink)", fontSize: "15px" }}>
               {generations.length === 0
                 ? "Aun no has generado documentos"
                 : "No hay resultados con esos filtros"}
             </p>
-            <p className="text-sm max-w-xs" style={{ color: "rgba(246,245,247,0.66)" }}>
+            <p className="text-sm max-w-xs" style={{ color: "var(--ink-2)" }}>
               {generations.length === 0
                 ? "Tus documentos generados apareceran aqui"
                 : "Prueba cambiando los filtros de tipo o estado"}
@@ -246,13 +246,13 @@ export default function HistorialPage() {
                 <button
                   className="mt-6 flex items-center gap-2 px-5 h-10 rounded-xl text-sm font-medium transition-all"
                   style={{
-                    background: "#7c5cff",
+                    background: "var(--accent)",
                     color: "#ffffff",
-                    boxShadow: "0 2px 12px rgba(124,92,255,0.35)",
+                    boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.35)",
                     border: "none",
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "#9a7fff"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "#7c5cff"; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--accent-hi)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--accent)"; }}
                 >
                   <Sparkles className="h-4 w-4" />
                   Generar documentos
@@ -275,9 +275,9 @@ export default function HistorialPage() {
               const docCfg = DOC_TYPE_CONFIG[gen.type] ?? DOC_TYPE_CONFIG.custom;
               const statusCfg = STATUS_CONFIG[gen.status] ?? {
                 label: gen.status,
-                color: "rgba(246,245,247,0.66)",
-                bg: "rgba(255,255,255,0.04)",
-                border: "rgba(255,255,255,0.12)",
+                color: "var(--ink-2)",
+                bg: "rgb(var(--veil-rgb) / 0.04)",
+                border: "rgb(var(--veil-rgb) / 0.12)",
               };
               const isLast = index === filtered.length - 1;
 
@@ -286,10 +286,10 @@ export default function HistorialPage() {
                   <div
                     className="group flex items-center gap-3 sm:gap-4 px-4 py-4 sm:px-5 sm:py-4 transition-all cursor-pointer"
                     style={{
-                      borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.05)",
+                      borderBottom: isLast ? "none" : "1px solid rgb(var(--veil-rgb) / 0.05)",
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = "rgba(124,92,255,0.05)";
+                      (e.currentTarget as HTMLElement).style.background = "rgb(var(--accent-rgb) / 0.05)";
                     }}
                     onMouseLeave={(e) => {
                       (e.currentTarget as HTMLElement).style.background = "transparent";
@@ -315,7 +315,7 @@ export default function HistorialPage() {
                     <div className="flex-1 min-w-0">
                       <p
                         className="font-medium truncate"
-                        style={{ color: "#f6f5f7", fontSize: "14px", fontWeight: 500 }}
+                        style={{ color: "var(--ink)", fontSize: "14px", fontWeight: 500 }}
                       >
                         {TYPE_LABELS[gen.type] ?? gen.type} — {gen.property?.name ?? "Propiedad eliminada"}
                       </p>
@@ -323,7 +323,7 @@ export default function HistorialPage() {
                         className="mt-0.5 truncate"
                         style={{
                           ...monoMini,
-                          color: "rgba(246,245,247,0.42)",
+                          color: "var(--ink-3)",
                         }}
                       >
                         {gen.property?.name ?? "—"} · {MONTHS[gen.month - 1]} {gen.year}
@@ -336,12 +336,12 @@ export default function HistorialPage() {
                       <div
                         className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-md"
                         style={{
-                          background: "rgba(244,199,128,0.08)",
-                          border: "1px solid rgba(244,199,128,0.25)",
+                          background: "rgb(var(--legal-rgb) / 0.08)",
+                          border: "1px solid rgb(var(--legal-rgb) / 0.25)",
                         }}
                       >
-                        <Scale className="h-3 w-3" style={{ color: "#f4c780" }} />
-                        <span style={{ ...monoLabel, color: "#f4c780" }}>Themis</span>
+                        <Scale className="h-3 w-3" style={{ color: "var(--legal)" }} />
+                        <span style={{ ...monoLabel, color: "var(--legal)" }}>Themis</span>
                       </div>
 
                       {/* Status badge */}
@@ -368,17 +368,17 @@ export default function HistorialPage() {
                             type="button"
                             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all"
                             style={{
-                              color: "rgba(246,245,247,0.66)",
-                              border: "1px solid rgba(255,255,255,0.10)",
+                              color: "var(--ink-2)",
+                              border: "1px solid rgb(var(--veil-rgb) / 0.1)",
                               background: "transparent",
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                              e.currentTarget.style.color = "#f6f5f7";
+                              e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.06)";
+                              e.currentTarget.style.color = "var(--ink)";
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.background = "transparent";
-                              e.currentTarget.style.color = "rgba(246,245,247,0.66)";
+                              e.currentTarget.style.color = "var(--ink-2)";
                             }}
                           >
                             <Eye className="h-3 w-3" />
@@ -388,17 +388,17 @@ export default function HistorialPage() {
                             type="button"
                             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all"
                             style={{
-                              color: "rgba(246,245,247,0.66)",
-                              border: "1px solid rgba(255,255,255,0.10)",
+                              color: "var(--ink-2)",
+                              border: "1px solid rgb(var(--veil-rgb) / 0.1)",
                               background: "transparent",
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                              e.currentTarget.style.color = "#f6f5f7";
+                              e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.06)";
+                              e.currentTarget.style.color = "var(--ink)";
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.background = "transparent";
-                              e.currentTarget.style.color = "rgba(246,245,247,0.66)";
+                              e.currentTarget.style.color = "var(--ink-2)";
                             }}
                           >
                             <Download className="h-3 w-3" />
@@ -409,7 +409,7 @@ export default function HistorialPage() {
 
                       <ArrowRight
                         className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:translate-x-0.5"
-                        style={{ color: "#9a7fff" }}
+                        style={{ color: "var(--accent-text)" }}
                       />
                     </div>
                   </div>

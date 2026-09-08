@@ -13,7 +13,15 @@ const IS_DEMO = process.env.DEMO_MODE === "true";
 
 export async function GET(req: NextRequest) {
   if (IS_DEMO) {
-    return NextResponse.json({ items: [], entries: [], execution: null });
+    const { getDemoBudget } = await import("@/lib/demo-store");
+    const pid = req.nextUrl.searchParams.get("propertyId") || "prop-demo-001";
+    const year = parseInt(req.nextUrl.searchParams.get("year") || "", 10) || new Date().getFullYear();
+    const { items, entries } = getDemoBudget(pid, year);
+    return NextResponse.json({
+      items,
+      entries,
+      execution: computeBudgetExecution(items, entries as unknown as LedgerLike[]),
+    });
   }
 
   const r = await requireCartera();

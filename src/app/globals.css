@@ -16,7 +16,7 @@ html {
   --card-foreground: #0a0a0a;
   --popover: #ffffff;
   --popover-foreground: #0a0a0a;
-  --primary: #7c5cff;
+  --primary: #6b46e5;
   --primary-foreground: #ffffff;
   --secondary: #f0eee8;
   --secondary-foreground: #0a0a0a;
@@ -28,7 +28,7 @@ html {
   --destructive-foreground: #ffffff;
   --border: rgba(10,10,10,0.08);
   --input: rgba(10,10,10,0.08);
-  --ring: #7c5cff;
+  --ring: #6b46e5;
   --radius: 0.75rem;
 }
 
@@ -44,7 +44,7 @@ html {
   --card-foreground: #f6f5f7;
   --popover: #191920;
   --popover-foreground: #f6f5f7;
-  --primary: #7c5cff;
+  --primary: #7856f5;
   --primary-foreground: #ffffff;
   --secondary: #23232c;
   --secondary-foreground: #f6f5f7;
@@ -56,7 +56,7 @@ html {
   --destructive-foreground: #ffffff;
   --border: rgba(255,255,255,0.10);
   --input: rgba(255,255,255,0.14);
-  --ring: #7c5cff;
+  --ring: #7856f5;
 }
 
 @theme inline {
@@ -298,9 +298,9 @@ select option {
   --hifi-hairline-strong: rgba(255,255,255,0.14);
   --hifi-hairline-bold: rgba(255,255,255,0.28);
   --hifi-ink: #f6f5f7;
-  --hifi-ink-dim: rgba(246,245,247,0.66);
-  --hifi-ink-faint: rgba(246,245,247,0.42);
-  --hifi-accent: #7c5cff;
+  --hifi-ink-dim: #cfcdd6;
+  --hifi-ink-faint: #a5a2ae;
+  --hifi-accent: #7856f5;
   --hifi-accent-hi: #9a7fff;
   --hifi-accent-lo: #5a3cf0;
   --hifi-accent-glow: rgba(124,92,255,0.20);
@@ -320,6 +320,144 @@ select option {
   --hifi-nomethes: #ffb958;
   --hifi-hermes: #ff6fa8;
   --hifi-logistes: #8a92ff;
+}
+
+/* ── Tema claro / oscuro ──────────────────────────────────────────
+   El oscuro es el diseño original, sin cambios. El claro se define aquí
+   redefiniendo SOLO estas variables: las pantallas no saben en qué tema
+   están. Los niveles de tinta son colores sólidos, no opacidades, porque
+   una opacidad baja sobre blanco deja de leerse; así el contraste se
+   garantiza desde un único sitio. */
+:root {
+  color-scheme: dark;
+
+  /* Tinta: cuatro niveles, del principal al más tenue. */
+  --ink: #f6f5f7;
+  --ink-2: #cfcdd6;
+  --ink-3: #a5a2ae;
+  --ink-4: #95929e;
+  --ink-rgb: 246 245 247;
+
+  /* Veladuras: bordes, hovers y superficies translúcidas. */
+  --veil-rgb: 255 255 255;
+
+  /* Superficies, de lienzo (0) a más elevada (5). */
+  --surface-0: #0b0b0f;
+  --surface-1: #121218;
+  --surface-2: #15151a;
+  --surface-3: #1d1d24;
+  --surface-4: #23232c;
+  --surface-5: #2d2d38;
+
+  /* Marca. `--accent-text` es el morado que se lee como TEXTO. */
+  --accent: #7856f5;
+  --accent-hi: #9a7fff;
+  --accent-lo: #5a3cf0;
+  --accent-text: #a78bff;
+  --accent-rgb: 120 86 245;
+
+  /* Semánticos. Cada uno con su variante legible como texto. */
+  --ok: #4cd6a0;
+  --ok-text: #4cd6a0;
+  --ok-rgb: 76 214 160;
+  --warn: #ffb958;
+  --warn-text: #ffb958;
+  --warn-rgb: 255 185 88;
+  --danger: #ff6f6f;
+  --danger-text: #ff8585;
+  --danger-rgb: 255 111 111;
+  --info: #5fb4ff;
+  --info-text: #5fb4ff;
+  --info-rgb: 95 180 255;
+  --legal: #f4c780;
+  --pink: #ff6fa8;
+  --teal: #5fd6c6;
+  --teal-rgb: 95 214 198;
+  --surface-rgb: 11 11 15;
+  --surface-hi-rgb: 35 35 44;
+  --legal-rgb: 244 199 128;
+  --accent-pale: #c4b0ff;
+  --logistes: #8a92ff;
+  --logistes-rgb: 138 146 255;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --ink: #16161c;
+  --ink-2: #3a3a46;
+  --ink-3: #57545f;
+  --ink-4: #6a6773;
+  --ink-rgb: 22 22 28;
+
+  --veil-rgb: 18 18 28;
+
+  --surface-0: #f4f3f8;
+  --surface-1: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #ffffff;
+  --surface-4: #f1eff7;
+  --surface-5: #e7e4f0;
+
+  --accent: #6b46e5;
+  --accent-hi: #5a35d6;
+  --accent-lo: #4a28bd;
+  --accent-text: #5b34d9;
+  --accent-rgb: 107 70 229;
+
+  --ok: #0b7a51;
+  --ok-text: #0a6b47;
+  --ok-rgb: 11 122 81;
+  --warn: #8a5600;
+  --warn-text: #7a4c00;
+  --warn-rgb: 138 86 0;
+  --danger: #c62828;
+  --danger-text: #b02020;
+  --danger-rgb: 198 40 40;
+  --info: #0b63c5;
+  --info-text: #0a56ab;
+  --info-rgb: 11 99 197;
+  --legal: #7a5500;
+  --pink: #b81a5e;
+  --teal: #056b61;
+  --teal-rgb: 5 107 97;
+  --surface-rgb: 244 243 248;
+  --surface-hi-rgb: 231 228 240;
+  --legal-rgb: 122 85 0;
+  --accent-pale: #5b34d9;
+  --logistes: #4340c9;
+  --logistes-rgb: 67 64 201;
+
+  /* Los tokens hi-fi antiguos siguen en uso en ~200 sitios: se reapuntan
+     para que esas pantallas cambien de tema sin tocarlas una por una. */
+  --hifi-bg: #f4f3f8;
+  --hifi-bg-elev: #ffffff;
+  --hifi-surface-1: #ffffff;
+  --hifi-surface-2: #f1eff7;
+  --hifi-surface-3: #e7e4f0;
+  --hifi-hairline: rgba(18,18,28,0.12);
+  --hifi-hairline-strong: rgba(18,18,28,0.18);
+  --hifi-hairline-bold: rgba(18,18,28,0.30);
+  --hifi-ink: #16161c;
+  --hifi-ink-dim: #3a3a46;
+  --hifi-ink-faint: #57545f;
+  --hifi-accent: #6b46e5;
+  --hifi-accent-hi: #5a35d6;
+  --hifi-accent-lo: #4a28bd;
+  --hifi-accent-glow: rgba(107,70,229,0.16);
+  --hifi-accent-soft: rgba(107,70,229,0.08);
+  --hifi-accent-line: rgba(107,70,229,0.35);
+  --hifi-ok: #0e8f5f;
+  --hifi-warn: #a06400;
+  --hifi-danger: #c62828;
+  --hifi-legal: #7a5500;
+  --hifi-legal-bg: rgba(138,97,0,0.10);
+  --hifi-themis: #5b34d9;
+  --hifi-chronos: #0b63c5;
+  --hifi-metra: #0e8f5f;
+  --hifi-nomethes: #a06400;
+  --hifi-hermes: #b81a5e;
+  --hifi-logistes: #4340c9;
 }
 
 /* Keyframes for landing page animations */

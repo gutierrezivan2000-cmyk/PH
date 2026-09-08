@@ -54,6 +54,17 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ ok: true, code: "PQR-DEMO12", demo: true }, { status: 201 });
 
+  // PQRS está pausado: la bandeja del administrador muestra "Próximamente", así
+  // que una solicitud radicada aquí caería en un buzón que nadie abre. Es peor
+  // que decirle al residente que todavía no está disponible.
+  const { COMING_SOON } = await import("@/lib/feature-flags");
+  if (COMING_SOON.pqrs) {
+    return NextResponse.json(
+      { error: "Las PQRS en línea no están disponibles por ahora. Escríbele a la administración por WhatsApp." },
+      { status: 503 }
+    );
+  }
+
   const body = await req.json().catch(() => ({}));
   const { token, type, subject, message, residentName, residentContact } = body as {
     token?: string;

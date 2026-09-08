@@ -7,6 +7,16 @@ const MAX_TOTAL_CHARS = 45000; // keep the prompt within budget
 /** Fetch a (possibly private) blob into a Buffer. Tries a plain fetch, then
  *  a token-authenticated one. Returns null if unreachable. */
 async function fetchBlob(url: string): Promise<Buffer | null> {
+  // NUNCA mandar la credencial del almacenamiento a un host ajeno. El segundo
+  // intento lleva `Authorization: Bearer <BLOB_READ_WRITE_TOKEN>`, y esta `url`
+  // sale de PropertyDocument, que hasta ahora aceptaba cualquier cadena del
+  // cuerpo de la petición: bastaba guardar `http://servidor-del-atacante/x.pdf`
+  // y pedir el asistente del portal (endpoint público) para que el token de
+  // escritura del blob saliera del servidor. Reproducido con un servidor
+  // trampa: recibía `Bearer vercel_blob_rw_...`.
+  const { isAllowedBlobUrl } = await import("@/lib/blob-url");
+  if (!isAllowedBlobUrl(url)) return null;
+
   const attempts: RequestInit[] = [{}];
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (token) attempts.push({ headers: { authorization: `Bearer ${token}` } });

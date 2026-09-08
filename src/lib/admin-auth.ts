@@ -32,6 +32,11 @@ export async function requireAdmin(): Promise<AdminSession | null> {
   const session = await auth();
   if (!session?.user?.id || !session.user.email) return null;
 
+  // The demo account is never an admin (auth.ts pins its role to "user"), and
+  // there is no DB to confirm against. Without this, every /admin page and
+  // /api/admin route answered 500 in demo instead of denying access.
+  if (process.env.DEMO_MODE === "true") return null;
+
   // Self-heal schema drift (role column etc.) before reading it.
   const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
   await ensureAdminSchema();

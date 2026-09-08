@@ -15,9 +15,30 @@ function bogotaMonthStart(now: Date): Date {
 
 export async function GET(req: NextRequest) {
   if (IS_DEMO) {
+    // The demo is a sales surface — show a realistic building, not an empty grid.
+    const { getDemoUnits, getDemoCarteraKpis } = await import("@/lib/demo-store");
+    const pid = req.nextUrl.searchParams.get("propertyId") || "prop-demo-001";
+    const units = getDemoUnits(pid).map((u) => ({
+      id: u.id,
+      label: u.label,
+      residentName: u.residentName,
+      email: u.email,
+      phone: u.phone,
+      monthlyFee: u.monthlyFee,
+      coeficiente: u.coeficiente,
+      summary: {
+        charged: 0,
+        paid: 0,
+        balance: u.balance,
+        overdueAmount: u.overdueAmount,
+        overdueDays: u.overdueDays,
+      },
+      lastPaymentAt: u.lastPaymentAt,
+    }));
     return NextResponse.json({
-      units: [],
-      kpis: { totalOwed: 0, overdueUnits: 0, collectedThisMonth: 0, chargedThisMonth: 0, unitsCount: 0 },
+      units,
+      kpis: getDemoCarteraKpis(pid),
+      meta: { tasaMora: 2 },
     });
   }
 

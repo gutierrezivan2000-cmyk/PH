@@ -2,6 +2,12 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 import { NextRequest, NextResponse } from "next/server";
+import {
+  MAX_IMAGE_BYTES,
+  MAX_IMAGE_MB_LABEL,
+  isImageMediaType,
+  type ImageMediaType,
+} from "@/lib/chat-limits";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AGENTS, isValidAgentId, isComingSoonAgent } from "@/lib/agents";
@@ -14,7 +20,9 @@ const IS_DEMO = process.env.DEMO_MODE === "true";
 
 type ContentBlock =
   | { type: "text"; text: string }
-  | { type: "image"; source: { type: "url"; url: string } };
+  | { type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } };
+
+
 
 export async function GET(
   req: NextRequest,
@@ -134,10 +142,12 @@ export async function POST(
 
     step = "parse-body";
     const body = await req.json();
-    const { chatId: existingChatId, message, attachments: reqAttachments } = body as {
+    const { chatId: existingChatId, message, attachments: reqAttachments, history: demoHistory } = body as {
       chatId?: string;
       message: string;
       attachments?: { name: string; url: string; type: string; size: number }[];
+      /** Solo en demo: el hilo lo guarda el navegador, no la base de datos. */
+      history?: { role: string; content: string }[];
     };
 
     if (!message || typeof message !== "string") {
@@ -227,13 +237,15 @@ export async function POST(
       transcriptionMinutesPerMonth: number;
     } = { ...PLANS.pro.limits };
 
-    try {
-      const subscription = await db.subscription.findFirst({ where: { userId } });
-      if (normalizePlanId(subscription?.planId) === "elite") {
-        planLimits = { ...PLANS.elite.limits };
+    if (!IS_DEMO) {
+      try {
+        const subscription = await db.subscription.findFirst({ where: { userId } });
+        if (normalizePlanId(subscription?.planId) === "elite") {
+          planLimits = { ...PLANS.elite.limits };
+        }
+      } catch (err) {
+        console.error("[api/agents/chat] subscription check failed:", err);
       }
-    } catch (err) {
-      console.error("[api/agents/chat] subscription check failed:", err);
     }
 
     const now = new Date();
@@ -245,7 +257,7 @@ export async function POST(
     startOfWeek.setHours(0, 0, 0, 0);
 
     try {
-      const chatIds = await db.agentChat.findMany({
+      const chatIds = IS_DEMO ? [] : await db.agentChat.findMany({
         where: { userId },
         select: { id: true },
       });
@@ -295,8 +307,29 @@ export async function POST(
     let chatId = existingChatId;
     let isNewChat = false;
 
+    // En demo no hay dónde guardar: `db` es un Proxy que LANZA, así que esta
+    // misma línea tumbaba TODOS los mensajes del asistente en cualquier
+    // despliegue con DEMO_MODE=true y clave de IA. El chat pasa a ser efímero:
+    // el hilo vive en el navegador y viaja en `history`.
+    if (IS_DEMO) {
+      chatId = existingChatId || `demo-${Date.now()}`;
+      isNewChat = !existingChatId;
+    }
+
     try {
-      if (!chatId) {
+      if (!IS_DEMO && chatId) {
+        // El GET sí comprueba la propiedad del chat; el POST lo tomaba del
+        // cuerpo y lo usaba tal cual. Con un chatId ajeno se leía el historial
+        // de otro usuario (entra al contexto del modelo y vuelve en la
+        // respuesta) y se le escribían mensajes en su conversación.
+        const owned = await db.agentChat
+          .findFirst({ where: { id: chatId, userId, agentId }, select: { id: true } })
+          .catch(() => null);
+        if (!owned) {
+          return NextResponse.json({ error: "Chat no encontrado" }, { status: 404 });
+        }
+      }
+      if (!IS_DEMO && !chatId) {
         try {
           const chat = await db.agentChat.create({
             data: { userId, agentId, title: "Nuevo chat" },
@@ -342,7 +375,7 @@ export async function POST(
 
     // ── Save user message ───────────────────────────────────────────────────
     step = "save-user-message";
-    try {
+    if (!IS_DEMO) try {
       await db.agentMessage.create({
         data: {
           chatId: chatId!,
@@ -419,7 +452,17 @@ export async function POST(
     let totalMessageCount = 0;
     let droppedOlderCount = 0;
 
-    try {
+    if (IS_DEMO) {
+      // El hilo lo manda el cliente y por tanto NO es de fiar: se acota igual
+      // que el histórico real para que un cuerpo manipulado no cuele roles ni
+      // infle el contexto y el costo.
+      const { sanitizeDemoHistory } = await import("@/lib/demo-history");
+      recentMessages = sanitizeDemoHistory(demoHistory, message, {
+        perMessageCap: PER_MESSAGE_CAP,
+        currentAttachments: reqAttachments ?? null,
+      });
+      totalMessageCount = recentMessages.length;
+    } else try {
       totalMessageCount = await db.agentMessage.count({ where: { chatId: chatId! } });
 
       const desc = await db.agentMessage.findMany({
@@ -429,7 +472,7 @@ export async function POST(
         select: { role: true, content: true, attachments: true },
       });
 
-      const kept: typeof recentMessages = [];
+      let kept: typeof recentMessages = [];
       let totalChars = 0;
       for (const m of desc) {
         let content = m.content || "";
@@ -441,6 +484,15 @@ export async function POST(
         if (totalChars + content.length > HISTORY_CHAR_BUDGET && kept.length >= 4) break;
         kept.unshift({ role: m.role, content, attachments: m.attachments });
         totalChars += content.length;
+      }
+
+      // La API de Anthropic exige que el PRIMER mensaje sea del usuario. El
+      // recorte por presupuesto podía dejar uno 'assistant' al frente y la
+      // llamada devolvía 400; como el recorte es determinista, la conversación
+      // quedaba rota en cada turno siguiente, para siempre.
+      while (kept.length > 0 && kept[0].role !== "user") kept.shift();
+      if (kept.length === 0) {
+        kept = [{ role: "user", content: message, attachments: reqAttachments ?? null }];
       }
 
       recentMessages = kept;
@@ -469,6 +521,48 @@ export async function POST(
       }
     }
     const parsedByUrl = new Map(parsedCurrent.map((p) => [p.url, p]));
+
+    // ── Imágenes del turno actual ────────────────────────────────────────
+    // Se descargan aquí y viajan en base64. Antes se mandaba `source: {type:
+    // "url"}` apuntando al blob, pero los adjuntos se suben con access:
+    // "private": Anthropic no puede leer esa URL, así que CUALQUIER mensaje
+    // con una imagen hacía fallar la llamada entera.
+    // Solo las del último turno: reenviar las del historial en cada mensaje
+    // sumaba ~1.590 tokens por imagen que ni siquiera contaban en el
+    // presupuesto de recorte (que solo mide caracteres de texto), y 125
+    // imágenes acumuladas agotaban por sí solas la ventana del modelo.
+    step = "download-current-images";
+    const imagesByUrl = new Map<string, { media_type: ImageMediaType; data: string }>();
+    const imageProblems: string[] = [];
+    const lastUserAtts = Array.isArray(reqAttachments) ? reqAttachments : [];
+    const currentImages = lastUserAtts.filter((a) => a.type?.startsWith("image/")).slice(0, 5);
+    if (currentImages.length > 0) {
+      const { blobRefToFile } = await import("@/lib/generation/run");
+      await Promise.all(
+        currentImages.map(async (img) => {
+          try {
+            if (!isImageMediaType(img.type)) {
+              imageProblems.push(`${img.name}: formato no admitido (usa JPG, PNG, WEBP o GIF)`);
+              return;
+            }
+            if (typeof img.size === "number" && img.size > MAX_IMAGE_BYTES) {
+              imageProblems.push(`${img.name}: pesa más de ${MAX_IMAGE_MB_LABEL} y no se pudo enviar`);
+              return;
+            }
+            const file = await blobRefToFile({ url: img.url, name: img.name, type: img.type, size: img.size });
+            const buf = Buffer.from(await file.arrayBuffer());
+            if (buf.byteLength > MAX_IMAGE_BYTES) {
+              imageProblems.push(`${img.name}: pesa más de ${MAX_IMAGE_MB_LABEL} y no se pudo enviar`);
+              return;
+            }
+            imagesByUrl.set(img.url, { media_type: img.type, data: buf.toString("base64") });
+          } catch (err) {
+            console.error("[api/agents/chat] imagen no descargada:", img.name, err);
+            imageProblems.push(`${img.name}: no se pudo leer`);
+          }
+        })
+      );
+    }
 
     // Record transcription usage now that we've actually processed audio
     // (size-based estimate: 1 MB ~ 1 minute of voice audio).
@@ -503,14 +597,23 @@ export async function POST(
       if (m.role === "user" && (imageAtts.length > 0 || docAtts.length > 0)) {
         const contentBlocks: ContentBlock[] = [];
 
-        for (const img of imageAtts) {
-          contentBlocks.push({
-            type: "image",
-            source: { type: "url", url: img.url },
-          });
-        }
-
         let textContent = m.content;
+
+        if (isLastUser) {
+          for (const img of imageAtts) {
+            const data = imagesByUrl.get(img.url);
+            if (data) {
+              contentBlocks.push({ type: "image", source: { type: "base64", ...data } });
+            }
+          }
+          if (imageProblems.length > 0) {
+            textContent = `[Imágenes que no se pudieron adjuntar: ${imageProblems.join("; ")}]\n\n${textContent}`;
+          }
+        } else if (imageAtts.length > 0) {
+          // En el historial la imagen se sustituye por su rastro: el modelo
+          // sabe que existió sin volver a pagarla en cada turno.
+          textContent = `[Imagen adjunta en un mensaje anterior: ${imageAtts.map((i) => i.name).join(", ")}]\n${textContent}`;
+        }
         if (docAtts.length > 0) {
           const docSections = docAtts.map((d) => {
             const parsed = isLastUser ? parsedByUrl.get(d.url) : undefined;
@@ -519,7 +622,10 @@ export async function POST(
             }
             return `[Archivo adjunto: ${d.name} (${d.type})]`;
           });
-          textContent = `${docSections.join("\n\n")}\n\n${m.content}`;
+          // Se antepone a lo YA construido, no a `m.content`: reasignar desde
+          // cero borraba el aviso de imágenes rechazadas y el marcador del
+          // historial cada vez que el mensaje llevaba también un PDF o un audio.
+          textContent = `${docSections.join("\n\n")}\n\n${textContent}`;
         }
         contentBlocks.push({ type: "text", text: textContent });
 
@@ -534,10 +640,12 @@ export async function POST(
     let title: string | undefined;
     if (isNewChat) {
       title = message.length > 60 ? message.slice(0, 60) + "..." : message;
-      try {
-        await db.agentChat.update({ where: { id: chatId! }, data: { title } });
-      } catch (err) {
-        console.error("[api/agents/chat] update title failed:", err);
+      if (!IS_DEMO) {
+        try {
+          await db.agentChat.update({ where: { id: chatId! }, data: { title } });
+        } catch (err) {
+          console.error("[api/agents/chat] update title failed:", err);
+        }
       }
     }
 
@@ -597,7 +705,7 @@ export async function POST(
               }
             }
 
-            if (fullReply) {
+            if (fullReply && !IS_DEMO) {
               try {
                 await db.agentMessage.create({
                   data: { chatId: chatId!, role: "assistant", content: fullReply },
@@ -605,6 +713,26 @@ export async function POST(
               } catch (err) {
                 console.error("[api/agents/chat] save assistant message failed:", err);
               }
+            }
+
+            // El chat es el consumo de IA MÁS FRECUENTE de la app y era el
+            // único que no registraba nada: no aparecía en Consumo IA ni en las
+            // métricas de admin, así que el costo real quedaba invisible.
+            // Las demás rutas (carta, refine, imports, draft) sí lo registran.
+            try {
+              const final = await stream.finalMessage();
+              const inTok = final.usage?.input_tokens ?? 0;
+              const outTok = final.usage?.output_tokens ?? 0;
+              const total = inTok + outTok;
+              if (total > 0 && !IS_DEMO) {
+                // Haiku 4.5: $1/M entrada, $5/M salida.
+                const costUsd = (inTok / 1_000_000) * 1 + (outTok / 1_000_000) * 5;
+                await db.usageRecord.create({
+                  data: { userId, type: "agente_chat", tokens: total, costUsd },
+                });
+              }
+            } catch (err) {
+              console.error("[api/agents/chat] record chat usage failed:", err);
             }
 
             // Auto-generate a semantic 3-5 word title for new chats. We already
@@ -636,10 +764,12 @@ export async function POST(
                   .slice(0, 80);
                 if (generatedTitle && generatedTitle.length >= 3) {
                   try {
-                    await db.agentChat.update({
-                      where: { id: chatId },
-                      data: { title: generatedTitle },
-                    });
+                    if (!IS_DEMO) {
+                      await db.agentChat.update({
+                        where: { id: chatId },
+                        data: { title: generatedTitle },
+                      });
+                    }
                     controller.enqueue(
                       encoder.encode(
                         `event: title_update\ndata: ${JSON.stringify({ title: generatedTitle })}\n\n`

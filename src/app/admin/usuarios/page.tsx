@@ -144,7 +144,7 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
               <thead>
                 <tr
                   className="border-b border-border"
-                  style={{ background: "rgba(255,255,255,0.02)" }}
+                  style={{ background: "rgb(var(--veil-rgb) / 0.02)" }}
                 >
                   {[
                     "Usuario",
@@ -165,7 +165,7 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
                         fontSize: "10px",
                         letterSpacing: "0.14em",
                         textTransform: "uppercase",
-                        color: "rgba(255,255,255,0.40)",
+                        color: "var(--ink-3)",
                       }}
                     >
                       {h}
@@ -187,7 +187,7 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
                           style={{
                             background: u.image
                               ? undefined
-                              : "linear-gradient(135deg, #7c5cff, #5a3cf0)",
+                              : "linear-gradient(135deg, var(--accent), var(--accent-lo))",
                           }}
                         >
                           {u.image ? (
@@ -306,7 +306,7 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
         {totalPages > 1 && (
           <div
             className="flex items-center justify-between px-5 py-3.5 border-t border-border"
-            style={{ background: "rgba(255,255,255,0.01)" }}
+            style={{ background: "rgb(var(--veil-rgb) / 0.01)" }}
           >
             <span
               className="text-[11px] text-muted-foreground/60"

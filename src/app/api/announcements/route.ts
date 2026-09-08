@@ -10,7 +10,12 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  if (IS_DEMO) return NextResponse.json({ announcements: [], quota: { used: 0, limit: 500 } });
+  if (IS_DEMO) {
+    const { getDemoAnnouncements } = await import("@/lib/demo-store");
+    const announcements = getDemoAnnouncements(req.nextUrl.searchParams.get("propertyId"));
+    const used = announcements.reduce((s, a) => s + a.recipientCount, 0);
+    return NextResponse.json({ announcements, quota: { used, limit: 500 } });
+  }
 
   try {
     const { db } = await import("@/lib/db");
@@ -69,7 +74,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (IS_DEMO) {
-    return NextResponse.json({ ok: true, sent: 0, demo: true });
+    // Nothing is actually mailed, but reporting 0 after the button offered to
+    // send to 11 residents reads as a failure. Echo the real recipient count.
+    const { getDemoUnits } = await import("@/lib/demo-store");
+    const sent = getDemoUnits(propertyId).filter((u) => u.email).length;
+    return NextResponse.json({ ok: true, sent, demo: true });
   }
 
   try {

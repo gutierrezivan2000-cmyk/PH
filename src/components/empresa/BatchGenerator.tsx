@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { DOC_KIND_LABELS, docTypesFromSelection, type DocKind } from "@/lib/generation/doc-kind";
 import {
   Layers, Loader2, CheckCircle2, AlertTriangle, RefreshCw, FileText, Search, ArrowRight, Clock,
 } from "lucide-react";
@@ -32,7 +33,10 @@ export function BatchGenerator() {
   const [year, setYear] = useState(now.getFullYear());
   const years = [now.getFullYear(), now.getFullYear() - 1];
 
-  const [docTypes, setDocTypes] = useState({ informe: true, acta: true, pptx: false });
+  // Un lote produce UN tipo de documento. Informe y acta necesitan insumos
+  // distintos, así que mezclarlos en el mismo lote ensuciaba ambos resultados.
+  const [docKind, setDocKind] = useState<DocKind>("informe");
+  const [includePptx, setIncludePptx] = useState(false);
   const [rows, setRows] = useState<PreviewRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [regenerate, setRegenerate] = useState(false);
@@ -52,7 +56,7 @@ export function BatchGenerator() {
     let active = true;
     setLoading(true);
     setError("");
-    fetch(`/api/empresa/batch?month=${month}&year=${year}`)
+    fetch(`/api/empresa/batch?month=${month}&year=${year}&docKind=${docKind}`)
       .then((r) => (r.ok ? r.json() : { properties: [] }))
       .then((d) => {
         if (!active) return;
@@ -64,7 +68,7 @@ export function BatchGenerator() {
       .catch(() => setError("No se pudo cargar la lista de propiedades."))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [month, year, batchId]);
+  }, [month, year, docKind, batchId]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -87,8 +91,7 @@ export function BatchGenerator() {
 
   const launch = async () => {
     setError("");
-    const docs = Object.entries(docTypes).filter(([, v]) => v).map(([k]) => k);
-    if (!docTypes.informe && !docTypes.acta) { setError("Elige al menos informe o acta."); return; }
+    const docs = docTypesFromSelection({ kind: docKind, includePptx });
     if (selected.size === 0) { setError("Selecciona al menos una propiedad lista."); return; }
     setLaunching(true);
     try {
@@ -140,7 +143,7 @@ export function BatchGenerator() {
     }
   };
 
-  const selectBase = "rounded-lg border border-border bg-card text-sm text-foreground px-3 h-9 focus-visible:outline-none focus-visible:border-[#7c5cff] transition-all cursor-pointer";
+  const selectBase = "rounded-lg border border-border bg-card text-sm text-foreground px-3 h-9 focus-visible:outline-none focus-visible:border-[var(--accent)] transition-all cursor-pointer";
 
   // ── Progress view ──────────────────────────────────────────────────────────
   if (batchId && progress) {
@@ -157,17 +160,17 @@ export function BatchGenerator() {
                 {progress.done ? "Completado" : "Generando… el procesamiento continúa aunque cierres esta página."}
               </p>
             </div>
-            <span className="text-2xl font-semibold tabular-nums" style={{ fontFamily: "var(--font-mono)", color: "#9a7fff" }}>
+            <span className="text-2xl font-semibold tabular-nums" style={{ fontFamily: "var(--font-mono)", color: "var(--accent-text)" }}>
               {progress.completed}/{progress.total}
             </span>
           </div>
           <div className="w-full h-2 rounded-full overflow-hidden bg-secondary mb-3">
-            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: progress.failed > 0 ? "#ffb958" : "#4cd6a0" }} />
+            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: progress.failed > 0 ? "var(--warn)" : "var(--ok)" }} />
           </div>
           <div className="flex flex-wrap gap-4 text-[12px]" style={{ fontFamily: "var(--font-mono)" }}>
-            <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" style={{ color: "#4cd6a0" }} /> {progress.completed} listas</span>
-            <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" style={{ color: "#9a7fff" }} /> {progress.pending + progress.processing} en cola</span>
-            {progress.failed > 0 && <span className="inline-flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" style={{ color: "#ff6f6f" }} /> {progress.failed} fallidas</span>}
+            <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" style={{ color: "var(--ok-text)" }} /> {progress.completed} listas</span>
+            <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" style={{ color: "var(--accent-text)" }} /> {progress.pending + progress.processing} en cola</span>
+            {progress.failed > 0 && <span className="inline-flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" style={{ color: "var(--danger-text)" }} /> {progress.failed} fallidas</span>}
           </div>
         </div>
 
@@ -190,7 +193,7 @@ export function BatchGenerator() {
               Reintentar fallidas
             </button>
           )}
-          <Link href="/empresa/propiedades" className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-medium text-white transition-all hover:opacity-90" style={{ background: "#7c5cff" }}>
+          <Link href="/empresa/propiedades" className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-medium text-white transition-all hover:opacity-90" style={{ background: "var(--accent)" }}>
             Ver propiedades <ArrowRight className="h-4 w-4" />
           </Link>
           <button onClick={() => { setBatchId(null); setProgress(null); }} className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-medium border border-border text-foreground hover:bg-secondary transition-colors">
@@ -205,7 +208,7 @@ export function BatchGenerator() {
   return (
     <div className="space-y-5">
       {error && (
-        <div className="rounded-xl px-4 py-3 text-[13px]" style={{ background: "rgba(255,111,111,0.10)", border: "1px solid rgba(255,111,111,0.25)", color: "#ff6f6f" }}>
+        <div className="rounded-xl px-4 py-3 text-[13px]" style={{ background: "rgb(var(--danger-rgb) / 0.1)", border: "1px solid rgb(var(--danger-rgb) / 0.25)", color: "var(--danger-text)" }}>
           {error}
         </div>
       )}
@@ -223,12 +226,31 @@ export function BatchGenerator() {
         </div>
         <div className="flex items-center gap-3 ml-auto flex-wrap">
           <span className="text-[11px] uppercase text-muted-foreground/70" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }}>Documentos</span>
-          {([["informe", "Informe"], ["acta", "Acta"], ["pptx", "Presentación"]] as const).map(([k, label]) => (
+          {(["informe", "acta"] as const).map((k) => (
             <label key={k} className="inline-flex items-center gap-1.5 text-[13px] text-foreground cursor-pointer">
-              <input type="checkbox" checked={docTypes[k]} onChange={(e) => setDocTypes((d) => ({ ...d, [k]: e.target.checked }))} className="accent-[#7c5cff]" />
-              {label}
+              <input
+                type="radio"
+                name="batchDocKind"
+                checked={docKind === k}
+                onChange={() => { setDocKind(k); if (k === "acta") setIncludePptx(false); }}
+                className="accent-[var(--accent)]"
+              />
+              {DOC_KIND_LABELS[k]}
             </label>
           ))}
+          <label
+            className={`inline-flex items-center gap-1.5 text-[13px] ${docKind === "informe" ? "text-foreground cursor-pointer" : "text-muted-foreground/50 cursor-not-allowed"}`}
+            title={docKind === "informe" ? undefined : "Un acta no tiene diapositivas"}
+          >
+            <input
+              type="checkbox"
+              checked={includePptx}
+              disabled={docKind !== "informe"}
+              onChange={(e) => setIncludePptx(e.target.checked)}
+              className="accent-[var(--accent)]"
+            />
+            + Presentación
+          </label>
         </div>
       </div>
 
@@ -236,18 +258,18 @@ export function BatchGenerator() {
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="px-5 py-3.5 border-b border-border flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[180px] max-w-[280px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: "rgba(255,255,255,0.35)" }} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar propiedad…" className="w-full h-9 rounded-lg border border-border bg-card text-sm text-foreground pl-8 pr-3 placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-[#7c5cff] transition-all" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: "var(--ink-4)" }} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar propiedad…" className="w-full h-9 rounded-lg border border-border bg-card text-sm text-foreground pl-8 pr-3 placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-[var(--accent)] transition-all" />
           </div>
           <span className="text-[12px] text-muted-foreground">
             {readyCount} de {rows.length} listas · <strong className="text-foreground">{selected.size} seleccionadas</strong>
           </span>
           <div className="flex items-center gap-2 ml-auto">
             <label className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground cursor-pointer">
-              <input type="checkbox" checked={regenerate} onChange={(e) => setRegenerate(e.target.checked)} className="accent-[#7c5cff]" />
+              <input type="checkbox" checked={regenerate} onChange={(e) => setRegenerate(e.target.checked)} className="accent-[var(--accent)]" />
               Regenerar ya generadas
             </label>
-            <button onClick={selectAllReady} className="text-[12px] text-[#9a7fff] hover:underline">Todas las listas</button>
+            <button onClick={selectAllReady} className="text-[12px] text-[var(--accent-hi)] hover:underline">Todas las listas</button>
             <button onClick={clearAll} className="text-[12px] text-muted-foreground hover:text-foreground">Ninguna</button>
           </div>
         </div>
@@ -272,19 +294,19 @@ export function BatchGenerator() {
                     checked={selected.has(p.propertyId)}
                     disabled={disabled}
                     onChange={() => toggle(p.propertyId)}
-                    className="accent-[#7c5cff] flex-shrink-0"
+                    className="accent-[var(--accent)] flex-shrink-0"
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium text-foreground truncate">{p.name}</p>
                     <p className="text-[11px] text-muted-foreground">{p.city || "—"}{p.groupLabel ? ` · ${p.groupLabel}` : ""}</p>
                   </div>
                   {p.alreadyGenerated && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ fontFamily: "var(--font-mono)", background: "rgba(76,214,160,0.10)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.25)" }}>ya generado</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ fontFamily: "var(--font-mono)", background: "rgb(var(--ok-rgb) / 0.1)", color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.25)" }}>ya generado</span>
                   )}
                   {p.ready ? (
                     <span className="text-[11px] text-muted-foreground whitespace-nowrap" style={{ fontFamily: "var(--font-mono)" }}>{p.fileCount} arch.</span>
                   ) : (
-                    <Link href={`/empresa/propiedades/${p.propertyId}`} className="text-[11px] whitespace-nowrap hover:underline" style={{ color: "#ffb958" }}>
+                    <Link href={`/empresa/propiedades/${p.propertyId}`} className="text-[11px] whitespace-nowrap hover:underline" style={{ color: "var(--warn-text)" }}>
                       faltan datos →
                     </Link>
                   )}
@@ -300,7 +322,7 @@ export function BatchGenerator() {
           onClick={launch}
           disabled={launching || selected.size === 0}
           className="inline-flex items-center gap-2 rounded-xl px-5 h-11 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: "#7c5cff", boxShadow: "0 4px 20px rgba(124,92,255,0.35)" }}
+          style={{ background: "var(--accent)", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.35)" }}
         >
           {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
           Generar {selected.size} {selected.size === 1 ? "propiedad" : "propiedades"}
@@ -314,8 +336,8 @@ export function BatchGenerator() {
 }
 
 function ItemStatus({ status }: { status: string }) {
-  if (status === "completed") return <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "#4cd6a0" }}><CheckCircle2 className="h-3.5 w-3.5" /> Listo</span>;
-  if (status === "failed") return <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "#ff6f6f" }}><AlertTriangle className="h-3.5 w-3.5" /> Error</span>;
-  if (status === "processing") return <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "#9a7fff" }}><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generando</span>;
+  if (status === "completed") return <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "var(--ok-text)" }}><CheckCircle2 className="h-3.5 w-3.5" /> Listo</span>;
+  if (status === "failed") return <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "var(--danger-text)" }}><AlertTriangle className="h-3.5 w-3.5" /> Error</span>;
+  if (status === "processing") return <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "var(--accent-text)" }}><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generando</span>;
   return <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground"><Clock className="h-3.5 w-3.5" /> En cola</span>;
 }

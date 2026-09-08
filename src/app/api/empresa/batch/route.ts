@@ -19,6 +19,22 @@ function validPeriod(month: number, year: number) {
 export async function GET(req: NextRequest) {
   const elite = await requireElite();
   if (!elite) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  if (process.env.DEMO_MODE === "true") {
+    // Misma forma exacta que las filas reales de abajo: la UI indexa por
+    // `propertyId` y lo usa como key de React.
+    const { getProperties } = await import("@/lib/demo-store");
+    return NextResponse.json({
+      properties: getProperties(elite.userId).map((p) => ({
+        propertyId: p.id,
+        name: p.name,
+        city: p.city,
+        groupLabel: p.groupLabel,
+        fileCount: 0,
+        ready: false,
+        alreadyGenerated: false,
+      })),
+    });
+  }
 
   const month = parseInt(req.nextUrl.searchParams.get("month") || "", 10);
   const year = parseInt(req.nextUrl.searchParams.get("year") || "", 10);
@@ -36,8 +52,7 @@ export async function GET(req: NextRequest) {
     }),
     db.generation.findMany({
       where: { userId: elite.userId, month, year, status: "completed" },
-      select: { propertyId: true },
-      distinct: ["propertyId"],
+      select: { propertyId: true, outputFiles: true },
     }),
   ]);
 
@@ -46,7 +61,15 @@ export async function GET(req: NextRequest) {
     const files = (s.files as FileRef[] | null) ?? [];
     fileCountByProp.set(s.propertyId, files.length);
   }
-  const completedSet = new Set(completed.map((c) => c.propertyId));
+  // "Ya generado" depende del documento que se vaya a pedir: con informe y acta
+  // como tipos excluyentes, marcar una propiedad por tener el informe hecho
+  // hacía que BatchGenerator la deseleccionara al preparar un lote de actas.
+  const previewKind = req.nextUrl.searchParams.get("docKind") === "acta" ? "actaHtml" : "informeHtml";
+  const completedSet = new Set(
+    completed
+      .filter((c) => !!(c.outputFiles as Record<string, string> | null)?.[previewKind])
+      .map((c) => c.propertyId)
+  );
 
   const rows = properties.map((p) => {
     const fileCount = fileCountByProp.get(p.id) ?? 0;
@@ -72,21 +95,25 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const elite = await requireElite();
   if (!elite) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json(
+      { error: "La generación en lote no está disponible en el demo. Crea tu cuenta para usarla." },
+      { status: 403 }
+    );
+  }
 
   const body = await req.json().catch(() => ({}));
   const month = parseInt(String(body.month), 10);
   const year = parseInt(String(body.year), 10);
   if (!validPeriod(month, year)) return NextResponse.json({ error: "Periodo inválido" }, { status: 400 });
 
-  const docTypes: string[] = Array.isArray(body.docTypes)
-    ? body.docTypes.filter((d: string) => ["informe", "acta", "pptx"].includes(d))
-    : [];
-  const includeInforme = docTypes.includes("informe");
-  const includeActa = docTypes.includes("acta");
-  const includePptx = docTypes.includes("pptx");
-  if (!includeInforme && !includeActa) {
-    return NextResponse.json({ error: "Elige al menos informe o acta." }, { status: 400 });
+  // Un lote produce UN tipo de documento: informe o acta, nunca ambos.
+  const { docSelectionFromTypes, docTypesFromSelection } = await import("@/lib/generation/doc-kind");
+  const selection = docSelectionFromTypes(body.docTypes);
+  if (!selection) {
+    return NextResponse.json({ error: "Elige el documento a generar: informe o acta." }, { status: 400 });
   }
+  const docTypes = docTypesFromSelection(selection);
 
   const requestedIds: string[] = Array.isArray(body.propertyIds) ? body.propertyIds.map(String) : [];
   if (requestedIds.length === 0) {
@@ -111,15 +138,25 @@ export async function POST(req: NextRequest) {
   });
   const stagedByProp = new Map(staged.map((s) => [s.propertyId, s]));
 
-  // Idempotency: skip properties already generated for this period unless regenerate.
+  // Idempotencia POR TIPO DE DOCUMENTO. Antes solo miraba mes+año+completada,
+  // así que un lote de ACTAS de agosto saltaba todas las propiedades que ya
+  // tenían INFORME de agosto y respondía "ninguna propiedad quedó lista": el
+  // lote de actas era literalmente imposible sin marcar "regenerar", que a su
+  // vez rehace informes que nadie quiso tocar.
+  // Se mira `outputFiles` y no `type`, porque las filas de lote se crean todas
+  // con type:"custom" y el tipo real solo vive en GenerationBatch.docTypes.
+  const doneKey = selection.kind === "acta" ? "actaHtml" : "informeHtml";
   const already = regenerate
     ? []
     : await db.generation.findMany({
         where: { userId: elite.userId, month, year, status: "completed", propertyId: { in: ownedIds } },
-        select: { propertyId: true },
-        distinct: ["propertyId"],
+        select: { propertyId: true, outputFiles: true },
       });
-  const alreadySet = new Set(already.map((a) => a.propertyId));
+  const alreadySet = new Set(
+    already
+      .filter((a) => !!(a.outputFiles as Record<string, string> | null)?.[doneKey])
+      .map((a) => a.propertyId)
+  );
 
   // Monthly cap for real Elite (beta/demo = unlimited).
   let remaining = Infinity;
@@ -183,6 +220,6 @@ export async function POST(req: NextRequest) {
     skippedNoData,
     skippedExisting,
     skippedCap,
-    docTypes: { includeInforme, includeActa, includePptx },
+    docTypes: selection,
   });
 }

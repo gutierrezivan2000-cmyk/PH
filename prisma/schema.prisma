@@ -18,6 +18,10 @@ model User {
   emailVerified DateTime?
   image         String?
   passwordHash  String?
+  // Sello del último cambio de contraseña. Con estrategia JWT la sesión vive en
+  // la cookie: sin esto, restablecer la contraseña no desconectaba las sesiones
+  // ya emitidas (hasta 30 días). El callback jwt lo compara en su recheck.
+  passwordChangedAt DateTime?
 
   // Profile fields
   cargo         String?
@@ -141,7 +145,10 @@ model PendingOrder {
   amount      Int       // expected charge amount (COP)
   currency    String    @default("cop")
   status      String    @default("pending") // "pending" | "completed" | "rejected"
-  epaycoRef   String? // x_ref_payco once ePayco confirms
+  // Único: una misma transacción de ePayco no puede cerrar dos órdenes. Sin
+  // esta restricción, una tupla firmada reutilizada renovaba la suscripción
+  // gratis (la firma de ePayco no cubre x_id_invoice).
+  epaycoRef   String?   @unique
   createdAt   DateTime  @default(now())
   completedAt DateTime?
 
@@ -195,6 +202,7 @@ model Property {
   budgets       Budget[]
   ledgerEntries LedgerEntry[]
   pqrs          Pqrs[]
+  commonAssets  CommonAsset[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -254,10 +262,17 @@ model Generation {
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   createdAt   DateTime  @default(now())
+  // Marca de ACTIVIDAD, no de creación: runGeneration toca la fila en cada
+  // paso de progreso, así que sirve para detectar trabajos muertos. Filtrar
+  // por createdAt no valdría: en un lote las 50 filas se crean en el mismo
+  // instante y se drenan de a pocas por minuto, así que una fila viva
+  // reclamada 40 minutos después parecería colgada.
+  updatedAt   DateTime  @updatedAt
   completedAt DateTime?
 
   @@index([batchId])
   @@index([userId, createdAt])
+  @@index([status, updatedAt])
 }
 
 // A batch generation run over many properties (Elite enterprise feature).
@@ -536,6 +551,40 @@ model Certificate {
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([propertyId])
+}
+
+// ============================================
+// Bitácora: zonas comunes y pólizas (registro con fecha relevante)
+// ============================================
+
+model CommonAsset {
+  id         String  @id @default(cuid())
+  userId     String
+  propertyId String
+  kind       String // "zona_comun" | "poliza"
+  name       String // "Ascensor Torre A", "Póliza responsabilidad civil"...
+  provider   String? // contratista de mantenimiento / aseguradora
+  reference  String? // número de contrato / número de póliza
+  notes      String? @db.Text
+
+  // Próxima fecha que importa: revisión/mantenimiento o vencimiento de póliza.
+  dueDate DateTime
+
+  // Si se repite (ej. mantenimiento trimestral, póliza anual), cada cuántos
+  // meses. Al marcar "hecho" se recalcula dueDate en vez de simplemente
+  // marcarlo, para que reaparezca en su próximo ciclo.
+  recurrenceMonths Int?
+  lastDoneAt       DateTime?
+
+  status String @default("active") // "active" | "archived"
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([propertyId])

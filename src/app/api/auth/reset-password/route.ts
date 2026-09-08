@@ -37,9 +37,14 @@ export async function POST(req: NextRequest) {
 
     // Completing a reset also proves control of the email — verify the
     // account if it wasn't (rescues accounts stuck in unverified limbo).
+    // `passwordChangedAt` desconecta las sesiones ya emitidas: con estrategia
+    // JWT la sesión vive en la cookie, así que quien hubiera robado una seguía
+    // dentro después de que la víctima cambiara la contraseña.
+    const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+    await ensureAdminSchema().catch(() => {});
     const updated = await db.user.updateMany({
       where: { email },
-      data: { passwordHash, emailVerified: new Date() },
+      data: { passwordHash, emailVerified: new Date(), passwordChangedAt: new Date() },
     });
     if (updated.count === 0) {
       return NextResponse.json({ error: "Cuenta no encontrada." }, { status: 400 });

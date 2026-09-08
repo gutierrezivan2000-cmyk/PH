@@ -35,27 +35,27 @@ function priorityStyle(priority: string): React.CSSProperties {
   switch (priority) {
     case "urgent":
       return {
-        background: "rgba(255,111,111,0.12)",
-        color: "#ff8585",
-        border: "1px solid rgba(255,111,111,0.25)",
+        background: "rgb(var(--danger-rgb) / 0.12)",
+        color: "var(--danger-text)",
+        border: "1px solid rgb(var(--danger-rgb) / 0.25)",
       };
     case "high":
       return {
-        background: "rgba(255,185,88,0.12)",
-        color: "#ffb958",
-        border: "1px solid rgba(255,185,88,0.25)",
+        background: "rgb(var(--warn-rgb) / 0.12)",
+        color: "var(--warn-text)",
+        border: "1px solid rgb(var(--warn-rgb) / 0.25)",
       };
     case "normal":
       return {
-        background: "rgba(255,255,255,0.06)",
-        color: "rgba(255,255,255,0.50)",
-        border: "1px solid rgba(255,255,255,0.10)",
+        background: "rgb(var(--veil-rgb) / 0.06)",
+        color: "var(--ink-3)",
+        border: "1px solid rgb(var(--veil-rgb) / 0.1)",
       };
     default: // low
       return {
-        background: "rgba(255,255,255,0.03)",
-        color: "rgba(255,255,255,0.30)",
-        border: "1px solid rgba(255,255,255,0.07)",
+        background: "rgb(var(--veil-rgb) / 0.03)",
+        color: "var(--ink-4)",
+        border: "1px solid rgb(var(--veil-rgb) / 0.07)",
       };
   }
 }
@@ -64,27 +64,27 @@ function statusStyle(status: string): React.CSSProperties {
   switch (status) {
     case "open":
       return {
-        background: "rgba(255,111,111,0.10)",
-        color: "#ff8585",
-        border: "1px solid rgba(255,111,111,0.25)",
+        background: "rgb(var(--danger-rgb) / 0.1)",
+        color: "var(--danger-text)",
+        border: "1px solid rgb(var(--danger-rgb) / 0.25)",
       };
     case "pending":
       return {
-        background: "rgba(255,185,88,0.10)",
-        color: "#ffb958",
-        border: "1px solid rgba(255,185,88,0.25)",
+        background: "rgb(var(--warn-rgb) / 0.1)",
+        color: "var(--warn-text)",
+        border: "1px solid rgb(var(--warn-rgb) / 0.25)",
       };
     case "resolved":
       return {
-        background: "rgba(76,214,160,0.10)",
-        color: "#4cd6a0",
-        border: "1px solid rgba(76,214,160,0.25)",
+        background: "rgb(var(--ok-rgb) / 0.1)",
+        color: "var(--ok-text)",
+        border: "1px solid rgb(var(--ok-rgb) / 0.25)",
       };
     default: // closed
       return {
-        background: "rgba(255,255,255,0.05)",
-        color: "rgba(255,255,255,0.40)",
-        border: "1px solid rgba(255,255,255,0.10)",
+        background: "rgb(var(--veil-rgb) / 0.05)",
+        color: "var(--ink-3)",
+        border: "1px solid rgb(var(--veil-rgb) / 0.1)",
       };
   }
 }
@@ -215,17 +215,17 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
                   fontSize: 11,
                   letterSpacing: "0.12em",
                   textTransform: "uppercase",
-                  background: isActive ? "rgba(124,92,255,0.12)" : "transparent",
-                  color: isActive ? "#9a7fff" : "rgba(255,255,255,0.45)",
-                  borderBottom: isActive ? "1px solid rgba(124,92,255,0.50)" : "1px solid transparent",
+                  background: isActive ? "rgb(var(--accent-rgb) / 0.12)" : "transparent",
+                  color: isActive ? "var(--accent-text)" : "var(--ink-3)",
+                  borderBottom: isActive ? "1px solid rgb(var(--accent-rgb) / 0.5)" : "1px solid transparent",
                 }}
               >
                 {tab.label}
                 <span
                   className="px-1.5 py-0.5 rounded-md text-[10px]"
                   style={{
-                    background: isActive ? "rgba(124,92,255,0.20)" : "rgba(255,255,255,0.07)",
-                    color: isActive ? "#9a7fff" : "rgba(255,255,255,0.35)",
+                    background: isActive ? "rgb(var(--accent-rgb) / 0.2)" : "rgb(var(--veil-rgb) / 0.07)",
+                    color: isActive ? "var(--accent-text)" : "var(--ink-4)",
                     fontFamily: "var(--font-mono)",
                   }}
                 >
@@ -274,8 +274,8 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
       >
         {tickets.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <MessageSquare className="h-8 w-8" style={{ color: "rgba(255,255,255,0.15)" }} />
-            <p className="text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
+            <MessageSquare className="h-8 w-8" style={{ color: "var(--ink-4)" }} />
+            <p className="text-sm" style={{ color: "var(--ink-4)" }}>
               No hay tickets que coincidan con los filtros.
             </p>
           </div>
@@ -309,14 +309,14 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
                     {preview && (
                       <p
                         className="text-[12px] truncate mt-0.5"
-                        style={{ color: "rgba(255,255,255,0.40)" }}
+                        style={{ color: "var(--ink-3)" }}
                       >
                         {preview}
                       </p>
                     )}
                     <p
                       className="text-[11px] mt-1 truncate"
-                      style={{ ...monoSmall, color: "rgba(255,255,255,0.30)", textTransform: "none" }}
+                      style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}
                     >
                       {ticket.user.name || "—"} · {ticket.user.email}
                     </p>
@@ -337,9 +337,9 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
                       className="px-2 py-1 rounded-lg text-[10px] hidden sm:inline-block"
                       style={{
                         ...monoSmall,
-                        background: "rgba(255,255,255,0.04)",
-                        color: "rgba(255,255,255,0.35)",
-                        border: "1px solid rgba(255,255,255,0.08)",
+                        background: "rgb(var(--veil-rgb) / 0.04)",
+                        color: "var(--ink-4)",
+                        border: "1px solid rgb(var(--veil-rgb) / 0.08)",
                       }}
                     >
                       {CATEGORY_LABELS[ticket.category] ?? ticket.category}
@@ -348,7 +348,7 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
                     {/* Message count */}
                     <span
                       className="flex items-center gap-1 text-[11px] hidden md:flex"
-                      style={{ ...monoSmall, color: "rgba(255,255,255,0.30)", textTransform: "none" }}
+                      style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}
                     >
                       <MessageSquare className="h-3 w-3" />
                       {ticket._count.messages}
@@ -357,7 +357,7 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
                     {/* Last activity */}
                     <span
                       className="flex items-center gap-1 text-[11px] hidden lg:flex"
-                      style={{ ...monoSmall, color: "rgba(255,255,255,0.25)", textTransform: "none" }}
+                      style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}
                     >
                       <Clock className="h-3 w-3" />
                       {relativeTime(ticket.updatedAt)}
@@ -365,7 +365,7 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
 
                     <ChevronRight
                       className="h-4 w-4 opacity-0 group-hover:opacity-60 transition-opacity"
-                      style={{ color: "rgba(255,255,255,0.40)" }}
+                      style={{ color: "var(--ink-3)" }}
                     />
                   </div>
                 </Link>

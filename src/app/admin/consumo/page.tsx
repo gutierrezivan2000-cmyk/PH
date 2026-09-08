@@ -80,9 +80,9 @@ async function ConsumoContent() {
 
       {/* Totals */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        <StatCard icon={DollarSign} tint="#4cd6a0" label="Costo IA del mes" value={money(d.totalCost)} sub="todos los clientes" />
-        <StatCard icon={Activity} tint="#7c5cff" label="Tokens del mes" value={d.totalTokens.toLocaleString("es-CO")} sub="entrada + salida" />
-        <StatCard icon={Layers} tint="#ffb958" label="Lotes en curso" value={String(d.batches.length)} sub="generándose ahora" />
+        <StatCard icon={DollarSign} tint="var(--ok)" label="Costo IA del mes" value={money(d.totalCost)} sub="todos los clientes" />
+        <StatCard icon={Activity} tint="var(--accent)" label="Tokens del mes" value={d.totalTokens.toLocaleString("es-CO")} sub="entrada + salida" />
+        <StatCard icon={Layers} tint="var(--warn)" label="Lotes en curso" value={String(d.batches.length)} sub="generándose ahora" />
       </div>
 
       {/* Batches in progress */}
@@ -101,7 +101,7 @@ async function ConsumoContent() {
                     {MONTHS[(b.month - 1) % 12]} {b.year} · {b.docTypes.join(", ")}
                   </p>
                 </div>
-                <span className="text-[12px] tabular-nums" style={{ fontFamily: "var(--font-mono)", color: "#9a7fff" }}>
+                <span className="text-[12px] tabular-nums" style={{ fontFamily: "var(--font-mono)", color: "var(--accent-text)" }}>
                   {b.done}/{b.total}
                 </span>
               </li>
@@ -118,9 +118,9 @@ async function ConsumoContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border" style={{ background: "rgba(255,255,255,0.02)" }}>
+                <tr className="border-b border-border" style={{ background: "rgb(var(--veil-rgb) / 0.02)" }}>
                   {["Cliente", "Costo IA", "Tokens", "Registros"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left whitespace-nowrap" style={{ fontFamily: "var(--font-mono)", fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.40)" }}>
+                    <th key={h} className="px-4 py-3 text-left whitespace-nowrap" style={{ fontFamily: "var(--font-mono)", fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ink-3)" }}>
                       {h}
                     </th>
                   ))}
@@ -130,7 +130,7 @@ async function ConsumoContent() {
                 {d.topUsers.map((u, i) => (
                   <tr key={i} className="hover:bg-secondary/40 transition-colors">
                     <td className="px-4 py-2.5 text-foreground truncate max-w-[280px]">{u.user?.name || u.user?.email || "—"}</td>
-                    <td className="px-4 py-2.5 tabular-nums" style={{ fontFamily: "var(--font-mono)", color: u.cost > 20 ? "#ffb958" : "var(--muted-foreground)" }}>{money(u.cost)}</td>
+                    <td className="px-4 py-2.5 tabular-nums" style={{ fontFamily: "var(--font-mono)", color: u.cost > 20 ? "var(--warn-text)" : "var(--muted-foreground)" }}>{money(u.cost)}</td>
                     <td className="px-4 py-2.5 tabular-nums text-muted-foreground" style={{ fontFamily: "var(--font-mono)" }}>{u.tokens.toLocaleString("es-CO")}</td>
                     <td className="px-4 py-2.5 tabular-nums text-muted-foreground" style={{ fontFamily: "var(--font-mono)" }}>{u.records}</td>
                   </tr>

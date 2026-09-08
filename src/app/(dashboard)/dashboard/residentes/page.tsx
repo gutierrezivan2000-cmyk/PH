@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
 import { UnitImport } from "@/components/dashboard/UnitImport";
 import { waLink, portalLinkMessage } from "@/lib/whatsapp";
+import { COMING_SOON } from "@/lib/feature-flags";
 import {
   Users,
   Loader2,
@@ -21,6 +22,8 @@ import {
   Save,
   CreditCard,
   ChevronDown,
+  Plus,
+  X,
 } from "lucide-react";
 
 interface Property {
@@ -50,6 +53,17 @@ const monoMini: React.CSSProperties = {
   letterSpacing: "0.06em",
 };
 
+const inputStyle: React.CSSProperties = {
+  background: "var(--hifi-bg-elev)",
+  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
+  color: "var(--ink)",
+  borderRadius: "10px",
+  padding: "10px 12px",
+  fontSize: "13px",
+  outline: "none",
+  width: "100%",
+};
+
 const card: React.CSSProperties = {
   background: "var(--hifi-surface-1)",
   border: "1px solid var(--hifi-hairline)",
@@ -70,6 +84,23 @@ export default function ResidentesPage() {
   const [waSaving, setWaSaving] = useState(false);
 
   // ePayco config (account-level, applies to all properties)
+  // Alta de unidades. Vivía en Comunicados, que quedó pausado, y en Residentes
+  // el importador solo aparecía con la lista vacía: tras importar la primera
+  // unidad no quedaba NINGUNA forma de añadir más.
+  // Distinguir "no hay unidades" de "no se pudieron cargar": el catch silencioso
+  // dejaba la pantalla diciendo que la propiedad estaba vacía y empujaba a
+  // re-importar un listado que en realidad ya estaba en la base.
+  const [loadError, setLoadError] = useState(false);
+  // Descarta respuestas obsoletas: al cambiar de propiedad con la red lenta, la
+  // respuesta de la anterior llegaba después y pintaba SUS unidades bajo el
+  // nombre de la nueva.
+  const reqSeq = useRef(0);
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState("");
+
   const [showPay, setShowPay] = useState(false);
   const [payConfigured, setPayConfigured] = useState(false);
   const [payPublicKey, setPayPublicKey] = useState("");
@@ -103,7 +134,12 @@ export default function ResidentesPage() {
         body: JSON.stringify({ publicKey: payPublicKey, pCustId: payCustId, pKey: payKey, test: payTest }),
       });
       if (res.ok) {
-        setMsg({ ok: true, text: "Pago en línea configurado. Los residentes con saldo ya pueden pagar desde su portal." });
+        setMsg({
+          ok: true,
+          text: COMING_SOON.cartera
+            ? "Pago en línea configurado. Se activará en el portal cuando Cartera esté disponible."
+            : "Pago en línea configurado. Los residentes con saldo ya pueden pagar desde su portal.",
+        });
         setPayConfigured(!!(payPublicKey && payCustId && (payKey && !payKey.includes("•") || payConfigured)));
         setShowPay(false);
       } else {
@@ -114,23 +150,55 @@ export default function ResidentesPage() {
     }
   }
 
+  async function addUnitsFromText() {
+    if (!bulkText.trim() || !propertyId) return;
+    setBulkBusy(true);
+    setBulkMsg("");
+    try {
+      const res = await fetch(`/api/properties/${propertyId}/units`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lines: bulkText }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setBulkMsg(data?.error || "No se pudo agregar.");
+        return;
+      }
+      setBulkMsg(
+        `${data.created} agregadas${data.skipped ? ` · ${data.skipped} omitidas (duplicadas)` : ""}`
+      );
+      setBulkText("");
+      await load(propertyId);
+    } catch {
+      setBulkMsg("Error de red.");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   const load = useCallback(async (pid: string) => {
     if (!pid) return;
+    const seq = ++reqSeq.current;
+    setLoadError(false);
     try {
       const res = await fetch(`/api/portal/tokens?propertyId=${pid}`);
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (seq !== reqSeq.current) return; // llegó tarde: ya se cambió de propiedad
       if (res.status === 403 && data.code === "plan_upgrade") {
         setUpgrade(true);
         return;
       }
-      if (res.ok) {
-        setUpgrade(false);
-        setUnits(data.units || []);
-        setWhatsapp(data.whatsapp || "");
-        setWaDirty(false);
+      if (!res.ok) {
+        setLoadError(true);
+        return;
       }
+      setUpgrade(false);
+      setUnits(data.units || []);
+      setWhatsapp(data.whatsapp || "");
+      setWaDirty(false);
     } catch {
-      /* keep */
+      if (seq === reqSeq.current) setLoadError(true);
     }
   }, []);
 
@@ -169,6 +237,7 @@ export default function ResidentesPage() {
   useEffect(() => {
     if (propertyId) {
       setMsg(null);
+      setUnits([]);
       load(propertyId);
     }
   }, [propertyId, load]);
@@ -251,7 +320,23 @@ export default function ResidentesPage() {
         setMsg({ ok: false, text: data.error || "No se pudo enviar." });
         return;
       }
-      setMsg({ ok: true, text: `Enlace enviado a ${data.sent} ${data.sent === 1 ? "residente" : "residentes"}.` });
+      if (data.failed > 0) {
+        // Nombrar las unidades que fallaron: el botón de correo de cada fila
+        // permite reenviar solo a esas, sin duplicarle el correo al resto ni
+        // volver a gastar cuota en los que sí lo recibieron.
+        const fallidas = (data.failedUnits || []) as string[];
+        setMsg({
+          ok: false,
+          text:
+            `Enviado a ${data.sent}; fallaron ${data.failed}` +
+            (fallidas.length
+              ? `: ${fallidas.slice(0, 12).join(", ")}${fallidas.length > 12 ? `… y ${fallidas.length - 12} más` : ""}. ` +
+                `Reenvíalos uno a uno con el botón de correo de cada fila.`
+              : "."),
+        });
+      } else {
+        setMsg({ ok: true, text: `Enlace enviado a ${data.sent} ${data.sent === 1 ? "residente" : "residentes"}.` });
+      }
       await load(propertyId);
     } catch {
       setMsg({ ok: false, text: "Error de red." });
@@ -294,24 +379,24 @@ export default function ResidentesPage() {
       <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-[1320px] mx-auto space-y-4">
         {loading && (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#7c5cff" }} />
+            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent-text)" }} />
           </div>
         )}
 
         {!loading && upgrade && (
-          <div className="rounded-2xl p-8 text-center" style={{ ...card, borderColor: "rgba(124,92,255,0.30)" }}>
-            <Users className="h-9 w-9 mx-auto mb-3" style={{ color: "#a78bff" }} />
-            <p className="text-[16px] font-semibold mb-2" style={{ color: "#f6f5f7" }}>
+          <div className="rounded-2xl p-8 text-center" style={{ ...card, borderColor: "rgb(var(--accent-rgb) / 0.3)" }}>
+            <Users className="h-9 w-9 mx-auto mb-3" style={{ color: "var(--accent-text)" }} />
+            <p className="text-[16px] font-semibold mb-2" style={{ color: "var(--ink)" }}>
               El portal de residentes es una función de los planes Business y Élite
             </p>
-            <p className="text-[13px] mb-5 max-w-md mx-auto leading-relaxed" style={{ color: "rgba(246,245,247,0.55)" }}>
+            <p className="text-[13px] mb-5 max-w-md mx-auto leading-relaxed" style={{ color: "var(--ink-2)" }}>
               Cada unidad recibe un enlace privado para ver su estado de cuenta, los comunicados y
               los documentos — sin registro ni contraseñas.
             </p>
             <Link
               href="/dashboard/suscripcion"
               className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-6 py-3"
-              style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+              style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
             >
               Ver planes
               <ArrowUpRight className="h-4 w-4" />
@@ -321,8 +406,8 @@ export default function ResidentesPage() {
 
         {!loading && !upgrade && properties.length === 0 && (
           <div className="rounded-2xl p-10 text-center" style={card}>
-            <Users className="h-8 w-8 mx-auto mb-3" style={{ color: "rgba(246,245,247,0.25)" }} />
-            <p className="text-[14px]" style={{ color: "rgba(246,245,247,0.70)" }}>
+            <Users className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
+            <p className="text-[14px]" style={{ color: "var(--ink-2)" }}>
               Crea una propiedad primero para activar el portal de residentes.
             </p>
           </div>
@@ -331,18 +416,18 @@ export default function ResidentesPage() {
         {!loading && !upgrade && properties.length > 0 && (
           <>
             {/* Property selector */}
-            <div className="ui-card ui-sheen p-4 flex flex-wrap items-center gap-2">
-              <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Propiedad</span>
-              <div className="flex flex-wrap gap-2 flex-1">
+            <div className="ui-card ui-sheen p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <span style={{ ...monoLabel, color: "var(--ink-3)" }}>Propiedad</span>
+              <div className="ui-scroll flex gap-2 flex-1 overflow-x-auto pb-0.5">
                 {properties.map((p) => (
                   <button
                     key={p.id}
                     onClick={() => setPropertyId(p.id)}
-                    className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap"
+                    className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
                     style={{
-                      border: `1px solid ${propertyId === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
-                      background: propertyId === p.id ? "rgba(124,92,255,0.15)" : "transparent",
-                      color: propertyId === p.id ? "#a78bff" : "rgba(246,245,247,0.55)",
+                      border: `1px solid ${propertyId === p.id ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.1)"}`,
+                      background: propertyId === p.id ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
+                      color: propertyId === p.id ? "var(--accent-hi)" : "var(--ink-2)",
                     }}
                   >
                     {p.name}
@@ -354,10 +439,10 @@ export default function ResidentesPage() {
             {/* How it works */}
             <div
               className="rounded-2xl p-4 flex items-start gap-3"
-              style={{ background: "rgba(95,180,255,0.06)", border: "1px solid rgba(95,180,255,0.20)" }}
+              style={{ background: "rgb(var(--info-rgb) / 0.06)", border: "1px solid rgb(var(--info-rgb) / 0.2)" }}
             >
-              <QrCode className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "#5fb4ff" }} />
-              <p className="text-[12.5px] leading-relaxed" style={{ color: "rgba(246,245,247,0.70)" }}>
+              <QrCode className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "var(--info-text)" }} />
+              <p className="text-[12.5px] leading-relaxed" style={{ color: "var(--ink-2)" }}>
                 Cada unidad tiene un <strong>enlace privado</strong> (sin cuenta ni contraseña) donde el
                 residente ve su estado de cuenta, comunicados y documentos. Genera los enlaces, compártelos
                 por correo o WhatsApp, y rótalos si alguno se filtra.
@@ -368,9 +453,9 @@ export default function ResidentesPage() {
             <div className="ui-card p-4">
               <div className="flex items-center gap-2 mb-2">
                 <MessageCircle className="h-4 w-4" style={{ color: "#25D366" }} />
-                <span className="text-[13px] font-medium" style={{ color: "#f6f5f7" }}>WhatsApp de la administración</span>
+                <span className="text-[13px] font-medium" style={{ color: "var(--ink)" }}>WhatsApp de la administración</span>
               </div>
-              <p className="text-[12px] mb-3 leading-relaxed" style={{ color: "rgba(246,245,247,0.50)" }}>
+              <p className="text-[12px] mb-3 leading-relaxed" style={{ color: "var(--ink-3)" }}>
                 Aparece en el portal como botón <strong>&quot;Escríbenos por WhatsApp&quot;</strong>. Cuando un
                 residente lo usa, el mensaje te llega <strong>ya identificado con su unidad</strong> — sabes
                 de inmediato quién escribe.
@@ -382,13 +467,13 @@ export default function ResidentesPage() {
                   placeholder="Ej: 300 123 4567"
                   inputMode="tel"
                   className="h-10 px-3 rounded-lg text-[13px]"
-                  style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgba(255,255,255,0.10)", color: "#f6f5f7", outline: "none", width: 200 }}
+                  style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgb(var(--veil-rgb) / 0.1)", color: "var(--ink)", outline: "none", width: 200 }}
                 />
                 <button
                   onClick={saveWhatsapp}
                   disabled={waSaving || !waDirty}
-                  className="ui-press inline-flex items-center gap-2 rounded-full text-white text-[12.5px] font-medium px-4 py-2 cursor-pointer"
-                  style={{ background: "#25D366" }}
+                  className="ui-press inline-flex items-center gap-2 rounded-full text-[12.5px] font-medium px-4 py-2 cursor-pointer"
+                  style={{ background: "#25D366", color: "#0a2e18" }}
                 >
                   {waSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Guardar
@@ -399,20 +484,27 @@ export default function ResidentesPage() {
             {/* Pago en línea (ePayco) */}
             <div className="ui-card ui-sheen">
               <button onClick={() => setShowPay((v) => !v)} className="w-full flex items-center gap-3 p-4 cursor-pointer">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(95,180,255,0.10)" }}>
-                  <CreditCard className="h-4 w-4" style={{ color: "#5fb4ff" }} />
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgb(var(--info-rgb) / 0.1)" }}>
+                  <CreditCard className="h-4 w-4" style={{ color: "var(--info-text)" }} />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>Pago en línea (ePayco)</p>
-                  <p className="text-[11.5px]" style={{ color: payConfigured ? "#4cd6a0" : "rgba(246,245,247,0.45)" }}>
-                    {payConfigured ? "Configurado — los residentes con saldo pueden pagar desde su portal" : "Sin configurar — conéctalo para recibir pagos en línea"}
+                  <p className="text-[13.5px] font-medium" style={{ color: "var(--ink)" }}>Pago en línea (ePayco)</p>
+                  <p className="text-[11.5px]" style={{ color: payConfigured ? "var(--ok-text)" : "var(--ink-3)" }}>
+                    {payConfigured
+                      ? COMING_SOON.cartera
+                        // El botón de pago del portal vive en la sección de
+                        // estado de cuenta, hoy pausada con Cartera: decir que
+                        // "ya pueden pagar" sería falso.
+                        ? "Configurado — se activará cuando Cartera esté disponible"
+                        : "Configurado — los residentes con saldo pueden pagar desde su portal"
+                      : "Sin configurar — conéctalo para recibir pagos en línea"}
                   </p>
                 </div>
-                <ChevronDown className="h-4 w-4 transition-transform" style={{ color: "rgba(246,245,247,0.35)", transform: showPay ? "rotate(180deg)" : "none" }} />
+                <ChevronDown className="h-4 w-4 transition-transform" style={{ color: "var(--ink-4)", transform: showPay ? "rotate(180deg)" : "none" }} />
               </button>
               {showPay && (
                 <div className="px-4 pb-4 space-y-3">
-                  <p className="text-[12px] leading-relaxed" style={{ color: "rgba(246,245,247,0.55)" }}>
+                  <p className="text-[12px] leading-relaxed" style={{ color: "var(--ink-2)" }}>
                     Ingresa las llaves de <strong>tu propia cuenta ePayco</strong>. Los pagos de los
                     residentes llegan <strong>directo a tu cuenta</strong> — SOPH.IA solo concilia contra
                     la cartera y nunca retiene el dinero. Encuentra estas llaves en tu panel de ePayco →
@@ -424,17 +516,17 @@ export default function ResidentesPage() {
                     { label: "P_KEY", val: payKey, set: setPayKey, ph: "••••" },
                   ].map((f) => (
                     <div key={f.label}>
-                      <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">{f.label}</label>
+                      <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">{f.label}</label>
                       <input
                         value={f.val}
                         onChange={(e) => f.set(e.target.value)}
                         placeholder={f.ph}
                         className="w-full h-10 px-3 rounded-lg text-[13px]"
-                        style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgba(255,255,255,0.10)", color: "#f6f5f7", outline: "none", fontFamily: "var(--font-mono)" }}
+                        style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgb(var(--veil-rgb) / 0.1)", color: "var(--ink)", outline: "none", fontFamily: "var(--font-mono)" }}
                       />
                     </div>
                   ))}
-                  <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: "rgba(246,245,247,0.60)" }}>
+                  <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: "var(--ink-2)" }}>
                     <input type="checkbox" checked={payTest} onChange={(e) => setPayTest(e.target.checked)} />
                     Modo de pruebas (desactívalo cuando estés listo para cobrar de verdad)
                   </label>
@@ -442,7 +534,7 @@ export default function ResidentesPage() {
                     onClick={savePayConfig}
                     disabled={paySaving}
                     className="ui-press inline-flex items-center gap-2 rounded-full text-white text-[12.5px] font-medium px-4 py-2 cursor-pointer"
-                    style={{ background: "#5fb4ff" }}
+                    style={{ background: "var(--info)" }}
                   >
                     {paySaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                     Guardar configuración de pago
@@ -458,7 +550,7 @@ export default function ResidentesPage() {
                   onClick={generateAll}
                   disabled={busy}
                   className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-                  style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+                  style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                 >
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
                   Generar {missingToken} {missingToken === 1 ? "enlace" : "enlaces"}
@@ -469,13 +561,13 @@ export default function ResidentesPage() {
                   onClick={sendAll}
                   disabled={busy}
                   className="inline-flex items-center gap-2 rounded-full text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-50 cursor-pointer"
-                  style={{ background: "rgba(76,214,160,0.14)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.35)" }}
+                  style={{ background: "rgb(var(--ok-rgb) / 0.14)", color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.35)" }}
                 >
                   <Send className="h-3.5 w-3.5" />
                   Enviar a todos por correo ({withEmail})
                 </button>
               )}
-              <span style={{ ...monoMini, color: "rgba(246,245,247,0.40)" }}>
+              <span style={{ ...monoMini, color: "var(--ink-3)" }}>
                 {withToken}/{units.length} con enlace · {withEmail} con correo
               </span>
             </div>
@@ -485,8 +577,8 @@ export default function ResidentesPage() {
                 className="flex items-start gap-2 px-3 py-2.5 rounded-lg text-[12.5px]"
                 style={
                   msg.ok
-                    ? { background: "rgba(76,214,160,0.10)", border: "1px solid rgba(76,214,160,0.30)", color: "#4cd6a0" }
-                    : { background: "rgba(255,111,111,0.10)", border: "1px solid rgba(255,111,111,0.30)", color: "#ff8585" }
+                    ? { background: "rgb(var(--ok-rgb) / 0.1)", border: "1px solid rgb(var(--ok-rgb) / 0.3)", color: "var(--ok-text)" }
+                    : { background: "rgb(var(--danger-rgb) / 0.1)", border: "1px solid rgb(var(--danger-rgb) / 0.3)", color: "var(--danger-text)" }
                 }
               >
                 {msg.ok && <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-px" />}
@@ -494,36 +586,103 @@ export default function ResidentesPage() {
               </div>
             )}
 
+            {/* Alta de unidades — siempre disponible, no solo con la lista vacía */}
+            <div className="ui-card ui-sheen p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <UnitImport
+                  propertyId={propertyId}
+                  onImported={(n) => {
+                    setMsg({ ok: true, text: `${n} ${n === 1 ? "unidad importada" : "unidades importadas"}.` });
+                    load(propertyId);
+                  }}
+                />
+                <button
+                  onClick={() => { setShowAdd((v) => !v); setBulkMsg(""); }}
+                  className="ui-chip inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
+                  style={{
+                    background: showAdd ? "rgb(var(--veil-rgb) / 0.06)" : "rgb(var(--accent-rgb) / 0.15)",
+                    color: showAdd ? "var(--ink-2)" : "var(--accent-hi)",
+                    border: `1px solid ${showAdd ? "rgb(var(--veil-rgb) / 0.1)" : "rgb(var(--accent-rgb) / 0.4)"}`,
+                  }}
+                >
+                  {showAdd ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                  {showAdd ? "Cancelar" : "Agregar a mano"}
+                </button>
+              </div>
+
+              {showAdd && (
+                <div className="mt-4 space-y-3 ui-rise">
+                  <div>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
+                      Una unidad por línea
+                    </label>
+                    <textarea
+                      value={bulkText}
+                      onChange={(e) => setBulkText(e.target.value)}
+                      rows={4}
+                      placeholder={"Apto 101, María Pérez, maria@correo.com, 3001112233\nApto 102, juan@correo.com\ncarlos@correo.com"}
+                      style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={addUnitsFromText}
+                      disabled={bulkBusy || !bulkText.trim()}
+                      className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 transition-all disabled:opacity-40 cursor-pointer"
+                      style={{ background: "rgb(var(--ok-rgb) / 0.14)", color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.3)" }}
+                    >
+                      {bulkBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                      Agregar
+                    </button>
+                    {bulkMsg && (
+                      <span className="text-[12px]" style={{ color: "var(--ink-2)" }}>{bulkMsg}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Units */}
-            {units.length === 0 ? (
+            {loadError ? (
+              <div
+                className="rounded-2xl p-8 text-center"
+                style={{ ...card, borderColor: "rgb(var(--danger-rgb) / 0.3)" }}
+              >
+                <Ban className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--danger-text)" }} />
+                <p className="text-[14px] mb-1" style={{ color: "var(--ink-2)" }}>
+                  No se pudieron cargar las unidades
+                </p>
+                <p className="text-[12.5px] mb-4" style={{ color: "var(--ink-3)" }}>
+                  Es un problema de conexión, no que la propiedad esté vacía. No importes de nuevo
+                  el listado: podrías duplicar unidades.
+                </p>
+                <button
+                  onClick={() => load(propertyId)}
+                  className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
+                  style={{ background: "rgb(var(--accent-rgb) / 0.15)", color: "var(--accent-text)", border: "1px solid rgb(var(--accent-rgb) / 0.4)" }}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Reintentar
+                </button>
+              </div>
+            ) : units.length === 0 ? (
               <div className="rounded-2xl p-8 text-center" style={card}>
-                <Users className="h-8 w-8 mx-auto mb-3" style={{ color: "rgba(246,245,247,0.25)" }} />
-                <p className="text-[14px] mb-1" style={{ color: "rgba(246,245,247,0.70)" }}>
+                <Users className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
+                <p className="text-[14px] mb-1" style={{ color: "var(--ink-2)" }}>
                   Esta propiedad aún no tiene unidades
                 </p>
-                <p className="text-[12.5px] mb-4" style={{ color: "rgba(246,245,247,0.40)" }}>
-                  Importa tu listado desde un archivo (Excel, PDF…) y la IA lo organiza, o agrégalas a mano.
+                <p className="text-[12.5px]" style={{ color: "var(--ink-3)" }}>
+                  Usa <strong>Importar de archivo</strong> o <strong>Agregar a mano</strong>, aquí arriba.
                 </p>
-                <div className="flex justify-center mb-3">
-                  <UnitImport propertyId={propertyId} onImported={(n) => { setMsg({ ok: true, text: `${n} ${n === 1 ? "unidad importada" : "unidades importadas"}.` }); load(propertyId); }} />
-                </div>
-                <Link
-                  href="/dashboard/comunicados"
-                  className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2"
-                  style={{ background: "rgba(124,92,255,0.15)", color: "#a78bff", border: "1px solid rgba(124,92,255,0.40)" }}
-                >
-                  Agregar a mano
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </Link>
               </div>
             ) : (
               <div className="ui-card ui-sheen overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr style={{ background: "rgba(255,255,255,0.02)", borderBottom: "1px solid var(--hifi-hairline)" }}>
+                      <tr style={{ background: "rgb(var(--veil-rgb) / 0.02)", borderBottom: "1px solid var(--hifi-hairline)" }}>
                         {["Unidad", "Correo", "Portal", ""].map((h) => (
-                          <th key={h} className="px-4 py-3 text-left whitespace-nowrap" style={{ ...monoLabel, color: "rgba(246,245,247,0.40)" }}>
+                          <th key={h} className="px-4 py-3 text-left whitespace-nowrap" style={{ ...monoLabel, color: "var(--ink-3)" }}>
                             {h}
                           </th>
                         ))}
@@ -533,21 +692,21 @@ export default function ResidentesPage() {
                       {units.map((u) => (
                         <tr key={u.id} className="ui-row" style={{ borderBottom: "1px solid var(--hifi-hairline)" }}>
                           <td className="px-4 py-3">
-                            <p className="text-[13px] font-medium" style={{ color: "#f6f5f7" }}>{u.label}</p>
-                            {u.residentName && <p className="text-[11px]" style={{ color: "rgba(246,245,247,0.40)" }}>{u.residentName}</p>}
+                            <p className="text-[13px] font-medium" style={{ color: "var(--ink)" }}>{u.label}</p>
+                            {u.residentName && <p className="text-[11px]" style={{ color: "var(--ink-3)" }}>{u.residentName}</p>}
                           </td>
                           <td className="px-4 py-3">
-                            <span className="text-[12px]" style={{ color: u.email ? "rgba(246,245,247,0.65)" : "rgba(246,245,247,0.30)", fontFamily: "var(--font-mono)" }}>
+                            <span className="text-[12px]" style={{ color: u.email ? "var(--ink-2)" : "var(--ink-4)", fontFamily: "var(--font-mono)" }}>
                               {u.email || "sin correo"}
                             </span>
                           </td>
                           <td className="px-4 py-3">
                             {u.portalToken ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px]" style={{ ...monoMini, background: "rgba(76,214,160,0.10)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.30)" }}>
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px]" style={{ ...monoMini, background: "rgb(var(--ok-rgb) / 0.1)", color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.3)" }}>
                                 <CheckCircle2 className="h-3 w-3" /> Activo
                               </span>
                             ) : (
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10.5px]" style={{ ...monoMini, background: "rgba(255,255,255,0.05)", color: "rgba(246,245,247,0.45)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10.5px]" style={{ ...monoMini, background: "rgb(var(--veil-rgb) / 0.05)", color: "var(--ink-3)", border: "1px solid rgb(var(--veil-rgb) / 0.12)" }}>
                                 Sin generar
                               </span>
                             )}
@@ -555,14 +714,14 @@ export default function ResidentesPage() {
                           <td className="px-4 py-3 whitespace-nowrap">
                             {u.portalToken ? (
                               <div className="flex items-center gap-1">
-                                <button onClick={() => copyLink(u)} className="p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.06]" style={{ color: copied === u.id ? "#4cd6a0" : "rgba(246,245,247,0.55)" }} title="Copiar enlace">
+                                <button onClick={() => copyLink(u)} className="p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.06]" style={{ color: copied === u.id ? "var(--ok)" : "var(--ink-2)" }} title="Copiar enlace">
                                   {copied === u.id ? <CheckCircle2 className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
                                 </button>
-                                <a href={`/u/${u.portalToken}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-white/[0.06]" style={{ color: "rgba(246,245,247,0.55)" }} title="Abrir portal">
+                                <a href={`/u/${u.portalToken}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-white/[0.06]" style={{ color: "var(--ink-2)" }} title="Abrir portal">
                                   <ExternalLink className="h-4 w-4" />
                                 </a>
                                 {u.email && (
-                                  <button onClick={() => sendOne(u.id)} disabled={busy} className="p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.06]" style={{ color: "#a78bff" }} title="Enviar por correo">
+                                  <button onClick={() => sendOne(u.id)} disabled={busy} className="p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.06]" style={{ color: "var(--accent-text)" }} title="Enviar por correo">
                                     <Mail className="h-4 w-4" />
                                   </button>
                                 )}
@@ -576,10 +735,10 @@ export default function ResidentesPage() {
                                     </a>
                                   ) : null;
                                 })()}
-                                <button onClick={() => rotate(u.id)} disabled={busy} className="p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.06]" style={{ color: "rgba(246,245,247,0.45)" }} title="Regenerar enlace">
+                                <button onClick={() => rotate(u.id)} disabled={busy} className="p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.06]" style={{ color: "var(--ink-3)" }} title="Regenerar enlace">
                                   <RefreshCw className="h-4 w-4" />
                                 </button>
-                                <button onClick={() => revoke(u.id)} disabled={busy} className="p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.06]" style={{ color: "rgba(255,133,133,0.6)" }} title="Desactivar portal">
+                                <button onClick={() => revoke(u.id)} disabled={busy} className="p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.06]" style={{ color: "rgb(var(--danger-rgb) / 0.6)" }} title="Desactivar portal">
                                   <Ban className="h-4 w-4" />
                                 </button>
                               </div>
@@ -593,7 +752,7 @@ export default function ResidentesPage() {
                                 }}
                                 disabled={busy}
                                 className="inline-flex items-center gap-1.5 rounded-full text-[11.5px] px-3 py-1.5 cursor-pointer transition-colors hover:bg-white/[0.06]"
-                                style={{ color: "#a78bff", border: "1px solid rgba(124,92,255,0.35)" }}
+                                style={{ color: "var(--accent-text)", border: "1px solid rgb(var(--accent-rgb) / 0.35)" }}
                               >
                                 <Link2 className="h-3 w-3" /> Generar
                               </button>

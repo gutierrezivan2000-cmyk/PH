@@ -13,6 +13,13 @@ export async function GET(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
+  if (process.env.DEMO_MODE === "true") {
+    const { getDemoTicket } = await import("@/lib/demo-store");
+    const { id } = await params;
+    const ticket = getDemoTicket(id, session.user.id);
+    if (!ticket) return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
+    return NextResponse.json({ ticket });
+  }
 
   await ensureAdminSchema();
   const { id } = await params;

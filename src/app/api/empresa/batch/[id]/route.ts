@@ -8,6 +8,12 @@ import { db } from "@/lib/db";
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const elite = await requireElite();
   if (!elite) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json(
+      { error: "La generación en lote no está disponible en el demo. Crea tu cuenta para usarla." },
+      { status: 403 }
+    );
+  }
 
   const { id } = await params;
   const batch = await db.generationBatch.findUnique({ where: { id } });
@@ -53,6 +59,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const elite = await requireElite();
   if (!elite) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json(
+      { error: "La generación en lote no está disponible en el demo. Crea tu cuenta para usarla." },
+      { status: 403 }
+    );
+  }
 
   const { id } = await params;
   const batch = await db.generationBatch.findUnique({ where: { id } });

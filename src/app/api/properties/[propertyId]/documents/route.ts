@@ -16,6 +16,11 @@ export async function GET(
 
     const { propertyId } = await params;
 
+    if (process.env.DEMO_MODE === "true") {
+      const { getDemoDocuments } = await import("@/lib/demo-store");
+      return NextResponse.json(getDemoDocuments(propertyId));
+    }
+
     const property = await db.property.findFirst({
       where: { id: propertyId, userId: session.user.id },
     });
@@ -47,6 +52,13 @@ export async function POST(
 
     const { propertyId } = await params;
 
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json(
+        { error: "El demo es de solo lectura. Crea tu cuenta para guardar cambios." },
+        { status: 403 }
+      );
+    }
+
     const property = await db.property.findFirst({
       where: { id: propertyId, userId: session.user.id },
     });
@@ -58,6 +70,19 @@ export async function POST(
 
     if (!type || !name || !url) {
       return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
+    }
+
+    // La `url` llega del cuerpo de la petición y después se usa para descargar
+    // el documento del lado del servidor. Sin este filtro se podía guardar un
+    // host cualquiera y convertir esta fila en un apuntador a un servidor
+    // ajeno. Es defensa en profundidad: quien descarga ya no manda la
+    // credencial fuera, pero tampoco tiene sentido almacenar esto.
+    const { isAllowedBlobUrl } = await import("@/lib/blob-url");
+    if (!isAllowedBlobUrl(url)) {
+      return NextResponse.json(
+        { error: "El archivo debe subirse desde esta aplicación." },
+        { status: 400 }
+      );
     }
 
     const doc = await db.propertyDocument.create({
@@ -89,6 +114,14 @@ export async function DELETE(
     }
 
     const { propertyId } = await params;
+
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json(
+        { error: "El demo es de solo lectura. Crea tu cuenta para guardar cambios." },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const docId = searchParams.get("docId");
 

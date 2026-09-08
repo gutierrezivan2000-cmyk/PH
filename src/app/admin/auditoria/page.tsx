@@ -146,13 +146,13 @@ function AdminAvatar({
           width: 28,
           height: 28,
           borderRadius: "50%",
-          background: "rgba(124,92,255,0.18)",
+          background: "rgb(var(--accent-rgb) / 0.18)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           fontSize: 10,
           fontWeight: 700,
-          color: "#9a7fff",
+          color: "var(--accent-text)",
           flexShrink: 0,
           overflow: "hidden",
         }}
@@ -182,7 +182,7 @@ function AdminAvatar({
           style={{
             ...MONO,
             fontSize: 9,
-            color: "rgba(255,255,255,0.35)",
+            color: "var(--ink-4)",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -243,7 +243,7 @@ function FilterBar({
           borderRadius: 10,
           padding: "8px 12px",
           fontSize: 12,
-          color: "rgba(255,255,255,0.7)",
+          color: "var(--ink-2)",
           outline: "none",
         }}
       >
@@ -265,7 +265,7 @@ function FilterBar({
           borderRadius: 10,
           padding: "8px 12px",
           fontSize: 12,
-          color: "rgba(255,255,255,0.7)",
+          color: "var(--ink-2)",
           outline: "none",
         }}
       >
@@ -287,7 +287,7 @@ function FilterBar({
           borderRadius: 10,
           padding: "8px 12px",
           fontSize: 12,
-          color: "rgba(255,255,255,0.7)",
+          color: "var(--ink-2)",
           outline: "none",
           colorScheme: "dark",
         }}
@@ -302,7 +302,7 @@ function FilterBar({
           borderRadius: 10,
           padding: "8px 12px",
           fontSize: 12,
-          color: "rgba(255,255,255,0.7)",
+          color: "var(--ink-2)",
           outline: "none",
           colorScheme: "dark",
         }}
@@ -311,12 +311,12 @@ function FilterBar({
       <button
         type="submit"
         style={{
-          background: "rgba(124,92,255,0.15)",
-          border: "1px solid rgba(124,92,255,0.35)",
+          background: "rgb(var(--accent-rgb) / 0.15)",
+          border: "1px solid rgb(var(--accent-rgb) / 0.35)",
           borderRadius: 10,
           padding: "8px 16px",
           fontSize: 12,
-          color: "#9a7fff",
+          color: "var(--accent-text)",
           cursor: "pointer",
           fontFamily: "var(--font-mono)",
           letterSpacing: "0.08em",
@@ -331,7 +331,7 @@ function FilterBar({
           href="/admin/auditoria"
           style={{
             fontSize: 12,
-            color: "rgba(255,255,255,0.4)",
+            color: "var(--ink-3)",
             textDecoration: "none",
             padding: "8px 10px",
           }}
@@ -412,11 +412,11 @@ async function AuditoriaContent({
             gap: 0,
             padding: "10px 20px",
             borderBottom: "1px solid var(--border)",
-            background: "rgba(255,255,255,0.02)",
+            background: "rgb(var(--veil-rgb) / 0.02)",
           }}
         >
           {["Admin", "Acción", "Target", "Detalles", "IP", "Cuando"].map((h) => (
-            <p key={h} style={{ ...MONO, color: "rgba(255,255,255,0.4)" }}>
+            <p key={h} style={{ ...MONO, color: "var(--ink-3)" }}>
               {h}
             </p>
           ))}
@@ -427,9 +427,9 @@ async function AuditoriaContent({
           <div style={{ padding: "56px 20px", textAlign: "center" }}>
             <ShieldCheck
               size={28}
-              style={{ margin: "0 auto 12px", color: "rgba(255,255,255,0.2)" }}
+              style={{ margin: "0 auto 12px", color: "var(--ink-4)" }}
             />
-            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.4)" }}>
+            <p style={{ fontSize: 14, color: "var(--ink-3)" }}>
               No hay entradas de auditoría para los filtros seleccionados.
             </p>
           </div>
@@ -459,11 +459,11 @@ async function AuditoriaContent({
                     gap: 0,
                     padding: "12px 20px",
                     borderBottom:
-                      idx < logs.length - 1 ? "1px solid rgba(255,255,255,0.05)" : undefined,
+                      idx < logs.length - 1 ? "1px solid rgb(var(--veil-rgb) / 0.05)" : undefined,
                     transition: "background 0.12s",
                   }}
                   onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "rgba(255,255,255,0.02)")
+                    (e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.02)")
                   }
                   onMouseLeave={(e) => (e.currentTarget.style.background = "")}
                 >
@@ -490,7 +490,7 @@ async function AuditoriaContent({
                       style={{
                         ...MONO,
                         fontSize: 9,
-                        color: "rgba(255,255,255,0.3)",
+                        color: "var(--ink-4)",
                         fontWeight: 400,
                       }}
                     >
@@ -503,7 +503,7 @@ async function AuditoriaContent({
                     style={{
                       ...MONO,
                       fontSize: 9,
-                      color: "rgba(255,255,255,0.45)",
+                      color: "var(--ink-3)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -518,7 +518,7 @@ async function AuditoriaContent({
                     style={{
                       ...MONO,
                       fontSize: 9,
-                      color: "rgba(255,255,255,0.35)",
+                      color: "var(--ink-4)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -534,7 +534,7 @@ async function AuditoriaContent({
                     style={{
                       ...MONO,
                       fontSize: 9,
-                      color: "rgba(255,255,255,0.3)",
+                      color: "var(--ink-4)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -549,7 +549,7 @@ async function AuditoriaContent({
                     style={{
                       ...MONO,
                       fontSize: 9,
-                      color: "rgba(255,255,255,0.4)",
+                      color: "var(--ink-3)",
                       textAlign: "right",
                     }}
                     title={full}
@@ -574,7 +574,7 @@ async function AuditoriaContent({
             padding: "0 4px",
           }}
         >
-          <p style={{ ...MONO, fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
+          <p style={{ ...MONO, fontSize: 10, color: "var(--ink-4)" }}>
             {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} de {total}
           </p>
           <div style={{ display: "flex", gap: 8 }}>
@@ -590,7 +590,7 @@ async function AuditoriaContent({
                   border: "1px solid var(--border)",
                   borderRadius: 8,
                   fontSize: 12,
-                  color: "rgba(255,255,255,0.65)",
+                  color: "var(--ink-2)",
                   textDecoration: "none",
                 }}
               >
@@ -604,11 +604,11 @@ async function AuditoriaContent({
                   alignItems: "center",
                   gap: 4,
                   padding: "6px 14px",
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.05)",
+                  background: "rgb(var(--veil-rgb) / 0.02)",
+                  border: "1px solid rgb(var(--veil-rgb) / 0.05)",
                   borderRadius: 8,
                   fontSize: 12,
-                  color: "rgba(255,255,255,0.2)",
+                  color: "var(--ink-4)",
                 }}
               >
                 <ChevronLeft size={13} />
@@ -620,7 +620,7 @@ async function AuditoriaContent({
                 padding: "6px 14px",
                 ...MONO,
                 fontSize: 11,
-                color: "rgba(255,255,255,0.5)",
+                color: "var(--ink-3)",
                 display: "flex",
                 alignItems: "center",
               }}
@@ -639,7 +639,7 @@ async function AuditoriaContent({
                   border: "1px solid var(--border)",
                   borderRadius: 8,
                   fontSize: 12,
-                  color: "rgba(255,255,255,0.65)",
+                  color: "var(--ink-2)",
                   textDecoration: "none",
                 }}
               >
@@ -653,11 +653,11 @@ async function AuditoriaContent({
                   alignItems: "center",
                   gap: 4,
                   padding: "6px 14px",
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.05)",
+                  background: "rgb(var(--veil-rgb) / 0.02)",
+                  border: "1px solid rgb(var(--veil-rgb) / 0.05)",
                   borderRadius: 8,
                   fontSize: 12,
-                  color: "rgba(255,255,255,0.2)",
+                  color: "var(--ink-4)",
                 }}
               >
                 Siguiente

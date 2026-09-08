@@ -22,6 +22,9 @@ function VerifyContent() {
   const router = useRouter();
   const email = searchParams.get("email") || "";
   const emailFailed = searchParams.get("sent") === "0";
+  // La cuenta ya existía sin verificar: el servidor no cambia la contraseña,
+  // así que la que se acabe de teclear en el registro no sirve para entrar.
+  const passwordPrevia = searchParams.get("pw") === "previa";
 
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
@@ -197,6 +200,16 @@ function VerifyContent() {
                   <span className="text-violet-300 font-medium">{email}</span>
                 </p>
               </div>
+
+              {passwordPrevia && (
+                <div className="mb-6 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-center">
+                  <p className="text-sm text-amber-200">
+                    Ya tenias una cuenta sin verificar con este correo. Te enviamos un codigo
+                    nuevo, pero tu contrasena sigue siendo la que elegiste la primera vez. Si no
+                    la recuerdas, usa &quot;Olvide mi contrasena&quot; despues de verificar.
+                  </p>
+                </div>
+              )}
 
               {emailFailed && (
                 <div className="mb-6 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-center">

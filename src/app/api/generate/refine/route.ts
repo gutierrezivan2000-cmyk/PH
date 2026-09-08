@@ -1,11 +1,28 @@
 export const runtime = "nodejs";
-export const maxDuration = 120;
+// 300s: la corrección reescribe el documento ENTERO (hasta 16k tokens de
+// salida por documento), y con dos documentos en paralelo 120s se quedaba
+// corto: la plataforma mataba la función y el navegador mostraba un fallo de
+// red genérico.
+export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { generatePdfHtml } from "@/lib/documents/pdf-generator";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
+
+// Topes de contexto. No existía ninguno: `doc.content` entero + el parseo de
+// hasta 10 archivos entraban crudos al prompt. Un PDF de 25 MB rinde ~1,6 M de
+// caracteres y reventaba la ventana del modelo con un 500 "Error al corregir".
+//
+// Los adjuntos SÍ se pueden recortar (son contexto de apoyo), pero el DOCUMENTO
+// no: como la respuesta del modelo sustituye al documento guardado, mandarlo
+// recortado equivaldría a borrar su segunda mitad para siempre. Por eso el
+// documento se rechaza con un mensaje claro en vez de truncarse.
+const MAX_EXTRA_CHARS = 60_000;
+// ~16.384 tokens de salida ≈ 65.000 caracteres. Por encima de esto el modelo
+// no alcanza a devolver el documento completo.
+const MAX_DOC_CHARS = 55_000;
 
 const REFINE_SYSTEM_PROMPT = `Eres un asistente de edicion de documentos de Propiedad Horizontal. Tu tarea es corregir o complementar un documento existente segun las instrucciones del usuario.
 
@@ -80,6 +97,11 @@ export async function POST(req: NextRequest) {
       }
       if (fileParts.length > 0) {
         additionalContent = "\n\nINFORMACION ADICIONAL DE ARCHIVOS SUBIDOS:\n---\n" + fileParts.join("\n\n---\n\n");
+        if (additionalContent.length > MAX_EXTRA_CHARS) {
+          additionalContent =
+            additionalContent.slice(0, MAX_EXTRA_CHARS) +
+            "\n\n[Adjuntos recortados por tamaño: no cabía todo el contenido]";
+        }
       }
     }
 
@@ -160,11 +182,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No se encontraron documentos para corregir" }, { status: 404 });
     }
 
+    // Documentos demasiado largos para reescribirse de una pasada: se apartan
+    // ANTES de gastar la llamada, con nombre y motivo.
+    const tooLong = docs.filter((d) => d.content.length > MAX_DOC_CHARS);
+    const refinable = docs.filter((d) => d.content.length <= MAX_DOC_CHARS);
+    if (refinable.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "El documento es demasiado extenso para corregirlo automáticamente. " +
+            "Descárgalo, edita el punto que necesitas y vuelve a subirlo, o genera el documento por periodos más cortos.",
+        },
+        { status: 400 }
+      );
+    }
+
     // Correct all documents in parallel
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      // INVARIANTE (ver ai-client): con maxRetries 1 son DOS intentos,
+      // 120s x 2 = 240s < maxDuration 300.
+      timeout: 120_000,
+      maxRetries: 1,
+    });
 
-    const results = await Promise.all(docs.map(async (doc) => {
+    const results = await Promise.all(refinable.map(async (doc) => {
       const docLabel = doc.type === "informe" ? "Informe de Gestion" : "Acta Legal";
       const userPrompt = `DOCUMENTO ORIGINAL (${doc.sourceType === "markdown" ? "Markdown" : "HTML"}, tipo: ${docLabel}):\n---\n${doc.content}\n---\n\nINSTRUCCION DEL USUARIO:\n${instruction}${additionalContent}\n\nSi la instruccion o la informacion adicional aplica a este documento (${docLabel}), integra los cambios solicitados. Si NO aplica a este tipo de documento, devuelve el documento exactamente como esta.\n\nDevuelve el documento COMPLETO en formato Markdown.`;
 
@@ -182,8 +225,14 @@ export async function POST(req: NextRequest) {
         .join("\n");
 
       const tokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
-      return { type: doc.type, text, tokens };
+      // Si la respuesta se cortó por `max_tokens`, el documento vuelve a medias.
+      // Guardarlo sustituiría el documento bueno por uno mutilado, así que se
+      // descarta y se le dice al usuario.
+      const cut = response.stop_reason === "max_tokens";
+      return { type: doc.type, text, tokens, cut };
     }));
+
+    const cutDocs = results.filter((r) => r.cut).map((r) => r.type);
 
     // Build period string
     const monthNames = [
@@ -200,7 +249,7 @@ export async function POST(req: NextRequest) {
     const updatedDocs: string[] = [];
 
     for (const result of results) {
-      if (!result.text.trim()) continue;
+      if (!result.text.trim() || result.cut) continue;
       totalTokens += result.tokens;
       updatedDocs.push(result.type);
 
@@ -233,8 +282,11 @@ export async function POST(req: NextRequest) {
 
     await Promise.all(uploads);
 
-    // Re-analyze acta requirements if acta was corrected
-    const actaResult = results.find((r) => r.type === "acta");
+    // Re-analyze acta requirements if acta was corrected.
+    // `!cut` es imprescindible: un acta cortada no se guarda, así que analizar
+    // su texto a medias dejaba los requisitos legales describiendo un documento
+    // que no existe, y contradiciendo al acta que sigue almacenada.
+    const actaResult = results.find((r) => r.type === "acta" && !r.cut);
     if (actaResult?.text.trim()) {
       try {
         const { analyzeActaRequirements } = await import("@/lib/ai/acta-requirements");
@@ -262,10 +314,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const skipped = [
+      ...tooLong.map((d) => `${d.type === "acta" ? "El acta" : "El informe"} es demasiado extenso para corregirlo automáticamente`),
+      ...cutDocs.map((t) => `La corrección ${t === "acta" ? "del acta" : "del informe"} no cupo completa y se descartó para no dañar el documento original`),
+    ];
+
+    if (updatedDocs.length === 0) {
+      return NextResponse.json(
+        { error: skipped.join(". ") + ". Descárgalo, edítalo a mano y vuelve a subirlo." },
+        { status: 422 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       documentsUpdated: updatedDocs,
       tokensUsed: totalTokens,
+      warning: skipped.length > 0 ? skipped.join(". ") + "." : undefined,
     });
   } catch (e) {
     console.error("[generate/refine] Error:", e);

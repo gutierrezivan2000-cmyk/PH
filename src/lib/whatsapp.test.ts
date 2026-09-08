@@ -72,3 +72,31 @@ describe("paymentReminderMessage", () => {
     expect(msg).not.toContain("http");
   });
 });
+
+describe("normalizePhoneCO — celdas con más de un número", () => {
+  // Antes se concatenaban TODOS los dígitos de la celda y salía un número
+  // inventado; el botón de WhatsApp abría un chat con nadie.
+  it("se queda con el primer número cuando vienen dos separados por /", () => {
+    expect(normalizePhoneCO("300 111 2233 / 310 444 5566")).toBe("573001112233");
+  });
+
+  it("ignora la extensión", () => {
+    expect(normalizePhoneCO("6015551234 ext. 205")).toBe("6015551234");
+  });
+
+  it("acepta separadores con coma, punto y coma y la conjunción", () => {
+    expect(normalizePhoneCO("3001112233, 3104445566")).toBe("573001112233");
+    expect(normalizePhoneCO("3001112233; 3104445566")).toBe("573001112233");
+    expect(normalizePhoneCO("3001112233 o 3104445566")).toBe("573001112233");
+  });
+
+  it("rechaza una cadena de dígitos imposiblemente larga", () => {
+    // 16 dígitos: por encima del máximo de E.164, no es marcable.
+    expect(normalizePhoneCO("1234567890123456")).toBeNull();
+  });
+
+  it("no altera los números de un solo valor", () => {
+    expect(normalizePhoneCO("3001112233")).toBe("573001112233");
+    expect(normalizePhoneCO("+57 300 111 2233")).toBe("573001112233");
+  });
+});

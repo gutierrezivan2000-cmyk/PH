@@ -8,16 +8,16 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-[#7c5cff] text-white border border-[#7c5cff] shadow-[0_8px_24px_-8px_rgba(124,92,255,0.4)] hover:bg-[#9a7fff] hover:border-[#9a7fff] hover:-translate-y-px hover:shadow-[0_14px_36px_-10px_rgba(124,92,255,0.5)] active:translate-y-0",
+          "bg-[var(--accent)] text-white border border-[var(--accent)] shadow-[0_8px_24px_-8px_rgb(var(--accent-rgb) / 0.4)] hover:bg-[var(--accent-hi)] hover:border-[var(--accent-hi)] hover:-translate-y-px hover:shadow-[0_14px_36px_-10px_rgb(var(--accent-rgb) / 0.5)] active:translate-y-0",
         destructive:
-          "bg-[#ff6f6f] text-white border border-[#ff6f6f] shadow-sm hover:bg-[#ff8585] hover:-translate-y-px",
+          "bg-[var(--danger)] text-white border border-[var(--danger)] shadow-sm hover:bg-[var(--danger)] hover:-translate-y-px",
         outline:
           "border border-black/14 dark:border-white/14 bg-secondary text-foreground hover:bg-muted hover:-translate-y-px active:translate-y-0",
         secondary:
           "bg-secondary text-secondary-foreground border border-transparent hover:bg-muted",
         ghost:
           "border border-transparent text-muted-foreground hover:text-foreground hover:border-black/14 dark:hover:border-white/14",
-        link: "text-[#7c5cff] underline-offset-4 hover:underline",
+        link: "text-[var(--accent)] underline-offset-4 hover:underline",
         ink: "bg-foreground text-background border border-foreground hover:bg-foreground/90 hover:-translate-y-px",
       },
       size: {

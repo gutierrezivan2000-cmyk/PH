@@ -152,6 +152,16 @@ export async function GET(
       return NextResponse.json({ error: "Formato invalido (txt o pdf)" }, { status: 400 });
     }
 
+    // En demo `db` es un Proxy que LANZA al usarse: sin esta guarda la
+    // exportación respondía 500 «Error al exportar» y la pantalla, que se
+    // tragaba el fallo, no hacía absolutamente nada al pulsar el botón.
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json(
+        { error: "La exportación no está disponible en el demo. Crea tu cuenta para descargar tus conversaciones." },
+        { status: 403 }
+      );
+    }
+
     const chat = await db.agentChat.findFirst({
       where: { id: chatId, userId: session.user.id, agentId },
     });

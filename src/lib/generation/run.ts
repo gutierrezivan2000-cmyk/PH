@@ -12,14 +12,8 @@ const MAX_CONTENT_CHARS = 150_000;
 
 // Only ever read from Vercel Blob hosts — the url originates from a request
 // body, so without this an attacker could point it at an internal endpoint.
-export function isAllowedBlobUrl(raw: string): boolean {
-  try {
-    const u = new URL(raw);
-    return u.protocol === "https:" && u.hostname.endsWith(".blob.vercel-storage.com");
-  } catch {
-    return false;
-  }
-}
+export { isAllowedBlobUrl } from "@/lib/blob-url";
+import { isAllowedBlobUrl } from "@/lib/blob-url";
 
 /** Fetch a private blob URL and turn it into a File for the parsers. */
 export async function blobRefToFile(ref: BlobFileRef): Promise<File> {

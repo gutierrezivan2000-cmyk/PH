@@ -100,7 +100,7 @@ export function ChatBot() {
           className="flex flex-col h-[520px] max-h-[70vh] rounded-2xl border border-border bg-card overflow-hidden"
           style={{
             boxShadow:
-              "0 30px 60px -20px rgba(0,0,0,0.5), 0 0 60px -20px rgba(124,92,255,0.18)",
+              "0 30px 60px -20px rgba(0,0,0,0.5), 0 0 60px -20px rgb(var(--accent-rgb) / 0.18)",
           }}
         >
           {/* Header */}
@@ -108,15 +108,15 @@ export function ChatBot() {
             className="flex items-center justify-between px-5 py-4 border-b border-border"
             style={{
               background:
-                "radial-gradient(120% 100% at 0% 0%, rgba(124,92,255,0.16), transparent 70%), var(--card)",
+                "radial-gradient(120% 100% at 0% 0%, rgb(var(--accent-rgb) / 0.16), transparent 70%), var(--card)",
             }}
           >
             <div className="flex items-center gap-3">
               <div
                 className="w-9 h-9 rounded-lg flex items-center justify-center text-white"
                 style={{
-                  background: "linear-gradient(135deg, #7c5cff, #5a3cf0)",
-                  boxShadow: "0 0 14px rgba(124,92,255,0.40)",
+                  background: "linear-gradient(135deg, var(--accent), var(--accent-lo))",
+                  boxShadow: "0 0 14px rgb(var(--accent-rgb) / 0.4)",
                 }}
               >
                 <Sparkles className="w-4 h-4" />
@@ -149,9 +149,9 @@ export function ChatBot() {
                 <div
                   className="w-12 h-12 rounded-xl flex items-center justify-center"
                   style={{
-                    background: "rgba(124,92,255,0.10)",
-                    border: "1px solid rgba(124,92,255,0.40)",
-                    color: "#9a7fff",
+                    background: "rgb(var(--accent-rgb) / 0.1)",
+                    border: "1px solid rgb(var(--accent-rgb) / 0.4)",
+                    color: "var(--accent-text)",
                   }}
                 >
                   <Sparkles className="w-6 h-6" />
@@ -179,7 +179,7 @@ export function ChatBot() {
                   }`}
                   style={{
                     background:
-                      msg.role === "user" ? "#7c5cff" : "var(--secondary)",
+                      msg.role === "user" ? "var(--accent)" : "var(--secondary)",
                     borderRadius:
                       msg.role === "user"
                         ? "14px 14px 4px 14px"
@@ -199,15 +199,15 @@ export function ChatBot() {
                 >
                   <span
                     className="w-1.5 h-1.5 rounded-full hifi-typing-dot"
-                    style={{ background: "#7c5cff" }}
+                    style={{ background: "var(--accent)" }}
                   />
                   <span
                     className="w-1.5 h-1.5 rounded-full hifi-typing-dot"
-                    style={{ background: "#7c5cff" }}
+                    style={{ background: "var(--accent)" }}
                   />
                   <span
                     className="w-1.5 h-1.5 rounded-full hifi-typing-dot"
-                    style={{ background: "#7c5cff" }}
+                    style={{ background: "var(--accent)" }}
                   />
                 </div>
               </div>
@@ -226,7 +226,7 @@ export function ChatBot() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Escribe tu pregunta…"
-                className="flex-1 px-3.5 py-2.5 text-[13px] rounded-lg border border-border bg-secondary text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-[#7c5cff] focus:ring-[3px] focus:ring-[rgba(124,92,255,0.15)] transition-all"
+                className="flex-1 px-3.5 py-2.5 text-[13px] rounded-lg border border-border bg-secondary text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-[var(--accent)] focus:ring-[3px] focus:ring-[rgb(var(--accent-rgb) / 0.15)] transition-all"
                 disabled={isLoading}
                 maxLength={2000}
               />
@@ -235,8 +235,8 @@ export function ChatBot() {
                 disabled={isLoading || !input.trim()}
                 className="p-2.5 rounded-lg text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
                 style={{
-                  background: "#7c5cff",
-                  boxShadow: "0 6px 18px -6px rgba(124,92,255,0.50)",
+                  background: "var(--accent)",
+                  boxShadow: "0 6px 18px -6px rgb(var(--accent-rgb) / 0.5)",
                 }}
                 aria-label="Enviar mensaje"
               >
@@ -256,12 +256,12 @@ export function ChatBot() {
         style={{
           background: isOpen
             ? "var(--card)"
-            : "linear-gradient(135deg, #7c5cff, #5a3cf0)",
+            : "linear-gradient(135deg, var(--accent), var(--accent-lo))",
           border: isOpen ? "1px solid var(--border)" : "none",
           color: isOpen ? "var(--foreground)" : "white",
           boxShadow: isOpen
             ? "0 8px 24px -8px rgba(0,0,0,0.3)"
-            : "0 12px 32px -8px rgba(124,92,255,0.50)",
+            : "0 12px 32px -8px rgb(var(--accent-rgb) / 0.5)",
         }}
         aria-label={isOpen ? "Cerrar asistente" : "Abrir asistente SOPH.IA"}
       >

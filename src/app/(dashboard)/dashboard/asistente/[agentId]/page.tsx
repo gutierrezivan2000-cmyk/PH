@@ -35,6 +35,7 @@ import { upload } from "@vercel/blob/client";
 import { Badge } from "@/components/ui/badge";
 import { AudioRecorder } from "@/components/dashboard/AudioRecorder";
 import { saveAudio, getPendingAudios, deleteAudio } from "@/lib/audio-storage";
+import { MAX_IMAGE_BYTES, MAX_IMAGE_MB_LABEL, isImageMediaType } from "@/lib/chat-limits";
 
 interface Chat {
   id: string;
@@ -60,12 +61,12 @@ interface PendingAttachment {
 
 /* ── Agent color map ── */
 const AGENT_COLORS: Record<string, string> = {
-  themis: "#a78bff",
-  chronos: "#5fb4ff",
-  metra: "#4cd6a0",
-  nomethes: "#ffb958",
-  hermes: "#ff6fa8",
-  logistes: "#8a92ff",
+  themis: "var(--accent-hi)",
+  chronos: "var(--info)",
+  metra: "var(--ok)",
+  nomethes: "var(--warn)",
+  hermes: "var(--pink)",
+  logistes: "var(--logistes)",
 };
 
 function formatRelativeDate(iso: string): string {
@@ -108,8 +109,16 @@ export default function AgentPage() {
   const [showMemory, setShowMemory] = useState(false);
   const [savingMemory, setSavingMemory] = useState(false);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  // Aviso de adjunto rechazado ANTES de subirlo (ver MAX_IMAGE_BYTES).
+  const [attachError, setAttachError] = useState("");
   const [uploadStatus, setUploadStatus] = useState("");
   const [exporting, setExporting] = useState(false);
+  // Sin esto, cualquier fallo de exportación (403 del demo, 500 al render del
+  // PDF, red caída) se tragaba en un catch vacío: el usuario pulsaba
+  // «Exportar PDF» y no ocurría nada, sin descarga y sin explicación.
+  const [exportError, setExportError] = useState("");
+  // Id del chat recién creado por el envío en curso (ver el efecto de carga).
+  const skipReloadForChatId = useRef<string | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [sidebarSearch, setSidebarSearch] = useState("");
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
@@ -192,6 +201,17 @@ export default function AgentPage() {
   // Load messages for active chat
   useEffect(() => {
     if (!activeChatId) { setMessages([]); return; }
+    // El chat que ACABA de crear este mismo envío no se recarga: su respuesta
+    // todavía se está escribiendo y aún no existe en la base. Recargar aquí
+    // reemplazaba el estado por lo guardado —solo el mensaje del usuario—, la
+    // burbuja del asistente desaparecía a media escritura y los deltas
+    // siguientes ya no encontraban a quién actualizar. El texto sí quedaba
+    // guardado, así que reaparecía al recargar: parecía que el agente no había
+    // contestado.
+    if (skipReloadForChatId.current === activeChatId) {
+      skipReloadForChatId.current = null;
+      return;
+    }
     setLoadingMessages(true);
     fetch(`/api/agents/${agentId}/chat?chatId=${activeChatId}`)
       .then((r) => r.json())
@@ -203,7 +223,7 @@ export default function AgentPage() {
   if (!isValid) {
     return (
       <div className="p-8 text-center">
-        <p style={{ color: "rgba(246,245,247,0.42)" }}>Agente no encontrado.</p>
+        <p style={{ color: "var(--ink-3)" }}>Agente no encontrado.</p>
         <Button variant="outline" className="mt-4" onClick={() => router.push("/dashboard/asistente")}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Volver
         </Button>
@@ -212,7 +232,7 @@ export default function AgentPage() {
   }
 
   const agent = AGENTS[agentId as AgentId];
-  const agentColor = AGENT_COLORS[agentId] || "#7c5cff";
+  const agentColor = AGENT_COLORS[agentId] || "var(--accent)";
   const includedByDefault = isIncludedAgent(agentId as AgentId);
 
   // Checking add-on access for a non-included agent — show a brief loader so we
@@ -220,7 +240,7 @@ export default function AgentPage() {
   if (hasAccess === null && !includedByDefault) {
     return (
       <div className="flex items-center justify-center h-[calc(100dvh-52px)] lg:h-screen">
-        <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#7c5cff" }} />
+        <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent-text)" }} />
       </div>
     );
   }
@@ -249,20 +269,20 @@ export default function AgentPage() {
               style={{
                 fontFamily: "var(--hifi-mono, ui-monospace)",
                 letterSpacing: "0.12em",
-                background: "rgba(124,92,255,0.12)",
-                border: "1px solid rgba(124,92,255,0.35)",
-                color: "#9a7fff",
+                background: "rgb(var(--accent-rgb) / 0.12)",
+                border: "1px solid rgb(var(--accent-rgb) / 0.35)",
+                color: "var(--accent-text)",
               }}
             >
               PRÓXIMAMENTE
             </span>
-            <h2 className="text-xl font-bold" style={{ color: "#f6f5f7" }}>
+            <h2 className="text-xl font-bold" style={{ color: "var(--ink)" }}>
               {agent.name} está en camino
             </h2>
-            <p className="text-sm max-w-sm leading-relaxed" style={{ color: "rgba(246,245,247,0.55)" }}>
+            <p className="text-sm max-w-sm leading-relaxed" style={{ color: "var(--ink-2)" }}>
               {agent.description}
             </p>
-            <p className="text-xs mt-2 max-w-xs" style={{ color: "rgba(246,245,247,0.30)" }}>
+            <p className="text-xs mt-2 max-w-xs" style={{ color: "var(--ink-4)" }}>
               Estamos afinando este agente. Mientras tanto, Themis y Chronos están
               disponibles para ayudarte.
             </p>
@@ -299,7 +319,31 @@ export default function AgentPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
-    const newFiles = Array.from(e.target.files).slice(0, 5);
+    const seleccionados = Array.from(e.target.files).slice(0, 5);
+
+    // Las imágenes se comprueban aquí y no en el servidor: antes se subía la
+    // foto entera (una de móvil pasa de 5 MB), quedaba almacenada y facturada
+    // en el blob, y el modelo la descartaba después. Una foto de 12 MP se
+    // rechaza ahora en un instante y sin gastar datos.
+    const grandes = seleccionados.filter(
+      (f) => f.type.startsWith("image/") && f.size > MAX_IMAGE_BYTES
+    );
+    const noAdmitidas = seleccionados.filter(
+      (f) => f.type.startsWith("image/") && !isImageMediaType(f.type)
+    );
+    const newFiles = seleccionados.filter((f) => !grandes.includes(f) && !noAdmitidas.includes(f));
+
+    const avisos: string[] = [];
+    if (grandes.length > 0) {
+      avisos.push(
+        `${grandes.map((f) => f.name).join(", ")}: la imagen supera ${MAX_IMAGE_MB_LABEL}. Redúcela o toma la foto en menor resolución.`
+      );
+    }
+    if (noAdmitidas.length > 0) {
+      avisos.push(`${noAdmitidas.map((f) => f.name).join(", ")}: formato de imagen no admitido (usa JPG, PNG, WEBP o GIF).`);
+    }
+    setAttachError(avisos.join(" "));
+
     const newAttachments: PendingAttachment[] = newFiles.map((file) => {
       const att: PendingAttachment = { file };
       if (file.type.startsWith("image/")) att.preview = URL.createObjectURL(file);
@@ -355,6 +399,7 @@ export default function AgentPage() {
         if (a.persistedId) deleteAudio(a.persistedId).catch(() => {});
       });
       setAttachments([]);
+      setAttachError("");
       if (textareaRef.current) textareaRef.current.style.height = "auto";
 
       const res = await fetch(`/api/agents/${agentId}/chat`, {
@@ -364,6 +409,12 @@ export default function AgentPage() {
           chatId: activeChatId,
           message: trimmed || "(adjuntos)",
           attachments: uploaded,
+          // En el demo no hay base de datos donde guardar el hilo, así que el
+          // navegador lo lleva consigo para que la conversación tenga memoria.
+          // El servidor lo ignora fuera del demo.
+          ...(process.env.NEXT_PUBLIC_DEMO_MODE === "true"
+            ? { history: messages.slice(-20).map((m) => ({ role: m.role, content: m.content })) }
+            : {}),
         }),
       });
 
@@ -427,6 +478,7 @@ export default function AgentPage() {
                 const meta = JSON.parse(data);
                 newChatId = meta.chatId;
                 if (meta.chatId && !activeChatId) {
+                  skipReloadForChatId.current = meta.chatId;
                   setActiveChatId(meta.chatId);
                   setChats((prev) => [
                     {
@@ -550,9 +602,14 @@ export default function AgentPage() {
     if (!activeChatId || exporting) return;
     setExporting(true);
     setShowExportMenu(false);
+    setExportError("");
     try {
       const res = await fetch(`/api/agents/${agentId}/chat/export?chatId=${activeChatId}&format=${format}`);
-      if (!res.ok) throw new Error("Export failed");
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setExportError(data?.error || `No se pudo exportar la conversación (${res.status}).`);
+        return;
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -564,8 +621,9 @@ export default function AgentPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch { /* ignore */ }
-    finally { setExporting(false); }
+    } catch {
+      setExportError("No se pudo conectar para exportar la conversación.");
+    } finally { setExporting(false); }
   };
 
   const getFileIcon = (type: string) => {
@@ -593,7 +651,7 @@ export default function AgentPage() {
   return (
     <div
       className="flex flex-col h-[calc(100dvh-52px)] lg:h-screen"
-      style={{ background: "#0a0a0a" }}
+      style={{ background: "var(--surface-0)" }}
     >
       <Header
         title={agent.name}
@@ -622,7 +680,7 @@ export default function AgentPage() {
               className="fixed inset-y-0 left-0 z-40 w-[280px] sm:w-[300px] lg:relative lg:inset-auto lg:z-auto lg:w-64 xl:w-72 flex flex-col flex-shrink-0"
               style={{
                 background: "var(--hifi-surface-1)",
-                borderRight: "1px solid rgba(255,255,255,0.07)",
+                borderRight: "1px solid rgb(var(--veil-rgb) / 0.07)",
               }}
             >
               {/* Sidebar header */}
@@ -639,7 +697,7 @@ export default function AgentPage() {
                         fontSize: 9,
                         letterSpacing: "0.16em",
                         textTransform: "uppercase",
-                        color: "rgba(246,245,247,0.35)",
+                        color: "var(--ink-4)",
                       }}
                     >
                       Conversaciones
@@ -660,7 +718,7 @@ export default function AgentPage() {
                   <button
                     className="lg:hidden p-1.5 rounded-lg transition-colors hover:opacity-70"
                     onClick={() => setShowSidebar(false)}
-                    style={{ color: "rgba(246,245,247,0.35)" }}
+                    style={{ color: "var(--ink-4)" }}
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -671,8 +729,8 @@ export default function AgentPage() {
                   onClick={startNewChat}
                   className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 transition-all duration-150 hover:opacity-90 active:scale-[0.98] cursor-pointer"
                   style={{
-                    background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
-                    boxShadow: "0 2px 12px rgba(124,92,255,0.25)",
+                    background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
+                    boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.25)",
                     fontSize: 13,
                     fontWeight: 600,
                     color: "#fff",
@@ -686,7 +744,7 @@ export default function AgentPage() {
                 <div className="relative">
                   <Search
                     className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none"
-                    style={{ color: "rgba(246,245,247,0.30)" }}
+                    style={{ color: "var(--ink-4)" }}
                   />
                   <input
                     type="text"
@@ -699,18 +757,18 @@ export default function AgentPage() {
                       paddingRight: 12,
                       paddingTop: 8,
                       paddingBottom: 8,
-                      background: "#1d1d24",
+                      background: "var(--surface-3)",
                       border: "1px solid var(--hifi-hairline)",
                       borderRadius: 10,
                       fontSize: 12,
-                      color: "#f6f5f7",
+                      color: "var(--ink)",
                       fontFamily: "'Geist', system-ui, sans-serif",
                     }}
                     onFocus={(e) => {
-                      e.currentTarget.style.border = "1px solid rgba(124,92,255,0.40)";
+                      e.currentTarget.style.border = "1px solid rgb(var(--accent-rgb) / 0.4)";
                     }}
                     onBlur={(e) => {
-                      e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                      e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                     }}
                   />
                 </div>
@@ -720,12 +778,12 @@ export default function AgentPage() {
               <div className="flex-1 overflow-y-auto py-2">
                 {loadingChats ? (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="h-5 w-5 animate-spin" style={{ color: "rgba(246,245,247,0.30)" }} />
+                    <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--ink-4)" }} />
                   </div>
                 ) : filteredChats.length === 0 ? (
                   <p
                     className="text-center py-8 px-4 leading-relaxed"
-                    style={{ fontSize: 12, color: "rgba(246,245,247,0.30)" }}
+                    style={{ fontSize: 12, color: "var(--ink-4)" }}
                   >
                     {sidebarSearch ? "Sin resultados" : `No tienes conversaciones con ${agent.name}. Empieza una nueva.`}
                   </p>
@@ -740,7 +798,7 @@ export default function AgentPage() {
                           fontSize: 9,
                           letterSpacing: "0.14em",
                           textTransform: "uppercase",
-                          color: "rgba(246,245,247,0.28)",
+                          color: "var(--ink-4)",
                         }}
                       >
                         {group.label}
@@ -754,13 +812,13 @@ export default function AgentPage() {
                             className="group relative mx-2 mb-0.5 rounded-xl cursor-pointer transition-all duration-150"
                             style={{
                               background: isActive
-                                ? "radial-gradient(ellipse at 0% 50%, rgba(124,92,255,0.12) 0%, rgba(124,92,255,0.04) 100%)"
+                                ? "radial-gradient(ellipse at 0% 50%, rgb(var(--accent-rgb) / 0.12) 0%, rgb(var(--accent-rgb) / 0.04) 100%)"
                                 : "transparent",
                               borderLeft: isActive
-                                ? "2px solid #7c5cff"
+                                ? "2px solid var(--accent)"
                                 : "2px solid transparent",
                               boxShadow: isActive
-                                ? "inset 0 0 0 1px rgba(124,92,255,0.15)"
+                                ? "inset 0 0 0 1px rgb(var(--accent-rgb) / 0.15)"
                                 : "none",
                             }}
                             onClick={() => {
@@ -775,7 +833,7 @@ export default function AgentPage() {
                                   style={{
                                     fontSize: 13,
                                     fontWeight: 500,
-                                    color: isActive ? "#f6f5f7" : "rgba(246,245,247,0.70)",
+                                    color: isActive ? "var(--ink)" : "var(--ink-2)",
                                   }}
                                 >
                                   {chat.title}
@@ -784,7 +842,7 @@ export default function AgentPage() {
                                   style={{
                                     fontFamily: "'Geist Mono', ui-monospace, monospace",
                                     fontSize: 9,
-                                    color: "rgba(246,245,247,0.28)",
+                                    color: "var(--ink-4)",
                                     flexShrink: 0,
                                     paddingTop: 2,
                                   }}
@@ -796,7 +854,7 @@ export default function AgentPage() {
                                 className="mt-0.5"
                                 style={{
                                   fontSize: 11,
-                                  color: "rgba(246,245,247,0.35)",
+                                  color: "var(--ink-4)",
                                   display: "-webkit-box",
                                   WebkitLineClamp: 2,
                                   WebkitBoxOrient: "vertical",
@@ -811,9 +869,9 @@ export default function AgentPage() {
                             <button
                               onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }}
                               className="absolute right-2 top-2.5 opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all duration-150"
-                              style={{ background: "rgba(255,111,111,0.10)" }}
+                              style={{ background: "rgb(var(--danger-rgb) / 0.1)" }}
                             >
-                              <Trash2 className="h-3 w-3" style={{ color: "#ff6f6f" }} />
+                              <Trash2 className="h-3 w-3" style={{ color: "var(--danger-text)" }} />
                             </button>
                           </div>
                         );
@@ -826,12 +884,12 @@ export default function AgentPage() {
               {/* Memory section */}
               <div
                 className="p-3"
-                style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+                style={{ borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)" }}
               >
                 <button
                   onClick={() => setShowMemory(!showMemory)}
                   className="flex items-center gap-2 w-full transition-colors"
-                  style={{ fontSize: 12, fontWeight: 500, color: "rgba(246,245,247,0.42)" }}
+                  style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-3)" }}
                 >
                   <Brain className="h-3.5 w-3.5" style={{ color: agentColor }} />
                   Memoria del agente
@@ -852,10 +910,10 @@ export default function AgentPage() {
                       style={{
                         fontSize: 12,
                         padding: "8px 12px",
-                        background: "#1d1d24",
+                        background: "var(--surface-3)",
                         border: "1px solid var(--hifi-hairline)",
                         borderRadius: 10,
-                        color: "#f6f5f7",
+                        color: "var(--ink)",
                         fontFamily: "'Geist', system-ui, sans-serif",
                       }}
                     />
@@ -864,9 +922,9 @@ export default function AgentPage() {
                       disabled={savingMemory}
                       className="w-full rounded-lg py-1.5 text-xs font-semibold transition-all hover:opacity-90 disabled:opacity-50 cursor-pointer"
                       style={{
-                        background: "rgba(124,92,255,0.15)",
-                        border: "1px solid rgba(124,92,255,0.30)",
-                        color: "#9a7fff",
+                        background: "rgb(var(--accent-rgb) / 0.15)",
+                        border: "1px solid rgb(var(--accent-rgb) / 0.3)",
+                        color: "var(--accent-text)",
                       }}
                     >
                       {savingMemory ? "Guardando..." : "Guardar memoria"}
@@ -881,7 +939,7 @@ export default function AgentPage() {
         {/* ─────────────────────────────────────────────
             MAIN CHAT AREA
         ───────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col min-w-0" style={{ background: "#0a0a0a" }}>
+        <div className="flex-1 flex flex-col min-w-0" style={{ background: "var(--surface-0)" }}>
 
           {/* Chat header bar */}
           <div
@@ -892,9 +950,9 @@ export default function AgentPage() {
             <button
               onClick={() => setShowSidebar(!showSidebar)}
               className="p-1.5 rounded-lg transition-colors flex-shrink-0"
-              style={{ color: "rgba(246,245,247,0.42)" }}
-              onMouseEnter={(e) => e.currentTarget.style.color = "#f6f5f7"}
-              onMouseLeave={(e) => e.currentTarget.style.color = "rgba(246,245,247,0.42)"}
+              style={{ color: "var(--ink-3)" }}
+              onMouseEnter={(e) => e.currentTarget.style.color = "var(--ink)"}
+              onMouseLeave={(e) => e.currentTarget.style.color = "var(--ink-3)"}
             >
               <MessageCircle className="h-4 w-4" />
             </button>
@@ -917,7 +975,7 @@ export default function AgentPage() {
                 style={{
                   fontSize: 13,
                   fontWeight: 500,
-                  color: "#f6f5f7",
+                  color: "var(--ink)",
                   lineHeight: 1.3,
                 }}
               >
@@ -934,7 +992,7 @@ export default function AgentPage() {
                     disabled={exporting}
                     className="p-1.5 rounded-lg transition-colors disabled:opacity-40"
                     style={{
-                      color: "rgba(246,245,247,0.42)",
+                      color: "var(--ink-3)",
                       border: "1px solid var(--hifi-hairline)",
                       background: "transparent",
                     }}
@@ -950,8 +1008,8 @@ export default function AgentPage() {
                     <div
                       className="absolute right-0 top-full mt-1 py-1 min-w-[140px] z-50"
                       style={{
-                        background: "#1d1d24",
-                        border: "1px solid rgba(255,255,255,0.10)",
+                        background: "var(--surface-3)",
+                        border: "1px solid rgb(var(--veil-rgb) / 0.1)",
                         borderRadius: 12,
                         boxShadow: "0 8px 32px rgba(0,0,0,0.40)",
                       }}
@@ -959,21 +1017,21 @@ export default function AgentPage() {
                       <button
                         onClick={() => exportChat("txt")}
                         className="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors"
-                        style={{ fontSize: 12, color: "rgba(246,245,247,0.70)" }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                        style={{ fontSize: 12, color: "var(--ink-2)" }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.05)"}
                         onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                       >
-                        <FileText className="h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+                        <FileText className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
                         Exportar TXT
                       </button>
                       <button
                         onClick={() => exportChat("pdf")}
                         className="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors"
-                        style={{ fontSize: 12, color: "rgba(246,245,247,0.70)" }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                        style={{ fontSize: 12, color: "var(--ink-2)" }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.05)"}
                         onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                       >
-                        <FileText className="h-3.5 w-3.5" style={{ color: "#ff6f6f" }} />
+                        <FileText className="h-3.5 w-3.5" style={{ color: "var(--danger-text)" }} />
                         Exportar PDF
                       </button>
                     </div>
@@ -982,6 +1040,17 @@ export default function AgentPage() {
               )}
             </div>
           </div>
+
+          {exportError && (
+            <div className="px-4 sm:px-6 lg:px-8 pt-2">
+              <p className="max-w-3xl mx-auto text-[12px] flex items-start gap-2" style={{ color: "var(--danger-text)" }}>
+                <span className="flex-1">{exportError}</span>
+                <button onClick={() => setExportError("")} className="cursor-pointer" style={{ color: "var(--ink-3)" }}>
+                  Cerrar
+                </button>
+              </p>
+            </div>
+          )}
 
           {/* Messages area */}
           <div className="flex-1 overflow-y-auto">
@@ -1018,7 +1087,7 @@ export default function AgentPage() {
                     fontWeight: 500,
                     fontSize: 22,
                     letterSpacing: "-0.02em",
-                    color: "#f6f5f7",
+                    color: "var(--ink)",
                     marginBottom: 8,
                   }}
                 >
@@ -1027,7 +1096,7 @@ export default function AgentPage() {
                 <p
                   style={{
                     fontSize: 13,
-                    color: "rgba(246,245,247,0.42)",
+                    color: "var(--ink-3)",
                     maxWidth: 360,
                     lineHeight: 1.6,
                   }}
@@ -1037,7 +1106,7 @@ export default function AgentPage() {
               </div>
             ) : loadingMessages ? (
               <div className="flex justify-center py-20">
-                <Loader2 className="h-6 w-6 animate-spin" style={{ color: "rgba(246,245,247,0.30)" }} />
+                <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--ink-4)" }} />
               </div>
             ) : (
               <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-5">
@@ -1049,8 +1118,8 @@ export default function AgentPage() {
                         <div
                           className="rounded-2xl w-full max-w-md"
                           style={{
-                            background: "radial-gradient(120% 100% at 0% 0%, rgba(124,92,255,0.12), transparent 70%), #15151a",
-                            border: "1px solid rgba(124,92,255,0.4)",
+                            background: "radial-gradient(120% 100% at 0% 0%, rgb(var(--accent-rgb) / 0.12), transparent 70%), var(--surface-2)",
+                            border: "1px solid rgb(var(--accent-rgb) / 0.4)",
                             padding: 20,
                           }}
                         >
@@ -1060,17 +1129,17 @@ export default function AgentPage() {
                               style={{
                                 width: 36,
                                 height: 36,
-                                background: "rgba(124,92,255,0.15)",
-                                border: "1px solid rgba(124,92,255,0.30)",
+                                background: "rgb(var(--accent-rgb) / 0.15)",
+                                border: "1px solid rgb(var(--accent-rgb) / 0.3)",
                               }}
                             >
-                              <Lock className="h-4 w-4" style={{ color: "#9a7fff" }} />
+                              <Lock className="h-4 w-4" style={{ color: "var(--accent-text)" }} />
                             </div>
-                            <p style={{ fontSize: 14, fontWeight: 600, color: "#f6f5f7" }}>
+                            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
                               {agent.name} es un agente complemento
                             </p>
                           </div>
-                          <p className="mb-4" style={{ fontSize: 13, color: "rgba(246,245,247,0.66)", lineHeight: 1.6 }}>
+                          <p className="mb-4" style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.6 }}>
                             Actívalo por $5 USD/mes y desbloquea {agent.title?.toLowerCase() ?? "sus capacidades"}.
                           </p>
                           <div className="flex flex-wrap items-center gap-2">
@@ -1078,8 +1147,8 @@ export default function AgentPage() {
                               onClick={() => router.push("/dashboard/suscripcion")}
                               className="rounded-full px-4 py-2 transition-all duration-150 hover:opacity-90 active:scale-[0.98] cursor-pointer"
                               style={{
-                                background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
-                                boxShadow: "0 2px 12px rgba(124,92,255,0.25)",
+                                background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
+                                boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.25)",
                                 fontSize: 12,
                                 fontWeight: 600,
                                 color: "#fff",
@@ -1092,10 +1161,10 @@ export default function AgentPage() {
                               className="rounded-full px-4 py-2 transition-all duration-150 hover:opacity-80 cursor-pointer"
                               style={{
                                 background: "transparent",
-                                border: "1px solid rgba(255,255,255,0.10)",
+                                border: "1px solid rgb(var(--veil-rgb) / 0.1)",
                                 fontSize: 12,
                                 fontWeight: 500,
-                                color: "rgba(246,245,247,0.66)",
+                                color: "var(--ink-2)",
                               }}
                             >
                               Hablar con soporte
@@ -1140,17 +1209,17 @@ export default function AgentPage() {
                               key={i}
                               className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
                               style={{
-                                background: "rgba(124,92,255,0.10)",
-                                border: "1px solid rgba(124,92,255,0.22)",
+                                background: "rgb(var(--accent-rgb) / 0.1)",
+                                border: "1px solid rgb(var(--accent-rgb) / 0.22)",
                               }}
                             >
-                              <span style={{ color: "#9a7fff" }}>{getFileIcon(att.type)}</span>
+                              <span style={{ color: "var(--accent-text)" }}>{getFileIcon(att.type)}</span>
                               <span
                                 style={{
                                   fontFamily: "'Geist Mono', ui-monospace, monospace",
                                   fontSize: 10,
                                   letterSpacing: "0.04em",
-                                  color: "#9a7fff",
+                                  color: "var(--accent-text)",
                                   maxWidth: 120,
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
@@ -1179,16 +1248,16 @@ export default function AgentPage() {
                         style={
                           msg.role === "user"
                             ? {
-                                background: "#1d1d24",
-                                border: "1px solid rgba(255,255,255,0.10)",
-                                color: "#f6f5f7",
+                                background: "var(--surface-3)",
+                                border: "1px solid rgb(var(--veil-rgb) / 0.1)",
+                                color: "var(--ink)",
                                 borderRadius: "16px 16px 4px 16px",
                                 boxShadow: "0 2px 12px rgba(0,0,0,0.20)",
                               }
                             : {
                                 background: "var(--hifi-surface-1)",
                                 border: "1px solid var(--hifi-hairline)",
-                                color: "#f6f5f7",
+                                color: "var(--ink)",
                                 borderRadius: "16px 16px 16px 4px",
                                 boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
                               }
@@ -1205,12 +1274,12 @@ export default function AgentPage() {
                         style={{
                           width: 32,
                           height: 32,
-                          background: "rgba(124,92,255,0.15)",
-                          border: "1px solid rgba(124,92,255,0.30)",
+                          background: "rgb(var(--accent-rgb) / 0.15)",
+                          border: "1px solid rgb(var(--accent-rgb) / 0.3)",
                           fontFamily: "'Geist Mono', ui-monospace, monospace",
                           fontSize: 10,
                           fontWeight: 600,
-                          color: "#9a7fff",
+                          color: "var(--accent-text)",
                           letterSpacing: "0.04em",
                         }}
                       >
@@ -1259,6 +1328,14 @@ export default function AgentPage() {
             )}
           </div>
 
+          {attachError && (
+            <div className="px-4 sm:px-6 lg:px-8 pt-2">
+              <p className="max-w-3xl mx-auto text-[12px]" style={{ color: "var(--danger-text)" }}>
+                {attachError}
+              </p>
+            </div>
+          )}
+
           {/* Attachment previews */}
           {attachments.length > 0 && (
             <div className="px-4 sm:px-6 lg:px-8 pt-2">
@@ -1268,19 +1345,19 @@ export default function AgentPage() {
                     key={i}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
                     style={{
-                      background: "#1d1d24",
+                      background: "var(--surface-3)",
                       border: "1px solid var(--hifi-hairline)",
                     }}
                   >
                     {att.preview ? (
                       <img src={att.preview} alt="" className="w-7 h-7 rounded object-cover" />
                     ) : (
-                      <Paperclip className="h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.35)" }} />
+                      <Paperclip className="h-3.5 w-3.5" style={{ color: "var(--ink-4)" }} />
                     )}
                     <span
                       style={{
                         fontSize: 12,
-                        color: "rgba(246,245,247,0.66)",
+                        color: "var(--ink-2)",
                         maxWidth: 120,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -1293,7 +1370,7 @@ export default function AgentPage() {
                       style={{
                         fontFamily: "'Geist Mono', ui-monospace, monospace",
                         fontSize: 9,
-                        color: "rgba(246,245,247,0.30)",
+                        color: "var(--ink-4)",
                       }}
                     >
                       {(att.file.size / 1024 / 1024).toFixed(1)}MB
@@ -1301,7 +1378,7 @@ export default function AgentPage() {
                     <button
                       onClick={() => removeAttachment(i)}
                       className="p-0.5 rounded transition-colors hover:opacity-70"
-                      style={{ color: "rgba(246,245,247,0.35)" }}
+                      style={{ color: "var(--ink-4)" }}
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -1314,13 +1391,13 @@ export default function AgentPage() {
           {/* ── Compose area ── */}
           <div
             className="px-4 sm:px-6 lg:px-8 py-3"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+            style={{ borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)" }}
           >
             <div className="max-w-3xl mx-auto">
               {uploadStatus && (
                 <p
                   className="mb-1"
-                  style={{ fontSize: 11, color: "#9a7fff", fontFamily: "'Geist Mono', ui-monospace, monospace" }}
+                  style={{ fontSize: 11, color: "var(--accent-text)", fontFamily: "'Geist Mono', ui-monospace, monospace" }}
                 >
                   {uploadStatus}
                 </p>
@@ -1331,8 +1408,8 @@ export default function AgentPage() {
                 className="rounded-2xl"
                 style={{
                   background: "var(--hifi-surface-1)",
-                  border: "1px solid rgba(255,255,255,0.09)",
-                  boxShadow: "0 0 0 1px rgba(124,92,255,0.0)",
+                  border: "1px solid rgb(var(--veil-rgb) / 0.09)",
+                  boxShadow: "0 0 0 1px rgb(var(--accent-rgb) / 0.0)",
                 }}
               >
                 {/* Textarea */}
@@ -1350,7 +1427,7 @@ export default function AgentPage() {
                     style={{
                       background: "transparent",
                       fontSize: 14,
-                      color: "#f6f5f7",
+                      color: "var(--ink)",
                       fontFamily: "'Geist', system-ui, sans-serif",
                       lineHeight: 1.6,
                       maxHeight: 160,
@@ -1380,16 +1457,16 @@ export default function AgentPage() {
                       width: 32,
                       height: 32,
                       background: "transparent",
-                      border: "1px solid rgba(255,255,255,0.09)",
-                      color: "rgba(246,245,247,0.42)",
+                      border: "1px solid rgb(var(--veil-rgb) / 0.09)",
+                      color: "var(--ink-3)",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(124,92,255,0.40)";
-                      e.currentTarget.style.color = "#9a7fff";
+                      e.currentTarget.style.borderColor = "rgb(var(--accent-rgb) / 0.4)";
+                      e.currentTarget.style.color = "var(--accent-text)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.09)";
-                      e.currentTarget.style.color = "rgba(246,245,247,0.42)";
+                      e.currentTarget.style.borderColor = "rgb(var(--veil-rgb) / 0.09)";
+                      e.currentTarget.style.color = "var(--ink-3)";
                     }}
                   >
                     <Paperclip className="h-3.5 w-3.5" />
@@ -1405,7 +1482,7 @@ export default function AgentPage() {
                       fontFamily: "'Geist Mono', ui-monospace, monospace",
                       fontSize: 9,
                       letterSpacing: "0.08em",
-                      color: "rgba(246,245,247,0.25)",
+                      color: "var(--ink-4)",
                     }}
                   >
                     {input.length}/4000
@@ -1419,8 +1496,8 @@ export default function AgentPage() {
                     style={{
                       width: 36,
                       height: 36,
-                      background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
-                      boxShadow: "0 2px 12px rgba(124,92,255,0.30)",
+                      background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
+                      boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.3)",
                     }}
                   >
                     {isLoading ? (

@@ -13,7 +13,12 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  if (IS_DEMO) return NextResponse.json({ assemblies: [] });
+  if (IS_DEMO) {
+    const { getDemoAssemblies } = await import("@/lib/demo-store");
+    return NextResponse.json({
+      assemblies: getDemoAssemblies(req.nextUrl.searchParams.get("propertyId")),
+    });
+  }
 
   try {
     const { db } = await import("@/lib/db");

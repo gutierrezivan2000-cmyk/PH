@@ -21,6 +21,11 @@ interface SearchParams {
 }
 
 async function loadProperties(userId: string, sp: SearchParams) {
+  if (process.env.DEMO_MODE === "true") {
+    const { getDemoPortfolioProperties } = await import("@/lib/demo-store");
+    return getDemoPortfolioProperties(userId, sp, PAGE_SIZE);
+  }
+
   const q = sp.q?.trim() || "";
   const group = sp.group || "all";
   const reporte = sp.reporte || "all";
@@ -118,7 +123,7 @@ export default async function EmpresaPropiedadesPage({
             <Link
               href="/empresa/generar"
               className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold text-white transition-all hover:opacity-90"
-              style={{ background: "#7c5cff", boxShadow: "0 4px 20px rgba(124,92,255,0.35)" }}
+              style={{ background: "var(--accent)", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.35)" }}
             >
               <Layers className="h-4 w-4" />
               Generar en lote
@@ -139,7 +144,7 @@ export default async function EmpresaPropiedadesPage({
             <div className="flex flex-col items-center justify-center gap-3 py-20">
               <Building2 className="h-8 w-8 text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">No hay propiedades que coincidan.</p>
-              <Link href="/dashboard/propiedades" className="text-[12px] text-[#9a7fff] hover:underline">
+              <Link href="/dashboard/propiedades" className="text-[12px] text-[var(--accent-hi)] hover:underline">
                 Agregar una propiedad
               </Link>
             </div>
@@ -147,7 +152,7 @@ export default async function EmpresaPropiedadesPage({
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border" style={{ background: "rgba(255,255,255,0.02)" }}>
+                  <tr className="border-b border-border" style={{ background: "rgb(var(--veil-rgb) / 0.02)" }}>
                     {headers.map((h, i) => (
                       <th
                         key={i}
@@ -157,7 +162,7 @@ export default async function EmpresaPropiedadesPage({
                           fontSize: "10px",
                           letterSpacing: "0.14em",
                           textTransform: "uppercase",
-                          color: "rgba(255,255,255,0.40)",
+                          color: "var(--ink-3)",
                         }}
                       >
                         {h}
@@ -172,7 +177,7 @@ export default async function EmpresaPropiedadesPage({
                         <div className="flex items-center gap-3 min-w-[180px]">
                           <div
                             className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-white"
-                            style={{ background: "linear-gradient(135deg, #7c5cff, #5a3cf0)" }}
+                            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-lo))" }}
                           >
                             {p.name[0]?.toUpperCase() ?? "?"}
                           </div>
@@ -198,7 +203,7 @@ export default async function EmpresaPropiedadesPage({
                             {new Date(p.lastGenAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "2-digit" })}
                           </span>
                         ) : (
-                          <span style={{ color: "#ffb958" }}>Nunca</span>
+                          <span style={{ color: "var(--warn-text)" }}>Nunca</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-center text-[12px] text-muted-foreground" style={{ fontFamily: "var(--font-mono)" }}>
@@ -223,7 +228,7 @@ export default async function EmpresaPropiedadesPage({
           )}
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-5 py-3.5 border-t border-border" style={{ background: "rgba(255,255,255,0.01)" }}>
+            <div className="flex items-center justify-between px-5 py-3.5 border-t border-border" style={{ background: "rgb(var(--veil-rgb) / 0.01)" }}>
               <span className="text-[11px] text-muted-foreground/60" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
                 Página {page} de {totalPages} · {total.toLocaleString("es-CO")} resultados
               </span>

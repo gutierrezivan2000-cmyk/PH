@@ -20,6 +20,12 @@ export async function GET(
       return NextResponse.json({ error: "Agente no valido" }, { status: 400 });
     }
 
+    // En demo `db` lanza excepción: la guarda va ANTES de tocarla, y devuelve
+    // un arreglo, que es lo que espera el cliente.
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json([]);
+    }
+
     try {
       const chats = await db.agentChat.findMany({
         where: { userId: session.user.id, agentId },
@@ -56,6 +62,13 @@ export async function DELETE(
     const { agentId } = await params;
     if (!isValidAgentId(agentId)) {
       return NextResponse.json({ error: "Agente no valido" }, { status: 400 });
+    }
+
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json(
+        { error: "El demo es de solo lectura. Crea tu cuenta para guardar cambios." },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(req.url);

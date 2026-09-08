@@ -13,7 +13,21 @@ function newToken(): string {
 
 /** List the property's units with their portal-link status (admin view). */
 export async function GET(req: NextRequest) {
-  if (IS_DEMO) return NextResponse.json({ units: [] });
+  if (IS_DEMO) {
+    const { getDemoUnits } = await import("@/lib/demo-store");
+    const pid = req.nextUrl.searchParams.get("propertyId") || "prop-demo-001";
+    return NextResponse.json({
+      units: getDemoUnits(pid).map((u) => ({
+        id: u.id,
+        label: u.label,
+        residentName: u.residentName,
+        email: u.email,
+        phone: u.phone,
+        portalToken: u.portalToken,
+      })),
+      whatsapp: "3001234567",
+    });
+  }
 
   const r = await requireCartera();
   if ("error" in r) return r.error;

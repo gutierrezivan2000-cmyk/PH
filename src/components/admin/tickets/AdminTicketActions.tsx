@@ -59,7 +59,7 @@ export function AdminTicketActions({
   return (
     <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
       {loading && (
-        <Loader2 className="h-4 w-4 animate-spin" style={{ color: "rgba(255,255,255,0.40)" }} />
+        <Loader2 className="h-4 w-4 animate-spin" style={{ color: "var(--ink-3)" }} />
       )}
 
       {/* Assign to me */}
@@ -70,9 +70,9 @@ export function AdminTicketActions({
           className="h-8 px-3 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-50"
           style={{
             ...monoSmall,
-            background: "rgba(124,92,255,0.10)",
-            border: "1px solid rgba(124,92,255,0.25)",
-            color: "#9a7fff",
+            background: "rgb(var(--accent-rgb) / 0.1)",
+            border: "1px solid rgb(var(--accent-rgb) / 0.25)",
+            color: "var(--accent-text)",
           }}
         >
           Asignar a mí
@@ -107,9 +107,9 @@ export function AdminTicketActions({
           className="h-8 px-3 rounded-lg text-[11px] font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
           style={{
             ...monoSmall,
-            background: "rgba(76,214,160,0.10)",
-            border: "1px solid rgba(76,214,160,0.25)",
-            color: "#4cd6a0",
+            background: "rgb(var(--ok-rgb) / 0.1)",
+            border: "1px solid rgb(var(--ok-rgb) / 0.25)",
+            color: "var(--ok-text)",
           }}
         >
           <CheckCircle className="h-3.5 w-3.5" />

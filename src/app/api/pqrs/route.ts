@@ -11,7 +11,14 @@ const STATUSES = ["radicado", "en_proceso", "resuelto", "cerrado"] as const;
  *  must never become invisible because the plan changed. Only ANSWERING
  *  (PATCH) requires the Business/Élite plan. */
 export async function GET(req: NextRequest) {
-  if (IS_DEMO) return NextResponse.json({ pqrs: [], counts: {} });
+  if (IS_DEMO) {
+    const { getDemoPqrs } = await import("@/lib/demo-store");
+    const s = req.nextUrl.searchParams.get("status") || undefined;
+    return NextResponse.json({
+      ...getDemoPqrs(req.nextUrl.searchParams.get("propertyId"), s),
+      canAct: true,
+    });
+  }
 
   const { auth } = await import("@/lib/auth");
   const session = await auth();

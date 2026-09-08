@@ -21,6 +21,33 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
+  // Watchdog. Si la función muere sin llegar a su catch —timeout duro de los
+  // 300s, despliegue a mitad, OOM— la fila queda en "processing" para siempre:
+  // el cron solo recoge "pending", el cierre del lote cuenta processing como
+  // trabajo vivo, y el lote nunca se completa ni se puede reintentar desde la
+  // UI (el botón "Reintentar fallidas" solo mira status "failed").
+  // Se pasan a "failed" y no a "pending" para que no entren en un bucle de
+  // reintento infinito y para que ese botón las rescate.
+  // El filtro va por updatedAt (ACTIVIDAD) y no por createdAt: en un lote las
+  // 50 filas se crean en el mismo instante y se drenan de a pocas por minuto,
+  // así que por creación se mataría trabajo vivo.
+  const STUCK_MS = 15 * 60 * 1000;
+  const reaped = await db.generation.updateMany({
+    where: {
+      batchId: { not: null },
+      status: "processing",
+      updatedAt: { lt: new Date(Date.now() - STUCK_MS) },
+    },
+    data: {
+      status: "failed",
+      progress: 0,
+      errorMessage: "La generación se interrumpió y se canceló. Reintenta las fallidas.",
+    },
+  });
+  if (reaped.count > 0) {
+    console.warn(`[cron/process-batch] ${reaped.count} generaciones colgadas marcadas como fallidas`);
+  }
+
   const pending = await db.generation.findMany({
     where: { status: "pending", batchId: { not: null } },
     orderBy: { createdAt: "asc" },
@@ -43,20 +70,20 @@ export async function GET(req: NextRequest) {
     });
     if (!gen) continue;
 
-    let includeInforme = true;
-    let includeActa = false;
-    let includePptx = false;
+    // Un lote encolado antes de este cambio puede llevar informe y acta a la
+    // vez en docTypes; docSelectionFromTypes lo resuelve a uno solo.
+    const { docSelectionFromTypes, normalizeDocSelection, toDocFlags } = await import(
+      "@/lib/generation/doc-kind"
+    );
+    let selection = normalizeDocSelection({ docKind: "informe" });
     if (gen.batchId) {
       const batch = await db.generationBatch.findUnique({
         where: { id: gen.batchId },
         select: { docTypes: true },
       });
-      const dt = batch?.docTypes ?? [];
-      includeInforme = dt.includes("informe");
-      includeActa = dt.includes("acta");
-      includePptx = dt.includes("pptx");
-      if (!includeInforme && !includeActa) includeInforme = true; // safety net
+      selection = docSelectionFromTypes(batch?.docTypes) ?? selection;
     }
+    const { includeInforme, includeActa, includePptx } = toDocFlags(selection);
 
     const blobFiles = (gen.inputFiles as BlobFileRef[] | null) ?? [];
     try {

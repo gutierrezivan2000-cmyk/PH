@@ -42,26 +42,26 @@ const CATEGORY_LABELS: Record<string, string> = {
 function priorityStyle(priority: string): React.CSSProperties {
   switch (priority) {
     case "urgent":
-      return { background: "rgba(255,111,111,0.12)", color: "#ff8585", border: "1px solid rgba(255,111,111,0.25)" };
+      return { background: "rgb(var(--danger-rgb) / 0.12)", color: "var(--danger-text)", border: "1px solid rgb(var(--danger-rgb) / 0.25)" };
     case "high":
-      return { background: "rgba(255,185,88,0.12)", color: "#ffb958", border: "1px solid rgba(255,185,88,0.25)" };
+      return { background: "rgb(var(--warn-rgb) / 0.12)", color: "var(--warn-text)", border: "1px solid rgb(var(--warn-rgb) / 0.25)" };
     case "normal":
-      return { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.50)", border: "1px solid rgba(255,255,255,0.10)" };
+      return { background: "rgb(var(--veil-rgb) / 0.06)", color: "var(--ink-3)", border: "1px solid rgb(var(--veil-rgb) / 0.1)" };
     default:
-      return { background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.30)", border: "1px solid rgba(255,255,255,0.07)" };
+      return { background: "rgb(var(--veil-rgb) / 0.03)", color: "var(--ink-4)", border: "1px solid rgb(var(--veil-rgb) / 0.07)" };
   }
 }
 
 function statusStyle(status: string): React.CSSProperties {
   switch (status) {
     case "open":
-      return { background: "rgba(255,111,111,0.10)", color: "#ff8585", border: "1px solid rgba(255,111,111,0.25)" };
+      return { background: "rgb(var(--danger-rgb) / 0.1)", color: "var(--danger-text)", border: "1px solid rgb(var(--danger-rgb) / 0.25)" };
     case "pending":
-      return { background: "rgba(255,185,88,0.10)", color: "#ffb958", border: "1px solid rgba(255,185,88,0.25)" };
+      return { background: "rgb(var(--warn-rgb) / 0.1)", color: "var(--warn-text)", border: "1px solid rgb(var(--warn-rgb) / 0.25)" };
     case "resolved":
-      return { background: "rgba(76,214,160,0.10)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.25)" };
+      return { background: "rgb(var(--ok-rgb) / 0.1)", color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.25)" };
     default:
-      return { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.40)", border: "1px solid rgba(255,255,255,0.10)" };
+      return { background: "rgb(var(--veil-rgb) / 0.05)", color: "var(--ink-3)", border: "1px solid rgb(var(--veil-rgb) / 0.1)" };
   }
 }
 
@@ -130,7 +130,7 @@ async function TicketDetailContent({ id }: { id: string }) {
       <Link
         href="/admin/tickets"
         className="inline-flex items-center gap-2 text-[12px] mb-6 transition-colors hover:text-foreground"
-        style={{ ...monoSmall, textTransform: "none", color: "rgba(255,255,255,0.40)" }}
+        style={{ ...monoSmall, textTransform: "none", color: "var(--ink-3)" }}
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         Volver a tickets
@@ -160,9 +160,9 @@ async function TicketDetailContent({ id }: { id: string }) {
                 className="px-2.5 py-1 rounded-lg text-[10px]"
                 style={{
                   ...monoSmall,
-                  background: "rgba(124,92,255,0.10)",
-                  color: "#9a7fff",
-                  border: "1px solid rgba(124,92,255,0.25)",
+                  background: "rgb(var(--accent-rgb) / 0.1)",
+                  color: "var(--accent-text)",
+                  border: "1px solid rgb(var(--accent-rgb) / 0.25)",
                 }}
               >
                 Asignado a: {assignedName}
@@ -173,9 +173,9 @@ async function TicketDetailContent({ id }: { id: string }) {
                   className="text-[11px] cursor-pointer px-2.5 py-1 rounded-lg transition-colors"
                   style={{
                     ...monoSmall,
-                    background: "rgba(255,255,255,0.04)",
-                    color: "rgba(255,255,255,0.35)",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "rgb(var(--veil-rgb) / 0.04)",
+                    color: "var(--ink-4)",
+                    border: "1px solid rgb(var(--veil-rgb) / 0.08)",
                   }}
                 >
                   Sin asignar
@@ -186,7 +186,7 @@ async function TicketDetailContent({ id }: { id: string }) {
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
             {ticket.subject}
           </h1>
-          <p className="text-[11px] mt-1" style={{ ...monoSmall, color: "rgba(255,255,255,0.30)", textTransform: "none" }}>
+          <p className="text-[11px] mt-1" style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}>
             #{ticket.id.slice(-8)} · {ticket._count.messages} mensajes · Creado {formatDate(ticket.createdAt)}
           </p>
         </div>
@@ -217,15 +217,15 @@ async function TicketDetailContent({ id }: { id: string }) {
               let cardStyle: React.CSSProperties;
               if (isInternal) {
                 cardStyle = {
-                  background: "rgba(255,185,88,0.06)",
-                  border: "1px solid rgba(255,185,88,0.20)",
+                  background: "rgb(var(--warn-rgb) / 0.06)",
+                  border: "1px solid rgb(var(--warn-rgb) / 0.2)",
                   borderRadius: "1rem",
                   padding: "16px",
                 };
               } else if (isAdmin) {
                 cardStyle = {
-                  background: "rgba(124,92,255,0.08)",
-                  border: "1px solid rgba(124,92,255,0.20)",
+                  background: "rgb(var(--accent-rgb) / 0.08)",
+                  border: "1px solid rgb(var(--accent-rgb) / 0.2)",
                   borderRadius: "1rem",
                   padding: "16px",
                 };
@@ -245,7 +245,7 @@ async function TicketDetailContent({ id }: { id: string }) {
                     {isInternal ? (
                       <span
                         className="px-2 py-0.5 rounded text-[9px] font-bold"
-                        style={{ ...monoSmall, background: "rgba(255,185,88,0.15)", color: "#ffb958" }}
+                        style={{ ...monoSmall, background: "rgb(var(--warn-rgb) / 0.15)", color: "var(--warn-text)" }}
                       >
                         Nota Interna
                       </span>
@@ -254,20 +254,20 @@ async function TicketDetailContent({ id }: { id: string }) {
                       <>
                         <div
                           className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ background: "rgba(124,92,255,0.15)" }}
+                          style={{ background: "rgb(var(--accent-rgb) / 0.15)" }}
                         >
-                          <Shield className="h-3.5 w-3.5" style={{ color: "#9a7fff" }} />
+                          <Shield className="h-3.5 w-3.5" style={{ color: "var(--accent-text)" }} />
                         </div>
                         <div>
-                          <span className="text-[13px] font-medium" style={{ color: "#9a7fff" }}>
+                          <span className="text-[13px] font-medium" style={{ color: "var(--accent-text)" }}>
                             Admin
                           </span>
                           <span
                             className="ml-1.5 px-1.5 py-0.5 rounded text-[9px]"
                             style={{
                               ...monoSmall,
-                              background: "rgba(124,92,255,0.12)",
-                              color: "#9a7fff",
+                              background: "rgb(var(--accent-rgb) / 0.12)",
+                              color: "var(--accent-text)",
                             }}
                           >
                             ADMIN
@@ -286,9 +286,9 @@ async function TicketDetailContent({ id }: { id: string }) {
                         ) : (
                           <div
                             className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style={{ background: "rgba(255,255,255,0.07)" }}
+                            style={{ background: "rgb(var(--veil-rgb) / 0.07)" }}
                           >
-                            <User className="h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.40)" }} />
+                            <User className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
                           </div>
                         )}
                         <div>
@@ -297,7 +297,7 @@ async function TicketDetailContent({ id }: { id: string }) {
                           </span>
                           <span
                             className="ml-1.5 text-[11px]"
-                            style={{ ...monoSmall, color: "rgba(255,255,255,0.30)", textTransform: "none" }}
+                            style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}
                           >
                             {ticket.user.email}
                           </span>
@@ -307,7 +307,7 @@ async function TicketDetailContent({ id }: { id: string }) {
 
                     <span
                       className="ml-auto text-[11px]"
-                      style={{ ...monoSmall, color: "rgba(255,255,255,0.25)", textTransform: "none" }}
+                      style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}
                     >
                       {formatDate(msg.createdAt)}
                     </span>
@@ -316,7 +316,7 @@ async function TicketDetailContent({ id }: { id: string }) {
                   {/* Content */}
                   <p
                     className="text-[13.5px] leading-relaxed whitespace-pre-wrap"
-                    style={{ color: isAdmin ? "rgba(255,255,255,0.85)" : "var(--foreground)" }}
+                    style={{ color: isAdmin ? "var(--ink)" : "var(--foreground)" }}
                   >
                     {msg.content}
                   </p>
@@ -332,15 +332,15 @@ async function TicketDetailContent({ id }: { id: string }) {
                           rel="noopener noreferrer"
                           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-opacity hover:opacity-80"
                           style={{
-                            background: "rgba(255,255,255,0.06)",
-                            border: "1px solid rgba(255,255,255,0.10)",
+                            background: "rgb(var(--veil-rgb) / 0.06)",
+                            border: "1px solid rgb(var(--veil-rgb) / 0.1)",
                           }}
                         >
-                          <Paperclip className="h-3 w-3" style={{ color: "rgba(255,255,255,0.40)" }} />
-                          <span className="text-[11px]" style={{ ...monoSmall, color: "rgba(255,255,255,0.55)", textTransform: "none" }}>
+                          <Paperclip className="h-3 w-3" style={{ color: "var(--ink-3)" }} />
+                          <span className="text-[11px]" style={{ ...monoSmall, color: "var(--ink-2)", textTransform: "none" }}>
                             {att.name}
                           </span>
-                          <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)", fontFamily: "var(--font-mono)" }}>
+                          <span className="text-[10px]" style={{ color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>
                             {att.size ? `${Math.round(att.size / 1024)}KB` : ""}
                           </span>
                         </a>
@@ -363,7 +363,7 @@ async function TicketDetailContent({ id }: { id: string }) {
             className="rounded-2xl p-5"
             style={{ background: "var(--card)", border: "1px solid var(--border)" }}
           >
-            <p className="text-[10px] uppercase mb-4" style={{ ...monoSmall, color: "rgba(255,255,255,0.35)" }}>
+            <p className="text-[10px] uppercase mb-4" style={{ ...monoSmall, color: "var(--ink-4)" }}>
               Usuario
             </p>
             <div className="flex items-center gap-3 mb-4">
@@ -377,24 +377,24 @@ async function TicketDetailContent({ id }: { id: string }) {
               ) : (
                 <div
                   className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--border)" }}
+                  style={{ background: "rgb(var(--veil-rgb) / 0.05)", border: "1px solid var(--border)" }}
                 >
-                  <User className="h-4.5 w-4.5" style={{ color: "rgba(255,255,255,0.35)" }} />
+                  <User className="h-4.5 w-4.5" style={{ color: "var(--ink-4)" }} />
                 </div>
               )}
               <div className="min-w-0">
                 <p className="text-[13px] font-medium text-foreground truncate">
                   {ticket.user.name || "—"}
                 </p>
-                <p className="text-[11px] truncate" style={{ fontFamily: "var(--font-mono)", color: "rgba(255,255,255,0.40)" }}>
+                <p className="text-[11px] truncate" style={{ fontFamily: "var(--font-mono)", color: "var(--ink-3)" }}>
                   {ticket.user.email}
                 </p>
               </div>
             </div>
             <Link
               href={`/admin/usuarios/${ticket.user.id}`}
-              className="flex items-center gap-1.5 text-[11px] transition-colors hover:text-[#9a7fff]"
-              style={{ ...monoSmall, color: "rgba(255,255,255,0.35)", textTransform: "none" }}
+              className="flex items-center gap-1.5 text-[11px] transition-colors hover:text-[var(--accent-hi)]"
+              style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}
             >
               <ExternalLink className="h-3 w-3" />
               Ver perfil de usuario
@@ -406,22 +406,22 @@ async function TicketDetailContent({ id }: { id: string }) {
                 href={`/admin/suscripciones/${ticket.user.subscription.id}`}
                 className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg transition-opacity hover:opacity-80"
                 style={{
-                  background: "rgba(76,214,160,0.08)",
-                  border: "1px solid rgba(76,214,160,0.20)",
+                  background: "rgb(var(--ok-rgb) / 0.08)",
+                  border: "1px solid rgb(var(--ok-rgb) / 0.2)",
                 }}
               >
                 <div
                   className="h-1.5 w-1.5 rounded-full"
                   style={{
                     background:
-                      ticket.user.subscription.status === "active" ? "#4cd6a0" : "#ff8585",
+                      ticket.user.subscription.status === "active" ? "var(--ok)" : "var(--danger)",
                   }}
                 />
-                <span className="text-[11px]" style={{ ...monoSmall, color: "#4cd6a0", textTransform: "none" }}>
+                <span className="text-[11px]" style={{ ...monoSmall, color: "var(--ok-text)", textTransform: "none" }}>
                   {ticket.user.subscription.planId || "Plan"} ·{" "}
                   {ticket.user.subscription.status}
                 </span>
-                <ExternalLink className="h-3 w-3 ml-auto" style={{ color: "rgba(76,214,160,0.50)" }} />
+                <ExternalLink className="h-3 w-3 ml-auto" style={{ color: "rgb(var(--ok-rgb) / 0.5)" }} />
               </Link>
             )}
           </div>
@@ -431,12 +431,12 @@ async function TicketDetailContent({ id }: { id: string }) {
             className="rounded-2xl p-5"
             style={{ background: "var(--card)", border: "1px solid var(--border)" }}
           >
-            <p className="text-[10px] uppercase mb-4" style={{ ...monoSmall, color: "rgba(255,255,255,0.35)" }}>
+            <p className="text-[10px] uppercase mb-4" style={{ ...monoSmall, color: "var(--ink-4)" }}>
               Información
             </p>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5" style={{ ...monoSmall, color: "rgba(255,255,255,0.35)", textTransform: "none" }}>
+                <div className="flex items-center gap-1.5" style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}>
                   <Calendar className="h-3 w-3" />
                   <span className="text-[11px]">Creado</span>
                 </div>
@@ -446,7 +446,7 @@ async function TicketDetailContent({ id }: { id: string }) {
               </div>
 
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5" style={{ ...monoSmall, color: "rgba(255,255,255,0.35)", textTransform: "none" }}>
+                <div className="flex items-center gap-1.5" style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}>
                   <Tag className="h-3 w-3" />
                   <span className="text-[11px]">Categoría</span>
                 </div>
@@ -454,9 +454,9 @@ async function TicketDetailContent({ id }: { id: string }) {
                   className="text-[10px] px-2 py-0.5 rounded"
                   style={{
                     ...monoSmall,
-                    background: "rgba(255,255,255,0.05)",
-                    color: "rgba(255,255,255,0.55)",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "rgb(var(--veil-rgb) / 0.05)",
+                    color: "var(--ink-2)",
+                    border: "1px solid rgb(var(--veil-rgb) / 0.08)",
                   }}
                 >
                   {CATEGORY_LABELS[ticket.category] ?? ticket.category}
@@ -464,7 +464,7 @@ async function TicketDetailContent({ id }: { id: string }) {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-[11px]" style={{ ...monoSmall, color: "rgba(255,255,255,0.35)", textTransform: "none" }}>
+                <span className="text-[11px]" style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}>
                   Prioridad
                 </span>
                 <span
@@ -476,7 +476,7 @@ async function TicketDetailContent({ id }: { id: string }) {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-[11px]" style={{ ...monoSmall, color: "rgba(255,255,255,0.35)", textTransform: "none" }}>
+                <span className="text-[11px]" style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}>
                   Estado
                 </span>
                 <span
@@ -495,7 +495,7 @@ async function TicketDetailContent({ id }: { id: string }) {
               className="rounded-2xl p-5"
               style={{ background: "var(--card)", border: "1px solid var(--border)" }}
             >
-              <p className="text-[10px] uppercase mb-4" style={{ ...monoSmall, color: "rgba(255,255,255,0.35)" }}>
+              <p className="text-[10px] uppercase mb-4" style={{ ...monoSmall, color: "var(--ink-4)" }}>
                 Otros tickets del usuario
               </p>
               <div className="space-y-2">
@@ -510,18 +510,18 @@ async function TicketDetailContent({ id }: { id: string }) {
                       style={{
                         background:
                           t.status === "open"
-                            ? "#ff8585"
+                            ? "var(--danger)"
                             : t.status === "pending"
-                              ? "#ffb958"
+                              ? "var(--warn)"
                               : t.status === "resolved"
-                                ? "#4cd6a0"
-                                : "rgba(255,255,255,0.30)",
+                                ? "var(--ok)"
+                                : "rgb(var(--veil-rgb) / 0.3)",
                       }}
                     />
                     <p className="text-[12px] text-foreground/70 truncate flex-1">{t.subject}</p>
                     <span
                       className="text-[9px] flex-shrink-0"
-                      style={{ ...monoSmall, color: "rgba(255,255,255,0.25)" }}
+                      style={{ ...monoSmall, color: "var(--ink-4)" }}
                     >
                       {STATUS_LABELS[t.status] ?? t.status}
                     </span>

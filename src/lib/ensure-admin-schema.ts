@@ -18,6 +18,8 @@ const STATEMENTS: string[] = [
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "banned" BOOLEAN NOT NULL DEFAULT false`,
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannedAt" TIMESTAMP(3)`,
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "banReason" TEXT`,
+  // Revocación de sesiones al cambiar la contraseña (ver auth.ts).
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "passwordChangedAt" TIMESTAMP(3)`,
   `ALTER TABLE "Subscription" ADD COLUMN IF NOT EXISTS "addonAgents" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`,
   `ALTER TABLE "Subscription" ADD COLUMN IF NOT EXISTS "adminNotes" TEXT`,
   `CREATE TABLE IF NOT EXISTS "Ticket" (
@@ -122,6 +124,10 @@ const STATEMENTS: string[] = [
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
   // Enterprise batch generation.
   `ALTER TABLE "Generation" ADD COLUMN IF NOT EXISTS "batchId" TEXT`,
+  // Marca de actividad para el watchdog de lotes (ver process-batch). DEFAULT
+  // now() para que las filas existentes no aparezcan como colgadas.
+  `ALTER TABLE "Generation" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+  `CREATE INDEX IF NOT EXISTS "Generation_status_updatedAt_idx" ON "Generation"("status", "updatedAt")`,
   `CREATE INDEX IF NOT EXISTS "Generation_batchId_idx" ON "Generation"("batchId")`,
   `CREATE TABLE IF NOT EXISTS "GenerationBatch" (
     "id" TEXT NOT NULL,
@@ -392,20 +398,67 @@ const STATEMENTS: string[] = [
     ALTER TABLE "Certificate" ADD CONSTRAINT "Certificate_propertyId_fkey"
       FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // Anti-replay de suscripciones: una transacción de ePayco no puede cerrar dos
+  // órdenes. Va dentro de un DO/EXCEPTION porque si una base heredada ya tiene
+  // refs duplicadas el índice no se puede crear, y una sentencia que falla
+  // siempre impediría memoizar el auto-reparado en cada petición.
+  `DO $$ BEGIN
+    CREATE UNIQUE INDEX IF NOT EXISTS "PendingOrder_epaycoRef_key" ON "PendingOrder"("epaycoRef");
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'PendingOrder_epaycoRef_key no se pudo crear: %', SQLERRM;
+  END $$`,
+  // Bitácora: zonas comunes y pólizas con fecha relevante (mantenimiento / vencimiento).
+  `CREATE TABLE IF NOT EXISTS "CommonAsset" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "kind" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "provider" TEXT,
+    "reference" TEXT,
+    "notes" TEXT,
+    "dueDate" TIMESTAMP(3) NOT NULL,
+    "recurrenceMonths" INTEGER,
+    "lastDoneAt" TIMESTAMP(3),
+    "status" TEXT NOT NULL DEFAULT 'active',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "CommonAsset_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "CommonAsset_userId_idx" ON "CommonAsset"("userId")`,
+  `CREATE INDEX IF NOT EXISTS "CommonAsset_propertyId_idx" ON "CommonAsset"("propertyId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "CommonAsset" ADD CONSTRAINT "CommonAsset_propertyId_fkey"
+      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 ];
 
 let ensured = false;
 
 export async function ensureAdminSchema(): Promise<void> {
   if (ensured) return;
+  // Demo has no database — running 400+ DDL statements only to catch 400+
+  // failures burned a second per call and flooded the log.
+  if (process.env.DEMO_MODE === "true") {
+    ensured = true;
+    return;
+  }
+
+  let failures = 0;
   for (const sql of STATEMENTS) {
     try {
       await db.$executeRawUnsafe(sql);
     } catch (err) {
+      failures++;
       console.error("[ensureAdminSchema] statement failed:", err);
     }
   }
-  ensured = true;
+  // Only memoize a clean run. Marking it done after failures cached a *failed*
+  // self-heal for the life of the instance: if the very first call landed
+  // while the DB was unreachable (cold start, Neon suspended, blip), every
+  // later request skipped the DDL and the drift it exists to repair persisted
+  // until the instance was recycled — the self-heal died exactly when needed.
+  if (failures === 0) ensured = true;
 }
 
 /** True if an error looks like a missing column/relation (schema drift). */

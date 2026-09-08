@@ -13,6 +13,9 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json({ error: "El demo es de solo lectura. Crea tu cuenta para guardar cambios." }, { status: 403 });
+  }
 
   await ensureAdminSchema();
   const { id } = await params;

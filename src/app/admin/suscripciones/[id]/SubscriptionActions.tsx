@@ -53,10 +53,10 @@ export function SubscriptionActions({ subscriptionId, status }: Props) {
     <>
       <div className="flex items-center gap-2 flex-wrap">
         {error && (
-          <span className="text-[11px] text-[#ff6f6f]">{error}</span>
+          <span className="text-[11px] text-[var(--danger)]">{error}</span>
         )}
         {notice && (
-          <span className="text-[11px] text-[#ffb958] max-w-xs">{notice}</span>
+          <span className="text-[11px] text-[var(--warn)] max-w-xs">{notice}</span>
         )}
         {status === "canceled" && (
           <Button
@@ -91,7 +91,7 @@ export function SubscriptionActions({ subscriptionId, status }: Props) {
             className="relative w-full max-w-sm rounded-2xl border border-border bg-card p-6"
             style={{
               background:
-                "radial-gradient(120% 100% at 50% 0%, rgba(255,111,111,0.06), transparent 60%), var(--card)",
+                "radial-gradient(120% 100% at 50% 0%, rgb(var(--danger-rgb) / 0.06), transparent 60%), var(--card)",
             }}
           >
             <button
@@ -103,7 +103,7 @@ export function SubscriptionActions({ subscriptionId, status }: Props) {
 
             <div
               className="h-10 w-10 rounded-xl flex items-center justify-center mb-4"
-              style={{ background: "rgba(255,111,111,0.12)", color: "#ff6f6f" }}
+              style={{ background: "rgb(var(--danger-rgb) / 0.12)", color: "var(--danger-text)" }}
             >
               <AlertTriangle className="h-5 w-5" />
             </div>

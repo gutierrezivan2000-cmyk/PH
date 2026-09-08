@@ -59,15 +59,15 @@ export default function DashboardLayout({
                 <div
                   className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
                   style={{
-                    background: "linear-gradient(135deg, #7c5cff, #5a3cf0)",
-                    boxShadow: "0 0 14px rgba(124,92,255,0.30)",
+                    background: "linear-gradient(135deg, var(--accent), var(--accent-lo))",
+                    boxShadow: "0 0 14px rgb(var(--accent-rgb) / 0.3)",
                   }}
                 >
                   S
                 </div>
                 <span className="text-sm font-bold tracking-tight text-foreground">
                   SOPH<span className="text-muted-foreground/60 font-normal">.</span>
-                  <span style={{ color: "#7c5cff" }}>IA</span>
+                  <span style={{ color: "var(--accent-text)" }}>IA</span>
                 </span>
               </div>
             </div>

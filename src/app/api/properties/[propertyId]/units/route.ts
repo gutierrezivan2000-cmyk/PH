@@ -5,7 +5,25 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseNumericToken } from "@/lib/cartera";
 
+// Sin anclas: sirve para BUSCAR un correo dentro de una línea suelta
+// ("Apto 101, María, maria@x.com"). No vale para validar.
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+// Anclada: la cadena entera tiene que ser un correo. Con la de arriba,
+// `test("María Pérez maria@x.com")` daba true y se guardaba la CELDA COMPLETA
+// como email; luego Resend rechazaba el lote entero de hasta 100 destinatarios
+// y ningún residente recibía su enlace.
+const EMAIL_EXACT_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+/** Devuelve un correo limpio a partir de una celda, o null si no hay ninguno. */
+function extractEmail(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const v = raw.trim().toLowerCase();
+  if (EMAIL_EXACT_RE.test(v)) return v.slice(0, 120);
+  // La celda trae texto alrededor ("María Pérez maria@x.com"): quédate solo
+  // con la primera dirección, nunca con la cadena entera.
+  const m = v.match(EMAIL_RE);
+  return m ? m[0].slice(0, 120) : null;
+}
 const MAX_UNITS_PER_PROPERTY = 1000;
 
 async function ownedProperty(propertyId: string, userId: string) {
@@ -25,11 +43,18 @@ export async function GET(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     const { propertyId } = await params;
+
+    // Before the ownership check: in demo mode `db` is a stub, so
+    // ownedProperty() throws and this branch was never reached.
+    if (process.env.DEMO_MODE === "true") {
+      const { getDemoUnits } = await import("@/lib/demo-store");
+      return NextResponse.json(getDemoUnits(propertyId));
+    }
+
     const property = await ownedProperty(propertyId, session.user.id);
     if (!property) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
     }
-
     const units = await db.unit.findMany({
       where: { propertyId },
       orderBy: { label: "asc" },
@@ -57,6 +82,14 @@ export async function POST(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     const { propertyId } = await params;
+    // Demo data is a shared, read-only fixture — a mutation here would leak
+    // across every visitor and desync the seeded cartera.
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json(
+        { error: "Las unidades del demo son de ejemplo y no se pueden modificar. Crea tu cuenta para gestionar las tuyas." },
+        { status: 403 }
+      );
+    }
     const property = await ownedProperty(propertyId, session.user.id);
     if (!property) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
@@ -87,7 +120,7 @@ export async function POST(
       for (const u of incoming) {
         const label = typeof u.label === "string" ? u.label.trim().slice(0, 60) : "";
         if (!label) { skippedS++; continue; }
-        const email = typeof u.email === "string" && EMAIL_RE.test(u.email) ? u.email.trim().toLowerCase() : null;
+        const email = extractEmail(u.email);
         if (email && known.has(email)) { skippedS++; continue; }
         if (email) known.add(email);
         const phoneDigits = u.phone != null ? String(u.phone).replace(/[^\d]/g, "").slice(0, 15) : "";
@@ -211,6 +244,14 @@ export async function PATCH(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     const { propertyId } = await params;
+    // Demo data is a shared, read-only fixture — a mutation here would leak
+    // across every visitor and desync the seeded cartera.
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json(
+        { error: "Las unidades del demo son de ejemplo y no se pueden modificar. Crea tu cuenta para gestionar las tuyas." },
+        { status: 403 }
+      );
+    }
     const property = await ownedProperty(propertyId, session.user.id);
     if (!property) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
@@ -243,7 +284,7 @@ export async function PATCH(
     }
     if (email !== undefined) {
       const e = email ? String(email).trim().toLowerCase() : null;
-      if (e && !EMAIL_RE.test(e)) {
+      if (e && !EMAIL_EXACT_RE.test(e)) {
         return NextResponse.json({ error: "Correo inválido." }, { status: 400 });
       }
       data.email = e;
@@ -289,6 +330,14 @@ export async function DELETE(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     const { propertyId } = await params;
+    // Demo data is a shared, read-only fixture — a mutation here would leak
+    // across every visitor and desync the seeded cartera.
+    if (process.env.DEMO_MODE === "true") {
+      return NextResponse.json(
+        { error: "Las unidades del demo son de ejemplo y no se pueden modificar. Crea tu cuenta para gestionar las tuyas." },
+        { status: 403 }
+      );
+    }
     const property = await ownedProperty(propertyId, session.user.id);
     if (!property) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });

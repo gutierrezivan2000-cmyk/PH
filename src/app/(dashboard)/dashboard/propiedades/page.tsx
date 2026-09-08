@@ -58,9 +58,9 @@ const cardStyle: React.CSSProperties = {
 };
 
 const inputStyle: React.CSSProperties = {
-  background: "#1d1d24",
+  background: "var(--surface-3)",
   border: "1px solid var(--hifi-hairline)",
-  color: "#f6f5f7",
+  color: "var(--ink)",
   borderRadius: "10px",
 };
 
@@ -265,23 +265,23 @@ export default function PropiedadesPage() {
 
         {/* Top row */}
         <div className="flex justify-between items-center">
-          <p className="text-sm" style={{ color: "rgba(246,245,247,0.66)" }}>
+          <p className="text-sm" style={{ color: "var(--ink-2)" }}>
             Administra las propiedades horizontales que gestionas
           </p>
           <button
             onClick={() => setShowForm(!showForm)}
             className="flex items-center gap-2 px-4 h-9 rounded-xl text-sm font-medium transition-all"
             style={{
-              background: showForm ? "rgba(255,255,255,0.06)" : "#7c5cff",
+              background: showForm ? "rgb(var(--veil-rgb) / 0.06)" : "var(--accent)",
               color: "#ffffff",
-              border: showForm ? "1px solid rgba(255,255,255,0.12)" : "none",
-              boxShadow: showForm ? "none" : "0 2px 12px rgba(124,92,255,0.35)",
+              border: showForm ? "1px solid rgb(var(--veil-rgb) / 0.12)" : "none",
+              boxShadow: showForm ? "none" : "0 2px 12px rgb(var(--accent-rgb) / 0.35)",
             }}
             onMouseEnter={(e) => {
-              if (!showForm) e.currentTarget.style.background = "#9a7fff";
+              if (!showForm) e.currentTarget.style.background = "var(--accent-hi)";
             }}
             onMouseLeave={(e) => {
-              if (!showForm) e.currentTarget.style.background = "#7c5cff";
+              if (!showForm) e.currentTarget.style.background = "var(--accent)";
             }}
           >
             {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
@@ -295,7 +295,7 @@ export default function PropiedadesPage() {
             <div className="rounded-2xl p-6" style={cardStyle}>
               <h3
                 className="font-medium mb-5"
-                style={{ color: "#f6f5f7", fontSize: "15px", fontWeight: 500 }}
+                style={{ color: "var(--ink)", fontSize: "15px", fontWeight: 500 }}
               >
                 Nueva Propiedad
               </h3>
@@ -304,9 +304,9 @@ export default function PropiedadesPage() {
                   <div
                     className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
                     style={{
-                      background: "rgba(255,111,111,0.08)",
-                      border: "1px solid rgba(255,111,111,0.25)",
-                      color: "#ff6f6f",
+                      background: "rgb(var(--danger-rgb) / 0.08)",
+                      border: "1px solid rgb(var(--danger-rgb) / 0.25)",
+                      color: "var(--danger-text)",
                     }}
                   >
                     <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -314,7 +314,7 @@ export default function PropiedadesPage() {
                   </div>
                 )}
                 <div>
-                  <label className="block mb-1.5 text-xs font-medium" style={{ color: "rgba(246,245,247,0.66)" }}>
+                  <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
                     Nombre del conjunto/edificio *
                   </label>
                   <input
@@ -325,17 +325,17 @@ export default function PropiedadesPage() {
                     className="w-full h-10 px-4 text-sm outline-none transition-all"
                     style={inputStyle}
                     onFocus={(e) => {
-                      e.currentTarget.style.border = "1px solid #7c5cff";
-                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                      e.currentTarget.style.border = "1px solid var(--accent)";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
                     }}
                     onBlur={(e) => {
-                      e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                      e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                       e.currentTarget.style.boxShadow = "none";
                     }}
                   />
                 </div>
                 <div>
-                  <label className="block mb-1.5 text-xs font-medium" style={{ color: "rgba(246,245,247,0.66)" }}>
+                  <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
                     Direccion
                   </label>
                   <input
@@ -345,18 +345,18 @@ export default function PropiedadesPage() {
                     className="w-full h-10 px-4 text-sm outline-none transition-all"
                     style={inputStyle}
                     onFocus={(e) => {
-                      e.currentTarget.style.border = "1px solid #7c5cff";
-                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                      e.currentTarget.style.border = "1px solid var(--accent)";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
                     }}
                     onBlur={(e) => {
-                      e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                      e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                       e.currentTarget.style.boxShadow = "none";
                     }}
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block mb-1.5 text-xs font-medium" style={{ color: "rgba(246,245,247,0.66)" }}>
+                    <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
                       Ciudad
                     </label>
                     <input
@@ -366,17 +366,17 @@ export default function PropiedadesPage() {
                       className="w-full h-10 px-4 text-sm outline-none transition-all"
                       style={inputStyle}
                       onFocus={(e) => {
-                        e.currentTarget.style.border = "1px solid #7c5cff";
-                        e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                        e.currentTarget.style.border = "1px solid var(--accent)";
+                        e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
                       }}
                       onBlur={(e) => {
-                        e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                        e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                         e.currentTarget.style.boxShadow = "none";
                       }}
                     />
                   </div>
                   <div>
-                    <label className="block mb-1.5 text-xs font-medium" style={{ color: "rgba(246,245,247,0.66)" }}>
+                    <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
                       Unidades
                     </label>
                     <input
@@ -387,11 +387,11 @@ export default function PropiedadesPage() {
                       className="w-full h-10 px-4 text-sm outline-none transition-all"
                       style={inputStyle}
                       onFocus={(e) => {
-                        e.currentTarget.style.border = "1px solid #7c5cff";
-                        e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                        e.currentTarget.style.border = "1px solid var(--accent)";
+                        e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
                       }}
                       onBlur={(e) => {
-                        e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                        e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                         e.currentTarget.style.boxShadow = "none";
                       }}
                     />
@@ -402,9 +402,9 @@ export default function PropiedadesPage() {
                   disabled={loading}
                   className="w-full h-10 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2"
                   style={{
-                    background: loading ? "rgba(124,92,255,0.40)" : "#7c5cff",
+                    background: loading ? "rgb(var(--accent-rgb) / 0.4)" : "var(--accent)",
                     color: "#ffffff",
-                    boxShadow: loading ? "none" : "0 2px 12px rgba(124,92,255,0.30)",
+                    boxShadow: loading ? "none" : "0 2px 12px rgb(var(--accent-rgb) / 0.3)",
                     cursor: loading ? "not-allowed" : "pointer",
                     border: "none",
                   }}
@@ -429,45 +429,45 @@ export default function PropiedadesPage() {
             className="rounded-2xl flex flex-col items-center py-16 text-center px-6"
             style={{
               background: "var(--hifi-surface-1)",
-              border: "1.5px dashed rgba(255,255,255,0.10)",
+              border: "1.5px dashed rgb(var(--veil-rgb) / 0.1)",
             }}
           >
             <div
               className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
               style={{
-                background: "rgba(124,92,255,0.10)",
-                border: "1px solid rgba(124,92,255,0.20)",
+                background: "rgb(var(--accent-rgb) / 0.1)",
+                border: "1px solid rgb(var(--accent-rgb) / 0.2)",
               }}
             >
-              <Building2 className="h-8 w-8" style={{ color: "#9a7fff" }} />
+              <Building2 className="h-8 w-8" style={{ color: "var(--accent-text)" }} />
             </div>
             <span
               className="block mb-1"
               style={{
                 ...monoLabel,
-                color: "rgba(246,245,247,0.42)",
+                color: "var(--ink-3)",
                 marginBottom: "6px",
               }}
             >
               Sin propiedades
             </span>
-            <p className="font-medium mb-1" style={{ color: "#f6f5f7", fontSize: "15px" }}>
+            <p className="font-medium mb-1" style={{ color: "var(--ink)", fontSize: "15px" }}>
               Aun no tienes propiedades
             </p>
-            <p className="text-sm max-w-xs" style={{ color: "rgba(246,245,247,0.66)" }}>
+            <p className="text-sm max-w-xs" style={{ color: "var(--ink-2)" }}>
               Agrega tu primera propiedad para empezar a generar documentos profesionales
             </p>
             <button
               onClick={() => setShowForm(true)}
               className="mt-6 flex items-center gap-2 px-5 h-10 rounded-xl text-sm font-medium transition-all"
               style={{
-                background: "#7c5cff",
+                background: "var(--accent)",
                 color: "#ffffff",
-                boxShadow: "0 2px 12px rgba(124,92,255,0.35)",
+                boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.35)",
                 border: "none",
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "#9a7fff"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "#7c5cff"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--accent-hi)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--accent)"; }}
             >
               <Plus className="h-4 w-4" />
               Agregar primera propiedad
@@ -487,13 +487,13 @@ export default function PropiedadesPage() {
               }}
               onMouseEnter={(e) => {
                 const el = e.currentTarget as HTMLElement;
-                el.style.border = "1px solid rgba(124,92,255,0.25)";
+                el.style.border = "1px solid rgb(var(--accent-rgb) / 0.25)";
                 el.style.transform = "translateY(-2px)";
                 el.style.boxShadow = "0 8px 32px rgba(0,0,0,0.30)";
               }}
               onMouseLeave={(e) => {
                 const el = e.currentTarget as HTMLElement;
-                el.style.border = "1px solid rgba(255,255,255,0.07)";
+                el.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                 el.style.transform = "translateY(0)";
                 el.style.boxShadow = "none";
               }}
@@ -505,9 +505,9 @@ export default function PropiedadesPage() {
                       <div
                         className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
                         style={{
-                          background: "rgba(255,111,111,0.08)",
-                          border: "1px solid rgba(255,111,111,0.25)",
-                          color: "#ff6f6f",
+                          background: "rgb(var(--danger-rgb) / 0.08)",
+                          border: "1px solid rgb(var(--danger-rgb) / 0.25)",
+                          color: "var(--danger-text)",
                         }}
                       >
                         <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -515,7 +515,7 @@ export default function PropiedadesPage() {
                       </div>
                     )}
                     <div>
-                      <label className="block mb-1.5 text-xs font-medium" style={{ color: "rgba(246,245,247,0.66)" }}>
+                      <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
                         Nombre *
                       </label>
                       <input
@@ -526,17 +526,17 @@ export default function PropiedadesPage() {
                         className="w-full h-10 px-4 text-sm outline-none transition-all"
                         style={inputStyle}
                         onFocus={(e) => {
-                          e.currentTarget.style.border = "1px solid #7c5cff";
-                          e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                          e.currentTarget.style.border = "1px solid var(--accent)";
+                          e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
                         }}
                         onBlur={(e) => {
-                          e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                          e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                           e.currentTarget.style.boxShadow = "none";
                         }}
                       />
                     </div>
                     <div>
-                      <label className="block mb-1.5 text-xs font-medium" style={{ color: "rgba(246,245,247,0.66)" }}>
+                      <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
                         Direccion
                       </label>
                       <input
@@ -546,18 +546,18 @@ export default function PropiedadesPage() {
                         className="w-full h-10 px-4 text-sm outline-none transition-all"
                         style={inputStyle}
                         onFocus={(e) => {
-                          e.currentTarget.style.border = "1px solid #7c5cff";
-                          e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                          e.currentTarget.style.border = "1px solid var(--accent)";
+                          e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
                         }}
                         onBlur={(e) => {
-                          e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                          e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                           e.currentTarget.style.boxShadow = "none";
                         }}
                       />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block mb-1.5 text-xs font-medium" style={{ color: "rgba(246,245,247,0.66)" }}>
+                        <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
                           Ciudad
                         </label>
                         <input
@@ -567,17 +567,17 @@ export default function PropiedadesPage() {
                           className="w-full h-10 px-4 text-sm outline-none transition-all"
                           style={inputStyle}
                           onFocus={(e) => {
-                            e.currentTarget.style.border = "1px solid #7c5cff";
-                            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                            e.currentTarget.style.border = "1px solid var(--accent)";
+                            e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
                           }}
                           onBlur={(e) => {
-                            e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                            e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                             e.currentTarget.style.boxShadow = "none";
                           }}
                         />
                       </div>
                       <div>
-                        <label className="block mb-1.5 text-xs font-medium" style={{ color: "rgba(246,245,247,0.66)" }}>
+                        <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
                           Unidades
                         </label>
                         <input
@@ -588,11 +588,11 @@ export default function PropiedadesPage() {
                           className="w-full h-10 px-4 text-sm outline-none transition-all"
                           style={inputStyle}
                           onFocus={(e) => {
-                            e.currentTarget.style.border = "1px solid #7c5cff";
-                            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                            e.currentTarget.style.border = "1px solid var(--accent)";
+                            e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
                           }}
                           onBlur={(e) => {
-                            e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                            e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                             e.currentTarget.style.boxShadow = "none";
                           }}
                         />
@@ -604,9 +604,9 @@ export default function PropiedadesPage() {
                         disabled={editLoading}
                         className="flex-1 h-10 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all"
                         style={{
-                          background: "#7c5cff",
+                          background: "var(--accent)",
                           color: "#ffffff",
-                          boxShadow: "0 2px 12px rgba(124,92,255,0.30)",
+                          boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.3)",
                           border: "none",
                           cursor: editLoading ? "not-allowed" : "pointer",
                         }}
@@ -619,12 +619,12 @@ export default function PropiedadesPage() {
                         onClick={cancelEditing}
                         className="flex-1 h-10 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all"
                         style={{
-                          background: "rgba(255,255,255,0.04)",
-                          color: "rgba(246,245,247,0.66)",
-                          border: "1px solid rgba(255,255,255,0.10)",
+                          background: "rgb(var(--veil-rgb) / 0.04)",
+                          color: "var(--ink-2)",
+                          border: "1px solid rgb(var(--veil-rgb) / 0.1)",
                         }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.08)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.04)"; }}
                       >
                         <X className="h-4 w-4" />
                         Cancelar
@@ -640,18 +640,18 @@ export default function PropiedadesPage() {
                     <div
                       className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{
-                        background: "rgba(124,92,255,0.10)",
-                        border: "1px solid rgba(124,92,255,0.20)",
+                        background: "rgb(var(--accent-rgb) / 0.1)",
+                        border: "1px solid rgb(var(--accent-rgb) / 0.2)",
                       }}
                     >
-                      <Building2 className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: "#9a7fff" }} />
+                      <Building2 className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: "var(--accent-text)" }} />
                     </div>
 
                     {/* Name + chips */}
                     <div className="flex-1 min-w-0">
                       <h3
                         className="font-bold truncate"
-                        style={{ color: "#f6f5f7", fontSize: "15px" }}
+                        style={{ color: "var(--ink)", fontSize: "15px" }}
                       >
                         {property.name}
                       </h3>
@@ -661,7 +661,7 @@ export default function PropiedadesPage() {
                           style={{
                             fontFamily: "'Geist Mono', monospace",
                             fontSize: "11px",
-                            color: "rgba(246,245,247,0.42)",
+                            color: "var(--ink-3)",
                           }}
                         >
                           <MapPin className="h-3 w-3 flex-shrink-0" />
@@ -674,9 +674,9 @@ export default function PropiedadesPage() {
                             className="flex items-center gap-1 px-2 py-0.5 rounded-md"
                             style={{
                               ...monoLabel,
-                              background: "rgba(124,92,255,0.08)",
-                              border: "1px solid rgba(124,92,255,0.20)",
-                              color: "#9a7fff",
+                              background: "rgb(var(--accent-rgb) / 0.08)",
+                              border: "1px solid rgb(var(--accent-rgb) / 0.2)",
+                              color: "var(--accent-text)",
                             }}
                           >
                             <Home className="h-2.5 w-2.5" />
@@ -688,9 +688,9 @@ export default function PropiedadesPage() {
                             className="flex items-center gap-1 px-2 py-0.5 rounded-md"
                             style={{
                               ...monoLabel,
-                              background: "rgba(255,255,255,0.04)",
+                              background: "rgb(var(--veil-rgb) / 0.04)",
                               border: "1px solid var(--hifi-hairline)",
-                              color: "rgba(246,245,247,0.66)",
+                              color: "var(--ink-2)",
                             }}
                           >
                             {property.city}
@@ -704,14 +704,14 @@ export default function PropiedadesPage() {
                       <button
                         onClick={() => toggleExpand(property.id)}
                         className="p-2 rounded-lg transition-all"
-                        style={{ color: "rgba(246,245,247,0.42)" }}
+                        style={{ color: "var(--ink-3)" }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "rgba(124,92,255,0.10)";
-                          e.currentTarget.style.color = "#9a7fff";
+                          e.currentTarget.style.background = "rgb(var(--accent-rgb) / 0.1)";
+                          e.currentTarget.style.color = "var(--accent-text)";
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "rgba(246,245,247,0.42)";
+                          e.currentTarget.style.color = "var(--ink-3)";
                         }}
                         title="Documentos"
                       >
@@ -724,14 +724,14 @@ export default function PropiedadesPage() {
                       <button
                         onClick={() => startEditing(property)}
                         className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200 p-2 rounded-lg"
-                        style={{ color: "rgba(246,245,247,0.42)" }}
+                        style={{ color: "var(--ink-3)" }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "rgba(124,92,255,0.10)";
-                          e.currentTarget.style.color = "#9a7fff";
+                          e.currentTarget.style.background = "rgb(var(--accent-rgb) / 0.1)";
+                          e.currentTarget.style.color = "var(--accent-text)";
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "rgba(246,245,247,0.42)";
+                          e.currentTarget.style.color = "var(--ink-3)";
                         }}
                         title="Editar propiedad"
                       >
@@ -740,14 +740,14 @@ export default function PropiedadesPage() {
                       <button
                         onClick={() => handleDelete(property.id)}
                         className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200 p-2 rounded-lg"
-                        style={{ color: "rgba(246,245,247,0.42)" }}
+                        style={{ color: "var(--ink-3)" }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "rgba(255,111,111,0.10)";
-                          e.currentTarget.style.color = "#ff6f6f";
+                          e.currentTarget.style.background = "rgb(var(--danger-rgb) / 0.1)";
+                          e.currentTarget.style.color = "var(--danger-text)";
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "rgba(246,245,247,0.42)";
+                          e.currentTarget.style.color = "var(--ink-3)";
                         }}
                         title="Eliminar propiedad"
                       >
@@ -764,21 +764,21 @@ export default function PropiedadesPage() {
                     >
                       <div className="pt-4 space-y-3">
                         <div className="flex items-center gap-2 mb-1">
-                          <BookOpen className="h-4 w-4" style={{ color: "#9a7fff" }} />
+                          <BookOpen className="h-4 w-4" style={{ color: "var(--accent-text)" }} />
                           <span
                             className="text-sm font-semibold"
-                            style={{ color: "#f6f5f7" }}
+                            style={{ color: "var(--ink)" }}
                           >
                             Documentos de la propiedad
                           </span>
                         </div>
-                        <p className="text-xs" style={{ color: "rgba(246,245,247,0.42)" }}>
+                        <p className="text-xs" style={{ color: "var(--ink-3)" }}>
                           Los agentes IA usaran estos documentos como contexto para darte respuestas mas precisas.
                         </p>
 
                         <DocumentSlot
                           label="Manual de Convivencia"
-                          icon={<Shield className="h-5 w-5 flex-shrink-0" style={{ color: "#9a7fff" }} />}
+                          icon={<Shield className="h-5 w-5 flex-shrink-0" style={{ color: "var(--accent-text)" }} />}
                           doc={getDocByType(property.id, "manual_convivencia")}
                           uploading={uploadingDoc === `${property.id}-manual_convivencia`}
                           onUpload={(file) => handleDocUpload(property.id, "manual_convivencia", file)}
@@ -787,7 +787,7 @@ export default function PropiedadesPage() {
 
                         <DocumentSlot
                           label="Reglamento Interno"
-                          icon={<FileText className="h-5 w-5 flex-shrink-0" style={{ color: "#4cd6a0" }} />}
+                          icon={<FileText className="h-5 w-5 flex-shrink-0" style={{ color: "var(--ok-text)" }} />}
                           doc={getDocByType(property.id, "reglamento_interno")}
                           uploading={uploadingDoc === `${property.id}-reglamento_interno`}
                           onUpload={(file) => handleDocUpload(property.id, "reglamento_interno", file)}
@@ -832,16 +832,16 @@ function DocumentSlot({
       <div
         className="flex items-center gap-3 p-3 rounded-xl"
         style={{
-          background: "#1d1d24",
+          background: "var(--surface-3)",
           border: "1px solid var(--hifi-hairline)",
         }}
       >
         {icon}
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium" style={{ color: "#f6f5f7" }}>{label}</span>
-          <span className="block text-xs" style={{ color: "#9a7fff", ...monoMini }}>Subiendo...</span>
+          <span className="text-sm font-medium" style={{ color: "var(--ink)" }}>{label}</span>
+          <span className="block text-xs" style={{ color: "var(--accent-text)", ...monoMini }}>Subiendo...</span>
         </div>
-        <Loader2 className="h-4 w-4 animate-spin" style={{ color: "#9a7fff" }} />
+        <Loader2 className="h-4 w-4 animate-spin" style={{ color: "var(--accent-text)" }} />
       </div>
     );
   }
@@ -851,29 +851,29 @@ function DocumentSlot({
       <div
         className="flex items-center gap-3 p-3 rounded-xl"
         style={{
-          background: "#1d1d24",
+          background: "var(--surface-3)",
           border: "1px solid var(--hifi-hairline)",
         }}
       >
         {icon}
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium truncate block" style={{ color: "#f6f5f7" }}>{doc.name}</span>
-          <span className="text-xs" style={{ color: "rgba(246,245,247,0.42)", ...monoMini }}>
+          <span className="text-sm font-medium truncate block" style={{ color: "var(--ink)" }}>{doc.name}</span>
+          <span className="text-xs" style={{ color: "var(--ink-3)", ...monoMini }}>
             {label} — {(doc.size / 1024 / 1024).toFixed(1)} MB
           </span>
         </div>
         <button
           onClick={() => onDelete(doc.id)}
           className="p-1.5 rounded-lg transition-all"
-          style={{ color: "rgba(246,245,247,0.42)" }}
+          style={{ color: "var(--ink-3)" }}
           title="Eliminar documento"
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(255,111,111,0.10)";
-            e.currentTarget.style.color = "#ff6f6f";
+            e.currentTarget.style.background = "rgb(var(--danger-rgb) / 0.1)";
+            e.currentTarget.style.color = "var(--danger-text)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "rgba(246,245,247,0.42)";
+            e.currentTarget.style.color = "var(--ink-3)";
           }}
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -887,27 +887,27 @@ function DocumentSlot({
       className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all"
       style={{
         background: "transparent",
-        border: "1.5px dashed rgba(255,255,255,0.10)",
+        border: "1.5px dashed rgb(var(--veil-rgb) / 0.1)",
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget as HTMLElement;
-        el.style.border = "1.5px dashed rgba(124,92,255,0.40)";
-        el.style.background = "rgba(124,92,255,0.05)";
+        el.style.border = "1.5px dashed rgb(var(--accent-rgb) / 0.4)";
+        el.style.background = "rgb(var(--accent-rgb) / 0.05)";
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget as HTMLElement;
-        el.style.border = "1.5px dashed rgba(255,255,255,0.10)";
+        el.style.border = "1.5px dashed rgb(var(--veil-rgb) / 0.1)";
         el.style.background = "transparent";
       }}
     >
       {icon}
       <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium" style={{ color: "#f6f5f7" }}>{label}</span>
-        <span className="block text-xs" style={{ color: "rgba(246,245,247,0.42)", ...monoMini }}>
+        <span className="text-sm font-medium" style={{ color: "var(--ink)" }}>{label}</span>
+        <span className="block text-xs" style={{ color: "var(--ink-3)", ...monoMini }}>
           PDF o Word — clic para subir
         </span>
       </div>
-      <Upload className="h-4 w-4" style={{ color: "rgba(246,245,247,0.42)" }} />
+      <Upload className="h-4 w-4" style={{ color: "var(--ink-3)" }} />
       <input
         type="file"
         className="hidden"

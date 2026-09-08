@@ -53,13 +53,13 @@ const STATUS_LABELS: Record<string, string> = {
 function statusStyle(status: string): React.CSSProperties {
   switch (status) {
     case "open":
-      return { background: "rgba(255,111,111,0.10)", color: "#ff8585", border: "1px solid rgba(255,111,111,0.25)" };
+      return { background: "rgb(var(--danger-rgb) / 0.1)", color: "var(--danger-text)", border: "1px solid rgb(var(--danger-rgb) / 0.25)" };
     case "pending":
-      return { background: "rgba(255,185,88,0.10)", color: "#ffb958", border: "1px solid rgba(255,185,88,0.25)" };
+      return { background: "rgb(var(--warn-rgb) / 0.1)", color: "var(--warn-text)", border: "1px solid rgb(var(--warn-rgb) / 0.25)" };
     case "resolved":
-      return { background: "rgba(76,214,160,0.10)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.25)" };
+      return { background: "rgb(var(--ok-rgb) / 0.1)", color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.25)" };
     default:
-      return { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.40)", border: "1px solid rgba(255,255,255,0.10)" };
+      return { background: "rgb(var(--veil-rgb) / 0.05)", color: "var(--ink-3)", border: "1px solid rgb(var(--veil-rgb) / 0.1)" };
   }
 }
 
@@ -165,7 +165,7 @@ export default function SoporteTicketPage() {
         <Link
           href="/dashboard/configuracion"
           className="inline-flex items-center gap-2 text-sm mb-5 transition-colors hover:text-foreground"
-          style={{ color: "rgba(255,255,255,0.40)" }}
+          style={{ color: "var(--ink-3)" }}
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Volver a configuración
@@ -173,18 +173,18 @@ export default function SoporteTicketPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-7 w-7 animate-spin" style={{ color: "rgba(255,255,255,0.30)" }} />
+            <Loader2 className="h-7 w-7 animate-spin" style={{ color: "var(--ink-4)" }} />
           </div>
         ) : error ? (
           <div
             className="p-6 rounded-2xl text-center"
             style={{ background: "var(--card)", border: "1px solid var(--border)" }}
           >
-            <p className="text-sm" style={{ color: "#ff8585" }}>{error}</p>
+            <p className="text-sm" style={{ color: "var(--danger-text)" }}>{error}</p>
             <button
               onClick={() => router.push("/dashboard/configuracion")}
               className="mt-3 text-sm underline"
-              style={{ color: "rgba(255,255,255,0.40)" }}
+              style={{ color: "var(--ink-3)" }}
             >
               Volver
             </button>
@@ -207,9 +207,9 @@ export default function SoporteTicketPage() {
                   className="px-2.5 py-1 rounded-lg text-[10px]"
                   style={{
                     ...monoSmall,
-                    background: "rgba(255,255,255,0.05)",
-                    color: "rgba(255,255,255,0.40)",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "rgb(var(--veil-rgb) / 0.05)",
+                    color: "var(--ink-3)",
+                    border: "1px solid rgb(var(--veil-rgb) / 0.08)",
                   }}
                 >
                   {ticket.category}
@@ -218,7 +218,7 @@ export default function SoporteTicketPage() {
               <h1 className="text-lg font-semibold text-foreground">{ticket.subject}</h1>
               <p
                 className="text-[11px] mt-1"
-                style={{ ...monoSmall, color: "rgba(255,255,255,0.30)", textTransform: "none" }}
+                style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}
               >
                 #{ticket.id.slice(-8)} · Abierto {formatDate(ticket.createdAt)}
               </p>
@@ -227,9 +227,9 @@ export default function SoporteTicketPage() {
                 <div
                   className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
                   style={{
-                    background: "rgba(76,214,160,0.08)",
-                    border: "1px solid rgba(76,214,160,0.20)",
-                    color: "#4cd6a0",
+                    background: "rgb(var(--ok-rgb) / 0.08)",
+                    border: "1px solid rgb(var(--ok-rgb) / 0.2)",
+                    color: "var(--ok-text)",
                   }}
                 >
                   Este ticket está {ticket.status === "resolved" ? "resuelto" : "cerrado"}. No puedes añadir más respuestas.
@@ -246,8 +246,8 @@ export default function SoporteTicketPage() {
                 let cardStyle: React.CSSProperties;
                 if (isAdmin) {
                   cardStyle = {
-                    background: "rgba(124,92,255,0.08)",
-                    border: "1px solid rgba(124,92,255,0.20)",
+                    background: "rgb(var(--accent-rgb) / 0.08)",
+                    border: "1px solid rgb(var(--accent-rgb) / 0.2)",
                     borderRadius: "1rem",
                     padding: "16px",
                   };
@@ -267,11 +267,11 @@ export default function SoporteTicketPage() {
                         <>
                           <div
                             className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style={{ background: "rgba(124,92,255,0.15)" }}
+                            style={{ background: "rgb(var(--accent-rgb) / 0.15)" }}
                           >
-                            <Shield className="h-3.5 w-3.5" style={{ color: "#9a7fff" }} />
+                            <Shield className="h-3.5 w-3.5" style={{ color: "var(--accent-text)" }} />
                           </div>
-                          <span className="text-[13px] font-medium" style={{ color: "#9a7fff" }}>
+                          <span className="text-[13px] font-medium" style={{ color: "var(--accent-text)" }}>
                             Equipo SOPH.IA
                           </span>
                         </>
@@ -287,9 +287,9 @@ export default function SoporteTicketPage() {
                           ) : (
                             <div
                               className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                              style={{ background: "rgba(255,255,255,0.07)" }}
+                              style={{ background: "rgb(var(--veil-rgb) / 0.07)" }}
                             >
-                              <User className="h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.40)" }} />
+                              <User className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
                             </div>
                           )}
                           <span className="text-[13px] font-medium text-foreground">
@@ -299,7 +299,7 @@ export default function SoporteTicketPage() {
                       )}
                       <span
                         className="ml-auto text-[11px]"
-                        style={{ ...monoSmall, color: "rgba(255,255,255,0.25)", textTransform: "none" }}
+                        style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}
                       >
                         {formatDate(msg.createdAt)}
                       </span>
@@ -322,12 +322,12 @@ export default function SoporteTicketPage() {
                             rel="noopener noreferrer"
                             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-opacity hover:opacity-80"
                             style={{
-                              background: "rgba(255,255,255,0.06)",
-                              border: "1px solid rgba(255,255,255,0.10)",
+                              background: "rgb(var(--veil-rgb) / 0.06)",
+                              border: "1px solid rgb(var(--veil-rgb) / 0.1)",
                             }}
                           >
-                            <Paperclip className="h-3 w-3" style={{ color: "rgba(255,255,255,0.40)" }} />
-                            <span className="text-[11px]" style={{ fontFamily: "var(--font-mono)", color: "rgba(255,255,255,0.55)" }}>
+                            <Paperclip className="h-3 w-3" style={{ color: "var(--ink-3)" }} />
+                            <span className="text-[11px]" style={{ fontFamily: "var(--font-mono)", color: "var(--ink-2)" }}>
                               {att.name}
                             </span>
                           </a>
@@ -362,7 +362,7 @@ export default function SoporteTicketPage() {
                   }}
                 />
                 {replyError && (
-                  <p className="px-4 pb-2 text-[11px]" style={{ color: "#ff8585", fontFamily: "var(--font-mono)" }}>
+                  <p className="px-4 pb-2 text-[11px]" style={{ color: "var(--danger-text)", fontFamily: "var(--font-mono)" }}>
                     {replyError}
                   </p>
                 )}
@@ -372,7 +372,7 @@ export default function SoporteTicketPage() {
                 >
                   <p
                     className="text-[11px] flex-1"
-                    style={{ fontFamily: "var(--font-mono)", color: "rgba(255,255,255,0.25)" }}
+                    style={{ fontFamily: "var(--font-mono)", color: "var(--ink-4)" }}
                   >
                     Ctrl+Enter para enviar
                   </p>
@@ -381,9 +381,9 @@ export default function SoporteTicketPage() {
                     disabled={!reply.trim() || sending}
                     className="h-9 px-4 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{
-                      background: "#7c5cff",
+                      background: "var(--accent)",
                       color: "white",
-                      boxShadow: "0 4px 14px rgba(124,92,255,0.25)",
+                      boxShadow: "0 4px 14px rgb(var(--accent-rgb) / 0.25)",
                     }}
                   >
                     {sending ? (
