@@ -66,14 +66,14 @@ export function AddonToggles({ subscriptionId, initialAddons, planId }: Props) {
               onClick={() => toggle(addon.id)}
               disabled={isPending}
               aria-label={`Activar/desactivar ${addon.name}`}
-              className="relative inline-flex h-5 w-9 items-center rounded-full border transition-all duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cff]/50"
+              className="relative inline-flex h-5 w-9 items-center rounded-full border transition-all duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/50"
               style={{
                 background: active
-                  ? "#7c5cff"
-                  : "rgba(255,255,255,0.08)",
+                  ? "var(--accent)"
+                  : "rgb(var(--veil-rgb) / 0.08)",
                 borderColor: active
-                  ? "rgba(124,92,255,0.60)"
-                  : "rgba(255,255,255,0.12)",
+                  ? "rgb(var(--accent-rgb) / 0.6)"
+                  : "rgb(var(--veil-rgb) / 0.12)",
               }}
             >
               <span
@@ -88,7 +88,7 @@ export function AddonToggles({ subscriptionId, initialAddons, planId }: Props) {
       {/* MRR breakdown */}
       <div
         className="mt-3 rounded-xl border border-border px-4 py-3"
-        style={{ background: "rgba(255,255,255,0.02)" }}
+        style={{ background: "rgb(var(--veil-rgb) / 0.02)" }}
       >
         <p
           className="text-[9.5px] uppercase text-muted-foreground/60 mb-2"
@@ -103,7 +103,7 @@ export function AddonToggles({ subscriptionId, initialAddons, planId }: Props) {
             </span>
             <span
               className="font-medium"
-              style={{ fontFamily: "var(--font-mono)", color: "#4cd6a0" }}
+              style={{ fontFamily: "var(--font-mono)", color: "var(--ok-text)" }}
             >
               ${baseMrr}
             </span>
@@ -115,7 +115,7 @@ export function AddonToggles({ subscriptionId, initialAddons, planId }: Props) {
               </span>
               <span
                 className="font-medium"
-                style={{ fontFamily: "var(--font-mono)", color: "#9a7fff" }}
+                style={{ fontFamily: "var(--font-mono)", color: "var(--accent-text)" }}
               >
                 ${addons.length * 5}
               </span>
@@ -123,7 +123,7 @@ export function AddonToggles({ subscriptionId, initialAddons, planId }: Props) {
           )}
           <div className="flex justify-between text-[13px] font-semibold pt-1.5 border-t border-border mt-1.5">
             <span className="text-foreground">Total / mes</span>
-            <span style={{ fontFamily: "var(--font-mono)", color: "#4cd6a0" }}>
+            <span style={{ fontFamily: "var(--font-mono)", color: "var(--ok-text)" }}>
               ${totalMrr}
             </span>
           </div>
@@ -131,7 +131,7 @@ export function AddonToggles({ subscriptionId, initialAddons, planId }: Props) {
       </div>
 
       {error && (
-        <p className="text-[11px] text-[#ff6f6f]">{error}</p>
+        <p className="text-[11px] text-[var(--danger)]">{error}</p>
       )}
     </div>
   );

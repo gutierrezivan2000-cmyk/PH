@@ -95,7 +95,7 @@ export default async function VerificarPage({
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center px-4 py-10"
-      style={{ background: "#0a0a0a" }}
+      style={{ background: "var(--surface-0)" }}
     >
       <div className="w-full max-w-md">
         {/* Brand */}
@@ -103,13 +103,13 @@ export default async function VerificarPage({
           <div
             className="h-12 w-12 rounded-2xl flex items-center justify-center text-lg font-bold text-white mb-3"
             style={{
-              background: "linear-gradient(135deg, #7c5cff, #5a3cf0)",
-              boxShadow: "0 0 32px rgba(124,92,255,0.35)",
+              background: "linear-gradient(135deg, var(--accent), var(--accent-lo))",
+              boxShadow: "0 0 32px rgb(var(--accent-rgb) / 0.35)",
             }}
           >
             S
           </div>
-          <p style={{ ...mono, color: "rgba(255,255,255,0.45)" }}>
+          <p style={{ ...mono, color: "var(--ink-3)" }}>
             SOPH.IA · Verificación de documentos
           </p>
         </div>
@@ -117,30 +117,30 @@ export default async function VerificarPage({
         <div
           className="rounded-2xl border p-7"
           style={{
-            background: "#15151a",
+            background: "var(--surface-2)",
             borderColor: !cert
-              ? "rgba(255,185,88,0.30)"
+              ? "rgb(var(--warn-rgb) / 0.3)"
               : isExpired
-                ? "rgba(255,185,88,0.30)"
+                ? "rgb(var(--warn-rgb) / 0.3)"
                 : isValid
-                  ? "rgba(76,214,160,0.30)"
-                  : "rgba(255,111,111,0.30)",
+                  ? "rgb(var(--ok-rgb) / 0.3)"
+                  : "rgb(var(--danger-rgb) / 0.3)",
           }}
         >
           {!cert ? (
             <>
               <div className="flex items-center gap-3 mb-4">
-                <ShieldQuestion className="h-8 w-8 flex-shrink-0" style={{ color: "#ffb958" }} />
+                <ShieldQuestion className="h-8 w-8 flex-shrink-0" style={{ color: "var(--warn-text)" }} />
                 <div>
-                  <p className="text-[16px] font-semibold" style={{ color: "#ffb958" }}>
+                  <p className="text-[16px] font-semibold" style={{ color: "var(--warn-text)" }}>
                     Documento no encontrado
                   </p>
-                  <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  <p className="text-[12px]" style={{ color: "var(--ink-3)" }}>
                     Código: <span style={{ fontFamily: "monospace" }}>{code.slice(0, 40)}</span>
                   </p>
                 </div>
               </div>
-              <p className="text-[13px] leading-relaxed" style={{ color: "rgba(255,255,255,0.60)" }}>
+              <p className="text-[13px] leading-relaxed" style={{ color: "var(--ink-2)" }}>
                 No existe ningún certificado con este código. El documento que lo cita
                 <strong> no debe considerarse auténtico</strong>. Verifique que la URL o el
                 código QR correspondan exactamente al documento recibido.
@@ -150,16 +150,16 @@ export default async function VerificarPage({
             <>
               <div className="flex items-center gap-3 mb-5">
                 {isExpired ? (
-                  <ShieldQuestion className="h-8 w-8 flex-shrink-0" style={{ color: "#ffb958" }} />
+                  <ShieldQuestion className="h-8 w-8 flex-shrink-0" style={{ color: "var(--warn-text)" }} />
                 ) : isValid ? (
-                  <CheckCircle2 className="h-8 w-8 flex-shrink-0" style={{ color: "#4cd6a0" }} />
+                  <CheckCircle2 className="h-8 w-8 flex-shrink-0" style={{ color: "var(--ok-text)" }} />
                 ) : (
-                  <XCircle className="h-8 w-8 flex-shrink-0" style={{ color: "#ff6f6f" }} />
+                  <XCircle className="h-8 w-8 flex-shrink-0" style={{ color: "var(--danger-text)" }} />
                 )}
                 <div>
                   <p
                     className="text-[16px] font-semibold"
-                    style={{ color: isExpired ? "#ffb958" : isValid ? "#4cd6a0" : "#ff6f6f" }}
+                    style={{ color: isExpired ? "var(--warn-text)" : isValid ? "var(--ok)" : "var(--danger)" }}
                   >
                     {isExpired
                       ? "Documento auténtico · vigencia vencida"
@@ -167,7 +167,7 @@ export default async function VerificarPage({
                         ? "Documento auténtico y vigente"
                         : "Documento REVOCADO"}
                   </p>
-                  <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  <p className="text-[12px]" style={{ color: "var(--ink-3)" }}>
                     {TYPE_LABELS[cert.type] || "Certificado"}
                   </p>
                 </div>
@@ -192,19 +192,19 @@ export default async function VerificarPage({
                   <div
                     key={row.label}
                     className="flex items-start justify-between gap-4 pb-2.5"
-                    style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+                    style={{ borderBottom: "1px solid rgb(var(--veil-rgb) / 0.06)" }}
                   >
-                    <span style={{ ...mono, color: "rgba(255,255,255,0.40)" }} className="mt-0.5">
+                    <span style={{ ...mono, color: "var(--ink-3)" }} className="mt-0.5">
                       {row.label}
                     </span>
-                    <span className="text-[13.5px] text-right" style={{ color: "#f6f5f7" }}>
+                    <span className="text-[13.5px] text-right" style={{ color: "var(--ink)" }}>
                       {row.value}
                     </span>
                   </div>
                 ))}
               </div>
 
-              <p className="text-[11px] leading-relaxed mt-5" style={{ color: "rgba(255,255,255,0.35)" }}>
+              <p className="text-[11px] leading-relaxed mt-5" style={{ color: "var(--ink-4)" }}>
                 {isExpired
                   ? "Este certificado es auténtico pero su periodo de validez ya venció. Solicite a la administración un paz y salvo actualizado."
                   : isValid
@@ -215,7 +215,7 @@ export default async function VerificarPage({
           )}
         </div>
 
-        <p className="text-center mt-6" style={{ ...mono, color: "rgba(255,255,255,0.25)" }}>
+        <p className="text-center mt-6" style={{ ...mono, color: "var(--ink-4)" }}>
           sophia · gestión inteligente de propiedad horizontal
         </p>
       </div>

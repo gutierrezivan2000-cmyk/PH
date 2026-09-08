@@ -92,8 +92,8 @@ const card: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   background: "var(--hifi-bg-elev)",
-  border: "1px solid rgba(255,255,255,0.10)",
-  color: "#f6f5f7",
+  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
+  color: "var(--ink)",
   borderRadius: "10px",
   height: "40px",
   padding: "0 12px",
@@ -485,18 +485,18 @@ function CarteraPage() {
   function estadoChip(u: UnitRow) {
     const s = u.summary;
     if (s.balance < 0) {
-      return { text: `A favor ${fmtCOP(-s.balance)}`, color: "#5fb4ff", bg: "rgba(95,180,255,0.10)", border: "rgba(95,180,255,0.30)" };
+      return { text: `A favor ${fmtCOP(-s.balance)}`, color: "var(--info-text)", bg: "rgb(var(--info-rgb) / 0.1)", border: "rgb(var(--info-rgb) / 0.3)" };
     }
     if (s.balance === 0) {
-      return { text: "Al día", color: "#4cd6a0", bg: "rgba(76,214,160,0.10)", border: "rgba(76,214,160,0.30)" };
+      return { text: "Al día", color: "var(--ok-text)", bg: "rgb(var(--ok-rgb) / 0.1)", border: "rgb(var(--ok-rgb) / 0.3)" };
     }
     if (s.overdueDays > 30) {
-      return { text: `Mora ${s.overdueDays}d`, color: "#ff6f6f", bg: "rgba(255,111,111,0.10)", border: "rgba(255,111,111,0.30)" };
+      return { text: `Mora ${s.overdueDays}d`, color: "var(--danger-text)", bg: "rgb(var(--danger-rgb) / 0.1)", border: "rgb(var(--danger-rgb) / 0.3)" };
     }
     if (s.overdueDays > 0) {
-      return { text: `Mora ${s.overdueDays}d`, color: "#ffb958", bg: "rgba(255,185,88,0.10)", border: "rgba(255,185,88,0.30)" };
+      return { text: `Mora ${s.overdueDays}d`, color: "var(--warn-text)", bg: "rgb(var(--warn-rgb) / 0.1)", border: "rgb(var(--warn-rgb) / 0.3)" };
     }
-    return { text: "Pendiente", color: "rgba(246,245,247,0.55)", bg: "rgba(255,255,255,0.05)", border: "rgba(255,255,255,0.12)" };
+    return { text: "Pendiente", color: "var(--ink-2)", bg: "rgb(var(--veil-rgb) / 0.05)", border: "rgb(var(--veil-rgb) / 0.12)" };
   }
 
   const panelBtn = (key: typeof panel, icon: React.ReactNode, label: string) => (
@@ -507,9 +507,9 @@ function CarteraPage() {
       }}
       className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
       style={{
-        background: panel === key ? "rgba(124,92,255,0.15)" : "rgba(255,255,255,0.05)",
-        color: panel === key ? "#a78bff" : "rgba(246,245,247,0.65)",
-        border: `1px solid ${panel === key ? "rgba(124,92,255,0.45)" : "rgba(255,255,255,0.10)"}`,
+        background: panel === key ? "rgb(var(--accent-rgb) / 0.15)" : "rgb(var(--veil-rgb) / 0.05)",
+        color: panel === key ? "var(--accent-hi)" : "var(--ink-2)",
+        border: `1px solid ${panel === key ? "rgb(var(--accent-rgb) / 0.45)" : "rgb(var(--veil-rgb) / 0.1)"}`,
       }}
     >
       {icon}
@@ -525,19 +525,19 @@ function CarteraPage() {
 
         {/* Plan upgrade */}
         {!loading && upgrade && (
-          <div className="rounded-2xl p-8 text-center" style={{ ...card, borderColor: "rgba(124,92,255,0.30)" }}>
-            <Wallet className="h-9 w-9 mx-auto mb-3" style={{ color: "#a78bff" }} />
-            <p className="text-[16px] font-semibold mb-2" style={{ color: "#f6f5f7" }}>
+          <div className="rounded-2xl p-8 text-center" style={{ ...card, borderColor: "rgb(var(--accent-rgb) / 0.3)" }}>
+            <Wallet className="h-9 w-9 mx-auto mb-3" style={{ color: "var(--accent-text)" }} />
+            <p className="text-[16px] font-semibold mb-2" style={{ color: "var(--ink)" }}>
               La cartera es una función de los planes Business y Élite
             </p>
-            <p className="text-[13px] mb-5 max-w-md mx-auto leading-relaxed" style={{ color: "rgba(246,245,247,0.55)" }}>
+            <p className="text-[13px] mb-5 max-w-md mx-auto leading-relaxed" style={{ color: "var(--ink-2)" }}>
               Causación mensual de cuotas, registro de pagos, estados de cuenta imprimibles y
               control de morosidad por unidad.
             </p>
             <Link
               href="/dashboard/suscripcion"
               className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-6 py-3"
-              style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+              style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
             >
               Ver planes
               <ArrowUpRight className="h-4 w-4" />
@@ -547,8 +547,8 @@ function CarteraPage() {
 
         {!loading && !upgrade && properties.length === 0 && (
           <div className="rounded-2xl p-10 text-center" style={card}>
-            <Wallet className="h-8 w-8 mx-auto mb-3" style={{ color: "rgba(246,245,247,0.25)" }} />
-            <p className="text-[14px]" style={{ color: "rgba(246,245,247,0.70)" }}>
+            <Wallet className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
+            <p className="text-[14px]" style={{ color: "var(--ink-2)" }}>
               Crea una propiedad primero para gestionar su cartera.
             </p>
           </div>
@@ -573,8 +573,8 @@ function CarteraPage() {
                         className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap"
                         style={{
                           background: on ? "var(--hifi-accent)" : "transparent",
-                          color: on ? "#fff" : "rgba(246,245,247,0.55)",
-                          boxShadow: on ? "0 6px 16px -8px rgba(124,92,255,0.9)" : "none",
+                          color: on ? "#fff" : "var(--ink-2)",
+                          boxShadow: on ? "0 6px 16px -8px rgb(var(--accent-rgb) / 0.9)" : "none",
                         }}
                       >
                         {p.name}
@@ -600,25 +600,25 @@ function CarteraPage() {
             {kpis && (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 ui-stagger">
                 {[
-                  { label: "Cartera pendiente", value: fmtCOP(kpis.totalOwed), Icon: Wallet, rail: kpis.totalOwed > 0 ? "#ffb958" : "#4cd6a0", hint: kpis.totalOwed > 0 ? "por recaudar" : "todo recaudado" },
-                  { label: "Unidades en mora", value: `${kpis.overdueUnits}`, sub: `de ${kpis.unitsCount}`, Icon: Users, rail: kpis.overdueUnits > 0 ? "#ff6f6f" : "#4cd6a0", hint: kpis.overdueUnits > 0 ? "requieren gestión" : "ninguna en mora" },
-                  { label: "Recaudado este mes", value: fmtCOP(kpis.collectedThisMonth), Icon: HandCoins, rail: "#4cd6a0", hint: "pagos registrados" },
-                  { label: "Causado este mes", value: fmtCOP(kpis.chargedThisMonth), Icon: Receipt, rail: "#5fb4ff", hint: "cuotas emitidas" },
+                  { label: "Cartera pendiente", value: fmtCOP(kpis.totalOwed), Icon: Wallet, rail: kpis.totalOwed > 0 ? "var(--warn)" : "var(--ok)", hint: kpis.totalOwed > 0 ? "por recaudar" : "todo recaudado" },
+                  { label: "Unidades en mora", value: `${kpis.overdueUnits}`, sub: `de ${kpis.unitsCount}`, Icon: Users, rail: kpis.overdueUnits > 0 ? "var(--danger)" : "var(--ok)", hint: kpis.overdueUnits > 0 ? "requieren gestión" : "ninguna en mora" },
+                  { label: "Recaudado este mes", value: fmtCOP(kpis.collectedThisMonth), Icon: HandCoins, rail: "var(--ok)", hint: "pagos registrados" },
+                  { label: "Causado este mes", value: fmtCOP(kpis.chargedThisMonth), Icon: Receipt, rail: "var(--info)", hint: "cuotas emitidas" },
                 ].map((k) => {
                   const empty = /^\$?0$/.test(String(k.value).replace(/\./g, ""));
                   return (
                     <div key={k.label} className="ui-card ui-sheen relative overflow-hidden p-4 pl-5">
                       <span
                         className="absolute left-0 top-0 bottom-0 w-[3px]"
-                        style={{ background: empty ? "rgba(255,255,255,0.10)" : k.rail }}
+                        style={{ background: empty ? "rgb(var(--veil-rgb) / 0.1)" : k.rail }}
                       />
                       <div className="flex items-start justify-between gap-2 mb-2.5">
-                        <span style={{ ...monoLabel, color: "rgba(246,245,247,0.45)" }}>{k.label}</span>
+                        <span style={{ ...monoLabel, color: "var(--ink-3)" }}>{k.label}</span>
                         <span
                           className="flex items-center justify-center rounded-lg flex-shrink-0"
-                          style={{ width: 26, height: 26, background: empty ? "rgba(255,255,255,0.04)" : `${k.rail}1a` }}
+                          style={{ width: 26, height: 26, background: empty ? "rgb(var(--veil-rgb) / 0.04)" : `${k.rail}1a` }}
                         >
-                          <k.Icon className="h-3.5 w-3.5" style={{ color: empty ? "rgba(246,245,247,0.30)" : k.rail }} />
+                          <k.Icon className="h-3.5 w-3.5" style={{ color: empty ? "var(--ink-4)" : k.rail }} />
                         </span>
                       </div>
                       <p
@@ -627,17 +627,17 @@ function CarteraPage() {
                           // Fixed 26px clipped "$4.200.000" inside the 2-column
                           // mobile grid — scale it down with the viewport instead.
                           fontSize: "clamp(19px, 5.1vw, 26px)",
-                          color: empty ? "rgba(246,245,247,0.38)" : "#f6f5f7",
+                          color: empty ? "var(--ink-3)" : "var(--ink)",
                         }}
                       >
                         {k.value}
                         {k.sub && (
-                          <span className="ml-1.5 font-normal" style={{ fontSize: 14, color: "rgba(246,245,247,0.35)" }}>
+                          <span className="ml-1.5 font-normal" style={{ fontSize: 14, color: "var(--ink-4)" }}>
                             {k.sub}
                           </span>
                         )}
                       </p>
-                      <p className="text-[11px] mt-1.5" style={{ color: "rgba(246,245,247,0.35)" }}>
+                      <p className="text-[11px] mt-1.5" style={{ color: "var(--ink-4)" }}>
                         {k.hint}
                       </p>
                     </div>
@@ -652,38 +652,38 @@ function CarteraPage() {
             {/* Causar panel */}
             {panel === "causar" && (
               <div className="ui-card ui-sheen ui-rise p-5 space-y-4">
-                <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
+                <p className="text-[13.5px] font-medium" style={{ color: "var(--ink)" }}>
                   Causar cuotas de administración
                 </p>
-                <p className="text-[12px]" style={{ color: "rgba(246,245,247,0.50)" }}>
+                <p className="text-[12px]" style={{ color: "var(--ink-3)" }}>
                   Crea el cobro mensual para cada unidad con cuota configurada. Es seguro
                   repetirlo: las unidades ya causadas se omiten.
                 </p>
                 <div className="flex flex-wrap items-end gap-3">
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Mes</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Mes</label>
                     <div className="relative">
                       <select value={month} onChange={(e) => setMonth(Number(e.target.value))} style={{ ...inputStyle, width: 150, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
                         {MONTHS.map((mn, i) => (
                           <option key={mn} value={i + 1} style={{ background: "var(--hifi-surface-1)" }}>{mn}</option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
                     </div>
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Año</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Año</label>
                     <input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ ...inputStyle, width: 100 }} min={2020} max={2100} />
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Vence el día</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Vence el día</label>
                     <input type="number" value={dueDay} onChange={(e) => setDueDay(Number(e.target.value))} style={{ ...inputStyle, width: 90 }} min={1} max={28} />
                   </div>
                   <button
                     onClick={causar}
                     disabled={busy}
                     className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-                    style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+                    style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                   >
                     {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarPlus className="h-3.5 w-3.5" />}
                     Causar {MONTHS[month - 1]}
@@ -695,12 +695,12 @@ function CarteraPage() {
             {/* Pago panel */}
             {panel === "pago" && (
               <form onSubmit={registrarPago} className="ui-card ui-sheen ui-rise p-5 space-y-4">
-                <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
+                <p className="text-[13.5px] font-medium" style={{ color: "var(--ink)" }}>
                   Registrar pago recibido
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Unidad</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Unidad</label>
                     <div className="relative">
                       <select value={payUnit} onChange={(e) => setPayUnit(e.target.value)} style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
                         <option value="" style={{ background: "var(--hifi-surface-1)" }}>Selecciona…</option>
@@ -710,15 +710,15 @@ function CarteraPage() {
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
                     </div>
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Monto (COP)</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Monto (COP)</label>
                     <input value={payAmount} onChange={(e) => setPayAmount(e.target.value)} placeholder="350.000" style={inputStyle} inputMode="numeric" />
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Método</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Método</label>
                     <div className="relative">
                       <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
                         <option value="transferencia" style={{ background: "var(--hifi-surface-1)" }}>Transferencia</option>
@@ -726,15 +726,15 @@ function CarteraPage() {
                         <option value="consignacion" style={{ background: "var(--hifi-surface-1)" }}>Consignación</option>
                         <option value="otro" style={{ background: "var(--hifi-surface-1)" }}>Otro</option>
                       </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
                     </div>
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Fecha</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Fecha</label>
                     <input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} style={{ ...inputStyle, colorScheme: "dark" }} />
                   </div>
                   <div className="sm:col-span-2">
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Referencia (opcional)</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Referencia (opcional)</label>
                     <input value={payRef} onChange={(e) => setPayRef(e.target.value)} placeholder="No. de transacción" style={inputStyle} maxLength={100} />
                   </div>
                 </div>
@@ -742,7 +742,7 @@ function CarteraPage() {
                   type="submit"
                   disabled={busy}
                   className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-                  style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+                  style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                 >
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <HandCoins className="h-3.5 w-3.5" />}
                   Registrar pago
@@ -750,22 +750,22 @@ function CarteraPage() {
 
                 {payUnit && recentPayments.length > 0 && (
                   <div className="pt-2" style={{ borderTop: "1px solid var(--hifi-hairline)" }}>
-                    <p style={{ ...monoLabel, color: "rgba(246,245,247,0.40)" }} className="mb-2">
+                    <p style={{ ...monoLabel, color: "var(--ink-3)" }} className="mb-2">
                       Últimos pagos de esta unidad
                     </p>
                     <div className="space-y-1.5">
                       {recentPayments.map((p) => (
-                        <div key={p.id} className="flex items-center gap-3 text-[12px]" style={{ color: "rgba(246,245,247,0.60)" }}>
+                        <div key={p.id} className="flex items-center gap-3 text-[12px]" style={{ color: "var(--ink-2)" }}>
                           <span style={monoMini}>
                             {new Date(p.receivedAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "2-digit" })}
                           </span>
-                          <span className="font-medium" style={{ color: "#4cd6a0" }}>{fmtCOP(p.amount)}</span>
+                          <span className="font-medium" style={{ color: "var(--ok-text)" }}>{fmtCOP(p.amount)}</span>
                           <span className="flex-1 truncate">{p.method}{p.reference ? ` · ${p.reference}` : ""}</span>
                           <button
                             type="button"
                             onClick={() => eliminarPago(p.id)}
                             className="p-1 rounded cursor-pointer hover:bg-white/[0.06]"
-                            style={{ color: "rgba(255,133,133,0.60)" }}
+                            style={{ color: "rgb(var(--danger-rgb) / 0.6)" }}
                             title="Eliminar pago"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -781,12 +781,12 @@ function CarteraPage() {
             {/* Cobro panel */}
             {panel === "cobro" && (
               <form onSubmit={crearCobro} className="ui-card ui-sheen ui-rise p-5 space-y-4">
-                <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
+                <p className="text-[13.5px] font-medium" style={{ color: "var(--ink)" }}>
                   Cobro adicional (extraordinaria u otro)
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Unidad</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Unidad</label>
                     <div className="relative">
                       <select value={chUnit} onChange={(e) => setChUnit(e.target.value)} style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
                         <option value="" style={{ background: "var(--hifi-surface-1)" }}>Selecciona…</option>
@@ -794,29 +794,29 @@ function CarteraPage() {
                           <option key={u.id} value={u.id} style={{ background: "var(--hifi-surface-1)" }}>{u.label}</option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
                     </div>
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Concepto</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Concepto</label>
                     <input value={chConcept} onChange={(e) => setChConcept(e.target.value)} placeholder="Ej: Cuota extraordinaria fachada" style={inputStyle} maxLength={200} />
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Monto (COP)</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Monto (COP)</label>
                     <input value={chAmount} onChange={(e) => setChAmount(e.target.value)} placeholder="120.000" style={inputStyle} inputMode="numeric" />
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Tipo</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Tipo</label>
                     <div className="relative">
                       <select value={chType} onChange={(e) => setChType(e.target.value)} style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
                         <option value="extraordinaria" style={{ background: "var(--hifi-surface-1)" }}>Extraordinaria</option>
                         <option value="otro" style={{ background: "var(--hifi-surface-1)" }}>Otro</option>
                       </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
                     </div>
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Vence</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Vence</label>
                     <input type="date" value={chDue} onChange={(e) => setChDue(e.target.value)} style={{ ...inputStyle, colorScheme: "dark" }} />
                   </div>
                 </div>
@@ -824,7 +824,7 @@ function CarteraPage() {
                   type="submit"
                   disabled={busy}
                   className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-                  style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+                  style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                 >
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                   Crear cobro
@@ -835,10 +835,10 @@ function CarteraPage() {
             {/* Intereses panel */}
             {panel === "intereses" && (
               <div className="ui-card ui-sheen ui-rise p-5 space-y-4">
-                <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
+                <p className="text-[13.5px] font-medium" style={{ color: "var(--ink)" }}>
                   Liquidar intereses de mora
                 </p>
-                <p className="text-[12px] leading-relaxed" style={{ color: "rgba(246,245,247,0.50)" }}>
+                <p className="text-[12px] leading-relaxed" style={{ color: "var(--ink-3)" }}>
                   Crea un cobro de interés por cada unidad con saldo vencido (una sola vez por
                   mes, nunca sobre intereses anteriores). Tope legal: 1.5× el interés bancario
                   corriente vigente, sin exceder la usura (Art. 30, Ley 675). Consulta la tasa
@@ -846,7 +846,7 @@ function CarteraPage() {
                 </p>
                 <div className="flex flex-wrap items-end gap-3">
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                       Tasa mensual %
                     </label>
                     <input
@@ -858,25 +858,25 @@ function CarteraPage() {
                     />
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Mes</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Mes</label>
                     <div className="relative">
                       <select value={intMonth} onChange={(e) => setIntMonth(Number(e.target.value))} style={{ ...inputStyle, width: 150, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
                         {MONTHS.map((mn, i) => (
                           <option key={mn} value={i + 1} style={{ background: "var(--hifi-surface-1)" }}>{mn}</option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
                     </div>
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Año</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Año</label>
                     <input type="number" value={intYear} onChange={(e) => setIntYear(Number(e.target.value))} style={{ ...inputStyle, width: 100 }} min={2020} max={2100} />
                   </div>
                   <button
                     onClick={liquidarIntereses}
                     disabled={busy}
                     className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-                    style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+                    style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                   >
                     {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Percent className="h-3.5 w-3.5" />}
                     Liquidar
@@ -887,22 +887,22 @@ function CarteraPage() {
 
             {/* Carta de cobro panel (Metra) */}
             {panel === "carta" && (
-              <div className="ui-card ui-sheen ui-rise p-5 space-y-4" style={{ borderColor: "rgba(76,214,160,0.25)" }}>
+              <div className="ui-card ui-sheen ui-rise p-5 space-y-4" style={{ borderColor: "rgb(var(--ok-rgb) / 0.25)" }}>
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4" style={{ color: "#4cd6a0" }} />
-                  <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
+                  <Sparkles className="h-4 w-4" style={{ color: "var(--ok-text)" }} />
+                  <p className="text-[13.5px] font-medium" style={{ color: "var(--ink)" }}>
                     Carta de cobro con IA
                   </p>
                   <span
                     className="px-2 py-0.5 rounded-full text-[9px]"
-                    style={{ ...monoLabel, fontSize: 9, background: "rgba(76,214,160,0.12)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.30)" }}
+                    style={{ ...monoLabel, fontSize: 9, background: "rgb(var(--ok-rgb) / 0.12)", color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.3)" }}
                   >
                     Metra
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Unidad morosa</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Unidad morosa</label>
                     <div className="relative">
                       <select
                         value={cartaUnit}
@@ -923,11 +923,11 @@ function CarteraPage() {
                             </option>
                           ))}
                       </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
                     </div>
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Tono</label>
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Tono</label>
                     <div className="relative">
                       <select
                         value={cartaTone}
@@ -938,7 +938,7 @@ function CarteraPage() {
                         <option value="persuasivo" style={{ background: "var(--hifi-surface-1)" }}>Cobro persuasivo (2do aviso)</option>
                         <option value="prejuridico" style={{ background: "var(--hifi-surface-1)" }}>Prejurídico (último aviso)</option>
                       </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
                     </div>
                   </div>
                 </div>
@@ -946,7 +946,7 @@ function CarteraPage() {
                   onClick={generarCarta}
                   disabled={cartaBusy || !cartaUnit}
                   className="inline-flex items-center gap-2 rounded-full text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-40 cursor-pointer"
-                  style={{ background: "rgba(76,214,160,0.14)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.35)" }}
+                  style={{ background: "rgb(var(--ok-rgb) / 0.14)", color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.35)" }}
                 >
                   {cartaBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                   {cartaBusy ? "Redactando con los datos de la deuda…" : "Redactar carta"}
@@ -955,11 +955,11 @@ function CarteraPage() {
                 {cartaContent && (
                   <div className="space-y-3 pt-2" style={{ borderTop: "1px solid var(--hifi-hairline)" }}>
                     <div>
-                      <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">Asunto</label>
+                      <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Asunto</label>
                       <input value={cartaSubject} onChange={(e) => setCartaSubject(e.target.value)} style={inputStyle} maxLength={150} />
                     </div>
                     <div>
-                      <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                      <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                         Carta (edítala si lo necesitas)
                       </label>
                       <textarea
@@ -975,7 +975,7 @@ function CarteraPage() {
                         onClick={enviarCarta}
                         disabled={cartaSending || !units.find((u) => u.id === cartaUnit)?.email}
                         className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-40 cursor-pointer"
-                        style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+                        style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                       >
                         {cartaSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                         Enviar por correo
@@ -983,13 +983,13 @@ function CarteraPage() {
                       <button
                         onClick={copiarCarta}
                         className="inline-flex items-center gap-2 rounded-full text-[13px] font-medium px-5 py-2.5 transition-all cursor-pointer"
-                        style={{ background: "rgba(255,255,255,0.06)", color: cartaCopied ? "#4cd6a0" : "rgba(246,245,247,0.70)", border: "1px solid rgba(255,255,255,0.12)" }}
+                        style={{ background: "rgb(var(--veil-rgb) / 0.06)", color: cartaCopied ? "var(--ok-text)" : "var(--ink-2)", border: "1px solid rgb(var(--veil-rgb) / 0.12)" }}
                       >
                         {cartaCopied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                         {cartaCopied ? "Copiado" : "Copiar texto"}
                       </button>
                       {!units.find((u) => u.id === cartaUnit)?.email && (
-                        <span className="text-[11.5px]" style={{ color: "rgba(246,245,247,0.40)" }}>
+                        <span className="text-[11.5px]" style={{ color: "var(--ink-3)" }}>
                           La unidad no tiene correo — copia el texto para enviarlo por otro medio.
                         </span>
                       )}
@@ -1005,10 +1005,10 @@ function CarteraPage() {
               const totalOverdue = aging.reduce((s, a) => s + a.amount, 0);
               if (totalOverdue <= 0) return null;
               const AGING_COLORS: Record<string, string> = {
-                d30: "#ffb958",
+                d30: "var(--warn)",
                 d60: "#ff9c58",
-                d90: "#ff8585",
-                d90plus: "#ff6f6f",
+                d90: "var(--danger)",
+                d90plus: "var(--danger)",
               };
               const morosos = [...units]
                 .filter((u) => u.summary.balance > 0 && u.summary.overdueDays > 0)
@@ -1016,11 +1016,11 @@ function CarteraPage() {
                 .slice(0, 5);
               return (
                 <div className="ui-card ui-sheen ui-rise p-5 space-y-4">
-                  <p style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>
+                  <p style={{ ...monoLabel, color: "var(--ink-3)" }}>
                     Cartera por edades · {fmtCOP(totalOverdue)} en mora
                   </p>
                   {/* Stacked bar */}
-                  <div className="flex h-2.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
+                  <div className="flex h-2.5 rounded-full overflow-hidden" style={{ background: "rgb(var(--veil-rgb) / 0.05)" }}>
                     {aging.map((a) =>
                       a.amount > 0 ? (
                         <div
@@ -1036,12 +1036,12 @@ function CarteraPage() {
                       <div key={a.bucket}>
                         <div className="flex items-center gap-1.5 mb-0.5">
                           <span className="h-2 w-2 rounded-full" style={{ background: AGING_COLORS[a.bucket] }} />
-                          <span style={{ ...monoMini, color: "rgba(246,245,247,0.45)" }}>{a.label}</span>
+                          <span style={{ ...monoMini, color: "var(--ink-3)" }}>{a.label}</span>
                         </div>
-                        <p className="text-[13.5px] font-semibold" style={{ color: a.amount > 0 ? "#f6f5f7" : "rgba(246,245,247,0.30)" }}>
+                        <p className="text-[13.5px] font-semibold" style={{ color: a.amount > 0 ? "var(--ink)" : "var(--ink-4)" }}>
                           {fmtCOP(a.amount)}
                         </p>
-                        <p className="text-[10.5px]" style={{ color: "rgba(246,245,247,0.35)" }}>
+                        <p className="text-[10.5px]" style={{ color: "var(--ink-4)" }}>
                           {a.count} {a.count === 1 ? "unidad" : "unidades"}
                         </p>
                       </div>
@@ -1049,22 +1049,22 @@ function CarteraPage() {
                   </div>
                   {morosos.length > 0 && (
                     <div className="pt-3" style={{ borderTop: "1px solid var(--hifi-hairline)" }}>
-                      <p style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="mb-2">
+                      <p style={{ ...monoLabel, color: "var(--ink-3)" }} className="mb-2">
                         Mayores deudores
                       </p>
                       <div className="space-y-1.5">
                         {morosos.map((u) => (
                           <div key={u.id} className="flex items-center gap-3">
-                            <span className="text-[12.5px] font-medium flex-1" style={{ color: "#f6f5f7" }}>
+                            <span className="text-[12.5px] font-medium flex-1" style={{ color: "var(--ink)" }}>
                               {u.label}
                               {u.residentName ? (
-                                <span style={{ color: "rgba(246,245,247,0.40)" }}> · {u.residentName}</span>
+                                <span style={{ color: "var(--ink-3)" }}> · {u.residentName}</span>
                               ) : null}
                             </span>
-                            <span className="text-[12.5px] font-semibold" style={{ color: "#ff8585" }}>
+                            <span className="text-[12.5px] font-semibold" style={{ color: "var(--danger-text)" }}>
                               {fmtCOP(u.summary.balance)}
                             </span>
-                            <span style={{ ...monoMini, color: "rgba(246,245,247,0.35)" }}>
+                            <span style={{ ...monoMini, color: "var(--ink-4)" }}>
                               {u.summary.overdueDays}d
                             </span>
                             <button
@@ -1077,7 +1077,7 @@ function CarteraPage() {
                                 window.scrollTo({ top: 0, behavior: "smooth" });
                               }}
                               className="inline-flex items-center gap-1 rounded-full text-[11px] px-2.5 py-1 cursor-pointer transition-colors hover:bg-white/[0.06]"
-                              style={{ color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.30)" }}
+                              style={{ color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.3)" }}
                             >
                               <Sparkles className="h-3 w-3" />
                               Carta
@@ -1102,7 +1102,7 @@ function CarteraPage() {
                   <Link
                     href="/dashboard/residentes"
                     className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12.5px] font-medium px-5 py-2.5"
-                    style={{ background: "var(--hifi-accent)", color: "#fff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.5)" }}
+                    style={{ background: "var(--hifi-accent)", color: "#fff", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                   >
                     Agregar unidades
                     <ArrowUpRight className="h-3.5 w-3.5" />
@@ -1114,12 +1114,12 @@ function CarteraPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr style={{ background: "rgba(255,255,255,0.02)", borderBottom: "1px solid var(--hifi-hairline)" }}>
+                      <tr style={{ background: "rgb(var(--veil-rgb) / 0.02)", borderBottom: "1px solid var(--hifi-hairline)" }}>
                         {["Unidad", "Cuota mensual", "Coef. %", "Saldo", "Estado", "Último pago", ""].map((h) => (
                           <th
                             key={h}
                             className="px-4 py-3 text-left whitespace-nowrap"
-                            style={{ ...monoLabel, color: "rgba(246,245,247,0.40)" }}
+                            style={{ ...monoLabel, color: "var(--ink-3)" }}
                           >
                             {h}
                           </th>
@@ -1132,9 +1132,9 @@ function CarteraPage() {
                         return (
                           <tr key={u.id} className="ui-row" style={{ borderBottom: "1px solid var(--hifi-hairline)" }}>
                             <td className="px-4 py-3">
-                              <p className="text-[13px] font-medium" style={{ color: "#f6f5f7" }}>{u.label}</p>
+                              <p className="text-[13px] font-medium" style={{ color: "var(--ink)" }}>{u.label}</p>
                               {u.residentName && (
-                                <p className="text-[11px]" style={{ color: "rgba(246,245,247,0.40)" }}>{u.residentName}</p>
+                                <p className="text-[11px]" style={{ color: "var(--ink-3)" }}>{u.residentName}</p>
                               )}
                             </td>
                             <td className="px-4 py-3">
@@ -1154,9 +1154,9 @@ function CarteraPage() {
                                 }}
                                 className="ui-input ui-focus w-24 h-8 px-2 rounded-lg text-[12.5px] text-right"
                                 style={{
-                                  background: "rgba(255,255,255,0.04)",
-                                  border: "1px solid rgba(255,255,255,0.08)",
-                                  color: "#f6f5f7",
+                                  background: "rgb(var(--veil-rgb) / 0.04)",
+                                  border: "1px solid rgb(var(--veil-rgb) / 0.08)",
+                                  color: "var(--ink)",
                                   outline: "none",
                                 }}
                               />
@@ -1178,9 +1178,9 @@ function CarteraPage() {
                                 }}
                                 className="ui-input ui-focus w-16 h-8 px-2 rounded-lg text-[12.5px] text-right"
                                 style={{
-                                  background: "rgba(255,255,255,0.04)",
-                                  border: "1px solid rgba(255,255,255,0.08)",
-                                  color: "#f6f5f7",
+                                  background: "rgb(var(--veil-rgb) / 0.04)",
+                                  border: "1px solid rgb(var(--veil-rgb) / 0.08)",
+                                  color: "var(--ink)",
                                   outline: "none",
                                 }}
                               />
@@ -1188,7 +1188,7 @@ function CarteraPage() {
                             <td className="px-4 py-3 whitespace-nowrap">
                               <span
                                 className="text-[13px] font-semibold"
-                                style={{ color: u.summary.balance > 0 ? "#ffb958" : u.summary.balance < 0 ? "#5fb4ff" : "rgba(246,245,247,0.55)" }}
+                                style={{ color: u.summary.balance > 0 ? "var(--warn-text)" : u.summary.balance < 0 ? "var(--info)" : "var(--ink-2)" }}
                               >
                                 {u.summary.balance !== 0 ? fmtCOP(Math.abs(u.summary.balance)) : "—"}
                               </span>
@@ -1202,7 +1202,7 @@ function CarteraPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
-                              <span style={{ ...monoMini, color: "rgba(246,245,247,0.40)" }}>
+                              <span style={{ ...monoMini, color: "var(--ink-3)" }}>
                                 {u.lastPaymentAt
                                   ? new Date(u.lastPaymentAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })
                                   : "—"}
@@ -1218,7 +1218,7 @@ function CarteraPage() {
                                     window.scrollTo({ top: 0, behavior: "smooth" });
                                   }}
                                   className="ui-press p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.06]"
-                                  style={{ color: "#4cd6a0" }}
+                                  style={{ color: "var(--ok-text)" }}
                                   title="Registrar pago"
                                 >
                                   <HandCoins className="h-4 w-4" />
@@ -1228,7 +1228,7 @@ function CarteraPage() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="ui-press p-1.5 rounded-lg hover:bg-white/[0.06]"
-                                  style={{ color: "rgba(246,245,247,0.55)" }}
+                                  style={{ color: "var(--ink-2)" }}
                                   title="Estado de cuenta (imprimir/PDF)"
                                 >
                                   <FileText className="h-4 w-4" />

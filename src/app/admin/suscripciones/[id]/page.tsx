@@ -159,11 +159,11 @@ async function SuscripcionDetail({ id }: { id: string }) {
         <div
           className="flex items-center gap-3 px-4 py-3 rounded-xl border mb-6"
           style={{
-            background: "rgba(255,111,111,0.06)",
-            borderColor: "rgba(255,111,111,0.30)",
+            background: "rgb(var(--danger-rgb) / 0.06)",
+            borderColor: "rgb(var(--danger-rgb) / 0.3)",
           }}
         >
-          <p className="text-[13px] text-[#ff8585]">
+          <p className="text-[13px] text-[var(--danger)]">
             Esta suscripción tiene un pago atrasado. Coordina con ePayco antes de cancelar.
           </p>
         </div>
@@ -180,7 +180,7 @@ async function SuscripcionDetail({ id }: { id: string }) {
                 style={{
                   background: sub.user.image
                     ? undefined
-                    : "linear-gradient(135deg, #7c5cff, #5a3cf0)",
+                    : "linear-gradient(135deg, var(--accent), var(--accent-lo))",
                 }}
               >
                 {sub.user.image ? (
@@ -220,7 +220,7 @@ async function SuscripcionDetail({ id }: { id: string }) {
             <Link
               href={`/admin/usuarios/${sub.user.id}`}
               className="inline-flex items-center gap-1.5 text-[12px] font-medium hover:text-foreground transition-colors"
-              style={{ color: "#9a7fff" }}
+              style={{ color: "var(--accent-text)" }}
             >
               <User className="h-3.5 w-3.5" />
               Ver perfil completo

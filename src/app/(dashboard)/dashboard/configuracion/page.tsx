@@ -82,13 +82,13 @@ const STATUS_LABELS: Record<string, string> = {
 function statusStyle(status: string): React.CSSProperties {
   switch (status) {
     case "open":
-      return { background: "rgba(255,111,111,0.10)", color: "#ff8585", border: "1px solid rgba(255,111,111,0.25)" };
+      return { background: "rgb(var(--danger-rgb) / 0.1)", color: "var(--danger-text)", border: "1px solid rgb(var(--danger-rgb) / 0.25)" };
     case "pending":
-      return { background: "rgba(255,185,88,0.10)", color: "#ffb958", border: "1px solid rgba(255,185,88,0.25)" };
+      return { background: "rgb(var(--warn-rgb) / 0.1)", color: "var(--warn-text)", border: "1px solid rgb(var(--warn-rgb) / 0.25)" };
     case "resolved":
-      return { background: "rgba(76,214,160,0.10)", color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.25)" };
+      return { background: "rgb(var(--ok-rgb) / 0.1)", color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.25)" };
     default:
-      return { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.40)", border: "1px solid rgba(255,255,255,0.10)" };
+      return { background: "rgb(var(--veil-rgb) / 0.05)", color: "var(--ink-3)", border: "1px solid rgb(var(--veil-rgb) / 0.1)" };
   }
 }
 
@@ -260,9 +260,9 @@ export default function ConfiguracionPage() {
           <div className="flex items-center gap-3 mb-6">
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgba(124,92,255,0.12)" }}
+              style={{ background: "rgb(var(--accent-rgb) / 0.12)" }}
             >
-              <User className="h-4.5 w-4.5" style={{ color: "#7c5cff" }} />
+              <User className="h-4.5 w-4.5" style={{ color: "var(--accent-text)" }} />
             </div>
             <div>
               <p style={{ ...monoLabel, color: "var(--muted-foreground)" }}>Perfil</p>
@@ -293,9 +293,9 @@ export default function ConfiguracionPage() {
                 ) : (
                   <div
                     className="h-16 w-16 rounded-2xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: "rgba(124,92,255,0.10)", border: "1px solid rgba(124,92,255,0.20)" }}
+                    style={{ background: "rgb(var(--accent-rgb) / 0.1)", border: "1px solid rgb(var(--accent-rgb) / 0.2)" }}
                   >
-                    <User className="h-8 w-8" style={{ color: "#7c5cff" }} />
+                    <User className="h-8 w-8" style={{ color: "var(--accent-text)" }} />
                   </div>
                 )}
                 <div>
@@ -308,7 +308,7 @@ export default function ConfiguracionPage() {
                     style={{
                       fontFamily: "'Geist Mono', monospace",
                       letterSpacing: "0.10em",
-                      background: "rgba(255,255,255,0.05)",
+                      background: "rgb(var(--veil-rgb) / 0.05)",
                       color: "var(--muted-foreground)",
                       border: "1px solid var(--border)",
                     }}
@@ -328,7 +328,7 @@ export default function ConfiguracionPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   style={hiInput}
-                  className="rounded-xl focus:ring-2 focus:ring-[#7c5cff]/40 focus:border-[#7c5cff]"
+                  className="rounded-xl focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)]"
                 />
               </div>
 
@@ -351,7 +351,7 @@ export default function ConfiguracionPage() {
                     cursor: "pointer",
                     outline: "none",
                   }}
-                  className="focus:ring-2 focus:ring-[#7c5cff]/40 focus:border-[#7c5cff] transition-all"
+                  className="focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)] transition-all"
                 >
                   <option value="">Selecciona tu cargo</option>
                   {cargos.map((c) => (
@@ -371,7 +371,7 @@ export default function ConfiguracionPage() {
                   onChange={(e) => setCompany(e.target.value)}
                   placeholder="Nombre de tu empresa"
                   style={hiInput}
-                  className="rounded-xl focus:ring-2 focus:ring-[#7c5cff]/40 focus:border-[#7c5cff]"
+                  className="rounded-xl focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)]"
                 />
               </div>
 
@@ -387,7 +387,7 @@ export default function ConfiguracionPage() {
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+57 300 123 4567"
                     style={hiInput}
-                    className="rounded-xl focus:ring-2 focus:ring-[#7c5cff]/40 focus:border-[#7c5cff]"
+                    className="rounded-xl focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)]"
                   />
                 </div>
                 <div>
@@ -400,7 +400,7 @@ export default function ConfiguracionPage() {
                     onChange={(e) => setCity(e.target.value)}
                     placeholder="Bogotá"
                     style={hiInput}
-                    className="rounded-xl focus:ring-2 focus:ring-[#7c5cff]/40 focus:border-[#7c5cff]"
+                    className="rounded-xl focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)]"
                   />
                 </div>
               </div>
@@ -437,7 +437,7 @@ export default function ConfiguracionPage() {
                         />
                       </label>
                       {logoUrl && (
-                        <button onClick={() => setLogoUrl("")} className="text-[11px] text-muted-foreground hover:text-[#ff6f6f] text-left">
+                        <button onClick={() => setLogoUrl("")} className="text-[11px] text-muted-foreground hover:text-[var(--danger)] text-left">
                           Quitar
                         </button>
                       )}
@@ -478,10 +478,10 @@ export default function ConfiguracionPage() {
                 disabled={saving}
                 className="w-full h-11 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  background: saved ? "#4cd6a0" : "#7c5cff",
+                  background: saved ? "var(--ok)" : "var(--accent)",
                   boxShadow: saved
-                    ? "0 4px 16px rgba(76,214,160,0.30)"
-                    : "0 4px 16px rgba(124,92,255,0.30)",
+                    ? "0 4px 16px rgb(var(--ok-rgb) / 0.3)"
+                    : "0 4px 16px rgb(var(--accent-rgb) / 0.3)",
                   transition: "background 0.3s, box-shadow 0.3s",
                 }}
               >
@@ -495,7 +495,7 @@ export default function ConfiguracionPage() {
                 {saving ? "Guardando..." : saved ? "Guardado!" : "Guardar Cambios"}
               </button>
               {saveError && (
-                <p className="mt-3 text-sm text-center" style={{ color: "#ff6f6f" }}>
+                <p className="mt-3 text-sm text-center" style={{ color: "var(--danger-text)" }}>
                   No pudimos guardar tus cambios. Revisa tu conexión e intenta de nuevo.
                 </p>
               )}
@@ -508,9 +508,9 @@ export default function ConfiguracionPage() {
           <div className="flex items-center gap-3 mb-6">
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgba(124,92,255,0.12)" }}
+              style={{ background: "rgb(var(--accent-rgb) / 0.12)" }}
             >
-              <Moon className="h-4.5 w-4.5" style={{ color: "#7c5cff" }} />
+              <Moon className="h-4.5 w-4.5" style={{ color: "var(--accent-text)" }} />
             </div>
             <div>
               <p style={{ ...monoLabel, color: "var(--muted-foreground)" }}>Tema</p>
@@ -521,11 +521,11 @@ export default function ConfiguracionPage() {
           <div
             className="flex items-center gap-3 p-4 rounded-2xl"
             style={{
-              background: "rgba(124,92,255,0.08)",
-              border: "1px solid rgba(124,92,255,0.30)",
+              background: "rgb(var(--accent-rgb) / 0.08)",
+              border: "1px solid rgb(var(--accent-rgb) / 0.3)",
             }}
           >
-            <Moon className="h-5 w-5 flex-shrink-0" style={{ color: "#7c5cff" }} />
+            <Moon className="h-5 w-5 flex-shrink-0" style={{ color: "var(--accent-text)" }} />
             <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
               SOPH.IA usa un tema oscuro editorial optimizado para largas jornadas de
               trabajo. El modo claro llegará en una próxima versión.
@@ -538,9 +538,9 @@ export default function ConfiguracionPage() {
           <div className="flex items-center gap-3 mb-6">
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgba(76,214,160,0.12)" }}
+              style={{ background: "rgb(var(--ok-rgb) / 0.12)" }}
             >
-              <MessageCircle className="h-4.5 w-4.5" style={{ color: "#4cd6a0" }} />
+              <MessageCircle className="h-4.5 w-4.5" style={{ color: "var(--ok-text)" }} />
             </div>
             <div>
               <p style={{ ...monoLabel, color: "var(--muted-foreground)" }}>Ayuda</p>
@@ -556,9 +556,9 @@ export default function ConfiguracionPage() {
             <button
               className="w-full h-11 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:opacity-90"
               style={{
-                background: "rgba(76,214,160,0.10)",
-                border: "1px solid rgba(76,214,160,0.25)",
-                color: "#4cd6a0",
+                background: "rgb(var(--ok-rgb) / 0.1)",
+                border: "1px solid rgb(var(--ok-rgb) / 0.25)",
+                color: "var(--ok-text)",
               }}
             >
               <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
@@ -575,9 +575,9 @@ export default function ConfiguracionPage() {
             <div className="flex items-center gap-3">
               <div
                 className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgba(124,92,255,0.12)" }}
+                style={{ background: "rgb(var(--accent-rgb) / 0.12)" }}
               >
-                <LifeBuoy className="h-4.5 w-4.5" style={{ color: "#7c5cff" }} />
+                <LifeBuoy className="h-4.5 w-4.5" style={{ color: "var(--accent-text)" }} />
               </div>
               <div>
                 <p style={{ ...monoLabel, color: "var(--muted-foreground)" }}>04 · Tickets</p>
@@ -592,9 +592,9 @@ export default function ConfiguracionPage() {
                 onClick={() => setShowTicketForm(true)}
                 className="h-9 px-4 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:opacity-90"
                 style={{
-                  background: "#7c5cff",
+                  background: "var(--accent)",
                   color: "white",
-                  boxShadow: "0 4px 14px rgba(124,92,255,0.25)",
+                  boxShadow: "0 4px 14px rgb(var(--accent-rgb) / 0.25)",
                 }}
               >
                 <Plus className="h-4 w-4" />
@@ -608,12 +608,12 @@ export default function ConfiguracionPage() {
             <div
               className="flex items-center gap-2 px-4 py-3 rounded-xl mb-4"
               style={{
-                background: "rgba(76,214,160,0.08)",
-                border: "1px solid rgba(76,214,160,0.20)",
+                background: "rgb(var(--ok-rgb) / 0.08)",
+                border: "1px solid rgb(var(--ok-rgb) / 0.2)",
               }}
             >
-              <Check className="h-4 w-4 flex-shrink-0" style={{ color: "#4cd6a0" }} />
-              <p className="text-sm" style={{ color: "#4cd6a0" }}>
+              <Check className="h-4 w-4 flex-shrink-0" style={{ color: "var(--ok-text)" }} />
+              <p className="text-sm" style={{ color: "var(--ok-text)" }}>
                 Ticket creado exitosamente. Nuestro equipo te responderá pronto.
               </p>
             </div>
@@ -624,8 +624,8 @@ export default function ConfiguracionPage() {
             <div
               className="rounded-xl p-4 mb-5 space-y-4"
               style={{
-                background: "rgba(124,92,255,0.05)",
-                border: "1px solid rgba(124,92,255,0.15)",
+                background: "rgb(var(--accent-rgb) / 0.05)",
+                border: "1px solid rgb(var(--accent-rgb) / 0.15)",
               }}
             >
               <div className="flex items-center justify-between">
@@ -637,7 +637,7 @@ export default function ConfiguracionPage() {
                   }}
                   className="p-1 rounded-lg transition-colors hover:bg-white/5"
                 >
-                  <X className="h-4 w-4" style={{ color: "rgba(255,255,255,0.40)" }} />
+                  <X className="h-4 w-4" style={{ color: "var(--ink-3)" }} />
                 </button>
               </div>
 
@@ -651,7 +651,7 @@ export default function ConfiguracionPage() {
                   onChange={(e) => setTicketSubject(e.target.value)}
                   placeholder="Describe brevemente tu problema"
                   style={hiInput}
-                  className="rounded-xl focus:ring-2 focus:ring-[#7c5cff]/40 focus:border-[#7c5cff]"
+                  className="rounded-xl focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)]"
                 />
               </div>
 
@@ -717,7 +717,7 @@ export default function ConfiguracionPage() {
                   onChange={(e) => setTicketContent(e.target.value)}
                   placeholder="Describe tu problema con el mayor detalle posible..."
                   rows={4}
-                  className="w-full px-3 py-2.5 text-sm resize-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7c5cff]/40 focus:border-[#7c5cff] placeholder:text-muted-foreground/40"
+                  className="w-full px-3 py-2.5 text-sm resize-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)] placeholder:text-muted-foreground/40"
                   style={{
                     background: "var(--secondary)",
                     border: "1px solid var(--border)",
@@ -727,7 +727,7 @@ export default function ConfiguracionPage() {
               </div>
 
               {ticketError && (
-                <p className="text-xs" style={{ color: "#ff8585", fontFamily: "var(--font-mono)" }}>
+                <p className="text-xs" style={{ color: "var(--danger-text)", fontFamily: "var(--font-mono)" }}>
                   {ticketError}
                 </p>
               )}
@@ -737,9 +737,9 @@ export default function ConfiguracionPage() {
                 disabled={ticketSubmitting || !ticketSubject.trim() || !ticketContent.trim()}
                 className="w-full h-10 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
-                  background: "#7c5cff",
+                  background: "var(--accent)",
                   color: "white",
-                  boxShadow: "0 4px 14px rgba(124,92,255,0.25)",
+                  boxShadow: "0 4px 14px rgb(var(--accent-rgb) / 0.25)",
                 }}
               >
                 {ticketSubmitting ? (
@@ -755,12 +755,12 @@ export default function ConfiguracionPage() {
           {/* Ticket list */}
           {ticketsLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin" style={{ color: "rgba(255,255,255,0.30)" }} />
+              <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--ink-4)" }} />
             </div>
           ) : tickets.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-8">
-              <LifeBuoy className="h-7 w-7" style={{ color: "rgba(255,255,255,0.15)" }} />
-              <p className="text-sm text-center" style={{ color: "rgba(255,255,255,0.35)" }}>
+              <LifeBuoy className="h-7 w-7" style={{ color: "var(--ink-4)" }} />
+              <p className="text-sm text-center" style={{ color: "var(--ink-4)" }}>
                 No tienes tickets de soporte aún.
               </p>
             </div>
@@ -779,7 +779,7 @@ export default function ConfiguracionPage() {
                     </p>
                     <p
                       className="text-[11px] mt-0.5"
-                      style={{ fontFamily: "'Geist Mono', monospace", color: "rgba(255,255,255,0.30)" }}
+                      style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink-4)" }}
                     >
                       {relativeTime(ticket.updatedAt)}
                     </p>
@@ -797,7 +797,7 @@ export default function ConfiguracionPage() {
                   </span>
                   <ChevronRight
                     className="h-4 w-4 flex-shrink-0 opacity-0 group-hover:opacity-50 transition-opacity"
-                    style={{ color: "rgba(255,255,255,0.40)" }}
+                    style={{ color: "var(--ink-3)" }}
                   />
                 </Link>
               ))}

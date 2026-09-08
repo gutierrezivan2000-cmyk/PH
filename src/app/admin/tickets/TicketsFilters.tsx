@@ -34,7 +34,7 @@ export function TicketsFilters({ status, priority, category, assigned, q }: Prop
     textTransform: "uppercase",
     background: "var(--card)",
     border: "1px solid var(--border)",
-    color: "rgba(255,255,255,0.55)",
+    color: "var(--ink-2)",
     outline: "none",
   };
   const cls = "h-8 px-3 rounded-lg text-[11px] cursor-pointer transition-colors";

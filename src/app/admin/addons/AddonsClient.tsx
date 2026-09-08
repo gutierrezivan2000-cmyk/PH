@@ -31,10 +31,10 @@ interface ApiData {
 
 // ---- Constants ----
 const ADDONS: { id: AddonAgent; name: string; color: string }[] = [
-  { id: "metra", name: "Metra", color: "#4cd6a0" },
-  { id: "nomethes", name: "Nomethes", color: "#ffb958" },
-  { id: "hermes", name: "Hermes", color: "#ff6fa8" },
-  { id: "logistes", name: "Logistes", color: "#8a92ff" },
+  { id: "metra", name: "Metra", color: "var(--ok-text)" },
+  { id: "nomethes", name: "Nomethes", color: "var(--warn-text)" },
+  { id: "hermes", name: "Hermes", color: "var(--pink)" },
+  { id: "logistes", name: "Logistes", color: "var(--logistes)" },
 ];
 
 const MONO: React.CSSProperties = {
@@ -68,7 +68,7 @@ function ToggleSwitch({
         height: 20,
         borderRadius: 10,
         background: checked ? color : "transparent",
-        border: `1px solid ${checked ? color : "rgba(255,255,255,0.15)"}`,
+        border: `1px solid ${checked ? color : "var(--ink-4)"}`,
         cursor: disabled ? "not-allowed" : "pointer",
         position: "relative",
         transition: "background 0.2s, border-color 0.2s",
@@ -86,7 +86,7 @@ function ToggleSwitch({
           width: 14,
           height: 14,
           borderRadius: "50%",
-          background: checked ? "#fff" : "rgba(255,255,255,0.4)",
+          background: checked ? "#fff" : "rgb(var(--veil-rgb) / 0.4)",
           transition: "left 0.2s",
         }}
       />
@@ -101,8 +101,8 @@ function PlanBadge({ planId, status }: { planId: string | null; status: string }
       <span
         style={{
           ...MONO,
-          background: "rgba(255,255,255,0.05)",
-          color: "rgba(255,255,255,0.35)",
+          background: "rgb(var(--veil-rgb) / 0.05)",
+          color: "var(--ink-4)",
           padding: "2px 8px",
           borderRadius: 4,
         }}
@@ -116,8 +116,8 @@ function PlanBadge({ planId, status }: { planId: string | null; status: string }
     <span
       style={{
         ...MONO,
-        background: isElite ? "rgba(124,92,255,0.15)" : "rgba(95,180,255,0.12)",
-        color: isElite ? "#9a7fff" : "#5fb4ff",
+        background: isElite ? "rgb(var(--accent-rgb) / 0.15)" : "rgb(var(--info-rgb) / 0.12)",
+        color: isElite ? "var(--accent-text)" : "var(--info)",
         padding: "2px 8px",
         borderRadius: 4,
       }}
@@ -148,7 +148,7 @@ function MetricCard({
         padding: "20px 24px",
       }}
     >
-      <p style={{ ...MONO, color: "rgba(255,255,255,0.45)", marginBottom: 10 }}>
+      <p style={{ ...MONO, color: "var(--ink-3)", marginBottom: 10 }}>
         {label}
       </p>
       <p
@@ -163,7 +163,7 @@ function MetricCard({
       >
         {value}
       </p>
-      <p style={{ ...MONO, fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
+      <p style={{ ...MONO, fontSize: 10, color: "var(--ink-4)" }}>
         {sub}
       </p>
     </div>
@@ -180,13 +180,13 @@ function UserAvatar({ name, email, image }: { name: string | null; email: string
           width: 32,
           height: 32,
           borderRadius: "50%",
-          background: "rgba(124,92,255,0.15)",
+          background: "rgb(var(--accent-rgb) / 0.15)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           fontSize: 11,
           fontWeight: 600,
-          color: "#9a7fff",
+          color: "var(--accent-text)",
           flexShrink: 0,
           overflow: "hidden",
         }}
@@ -216,7 +216,7 @@ function UserAvatar({ name, email, image }: { name: string | null; email: string
           style={{
             ...MONO,
             fontSize: 10,
-            color: "rgba(255,255,255,0.4)",
+            color: "var(--ink-3)",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -350,7 +350,7 @@ export function AddonsContent() {
               left: 12,
               top: "50%",
               transform: "translateY(-50%)",
-              color: "rgba(255,255,255,0.35)",
+              color: "var(--ink-4)",
               pointerEvents: "none",
             }}
           />
@@ -383,9 +383,9 @@ export function AddonsContent() {
           <ToggleSwitch
             checked={onlyWithSub}
             onChange={handleOnlyWithSub}
-            color="#7c5cff"
+            color="var(--accent-text)"
           />
-          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>
+          <span style={{ fontSize: 13, color: "var(--ink-2)" }}>
             Solo con suscripción activa
           </span>
         </label>
@@ -408,7 +408,7 @@ export function AddonsContent() {
             gap: 0,
             padding: "10px 20px",
             borderBottom: "1px solid var(--border)",
-            background: "rgba(255,255,255,0.02)",
+            background: "rgb(var(--veil-rgb) / 0.02)",
           }}
         >
           {["Usuario", "Plan", ...ADDONS.map((a) => a.name), "Total/mes"].map(
@@ -417,7 +417,7 @@ export function AddonsContent() {
                 key={h}
                 style={{
                   ...MONO,
-                  color: "rgba(255,255,255,0.45)",
+                  color: "var(--ink-3)",
                   textAlign: i > 1 ? "center" : undefined,
                 }}
               >
@@ -430,12 +430,12 @@ export function AddonsContent() {
         {/* Rows */}
         {loading ? (
           <div style={{ padding: "40px 20px", textAlign: "center" }}>
-            <p style={{ ...MONO, color: "rgba(255,255,255,0.35)" }}>Cargando...</p>
+            <p style={{ ...MONO, color: "var(--ink-4)" }}>Cargando...</p>
           </div>
         ) : users.length === 0 ? (
           <div style={{ padding: "56px 20px", textAlign: "center" }}>
-            <Users size={28} style={{ margin: "0 auto 12px", color: "rgba(255,255,255,0.2)" }} />
-            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.45)" }}>
+            <Users size={28} style={{ margin: "0 auto 12px", color: "var(--ink-4)" }} />
+            <p style={{ fontSize: 14, color: "var(--ink-3)" }}>
               No hay usuarios.
             </p>
           </div>
@@ -454,7 +454,7 @@ export function AddonsContent() {
                   transition: "background 0.15s",
                 }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "rgba(255,255,255,0.02)")
+                  (e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.02)")
                 }
                 onMouseLeave={(e) => (e.currentTarget.style.background = "")}
               >
@@ -494,7 +494,7 @@ export function AddonsContent() {
                   style={{
                     ...MONO,
                     fontSize: 11,
-                    color: user.monthlyTotal > 0 ? "#4cd6a0" : "rgba(255,255,255,0.3)",
+                    color: user.monthlyTotal > 0 ? "var(--ok-text)" : "var(--ink-4)",
                     textAlign: "center",
                   }}
                 >

@@ -11,8 +11,8 @@ const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "#0a0a0a" }}>
-        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#7c5cff" }} />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--surface-0)" }}>
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--accent-text)" }} />
       </div>
     }>
       <LoginContent />
@@ -96,7 +96,7 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row" style={{ background: "#0a0a0a" }}>
+    <div className="min-h-screen flex flex-col lg:flex-row" style={{ background: "var(--surface-0)" }}>
 
       {/* ── LEFT VISUAL BAND ── */}
       <div
@@ -114,7 +114,7 @@ function LoginContent() {
             top: "-15%",
             left: "-10%",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(124,92,255,0.18) 0%, transparent 70%)",
+            background: "radial-gradient(circle, rgb(var(--accent-rgb) / 0.18) 0%, transparent 70%)",
             filter: "blur(40px)",
           }}
         />
@@ -140,8 +140,8 @@ function LoginContent() {
             style={{
               width: 48,
               height: 48,
-              background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
-              boxShadow: "0 0 32px rgba(124,92,255,0.35)",
+              background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
+              boxShadow: "0 0 32px rgb(var(--accent-rgb) / 0.35)",
             }}
           >
             <span
@@ -165,12 +165,12 @@ function LoginContent() {
                 fontWeight: 500,
                 fontSize: 28,
                 letterSpacing: "-0.025em",
-                color: "#f6f5f7",
+                color: "var(--ink)",
               }}
             >
               SOPH
-              <span style={{ color: "rgba(246,245,247,0.4)" }}>.</span>
-              <span style={{ color: "#7c5cff" }}>IA</span>
+              <span style={{ color: "var(--ink-3)" }}>.</span>
+              <span style={{ color: "var(--accent-text)" }}>IA</span>
             </span>
 
             <p
@@ -179,7 +179,7 @@ function LoginContent() {
                 fontSize: 10,
                 letterSpacing: "0.16em",
                 textTransform: "uppercase",
-                color: "rgba(246,245,247,0.42)",
+                color: "var(--ink-3)",
                 maxWidth: 220,
                 textAlign: "center",
                 lineHeight: 1.6,
@@ -189,7 +189,7 @@ function LoginContent() {
             </p>
 
             {/* Divider */}
-            <div style={{ width: 40, height: 1, background: "rgba(255,255,255,0.10)", marginTop: 8 }} />
+            <div style={{ width: 40, height: 1, background: "rgb(var(--veil-rgb) / 0.1)", marginTop: 8 }} />
 
             {/* Feature pills */}
             <div className="flex flex-col gap-2 mt-2">
@@ -202,8 +202,8 @@ function LoginContent() {
                   key={feat}
                   className="flex items-center gap-2 px-4 py-2 rounded-full"
                   style={{
-                    background: "rgba(124,92,255,0.10)",
-                    border: "1px solid rgba(124,92,255,0.25)",
+                    background: "rgb(var(--accent-rgb) / 0.1)",
+                    border: "1px solid rgb(var(--accent-rgb) / 0.25)",
                   }}
                 >
                   <span
@@ -211,7 +211,7 @@ function LoginContent() {
                       width: 5,
                       height: 5,
                       borderRadius: "50%",
-                      background: "#7c5cff",
+                      background: "var(--accent)",
                       flexShrink: 0,
                     }}
                   />
@@ -221,7 +221,7 @@ function LoginContent() {
                       fontSize: 10,
                       letterSpacing: "0.12em",
                       textTransform: "uppercase",
-                      color: "rgba(246,245,247,0.66)",
+                      color: "var(--ink-2)",
                     }}
                   >
                     {feat}
@@ -236,7 +236,7 @@ function LoginContent() {
       {/* ── RIGHT FORM PANEL ── */}
       <div
         className="flex flex-1 flex-col items-center justify-center px-4 py-10 lg:max-w-[480px] lg:px-12"
-        style={{ background: "#0a0a0a" }}
+        style={{ background: "var(--surface-0)" }}
       >
         <div className="w-full max-w-sm">
 
@@ -248,7 +248,7 @@ function LoginContent() {
               fontSize: 10,
               letterSpacing: "0.16em",
               textTransform: "uppercase",
-              color: "rgba(246,245,247,0.42)",
+              color: "var(--ink-3)",
             }}
           >
             Ingreso
@@ -262,7 +262,7 @@ function LoginContent() {
               fontWeight: 500,
               fontSize: 28,
               letterSpacing: "-0.025em",
-              color: "#f6f5f7",
+              color: "var(--ink)",
             }}
           >
             {mode === "login" ? "Bienvenido de vuelta" : "Crear cuenta"}
@@ -271,7 +271,7 @@ function LoginContent() {
             className="mb-8"
             style={{
               fontSize: 14,
-              color: "rgba(246,245,247,0.66)",
+              color: "var(--ink-2)",
               lineHeight: 1.6,
             }}
           >
@@ -284,8 +284,8 @@ function LoginContent() {
           <div
             className="rounded-2xl p-6 space-y-5"
             style={{
-              background: "#15151a",
-              border: "1px solid rgba(255,255,255,0.07)",
+              background: "var(--surface-2)",
+              border: "1px solid rgb(var(--veil-rgb) / 0.07)",
             }}
           >
 
@@ -294,11 +294,11 @@ function LoginContent() {
               <div
                 className="rounded-xl px-4 py-3"
                 style={{
-                  background: "rgba(255,111,111,0.10)",
-                  border: "1px solid rgba(255,111,111,0.25)",
+                  background: "rgb(var(--danger-rgb) / 0.1)",
+                  border: "1px solid rgb(var(--danger-rgb) / 0.25)",
                 }}
               >
-                <p style={{ fontSize: 13, color: "#ff6f6f" }}>{error}</p>
+                <p style={{ fontSize: 13, color: "var(--danger-text)" }}>{error}</p>
               </div>
             )}
 
@@ -308,13 +308,13 @@ function LoginContent() {
                 <div
                   className="rounded-xl px-4 py-3 text-center"
                   style={{
-                    background: "rgba(255,185,88,0.10)",
-                    border: "1px solid rgba(255,185,88,0.25)",
+                    background: "rgb(var(--warn-rgb) / 0.1)",
+                    border: "1px solid rgb(var(--warn-rgb) / 0.25)",
                   }}
                 >
                   <p
                     className="flex items-center justify-center gap-2"
-                    style={{ fontSize: 13, color: "#ffb958", fontWeight: 500 }}
+                    style={{ fontSize: 13, color: "var(--warn-text)", fontWeight: 500 }}
                   >
                     <Zap className="h-4 w-4" />
                     Modo Demo
@@ -324,8 +324,8 @@ function LoginContent() {
                   onClick={() => signIn("demo", { callbackUrl })}
                   className="group flex w-full items-center justify-center gap-3 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] cursor-pointer"
                   style={{
-                    background: "linear-gradient(135deg, #ffb958, #ff8c42)",
-                    boxShadow: "0 4px 20px rgba(255,185,88,0.25)",
+                    background: "linear-gradient(135deg, var(--warn), #ff8c42)",
+                    boxShadow: "0 4px 20px rgb(var(--warn-rgb) / 0.25)",
                     fontSize: 14,
                     fontWeight: 600,
                     color: "#0a0a0a",
@@ -336,19 +336,19 @@ function LoginContent() {
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </button>
                 <div className="flex items-center gap-3">
-                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.07)" }} />
+                  <div style={{ flex: 1, height: 1, background: "rgb(var(--veil-rgb) / 0.07)" }} />
                   <span
                     style={{
                       fontFamily: "'Geist Mono', ui-monospace, monospace",
                       fontSize: 10,
                       letterSpacing: "0.16em",
                       textTransform: "uppercase",
-                      color: "rgba(246,245,247,0.28)",
+                      color: "var(--ink-4)",
                     }}
                   >
                     O
                   </span>
-                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.07)" }} />
+                  <div style={{ flex: 1, height: 1, background: "rgb(var(--veil-rgb) / 0.07)" }} />
                 </div>
               </>
             )}
@@ -359,10 +359,10 @@ function LoginContent() {
               className="group flex w-full items-center justify-center gap-3 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] cursor-pointer"
               style={{
                 background: "transparent",
-                border: "1px solid rgba(255,255,255,0.14)",
+                border: "1px solid rgb(var(--veil-rgb) / 0.14)",
                 fontSize: 14,
                 fontWeight: 500,
-                color: "#f6f5f7",
+                color: "var(--ink)",
               }}
             >
               <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
@@ -377,19 +377,19 @@ function LoginContent() {
             {/* Divider */}
             {!IS_DEMO && (
               <div className="flex items-center gap-3">
-                <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.07)" }} />
+                <div style={{ flex: 1, height: 1, background: "rgb(var(--veil-rgb) / 0.07)" }} />
                 <span
                   style={{
                     fontFamily: "'Geist Mono', ui-monospace, monospace",
                     fontSize: 10,
                     letterSpacing: "0.16em",
                     textTransform: "uppercase",
-                    color: "rgba(246,245,247,0.28)",
+                    color: "var(--ink-4)",
                   }}
                 >
                   O
                 </span>
-                <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.07)" }} />
+                <div style={{ flex: 1, height: 1, background: "rgb(var(--veil-rgb) / 0.07)" }} />
               </div>
             )}
 
@@ -400,7 +400,7 @@ function LoginContent() {
                   <div className="relative">
                     <User
                       className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
-                      style={{ color: "rgba(246,245,247,0.3)" }}
+                      style={{ color: "var(--ink-4)" }}
                     />
                     <input
                       type="text"
@@ -409,17 +409,17 @@ function LoginContent() {
                       placeholder="Nombre completo"
                       className="w-full pl-10 pr-4 py-3 rounded-xl text-sm transition-all duration-200 focus:outline-none"
                       style={{
-                        background: "#1d1d24",
-                        border: "1px solid rgba(255,255,255,0.07)",
-                        color: "#f6f5f7",
+                        background: "var(--surface-3)",
+                        border: "1px solid rgb(var(--veil-rgb) / 0.07)",
+                        color: "var(--ink)",
                         fontFamily: "'Geist', system-ui, sans-serif",
                       }}
                       onFocus={(e) => {
-                        e.currentTarget.style.border = "1px solid rgba(124,92,255,0.50)";
-                        e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.12)";
+                        e.currentTarget.style.border = "1px solid rgb(var(--accent-rgb) / 0.5)";
+                        e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.12)";
                       }}
                       onBlur={(e) => {
-                        e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                        e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                         e.currentTarget.style.boxShadow = "none";
                       }}
                     />
@@ -429,7 +429,7 @@ function LoginContent() {
                 <div className="relative">
                   <Mail
                     className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
-                    style={{ color: "rgba(246,245,247,0.3)" }}
+                    style={{ color: "var(--ink-4)" }}
                   />
                   <input
                     type="email"
@@ -439,17 +439,17 @@ function LoginContent() {
                     required
                     className="w-full pl-10 pr-4 py-3 rounded-xl text-sm transition-all duration-200 focus:outline-none"
                     style={{
-                      background: "#1d1d24",
-                      border: "1px solid rgba(255,255,255,0.07)",
-                      color: "#f6f5f7",
+                      background: "var(--surface-3)",
+                      border: "1px solid rgb(var(--veil-rgb) / 0.07)",
+                      color: "var(--ink)",
                       fontFamily: "'Geist', system-ui, sans-serif",
                     }}
                     onFocus={(e) => {
-                      e.currentTarget.style.border = "1px solid rgba(124,92,255,0.50)";
-                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.12)";
+                      e.currentTarget.style.border = "1px solid rgb(var(--accent-rgb) / 0.5)";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.12)";
                     }}
                     onBlur={(e) => {
-                      e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                      e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                       e.currentTarget.style.boxShadow = "none";
                     }}
                   />
@@ -458,7 +458,7 @@ function LoginContent() {
                 <div className="relative">
                   <Lock
                     className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
-                    style={{ color: "rgba(246,245,247,0.3)" }}
+                    style={{ color: "var(--ink-4)" }}
                   />
                   <input
                     type={showPassword ? "text" : "password"}
@@ -469,17 +469,17 @@ function LoginContent() {
                     minLength={6}
                     className="w-full pl-10 pr-11 py-3 rounded-xl text-sm transition-all duration-200 focus:outline-none"
                     style={{
-                      background: "#1d1d24",
-                      border: "1px solid rgba(255,255,255,0.07)",
-                      color: "#f6f5f7",
+                      background: "var(--surface-3)",
+                      border: "1px solid rgb(var(--veil-rgb) / 0.07)",
+                      color: "var(--ink)",
                       fontFamily: "'Geist', system-ui, sans-serif",
                     }}
                     onFocus={(e) => {
-                      e.currentTarget.style.border = "1px solid rgba(124,92,255,0.50)";
-                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.12)";
+                      e.currentTarget.style.border = "1px solid rgb(var(--accent-rgb) / 0.5)";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.12)";
                     }}
                     onBlur={(e) => {
-                      e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                      e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                       e.currentTarget.style.boxShadow = "none";
                     }}
                   />
@@ -487,7 +487,7 @@ function LoginContent() {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                    style={{ color: "rgba(246,245,247,0.3)" }}
+                    style={{ color: "var(--ink-4)" }}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -499,7 +499,7 @@ function LoginContent() {
                     <Link
                       href="/forgot-password"
                       className="transition-colors hover:opacity-80"
-                      style={{ fontSize: 12, color: "#7c5cff" }}
+                      style={{ fontSize: 12, color: "var(--accent-text)" }}
                     >
                       &iquest;Olvidaste tu contrasena?
                     </Link>
@@ -512,8 +512,8 @@ function LoginContent() {
                   disabled={loading}
                   className="w-full flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   style={{
-                    background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
-                    boxShadow: "0 4px 20px rgba(124,92,255,0.30)",
+                    background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
+                    boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.3)",
                     fontSize: 14,
                     fontWeight: 600,
                     color: "#fff",
@@ -537,7 +537,7 @@ function LoginContent() {
           {!IS_DEMO && (
             <p
               className="mt-5 text-center"
-              style={{ fontSize: 13, color: "rgba(246,245,247,0.42)" }}
+              style={{ fontSize: 13, color: "var(--ink-3)" }}
             >
               {mode === "login" ? (
                 <>
@@ -545,7 +545,7 @@ function LoginContent() {
                   <button
                     onClick={() => { setMode("register"); setError(""); }}
                     className="transition-colors"
-                    style={{ color: "#7c5cff", fontWeight: 500 }}
+                    style={{ color: "var(--accent-text)", fontWeight: 500 }}
                   >
                     Crear cuenta
                   </button>
@@ -556,7 +556,7 @@ function LoginContent() {
                   <button
                     onClick={() => { setMode("login"); setError(""); }}
                     className="transition-colors"
-                    style={{ color: "#7c5cff", fontWeight: 500 }}
+                    style={{ color: "var(--accent-text)", fontWeight: 500 }}
                   >
                     Iniciar sesion
                   </button>
@@ -568,13 +568,13 @@ function LoginContent() {
           {/* Legal footer */}
           <p
             className="mt-6 text-center leading-relaxed"
-            style={{ fontSize: 11, color: "rgba(246,245,247,0.28)" }}
+            style={{ fontSize: 11, color: "var(--ink-4)" }}
           >
             Al continuar, aceptas nuestros{" "}
             <Link
               href="/legal/terminos"
               className="cursor-pointer hover:opacity-80 transition-opacity"
-              style={{ color: "rgba(246,245,247,0.45)", textDecoration: "underline", textUnderlineOffset: 2 }}
+              style={{ color: "var(--ink-3)", textDecoration: "underline", textUnderlineOffset: 2 }}
             >
               Terminos de Servicio
             </Link>{" "}
@@ -582,7 +582,7 @@ function LoginContent() {
             <Link
               href="/legal/privacidad"
               className="cursor-pointer hover:opacity-80 transition-opacity"
-              style={{ color: "rgba(246,245,247,0.45)", textDecoration: "underline", textUnderlineOffset: 2 }}
+              style={{ color: "var(--ink-3)", textDecoration: "underline", textUnderlineOffset: 2 }}
             >
               Politica de Privacidad
             </Link>
@@ -597,7 +597,7 @@ function LoginContent() {
             fontSize: 9,
             letterSpacing: "0.20em",
             textTransform: "uppercase",
-            color: "rgba(246,245,247,0.15)",
+            color: "var(--ink-4)",
             userSelect: "none",
           }}
         >

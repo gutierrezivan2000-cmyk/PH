@@ -34,7 +34,7 @@ function PaperSheet({ children }: { children: React.ReactNode }) {
         background: "#f6f5f7",
         color: "#22222a",
         boxShadow:
-          "0 1px 0 rgba(255,255,255,0.10) inset, 0 24px 60px -24px rgba(0,0,0,0.8)",
+          "0 1px 0 rgb(var(--veil-rgb) / 0.1) inset, 0 24px 60px -24px rgba(0,0,0,0.8)",
       }}
     >
       {children}
@@ -47,17 +47,17 @@ function GeneratedRow() {
     <div className="mx-auto max-w-2xl mt-4 flex items-center justify-center gap-5">
       <span
         className="inline-flex items-center gap-1.5"
-        style={{ ...MONO, color: "rgba(246,245,247,0.42)" }}
+        style={{ ...MONO, color: "var(--ink-3)" }}
       >
-        <Timer className="h-3 w-3" style={{ color: "#9a7fff" }} />
+        <Timer className="h-3 w-3" style={{ color: "var(--accent-text)" }} />
         Generado en 2 min 47 s
       </span>
-      <span style={{ color: "rgba(255,255,255,0.14)" }}>·</span>
+      <span style={{ color: "var(--ink-4)" }}>·</span>
       <span
         className="inline-flex items-center gap-1.5"
-        style={{ ...MONO, color: "rgba(246,245,247,0.42)" }}
+        style={{ ...MONO, color: "var(--ink-3)" }}
       >
-        <BadgeCheck className="h-3 w-3" style={{ color: "#9a7fff" }} />
+        <BadgeCheck className="h-3 w-3" style={{ color: "var(--accent-text)" }} />
         Citas verificadas contra Ley 675 de 2001
       </span>
     </div>
@@ -72,7 +72,7 @@ function ActaDocument() {
   return (
     <PaperSheet>
       <div className="text-center pb-6 mb-8" style={{ borderBottom: "2px solid #22222a" }}>
-        <p className="text-[11px] tracking-[0.22em] uppercase" style={{ color: "rgba(34,34,42,0.55)" }}>
+        <p className="text-[11px] tracking-[0.22em] uppercase" style={{ color: "var(--ink-2)" }}>
           Conjunto Residencial Ejemplo P.H. · NIT 901.234.567-8
         </p>
         <h2 className="mt-3 text-2xl font-semibold" style={SERIF}>
@@ -81,7 +81,7 @@ function ActaDocument() {
         <p className="mt-1 text-[13px] font-medium tracking-wide uppercase">
           Consejo de Administración
         </p>
-        <p className="mt-2 text-[12.5px]" style={{ color: "rgba(34,34,42,0.65)" }}>
+        <p className="mt-2 text-[12.5px]" style={{ color: "var(--ink-2)" }}>
           Bogotá D.C., martes 12 de mayo de 2026 · 7:00 p.m. · Salón comunal
           (modalidad mixta)
         </p>
@@ -216,7 +216,7 @@ function ActaDocument() {
                 ["Remitir unidad T2-404 a cobro prejurídico", "Administradora", "22 may 2026"],
                 ["Cotizaciones CCTV parqueadero de visitantes", "Administradora", "Próxima sesión"],
               ].map(([c, r, f]) => (
-                <tr key={c} style={{ borderBottom: "1px solid rgba(34,34,42,0.15)" }}>
+                <tr key={c} style={{ borderBottom: "1px solid rgb(var(--surface-hi-rgb) / 0.15)" }}>
                   <td className="py-1.5 pr-2 align-top">{c}</td>
                   <td className="py-1.5 pr-2 align-top">{r}</td>
                   <td className="py-1.5 align-top whitespace-nowrap">{f}</td>
@@ -235,7 +235,7 @@ function ActaDocument() {
             <div>
               <div style={{ borderTop: "1px solid #22222a" }} className="pt-2">
                 <p className="text-[12.5px] font-semibold">María Fernanda Ruiz</p>
-                <p className="text-[11.5px]" style={{ color: "rgba(34,34,42,0.6)" }}>
+                <p className="text-[11.5px]" style={{ color: "var(--ink-2)" }}>
                   Presidente del Consejo
                 </p>
               </div>
@@ -243,7 +243,7 @@ function ActaDocument() {
             <div>
               <div style={{ borderTop: "1px solid #22222a" }} className="pt-2">
                 <p className="text-[12.5px] font-semibold">Carlos Andrés Pardo</p>
-                <p className="text-[11.5px]" style={{ color: "rgba(34,34,42,0.6)" }}>
+                <p className="text-[11.5px]" style={{ color: "var(--ink-2)" }}>
                   Secretario
                 </p>
               </div>
@@ -263,7 +263,7 @@ function InformeDocument() {
   return (
     <PaperSheet>
       <div className="text-center pb-6 mb-8" style={{ borderBottom: "2px solid #22222a" }}>
-        <p className="text-[11px] tracking-[0.22em] uppercase" style={{ color: "rgba(34,34,42,0.55)" }}>
+        <p className="text-[11px] tracking-[0.22em] uppercase" style={{ color: "var(--ink-2)" }}>
           Conjunto Residencial Ejemplo P.H. · NIT 901.234.567-8
         </p>
         <h2 className="mt-3 text-2xl font-semibold" style={SERIF}>
@@ -272,7 +272,7 @@ function InformeDocument() {
         <p className="mt-1 text-[13px] font-medium tracking-wide uppercase">
           Periodo: mayo de 2026
         </p>
-        <p className="mt-2 text-[12.5px]" style={{ color: "rgba(34,34,42,0.65)" }}>
+        <p className="mt-2 text-[12.5px]" style={{ color: "var(--ink-2)" }}>
           Presentado por la Administración al Consejo de Administración ·
           155 unidades privadas
         </p>
@@ -307,7 +307,7 @@ function InformeDocument() {
               </tr>
             </thead>
             <tbody>
-              <tr style={{ borderBottom: "1px solid rgba(34,34,42,0.15)" }}>
+              <tr style={{ borderBottom: "1px solid rgb(var(--surface-hi-rgb) / 0.15)" }}>
                 <td className="py-2 pr-2">Recaudo del mes</td>
                 <td className="py-2 pr-2 font-semibold">94&nbsp;%</td>
                 <td className="py-2">
@@ -316,7 +316,7 @@ function InformeDocument() {
                   </span>
                 </td>
               </tr>
-              <tr style={{ borderBottom: "1px solid rgba(34,34,42,0.15)" }}>
+              <tr style={{ borderBottom: "1px solid rgb(var(--surface-hi-rgb) / 0.15)" }}>
                 <td className="py-2 pr-2">Cartera morosa</td>
                 <td className="py-2 pr-2 font-semibold">6,2&nbsp;%</td>
                 <td className="py-2">
@@ -325,11 +325,11 @@ function InformeDocument() {
                   </span>
                 </td>
               </tr>
-              <tr style={{ borderBottom: "1px solid rgba(34,34,42,0.15)" }}>
+              <tr style={{ borderBottom: "1px solid rgb(var(--surface-hi-rgb) / 0.15)" }}>
                 <td className="py-2 pr-2">Ejecución presupuestal</td>
                 <td className="py-2 pr-2 font-semibold">91&nbsp;%</td>
                 <td className="py-2">
-                  <span className="inline-flex items-center gap-1 font-medium" style={{ color: "rgba(34,34,42,0.6)" }}>
+                  <span className="inline-flex items-center gap-1 font-medium" style={{ color: "var(--ink-2)" }}>
                     <Minus className="h-3.5 w-3.5" /> En rango
                   </span>
                 </td>
@@ -392,7 +392,7 @@ function InformeDocument() {
           <div className="mt-8 max-w-[260px]">
             <div style={{ borderTop: "1px solid #22222a" }} className="pt-2">
               <p className="text-[12.5px] font-semibold">Laura Gómez Cárdenas</p>
-              <p className="text-[11.5px]" style={{ color: "rgba(34,34,42,0.6)" }}>
+              <p className="text-[11.5px]" style={{ color: "var(--ink-2)" }}>
                 Administradora · Conjunto Residencial Ejemplo P.H.
               </p>
             </div>
@@ -421,7 +421,7 @@ export default function DemoTabs() {
       <div className="flex justify-center mb-10">
         <div
           className="inline-flex items-center gap-1 rounded-full border p-1"
-          style={{ background: "#15151a", borderColor: "rgba(255,255,255,0.07)" }}
+          style={{ background: "var(--surface-2)", borderColor: "rgb(var(--veil-rgb) / 0.07)" }}
         >
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = tab === id;
@@ -433,11 +433,11 @@ export default function DemoTabs() {
                 style={
                   active
                     ? {
-                        background: "#7c5cff",
+                        background: "var(--accent)",
                         color: "#ffffff",
-                        boxShadow: "0 4px 16px -4px rgba(124,92,255,0.5)",
+                        boxShadow: "0 4px 16px -4px rgb(var(--accent-rgb) / 0.5)",
                       }
-                    : { color: "rgba(246,245,247,0.66)" }
+                    : { color: "var(--ink-2)" }
                 }
               >
                 <Icon className="h-3.5 w-3.5" />

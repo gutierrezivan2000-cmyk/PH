@@ -188,7 +188,7 @@ async function UsuarioDetail({ id }: { id: string }) {
                 style={{
                   background: user.image
                     ? undefined
-                    : "linear-gradient(135deg, #7c5cff, #5a3cf0)",
+                    : "linear-gradient(135deg, var(--accent), var(--accent-lo))",
                 }}
               >
                 {user.image ? (
@@ -225,12 +225,12 @@ async function UsuarioDetail({ id }: { id: string }) {
                       fontFamily: "var(--font-mono)",
                       letterSpacing: "0.1em",
                       background: isGoogle
-                        ? "rgba(76,214,160,0.08)"
-                        : "rgba(255,255,255,0.05)",
+                        ? "rgb(var(--ok-rgb) / 0.08)"
+                        : "rgb(var(--veil-rgb) / 0.05)",
                       borderColor: isGoogle
-                        ? "rgba(76,214,160,0.30)"
-                        : "rgba(255,255,255,0.10)",
-                      color: isGoogle ? "#4cd6a0" : "rgba(255,255,255,0.50)",
+                        ? "rgb(var(--ok-rgb) / 0.3)"
+                        : "rgb(var(--veil-rgb) / 0.1)",
+                      color: isGoogle ? "var(--ok-text)" : "var(--ink-3)",
                     }}
                   >
                     {isGoogle ? "Google Account" : "Email login"}
@@ -261,13 +261,13 @@ async function UsuarioDetail({ id }: { id: string }) {
               <div
                 className="mt-4 rounded-xl border p-3.5"
                 style={{
-                  background: "rgba(255,111,111,0.06)",
-                  borderColor: "rgba(255,111,111,0.25)",
+                  background: "rgb(var(--danger-rgb) / 0.06)",
+                  borderColor: "rgb(var(--danger-rgb) / 0.25)",
                 }}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <Ban className="h-3.5 w-3.5 text-[#ff8585]" />
-                  <p className="text-[12px] font-medium text-[#ff8585]">
+                  <Ban className="h-3.5 w-3.5 text-[var(--danger)]" />
+                  <p className="text-[12px] font-medium text-[var(--danger)]">
                     Cuenta baneada
                   </p>
                 </div>
@@ -394,7 +394,7 @@ async function UsuarioDetail({ id }: { id: string }) {
                   <Link
                     href={`/admin/suscripciones/${sub.id}`}
                     className="inline-flex items-center gap-1.5 text-[12px] font-medium hover:text-foreground transition-colors"
-                    style={{ color: "#9a7fff" }}
+                    style={{ color: "var(--accent-text)" }}
                   >
                     Ir a suscripción
                     <ArrowUpRight className="h-3.5 w-3.5" />
@@ -458,9 +458,9 @@ async function UsuarioDetail({ id }: { id: string }) {
                         fontFamily: "var(--font-mono)",
                         letterSpacing: "0.1em",
                         textTransform: "uppercase",
-                        background: "rgba(124,92,255,0.08)",
-                        borderColor: "rgba(124,92,255,0.30)",
-                        color: "#9a7fff",
+                        background: "rgb(var(--accent-rgb) / 0.08)",
+                        borderColor: "rgb(var(--accent-rgb) / 0.3)",
+                        color: "var(--accent-text)",
                       }}
                     >
                       {g.type}

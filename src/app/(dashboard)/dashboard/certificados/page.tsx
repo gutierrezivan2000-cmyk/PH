@@ -63,8 +63,8 @@ const card: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   background: "var(--hifi-bg-elev)",
-  border: "1px solid rgba(255,255,255,0.10)",
-  color: "#f6f5f7",
+  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
+  color: "var(--ink)",
   borderRadius: "10px",
   height: "40px",
   padding: "0 12px",
@@ -265,14 +265,14 @@ function CertificadosPage() {
       <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-[1180px] mx-auto space-y-4">
         {loading && (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#7c5cff" }} />
+            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent-text)" }} />
           </div>
         )}
 
         {!loading && properties.length === 0 && (
           <div className="rounded-2xl p-10 text-center" style={card}>
-            <BadgeCheck className="h-8 w-8 mx-auto mb-3" style={{ color: "rgba(246,245,247,0.25)" }} />
-            <p className="text-[14px]" style={{ color: "rgba(246,245,247,0.70)" }}>
+            <BadgeCheck className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
+            <p className="text-[14px]" style={{ color: "var(--ink-2)" }}>
               Crea una propiedad primero para expedir certificados.
             </p>
           </div>
@@ -282,7 +282,7 @@ function CertificadosPage() {
           <>
             {/* Property + new */}
             <div className="ui-card ui-sheen p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-              <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Propiedad</span>
+              <span style={{ ...monoLabel, color: "var(--ink-3)" }}>Propiedad</span>
               <div className="ui-scroll flex gap-2 flex-1 overflow-x-auto pb-0.5">
                 {properties.map((p) => (
                   <button
@@ -290,9 +290,9 @@ function CertificadosPage() {
                     onClick={() => setPropertyId(p.id)}
                     className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
                     style={{
-                      border: `1px solid ${propertyId === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
-                      background: propertyId === p.id ? "rgba(124,92,255,0.15)" : "transparent",
-                      color: propertyId === p.id ? "#a78bff" : "rgba(246,245,247,0.55)",
+                      border: `1px solid ${propertyId === p.id ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.1)"}`,
+                      background: propertyId === p.id ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
+                      color: propertyId === p.id ? "var(--accent-hi)" : "var(--ink-2)",
                     }}
                   >
                     {p.name}
@@ -303,8 +303,8 @@ function CertificadosPage() {
                 onClick={() => setShowForm((v) => !v)}
                 className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
                 style={{
-                  background: showForm ? "rgba(255,255,255,0.06)" : "#7c5cff",
-                  color: showForm ? "rgba(246,245,247,0.70)" : "#fff",
+                  background: showForm ? "rgb(var(--veil-rgb) / 0.06)" : "var(--accent)",
+                  color: showForm ? "var(--ink-2)" : "#fff",
                 }}
               >
                 <Plus
@@ -326,9 +326,9 @@ function CertificadosPage() {
                       onClick={() => setType(t)}
                       className="ui-chip flex-1 px-3 py-2.5 rounded-xl text-[12.5px] font-medium cursor-pointer"
                       style={{
-                        border: `1px solid ${type === t ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
-                        background: type === t ? "rgba(124,92,255,0.15)" : "transparent",
-                        color: type === t ? "#a78bff" : "rgba(246,245,247,0.55)",
+                        border: `1px solid ${type === t ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.1)"}`,
+                        background: type === t ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
+                        color: type === t ? "var(--accent-hi)" : "var(--ink-2)",
                       }}
                     >
                       {TYPE_LABELS[t]}
@@ -338,7 +338,7 @@ function CertificadosPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                       Unidad
                     </label>
                     {units.length > 0 ? (
@@ -366,7 +366,7 @@ function CertificadosPage() {
                         </select>
                         <ChevronDown
                           className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5"
-                          style={{ color: "rgba(246,245,247,0.42)" }}
+                          style={{ color: "var(--ink-3)" }}
                         />
                       </div>
                     ) : null}
@@ -381,7 +381,7 @@ function CertificadosPage() {
                     )}
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                       Titular
                     </label>
                     <input
@@ -393,7 +393,7 @@ function CertificadosPage() {
                     />
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                       Documento (opcional)
                     </label>
                     <input
@@ -406,7 +406,7 @@ function CertificadosPage() {
                   </div>
                   {type === "paz_y_salvo" ? (
                     <div>
-                      <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                      <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                         A paz y salvo hasta
                       </label>
                       <input
@@ -418,7 +418,7 @@ function CertificadosPage() {
                     </div>
                   ) : (
                     <div>
-                      <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                      <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                         Reside desde (opcional)
                       </label>
                       <input
@@ -431,7 +431,7 @@ function CertificadosPage() {
                     </div>
                   )}
                   <div className="sm:col-span-2">
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                       Nota adicional (opcional)
                     </label>
                     <input
@@ -445,7 +445,7 @@ function CertificadosPage() {
                 </div>
 
                 {formError && (
-                  <p className="text-[12px]" style={{ color: "#ff8585" }}>
+                  <p className="text-[12px]" style={{ color: "var(--danger-text)" }}>
                     {formError}
                   </p>
                 )}
@@ -454,7 +454,7 @@ function CertificadosPage() {
                   type="submit"
                   disabled={creating}
                   className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-                  style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+                  style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                 >
                   {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BadgeCheck className="h-3.5 w-3.5" />}
                   {creating ? "Expidiendo…" : "Expedir y abrir para imprimir"}
@@ -467,9 +467,9 @@ function CertificadosPage() {
               <p
                 className="text-[12.5px] rounded-xl p-3"
                 style={{
-                  background: "rgba(255,185,88,0.10)",
-                  color: "#ffb958",
-                  border: "1px solid rgba(255,185,88,0.30)",
+                  background: "rgb(var(--warn-rgb) / 0.1)",
+                  color: "var(--warn-text)",
+                  border: "1px solid rgb(var(--warn-rgb) / 0.3)",
                 }}
               >
                 {notice}
@@ -479,12 +479,12 @@ function CertificadosPage() {
               <div
                 className="flex flex-wrap items-center gap-3 rounded-xl p-3"
                 style={{
-                  background: "rgba(76,214,160,0.08)",
-                  border: "1px solid rgba(76,214,160,0.30)",
+                  background: "rgb(var(--ok-rgb) / 0.08)",
+                  border: "1px solid rgb(var(--ok-rgb) / 0.3)",
                 }}
               >
-                <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: "#4cd6a0" }} />
-                <span className="text-[12.5px] flex-1" style={{ color: "#4cd6a0" }}>
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: "var(--ok-text)" }} />
+                <span className="text-[12.5px] flex-1" style={{ color: "var(--ok-text)" }}>
                   Certificado expedido correctamente.
                 </span>
                 <a
@@ -492,7 +492,7 @@ function CertificadosPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-1.5"
-                  style={{ background: "#4cd6a0", color: "#0a0a0a" }}
+                  style={{ background: "var(--ok)", color: "#0a0a0a" }}
                 >
                   <Printer className="h-3.5 w-3.5" />
                   Abrir para imprimir
@@ -500,7 +500,7 @@ function CertificadosPage() {
               </div>
             )}
             {actionError && (
-              <p className="text-[12px]" style={{ color: "#ff8585" }}>
+              <p className="text-[12px]" style={{ color: "var(--danger-text)" }}>
                 {actionError}
               </p>
             )}
@@ -508,11 +508,11 @@ function CertificadosPage() {
             {/* List */}
             {certs.length === 0 ? (
               <div className="rounded-2xl p-10 text-center" style={card}>
-                <BadgeCheck className="h-8 w-8 mx-auto mb-3" style={{ color: "rgba(246,245,247,0.25)" }} />
-                <p className="text-[14px] mb-1" style={{ color: "rgba(246,245,247,0.70)" }}>
+                <BadgeCheck className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
+                <p className="text-[14px] mb-1" style={{ color: "var(--ink-2)" }}>
                   Aún no has expedido certificados en esta propiedad
                 </p>
-                <p className="text-[12.5px]" style={{ color: "rgba(246,245,247,0.40)" }}>
+                <p className="text-[12.5px]" style={{ color: "var(--ink-3)" }}>
                   Cada certificado incluye un código QR público de verificación anti-fraude.
                 </p>
               </div>
@@ -527,9 +527,9 @@ function CertificadosPage() {
                         style={{
                           ...monoLabel,
                           fontSize: 9.5,
-                          background: c.type === "paz_y_salvo" ? "rgba(76,214,160,0.10)" : "rgba(95,180,255,0.10)",
-                          color: c.type === "paz_y_salvo" ? "#4cd6a0" : "#5fb4ff",
-                          border: `1px solid ${c.type === "paz_y_salvo" ? "rgba(76,214,160,0.30)" : "rgba(95,180,255,0.30)"}`,
+                          background: c.type === "paz_y_salvo" ? "rgb(var(--ok-rgb) / 0.1)" : "rgb(var(--info-rgb) / 0.1)",
+                          color: c.type === "paz_y_salvo" ? "var(--ok)" : "var(--info)",
+                          border: `1px solid ${c.type === "paz_y_salvo" ? "rgb(var(--ok-rgb) / 0.3)" : "rgb(var(--info-rgb) / 0.3)"}`,
                         }}
                       >
                         {TYPE_LABELS[c.type] || c.type}
@@ -538,13 +538,13 @@ function CertificadosPage() {
                         <p
                           className="text-[13.5px] font-medium"
                           style={{
-                            color: revoked ? "rgba(246,245,247,0.40)" : "#f6f5f7",
+                            color: revoked ? "var(--ink-3)" : "var(--ink)",
                             textDecoration: revoked ? "line-through" : "none",
                           }}
                         >
                           {c.unitLabel} · {c.recipientName}
                         </p>
-                        <p style={{ ...monoMini, color: "rgba(246,245,247,0.38)" }}>
+                        <p style={{ ...monoMini, color: "var(--ink-3)" }}>
                           {new Date(c.createdAt).toLocaleDateString("es-CO", {
                             day: "2-digit",
                             month: "short",
@@ -553,7 +553,7 @@ function CertificadosPage() {
                           {" · "}
                           {c.verifyCode}
                           {revoked && (
-                            <span style={{ color: "#ff8585" }}> · REVOCADO</span>
+                            <span style={{ color: "var(--danger-text)" }}> · REVOCADO</span>
                           )}
                         </p>
                       </div>
@@ -563,7 +563,7 @@ function CertificadosPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-2 rounded-lg transition-colors hover:bg-white/[0.06]"
-                          style={{ color: "rgba(246,245,247,0.55)" }}
+                          style={{ color: "var(--ink-2)" }}
                           title="Imprimir / PDF"
                         >
                           <Printer className="h-4 w-4" />
@@ -571,7 +571,7 @@ function CertificadosPage() {
                         <button
                           onClick={() => copyVerifyLink(c)}
                           className="p-2 rounded-lg transition-colors cursor-pointer hover:bg-white/[0.06]"
-                          style={{ color: copied === c.id ? "#4cd6a0" : "rgba(246,245,247,0.55)" }}
+                          style={{ color: copied === c.id ? "var(--ok)" : "var(--ink-2)" }}
                           title="Copiar enlace de verificación"
                         >
                           {copied === c.id ? <CheckCircle2 className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
@@ -580,7 +580,7 @@ function CertificadosPage() {
                           onClick={() => toggleRevoke(c)}
                           disabled={busyId === c.id}
                           className="p-2 rounded-lg transition-colors cursor-pointer hover:bg-white/[0.06]"
-                          style={{ color: revoked ? "#4cd6a0" : "#ff8585" }}
+                          style={{ color: revoked ? "var(--ok-text)" : "var(--danger)" }}
                           title={revoked ? "Restaurar" : "Revocar"}
                         >
                           {busyId === c.id ? (

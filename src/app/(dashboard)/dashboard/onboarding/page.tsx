@@ -165,9 +165,9 @@ export default function OnboardingPage() {
 
   /* ── shared input style ── */
   const inputBase: React.CSSProperties = {
-    background: "#1d1d24",
+    background: "var(--surface-3)",
     border: "1px solid var(--hifi-hairline)",
-    color: "#f6f5f7",
+    color: "var(--ink)",
     fontFamily: "'Geist', system-ui, sans-serif",
     borderRadius: 10,
     fontSize: 14,
@@ -178,11 +178,11 @@ export default function OnboardingPage() {
   };
 
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    e.currentTarget.style.border = "1px solid rgba(124,92,255,0.50)";
-    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.12)";
+    e.currentTarget.style.border = "1px solid rgb(var(--accent-rgb) / 0.5)";
+    e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.12)";
   };
   const handleInputBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+    e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
     e.currentTarget.style.boxShadow = "none";
   };
 
@@ -196,7 +196,7 @@ export default function OnboardingPage() {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
-      style={{ background: "#0a0a0a" }}
+      style={{ background: "var(--surface-0)" }}
     >
       {/* Background orbs */}
       <div
@@ -207,7 +207,7 @@ export default function OnboardingPage() {
           top: "-20%",
           left: "-10%",
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(124,92,255,0.12) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgb(var(--accent-rgb) / 0.12) 0%, transparent 70%)",
           filter: "blur(60px)",
         }}
       />
@@ -219,7 +219,7 @@ export default function OnboardingPage() {
           bottom: "-15%",
           right: "-8%",
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(95,180,255,0.08) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgb(var(--info-rgb) / 0.08) 0%, transparent 70%)",
           filter: "blur(60px)",
           animationDelay: "-9s",
         }}
@@ -235,8 +235,8 @@ export default function OnboardingPage() {
             style={{
               width: 44,
               height: 44,
-              background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
-              boxShadow: "0 0 28px rgba(124,92,255,0.30)",
+              background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
+              boxShadow: "0 0 28px rgb(var(--accent-rgb) / 0.3)",
               flexShrink: 0,
             }}
           >
@@ -260,12 +260,12 @@ export default function OnboardingPage() {
               fontWeight: 500,
               fontSize: 18,
               letterSpacing: "-0.02em",
-              color: "#f6f5f7",
+              color: "var(--ink)",
             }}
           >
             SOPH
-            <span style={{ color: "rgba(246,245,247,0.35)" }}>.</span>
-            <span style={{ color: "#7c5cff" }}>IA</span>
+            <span style={{ color: "var(--ink-4)" }}>.</span>
+            <span style={{ color: "var(--accent-text)" }}>IA</span>
           </span>
 
           {/* Step indicator */}
@@ -275,7 +275,7 @@ export default function OnboardingPage() {
               fontSize: 10,
               letterSpacing: "0.16em",
               textTransform: "uppercase",
-              color: "rgba(246,245,247,0.42)",
+              color: "var(--ink-3)",
             }}
           >
             Paso {step} de {TOTAL_STEPS} &mdash; {stepLabels[step - 1]}
@@ -287,7 +287,7 @@ export default function OnboardingPage() {
           style={{
             height: 2,
             borderRadius: 2,
-            background: "rgba(255,255,255,0.07)",
+            background: "rgb(var(--veil-rgb) / 0.07)",
             overflow: "hidden",
           }}
         >
@@ -295,7 +295,7 @@ export default function OnboardingPage() {
             style={{
               height: "100%",
               borderRadius: 2,
-              background: "linear-gradient(90deg, #7c5cff, #9a7fff)",
+              background: "linear-gradient(90deg, var(--accent), var(--accent-hi))",
               width: `${(step / TOTAL_STEPS) * 100}%`,
               transition: "width 0.4s cubic-bezier(0.16,1,0.3,1)",
             }}
@@ -307,9 +307,9 @@ export default function OnboardingPage() {
           <div
             className="rounded-2xl p-8 hifi-ring-glow"
             style={{
-              background: "linear-gradient(145deg, #15151a 0%, #18181f 100%)",
+              background: "linear-gradient(145deg, var(--surface-2) 0%, var(--surface-2) 100%)",
               border: "1px solid var(--hifi-hairline)",
-              boxShadow: "0 0 60px rgba(124,92,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
+              boxShadow: "0 0 60px rgb(var(--accent-rgb) / 0.06), inset 0 1px 0 rgb(var(--veil-rgb) / 0.05)",
             }}
           >
             {/* Eyebrow */}
@@ -320,7 +320,7 @@ export default function OnboardingPage() {
                 fontSize: 10,
                 letterSpacing: "0.16em",
                 textTransform: "uppercase",
-                color: "rgba(246,245,247,0.42)",
+                color: "var(--ink-3)",
               }}
             >
               Bienvenido
@@ -334,7 +334,7 @@ export default function OnboardingPage() {
                 fontWeight: 500,
                 fontSize: 32,
                 letterSpacing: "-0.025em",
-                color: "#f6f5f7",
+                color: "var(--ink)",
                 lineHeight: 1.1,
               }}
             >
@@ -342,7 +342,7 @@ export default function OnboardingPage() {
             </h1>
             <p
               className="mb-8"
-              style={{ fontSize: 14, color: "rgba(246,245,247,0.66)", lineHeight: 1.6 }}
+              style={{ fontSize: 14, color: "var(--ink-2)", lineHeight: 1.6 }}
             >
               Personaliza tu experiencia en SOPH.IA con tu informacion profesional.
             </p>
@@ -357,7 +357,7 @@ export default function OnboardingPage() {
                     fontSize: 10,
                     letterSpacing: "0.12em",
                     textTransform: "uppercase",
-                    color: "rgba(246,245,247,0.42)",
+                    color: "var(--ink-3)",
                   }}
                 >
                   Nombre completo *
@@ -382,7 +382,7 @@ export default function OnboardingPage() {
                     fontSize: 10,
                     letterSpacing: "0.12em",
                     textTransform: "uppercase",
-                    color: "rgba(246,245,247,0.42)",
+                    color: "var(--ink-3)",
                   }}
                 >
                   Cargo *
@@ -410,7 +410,7 @@ export default function OnboardingPage() {
                     fontSize: 10,
                     letterSpacing: "0.12em",
                     textTransform: "uppercase",
-                    color: "rgba(246,245,247,0.42)",
+                    color: "var(--ink-3)",
                   }}
                 >
                   Empresa / Razon Social
@@ -436,7 +436,7 @@ export default function OnboardingPage() {
                       fontSize: 10,
                       letterSpacing: "0.12em",
                       textTransform: "uppercase",
-                      color: "rgba(246,245,247,0.42)",
+                      color: "var(--ink-3)",
                     }}
                   >
                     Telefono
@@ -459,7 +459,7 @@ export default function OnboardingPage() {
                       fontSize: 10,
                       letterSpacing: "0.12em",
                       textTransform: "uppercase",
-                      color: "rgba(246,245,247,0.42)",
+                      color: "var(--ink-3)",
                     }}
                   >
                     Ciudad
@@ -482,8 +482,8 @@ export default function OnboardingPage() {
               disabled={!name.trim() || !cargo}
               className="w-full mt-8 flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               style={{
-                background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
-                boxShadow: "0 4px 20px rgba(124,92,255,0.25)",
+                background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
+                boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.25)",
                 fontSize: 14,
                 fontWeight: 600,
                 color: "#fff",
@@ -501,9 +501,9 @@ export default function OnboardingPage() {
           <div
             className="rounded-2xl p-8 hifi-ring-glow"
             style={{
-              background: "linear-gradient(145deg, #15151a 0%, #18181f 100%)",
+              background: "linear-gradient(145deg, var(--surface-2) 0%, var(--surface-2) 100%)",
               border: "1px solid var(--hifi-hairline)",
-              boxShadow: "0 0 60px rgba(124,92,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
+              boxShadow: "0 0 60px rgb(var(--accent-rgb) / 0.06), inset 0 1px 0 rgb(var(--veil-rgb) / 0.05)",
             }}
           >
             <p
@@ -513,7 +513,7 @@ export default function OnboardingPage() {
                 fontSize: 10,
                 letterSpacing: "0.16em",
                 textTransform: "uppercase",
-                color: "rgba(246,245,247,0.42)",
+                color: "var(--ink-3)",
               }}
             >
               Bienvenido
@@ -525,7 +525,7 @@ export default function OnboardingPage() {
                 fontWeight: 500,
                 fontSize: 32,
                 letterSpacing: "-0.025em",
-                color: "#f6f5f7",
+                color: "var(--ink)",
                 lineHeight: 1.1,
               }}
             >
@@ -533,7 +533,7 @@ export default function OnboardingPage() {
             </h1>
             <p
               className="mb-8"
-              style={{ fontSize: 14, color: "rgba(246,245,247,0.66)", lineHeight: 1.6 }}
+              style={{ fontSize: 14, color: "var(--ink-2)", lineHeight: 1.6 }}
             >
               Agrega el conjunto o edificio que administras. Podras agregar mas desde el panel.
             </p>
@@ -547,7 +547,7 @@ export default function OnboardingPage() {
                     fontSize: 10,
                     letterSpacing: "0.12em",
                     textTransform: "uppercase",
-                    color: "rgba(246,245,247,0.42)",
+                    color: "var(--ink-3)",
                   }}
                 >
                   Nombre del conjunto / edificio *
@@ -571,7 +571,7 @@ export default function OnboardingPage() {
                     fontSize: 10,
                     letterSpacing: "0.12em",
                     textTransform: "uppercase",
-                    color: "rgba(246,245,247,0.42)",
+                    color: "var(--ink-3)",
                   }}
                 >
                   Direccion
@@ -596,7 +596,7 @@ export default function OnboardingPage() {
                       fontSize: 10,
                       letterSpacing: "0.12em",
                       textTransform: "uppercase",
-                      color: "rgba(246,245,247,0.42)",
+                      color: "var(--ink-3)",
                     }}
                   >
                     Ciudad
@@ -619,7 +619,7 @@ export default function OnboardingPage() {
                       fontSize: 10,
                       letterSpacing: "0.12em",
                       textTransform: "uppercase",
-                      color: "rgba(246,245,247,0.42)",
+                      color: "var(--ink-3)",
                     }}
                   >
                     Num. unidades
@@ -641,23 +641,23 @@ export default function OnboardingPage() {
             {propName.trim() && (
               <div
                 className="mt-6 pt-5 space-y-3"
-                style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+                style={{ borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)" }}
               >
                 <div className="flex items-center gap-2 mb-3">
-                  <BookOpen className="h-4 w-4" style={{ color: "#7c5cff" }} />
+                  <BookOpen className="h-4 w-4" style={{ color: "var(--accent-text)" }} />
                   <span
                     style={{
                       fontFamily: "'Geist Mono', ui-monospace, monospace",
                       fontSize: 10,
                       letterSpacing: "0.12em",
                       textTransform: "uppercase",
-                      color: "rgba(246,245,247,0.42)",
+                      color: "var(--ink-3)",
                     }}
                   >
                     Documentos de la propiedad
                   </span>
                 </div>
-                <p style={{ fontSize: 12, color: "rgba(246,245,247,0.42)", lineHeight: 1.6 }}>
+                <p style={{ fontSize: 12, color: "var(--ink-3)", lineHeight: 1.6 }}>
                   Sube el manual de convivencia y reglamento interno. La IA los usara como contexto para generar informes mas precisos.
                 </p>
 
@@ -666,34 +666,34 @@ export default function OnboardingPage() {
                   <label
                     className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-150"
                     style={{
-                      border: "1px dashed rgba(255,255,255,0.10)",
+                      border: "1px dashed rgb(var(--veil-rgb) / 0.1)",
                       background: "transparent",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(124,92,255,0.30)";
-                      e.currentTarget.style.background = "rgba(124,92,255,0.05)";
+                      e.currentTarget.style.borderColor = "rgb(var(--accent-rgb) / 0.3)";
+                      e.currentTarget.style.background = "rgb(var(--accent-rgb) / 0.05)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)";
+                      e.currentTarget.style.borderColor = "rgb(var(--veil-rgb) / 0.1)";
                       e.currentTarget.style.background = "transparent";
                     }}
                   >
-                    <Shield className="h-5 w-5 flex-shrink-0" style={{ color: "#7c5cff" }} />
+                    <Shield className="h-5 w-5 flex-shrink-0" style={{ color: "var(--accent-text)" }} />
                     <div className="flex-1 min-w-0">
                       {manualFile ? (
                         <div className="flex items-center gap-2">
-                          <span style={{ fontSize: 13, color: "#9a7fff" }} className="truncate">{manualFile.name}</span>
+                          <span style={{ fontSize: 13, color: "var(--accent-text)" }} className="truncate">{manualFile.name}</span>
                           <button
                             onClick={(e) => { e.preventDefault(); setManualFile(null); }}
                             className="p-0.5 rounded hover:opacity-70 transition-opacity"
                           >
-                            <X className="h-3 w-3" style={{ color: "rgba(246,245,247,0.4)" }} />
+                            <X className="h-3 w-3" style={{ color: "var(--ink-3)" }} />
                           </button>
                         </div>
                       ) : (
                         <>
-                          <span style={{ fontSize: 13, color: "rgba(246,245,247,0.66)", fontWeight: 500 }}>Manual de Convivencia</span>
-                          <span className="block" style={{ fontSize: 11, color: "rgba(246,245,247,0.35)" }}>PDF o Word</span>
+                          <span style={{ fontSize: 13, color: "var(--ink-2)", fontWeight: 500 }}>Manual de Convivencia</span>
+                          <span className="block" style={{ fontSize: 11, color: "var(--ink-4)" }}>PDF o Word</span>
                         </>
                       )}
                     </div>
@@ -709,34 +709,34 @@ export default function OnboardingPage() {
                   <label
                     className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-150"
                     style={{
-                      border: "1px dashed rgba(255,255,255,0.10)",
+                      border: "1px dashed rgb(var(--veil-rgb) / 0.1)",
                       background: "transparent",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(76,214,160,0.30)";
-                      e.currentTarget.style.background = "rgba(76,214,160,0.05)";
+                      e.currentTarget.style.borderColor = "rgb(var(--ok-rgb) / 0.3)";
+                      e.currentTarget.style.background = "rgb(var(--ok-rgb) / 0.05)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)";
+                      e.currentTarget.style.borderColor = "rgb(var(--veil-rgb) / 0.1)";
                       e.currentTarget.style.background = "transparent";
                     }}
                   >
-                    <FileText className="h-5 w-5 flex-shrink-0" style={{ color: "#4cd6a0" }} />
+                    <FileText className="h-5 w-5 flex-shrink-0" style={{ color: "var(--ok-text)" }} />
                     <div className="flex-1 min-w-0">
                       {reglamentoFile ? (
                         <div className="flex items-center gap-2">
-                          <span style={{ fontSize: 13, color: "#4cd6a0" }} className="truncate">{reglamentoFile.name}</span>
+                          <span style={{ fontSize: 13, color: "var(--ok-text)" }} className="truncate">{reglamentoFile.name}</span>
                           <button
                             onClick={(e) => { e.preventDefault(); setReglamentoFile(null); }}
                             className="p-0.5 rounded hover:opacity-70 transition-opacity"
                           >
-                            <X className="h-3 w-3" style={{ color: "rgba(246,245,247,0.4)" }} />
+                            <X className="h-3 w-3" style={{ color: "var(--ink-3)" }} />
                           </button>
                         </div>
                       ) : (
                         <>
-                          <span style={{ fontSize: 13, color: "rgba(246,245,247,0.66)", fontWeight: 500 }}>Reglamento Interno</span>
-                          <span className="block" style={{ fontSize: 11, color: "rgba(246,245,247,0.35)" }}>PDF o Word</span>
+                          <span style={{ fontSize: 13, color: "var(--ink-2)", fontWeight: 500 }}>Reglamento Interno</span>
+                          <span className="block" style={{ fontSize: 11, color: "var(--ink-4)" }}>PDF o Word</span>
                         </>
                       )}
                     </div>
@@ -749,7 +749,7 @@ export default function OnboardingPage() {
                   </label>
                 </div>
 
-                <p style={{ fontSize: 11, color: "rgba(246,245,247,0.28)", fontStyle: "italic" }}>
+                <p style={{ fontSize: 11, color: "var(--ink-4)", fontStyle: "italic" }}>
                   Opcional &mdash; puedes subirlos despues desde Propiedades.
                 </p>
               </div>
@@ -761,10 +761,10 @@ export default function OnboardingPage() {
                 className="flex items-center gap-2 rounded-xl px-5 py-3 transition-all duration-150 hover:opacity-80 active:scale-[0.98] cursor-pointer"
                 style={{
                   background: "transparent",
-                  border: "1px solid rgba(255,255,255,0.10)",
+                  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
                   fontSize: 14,
                   fontWeight: 500,
-                  color: "rgba(246,245,247,0.66)",
+                  color: "var(--ink-2)",
                 }}
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -775,8 +775,8 @@ export default function OnboardingPage() {
                 disabled={!propName.trim()}
                 className="flex-1 flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 style={{
-                  background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
-                  boxShadow: "0 4px 20px rgba(124,92,255,0.25)",
+                  background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
+                  boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.25)",
                   fontSize: 14,
                   fontWeight: 600,
                   color: "#fff",
@@ -799,7 +799,7 @@ export default function OnboardingPage() {
                 setStep(3);
               }}
               className="w-full mt-3 text-center transition-colors"
-              style={{ fontSize: 12, color: "rgba(246,245,247,0.35)" }}
+              style={{ fontSize: 12, color: "var(--ink-4)" }}
             >
               Omitir por ahora
             </button>
@@ -811,9 +811,9 @@ export default function OnboardingPage() {
           <div
             className="rounded-2xl p-8 hifi-ring-glow"
             style={{
-              background: "linear-gradient(145deg, #15151a 0%, #18181f 100%)",
+              background: "linear-gradient(145deg, var(--surface-2) 0%, var(--surface-2) 100%)",
               border: "1px solid var(--hifi-hairline)",
-              boxShadow: "0 0 60px rgba(124,92,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
+              boxShadow: "0 0 60px rgb(var(--accent-rgb) / 0.06), inset 0 1px 0 rgb(var(--veil-rgb) / 0.05)",
             }}
           >
             <p
@@ -823,7 +823,7 @@ export default function OnboardingPage() {
                 fontSize: 10,
                 letterSpacing: "0.16em",
                 textTransform: "uppercase",
-                color: "rgba(246,245,247,0.42)",
+                color: "var(--ink-3)",
               }}
             >
               Bienvenido
@@ -835,7 +835,7 @@ export default function OnboardingPage() {
                 fontWeight: 500,
                 fontSize: 32,
                 letterSpacing: "-0.025em",
-                color: "#f6f5f7",
+                color: "var(--ink)",
                 lineHeight: 1.1,
               }}
             >
@@ -843,7 +843,7 @@ export default function OnboardingPage() {
             </h1>
             <p
               className="mb-8"
-              style={{ fontSize: 14, color: "rgba(246,245,247,0.66)", lineHeight: 1.6 }}
+              style={{ fontSize: 14, color: "var(--ink-2)", lineHeight: 1.6 }}
             >
               Genera documentos profesionales en minutos con el poder de la IA.
             </p>
@@ -852,36 +852,36 @@ export default function OnboardingPage() {
               {[
                 {
                   icon: Upload,
-                  color: "#5fb4ff",
-                  bg: "rgba(95,180,255,0.10)",
+                  color: "var(--info-text)",
+                  bg: "rgb(var(--info-rgb) / 0.1)",
                   title: "1. Sube tus insumos",
                   desc: "Carga actas, estados financieros, grabaciones de juntas, fotos y cualquier documento relevante. La IA extrae la informacion automaticamente.",
                 },
                 {
                   icon: ClipboardList,
-                  color: "#7c5cff",
-                  bg: "rgba(124,92,255,0.10)",
+                  color: "var(--accent-text)",
+                  bg: "rgb(var(--accent-rgb) / 0.1)",
                   title: "2. Selecciona que generar",
                   desc: "Elige los documentos que necesitas: Informe de Gestion, Acta Legal y/o Presentacion PPTX. Todos son opcionales.",
                 },
                 {
                   icon: Wand2,
-                  color: "#9a7fff",
+                  color: "var(--accent-text)",
                   bg: "rgba(154,127,255,0.10)",
                   title: "3. La IA genera tus documentos",
                   desc: "SOPH.IA analiza los insumos y genera documentos profesionales con estructura legal colombiana (Ley 675).",
                 },
                 {
                   icon: MessageSquare,
-                  color: "#4cd6a0",
-                  bg: "rgba(76,214,160,0.10)",
+                  color: "var(--ok-text)",
+                  bg: "rgb(var(--ok-rgb) / 0.1)",
                   title: "4. Revisa y corrige con IA",
                   desc: "Revisa el resultado, solicita correcciones en lenguaje natural y sube archivos adicionales si falta informacion.",
                 },
                 {
                   icon: Download,
-                  color: "#ffb958",
-                  bg: "rgba(255,185,88,0.10)",
+                  color: "var(--warn-text)",
+                  bg: "rgb(var(--warn-rgb) / 0.1)",
                   title: "5. Descarga y comparte",
                   desc: "Descarga tus documentos en PDF y PPTX, listos para presentar en la asamblea o entregar al consejo.",
                 },
@@ -899,8 +899,8 @@ export default function OnboardingPage() {
                     <item.icon className="h-4 w-4" style={{ color: item.color }} />
                   </div>
                   <div className="min-w-0">
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "#f6f5f7" }}>{item.title}</p>
-                    <p style={{ fontSize: 12, color: "rgba(246,245,247,0.55)", marginTop: 3, lineHeight: 1.6 }}>{item.desc}</p>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{item.title}</p>
+                    <p style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 3, lineHeight: 1.6 }}>{item.desc}</p>
                   </div>
                 </div>
               ))}
@@ -912,10 +912,10 @@ export default function OnboardingPage() {
                 className="flex items-center gap-2 rounded-xl px-5 py-3 transition-all duration-150 hover:opacity-80 active:scale-[0.98] cursor-pointer"
                 style={{
                   background: "transparent",
-                  border: "1px solid rgba(255,255,255,0.10)",
+                  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
                   fontSize: 14,
                   fontWeight: 500,
-                  color: "rgba(246,245,247,0.66)",
+                  color: "var(--ink-2)",
                 }}
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -925,8 +925,8 @@ export default function OnboardingPage() {
                 onClick={() => setStep(4)}
                 className="flex-1 flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] cursor-pointer"
                 style={{
-                  background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
-                  boxShadow: "0 4px 20px rgba(124,92,255,0.25)",
+                  background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
+                  boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.25)",
                   fontSize: 14,
                   fontWeight: 600,
                   color: "#fff",
@@ -944,9 +944,9 @@ export default function OnboardingPage() {
           <div
             className="rounded-2xl p-8 hifi-ring-glow"
             style={{
-              background: "linear-gradient(145deg, #15151a 0%, #18181f 100%)",
+              background: "linear-gradient(145deg, var(--surface-2) 0%, var(--surface-2) 100%)",
               border: "1px solid var(--hifi-hairline)",
-              boxShadow: "0 0 60px rgba(124,92,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
+              boxShadow: "0 0 60px rgb(var(--accent-rgb) / 0.06), inset 0 1px 0 rgb(var(--veil-rgb) / 0.05)",
             }}
           >
             {/* Icon */}
@@ -955,8 +955,8 @@ export default function OnboardingPage() {
               style={{
                 width: 64,
                 height: 64,
-                background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
-                boxShadow: "0 0 40px rgba(124,92,255,0.30)",
+                background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
+                boxShadow: "0 0 40px rgb(var(--accent-rgb) / 0.3)",
               }}
             >
               <Check className="h-8 w-8" style={{ color: "#fff" }} />
@@ -969,7 +969,7 @@ export default function OnboardingPage() {
                 fontSize: 10,
                 letterSpacing: "0.16em",
                 textTransform: "uppercase",
-                color: "rgba(246,245,247,0.42)",
+                color: "var(--ink-3)",
               }}
             >
               Configuracion completa
@@ -982,14 +982,14 @@ export default function OnboardingPage() {
                 fontWeight: 500,
                 fontSize: 32,
                 letterSpacing: "-0.025em",
-                color: "#f6f5f7",
+                color: "var(--ink)",
               }}
             >
               Todo listo.
             </h1>
             <p
               className="text-center mb-8"
-              style={{ fontSize: 14, color: "rgba(246,245,247,0.66)", lineHeight: 1.6, maxWidth: 360, margin: "0 auto 32px" }}
+              style={{ fontSize: 14, color: "var(--ink-2)", lineHeight: 1.6, maxWidth: 360, margin: "0 auto 32px" }}
             >
               Tu cuenta esta configurada. Ya puedes empezar a generar informes de gestion,
               actas legales y presentaciones con inteligencia artificial.
@@ -999,7 +999,7 @@ export default function OnboardingPage() {
             <div
               className="rounded-xl p-5 mb-6 space-y-3"
               style={{
-                background: "#1d1d24",
+                background: "var(--surface-3)",
                 border: "1px solid var(--hifi-hairline)",
               }}
             >
@@ -1009,15 +1009,15 @@ export default function OnboardingPage() {
                   style={{
                     width: 32,
                     height: 32,
-                    background: "rgba(124,92,255,0.10)",
-                    border: "1px solid rgba(124,92,255,0.20)",
+                    background: "rgb(var(--accent-rgb) / 0.1)",
+                    border: "1px solid rgb(var(--accent-rgb) / 0.2)",
                   }}
                 >
-                  <User className="h-4 w-4" style={{ color: "#7c5cff" }} />
+                  <User className="h-4 w-4" style={{ color: "var(--accent-text)" }} />
                 </div>
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 500, color: "#f6f5f7" }}>{name}</p>
-                  <p style={{ fontSize: 11, color: "rgba(246,245,247,0.42)" }}>{cargo}</p>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{name}</p>
+                  <p style={{ fontSize: 11, color: "var(--ink-3)" }}>{cargo}</p>
                 </div>
               </div>
               {propName && (
@@ -1027,15 +1027,15 @@ export default function OnboardingPage() {
                     style={{
                       width: 32,
                       height: 32,
-                      background: "rgba(76,214,160,0.10)",
-                      border: "1px solid rgba(76,214,160,0.20)",
+                      background: "rgb(var(--ok-rgb) / 0.1)",
+                      border: "1px solid rgb(var(--ok-rgb) / 0.2)",
                     }}
                   >
-                    <Building className="h-4 w-4" style={{ color: "#4cd6a0" }} />
+                    <Building className="h-4 w-4" style={{ color: "var(--ok-text)" }} />
                   </div>
                   <div>
-                    <p style={{ fontSize: 13, fontWeight: 500, color: "#f6f5f7" }}>{propName}</p>
-                    <p style={{ fontSize: 11, color: "rgba(246,245,247,0.42)" }}>{propCity || "Sin ciudad"} &mdash; {propUnits || "?"} unidades</p>
+                    <p style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{propName}</p>
+                    <p style={{ fontSize: 11, color: "var(--ink-3)" }}>{propCity || "Sin ciudad"} &mdash; {propUnits || "?"} unidades</p>
                   </div>
                 </div>
               )}
@@ -1045,12 +1045,12 @@ export default function OnboardingPage() {
               <div
                 className="rounded-xl px-4 py-3 mb-4 flex items-start gap-2.5"
                 style={{
-                  background: "rgba(255,111,111,0.08)",
-                  border: "1px solid rgba(255,111,111,0.3)",
+                  background: "rgb(var(--danger-rgb) / 0.08)",
+                  border: "1px solid rgb(var(--danger-rgb) / 0.3)",
                 }}
               >
-                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "#ff6f6f" }} />
-                <p style={{ fontSize: 13, color: "#ff6f6f", lineHeight: 1.5 }}>{error}</p>
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "var(--danger-text)" }} />
+                <p style={{ fontSize: 13, color: "var(--danger-text)", lineHeight: 1.5 }}>{error}</p>
               </div>
             )}
 
@@ -1058,12 +1058,12 @@ export default function OnboardingPage() {
               <div
                 className="rounded-xl px-4 py-3 mb-4 flex items-start gap-2.5"
                 style={{
-                  background: "rgba(255,185,88,0.08)",
-                  border: "1px solid rgba(255,185,88,0.3)",
+                  background: "rgb(var(--warn-rgb) / 0.08)",
+                  border: "1px solid rgb(var(--warn-rgb) / 0.3)",
                 }}
               >
-                <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "#ffb958" }} />
-                <p style={{ fontSize: 13, color: "#ffb958", lineHeight: 1.5 }}>{docWarning}</p>
+                <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "var(--warn-text)" }} />
+                <p style={{ fontSize: 13, color: "var(--warn-text)", lineHeight: 1.5 }}>{docWarning}</p>
               </div>
             )}
 
@@ -1073,10 +1073,10 @@ export default function OnboardingPage() {
                 className="flex items-center gap-2 rounded-xl px-5 py-3 transition-all duration-150 hover:opacity-80 active:scale-[0.98] cursor-pointer"
                 style={{
                   background: "transparent",
-                  border: "1px solid rgba(255,255,255,0.10)",
+                  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
                   fontSize: 14,
                   fontWeight: 500,
-                  color: "rgba(246,245,247,0.66)",
+                  color: "var(--ink-2)",
                 }}
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -1087,8 +1087,8 @@ export default function OnboardingPage() {
                 disabled={loading}
                 className="flex-1 flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 style={{
-                  background: "linear-gradient(135deg, #7c5cff 0%, #5a3cf0 100%)",
-                  boxShadow: "0 4px 20px rgba(124,92,255,0.25)",
+                  background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
+                  boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.25)",
                   fontSize: 14,
                   fontWeight: 600,
                   color: "#fff",
@@ -1115,7 +1115,7 @@ export default function OnboardingPage() {
             fontSize: 9,
             letterSpacing: "0.20em",
             textTransform: "uppercase",
-            color: "rgba(246,245,247,0.15)",
+            color: "var(--ink-4)",
             userSelect: "none",
           }}
         >

@@ -8,21 +8,21 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          "border-transparent bg-[#7c5cff] text-white",
+          "border-transparent bg-[var(--accent)] text-white",
         secondary:
           "border-border bg-secondary text-secondary-foreground",
         destructive:
-          "border-transparent bg-[#ff6f6f]/15 text-[#ff6f6f] border-[#ff6f6f]/30",
+          "border-transparent bg-[var(--danger)]/15 text-[var(--danger)] border-[var(--danger)]/30",
         outline:
           "border-border text-muted-foreground bg-transparent",
         accent:
-          "bg-[rgba(124,92,255,0.10)] text-[#9a7fff] border-[rgba(124,92,255,0.40)]",
+          "bg-[rgb(var(--accent-rgb) / 0.1)] text-[var(--accent-hi)] border-[rgb(var(--accent-rgb) / 0.4)]",
         ok:
-          "bg-[rgba(76,214,160,0.10)] text-[#4cd6a0] border-[rgba(76,214,160,0.30)]",
+          "bg-[rgb(var(--ok-rgb) / 0.1)] text-[var(--ok)] border-[rgb(var(--ok-rgb) / 0.3)]",
         warn:
-          "bg-[rgba(255,185,88,0.10)] text-[#ffb958] border-[rgba(255,185,88,0.30)]",
+          "bg-[rgb(var(--warn-rgb) / 0.1)] text-[var(--warn)] border-[rgb(var(--warn-rgb) / 0.3)]",
         legal:
-          "bg-[rgba(244,199,128,0.10)] text-[#f4c780] border-[rgba(244,199,128,0.30)]",
+          "bg-[rgb(var(--legal-rgb) / 0.10)] text-[var(--legal)] border-[rgb(var(--legal-rgb) / 0.30)]",
       },
     },
     defaultVariants: {

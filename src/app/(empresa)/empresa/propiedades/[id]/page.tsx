@@ -77,7 +77,7 @@ export default async function PropertyDetailPage({
             <Link
               href="/dashboard/generar"
               className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold text-white transition-all hover:opacity-90"
-              style={{ background: "#7c5cff", boxShadow: "0 4px 20px rgba(124,92,255,0.35)" }}
+              style={{ background: "var(--accent)", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.35)" }}
             >
               <FilePlus2 className="h-4 w-4" />
               Generar informe
@@ -106,7 +106,7 @@ export default async function PropertyDetailPage({
           {property.documents.length === 0 ? (
             <p className="px-5 py-8 text-center text-[13px] text-muted-foreground">
               Sin reglamento ni manual cargados. Puedes subirlos desde{" "}
-              <Link href="/dashboard/propiedades" className="text-[#9a7fff] hover:underline">Propiedades</Link>.
+              <Link href="/dashboard/propiedades" className="text-[var(--accent-hi)] hover:underline">Propiedades</Link>.
             </p>
           ) : (
             <ul className="divide-y divide-border">

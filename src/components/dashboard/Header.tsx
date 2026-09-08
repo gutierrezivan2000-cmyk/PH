@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { User, ChevronRight } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface HeaderProps {
   title: string;
@@ -44,6 +45,7 @@ export function Header({ title, subtitle, breadcrumbs }: HeaderProps) {
         {subtitle && <p className="text-xs sm:text-sm text-muted-foreground truncate">{subtitle}</p>}
       </div>
       <div className="hidden sm:flex items-center gap-4 flex-shrink-0">
+        <ThemeToggle />
         <div className="hidden md:flex flex-col items-end">
           <span className="text-sm font-medium text-foreground">
             {session?.user?.name}
@@ -65,9 +67,9 @@ export function Header({ title, subtitle, breadcrumbs }: HeaderProps) {
           <div
             className="h-9 w-9 rounded-xl flex items-center justify-center text-xs font-medium"
             style={{
-              background: "rgba(124,92,255,0.10)",
-              border: "1px solid rgba(124,92,255,0.30)",
-              color: "#9a7fff",
+              background: "rgb(var(--accent-rgb) / 0.1)",
+              border: "1px solid rgb(var(--accent-rgb) / 0.3)",
+              color: "var(--accent-text)",
               fontFamily: "var(--font-mono)",
             }}
           >

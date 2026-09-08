@@ -76,9 +76,14 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        {/* Anti-parpadeo: corre ANTES de pintar, así la primera imagen ya sale
+            en el tema correcto en vez de destellar en oscuro y saltar a claro.
+            Duplica a propósito la lógica de ThemeProvider porque ese componente
+            solo se ejecuta después de hidratar. Solo se mira si el dispositivo
+            pide CLARO: cualquier otra cosa cae a oscuro. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var el=document.documentElement;el.classList.add("dark");el.style.colorScheme="dark"})()`,
+            __html: `(function(){try{var el=document.documentElement;var t=null;try{t=localStorage.getItem("sophia-theme")}catch(e){}if(t!=="light"&&t!=="dark"&&t!=="auto")t="auto";var r=t==="auto"?(window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"):t;el.dataset.theme=r;el.classList.toggle("dark",r==="dark");el.style.colorScheme=r}catch(e){document.documentElement.dataset.theme="dark";document.documentElement.classList.add("dark")}})()`,
           }}
         />
       </head>

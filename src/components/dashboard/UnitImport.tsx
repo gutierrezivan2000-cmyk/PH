@@ -152,7 +152,7 @@ export function UnitImport({
           onClick={() => inputRef.current?.click()}
           disabled={parsing}
           className="inline-flex items-center gap-2 rounded-full text-[12px] font-medium px-4 py-2 transition-all disabled:opacity-60 cursor-pointer"
-          style={{ background: "rgba(124,92,255,0.14)", color: "#a78bff", border: "1px solid rgba(124,92,255,0.35)" }}
+          style={{ background: "rgb(var(--accent-rgb) / 0.14)", color: "var(--accent-text)", border: "1px solid rgb(var(--accent-rgb) / 0.35)" }}
         >
           {parsing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
           {parsing ? "Leyendo el archivo con IA…" : "Importar de archivo (Excel/PDF) con IA"}
@@ -160,24 +160,24 @@ export function UnitImport({
       )}
 
       {parsing && (
-        <p className="text-[11.5px] mt-2 flex items-center gap-1.5" style={{ color: "rgba(246,245,247,0.45)" }}>
+        <p className="text-[11.5px] mt-2 flex items-center gap-1.5" style={{ color: "var(--ink-3)" }}>
           <FileSpreadsheet className="h-3.5 w-3.5" /> {fileName}
         </p>
       )}
 
-      {error && <p className="text-[12px] mt-2" style={{ color: "#ff8585" }}>{error}</p>}
+      {error && <p className="text-[12px] mt-2" style={{ color: "var(--danger-text)" }}>{error}</p>}
 
       {preview && (
-        <div className="mt-3 rounded-xl overflow-hidden" style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgba(124,92,255,0.25)" }}>
-          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="mt-3 rounded-xl overflow-hidden" style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgb(var(--accent-rgb) / 0.25)" }}>
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgb(var(--veil-rgb) / 0.06)" }}>
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" style={{ color: "#4cd6a0" }} />
-              <span className="text-[13px] font-medium" style={{ color: "#f6f5f7" }}>
+              <CheckCircle2 className="h-4 w-4" style={{ color: "var(--ok-text)" }} />
+              <span className="text-[13px] font-medium" style={{ color: "var(--ink)" }}>
                 {preview.length} {preview.length === 1 ? "unidad detectada" : "unidades detectadas"}
               </span>
-              <span style={{ ...monoLabel, color: "rgba(246,245,247,0.40)" }}>· {withEmail} con correo</span>
+              <span style={{ ...monoLabel, color: "var(--ink-3)" }}>· {withEmail} con correo</span>
             </div>
-            <button onClick={() => { setPreview(null); setFileName(""); setNote(""); }} className="p-1 rounded cursor-pointer hover:bg-white/[0.06]" style={{ color: "rgba(246,245,247,0.45)" }}>
+            <button onClick={() => { setPreview(null); setFileName(""); setNote(""); }} className="p-1 rounded cursor-pointer hover:bg-white/[0.06]" style={{ color: "var(--ink-3)" }}>
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -185,7 +185,7 @@ export function UnitImport({
           {note && (
             <p
               className="px-4 py-2.5 text-[11.5px]"
-              style={{ background: "rgba(255,193,94,0.10)", color: "#ffc15e", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+              style={{ background: "rgba(255,193,94,0.10)", color: "#ffc15e", borderBottom: "1px solid rgb(var(--veil-rgb) / 0.06)" }}
             >
               {note}
             </p>
@@ -193,15 +193,15 @@ export function UnitImport({
 
           <div className="max-h-72 overflow-y-auto">
             {preview.map((u, i) => (
-              <div key={i} className="flex items-center gap-2 px-4 py-2" style={{ borderBottom: i < preview.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                <span className="text-[12.5px] font-medium" style={{ color: "#f6f5f7", minWidth: 90 }}>{u.label}</span>
-                <span className="flex-1 min-w-0 text-[11.5px] truncate" style={{ color: "rgba(246,245,247,0.55)" }}>
+              <div key={i} className="flex items-center gap-2 px-4 py-2" style={{ borderBottom: i < preview.length - 1 ? "1px solid rgb(var(--veil-rgb) / 0.04)" : "none" }}>
+                <span className="text-[12.5px] font-medium" style={{ color: "var(--ink)", minWidth: 90 }}>{u.label}</span>
+                <span className="flex-1 min-w-0 text-[11.5px] truncate" style={{ color: "var(--ink-2)" }}>
                   {[u.residentName, u.email, u.phone, u.coeficiente ? `${u.coeficiente}%` : null, u.monthlyFee ? `$${u.monthlyFee.toLocaleString("es-CO")}` : null].filter(Boolean).join(" · ") || "—"}
                 </span>
                 <button
                   onClick={() => setPreview((prev) => (prev ? prev.filter((_, j) => j !== i) : prev))}
                   className="p-1 rounded cursor-pointer hover:bg-white/[0.06] flex-shrink-0"
-                  style={{ color: "rgba(255,133,133,0.5)" }}
+                  style={{ color: "rgb(var(--danger-rgb) / 0.5)" }}
                   title="Quitar de la lista"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -215,12 +215,12 @@ export function UnitImport({
               onClick={confirm}
               disabled={creating || preview.length === 0}
               className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2 transition-all disabled:opacity-50 cursor-pointer"
-              style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+              style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
             >
               {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
               Crear {preview.length} {preview.length === 1 ? "unidad" : "unidades"}
             </button>
-            <span className="text-[11.5px]" style={{ color: "rgba(246,245,247,0.40)" }}>
+            <span className="text-[11.5px]" style={{ color: "var(--ink-3)" }}>
               Revisa la lista y quita lo que no aplique. Podrás editar cada unidad después.
             </span>
           </div>

@@ -27,7 +27,7 @@ export default function HabeasDataPage() {
       <Section number="01" title="Responsable del tratamiento" icon={Building2}>
         <p>
           El responsable del tratamiento de los datos personales es{" "}
-          <strong style={{ color: "#f6f5f7" }}>SOPH.IA</strong>, plataforma
+          <strong style={{ color: "var(--ink)" }}>SOPH.IA</strong>, plataforma
           SaaS de generación de documentos con inteligencia artificial para
           administradores de propiedad horizontal, con operación en la
           República de Colombia.
@@ -38,7 +38,7 @@ export default function HabeasDataPage() {
             <a
               href="mailto:soporte@sophiagrouph.com"
               className="underline underline-offset-2"
-              style={{ color: "#9a7fff" }}
+              style={{ color: "var(--accent-text)" }}
             >
               soporte@sophiagrouph.com
             </a>
@@ -92,21 +92,21 @@ export default function HabeasDataPage() {
         </p>
         <ul className="space-y-2">
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Conocer</strong> los datos
+            <strong style={{ color: "var(--ink)" }}>Conocer</strong> los datos
             personales que SOPH.IA trata y acceder a ellos de forma gratuita.
           </Item>
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Actualizar y rectificar</strong>{" "}
+            <strong style={{ color: "var(--ink)" }}>Actualizar y rectificar</strong>{" "}
             los datos parciales, inexactos, incompletos o que induzcan a
             error.
           </Item>
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Suprimir</strong> los datos
+            <strong style={{ color: "var(--ink)" }}>Suprimir</strong> los datos
             cuando no exista un deber legal o contractual que imponga su
             conservación.
           </Item>
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Revocar la autorización</strong>{" "}
+            <strong style={{ color: "var(--ink)" }}>Revocar la autorización</strong>{" "}
             otorgada para el tratamiento, en los mismos supuestos de la
             supresión.
           </Item>
@@ -128,7 +128,7 @@ export default function HabeasDataPage() {
           <a
             href="mailto:soporte@sophiagrouph.com"
             className="underline underline-offset-2"
-            style={{ color: "#9a7fff" }}
+            style={{ color: "var(--accent-text)" }}
           >
             soporte@sophiagrouph.com
           </a>
@@ -138,9 +138,9 @@ export default function HabeasDataPage() {
         </p>
         <p>
           Conforme a los artículos 14 y 15 de la Ley 1581 de 2012, las{" "}
-          <strong style={{ color: "#f6f5f7" }}>consultas</strong> serán
+          <strong style={{ color: "var(--ink)" }}>consultas</strong> serán
           atendidas en un término máximo de diez (10) días hábiles y los{" "}
-          <strong style={{ color: "#f6f5f7" }}>reclamos</strong> en un término
+          <strong style={{ color: "var(--ink)" }}>reclamos</strong> en un término
           máximo de quince (15) días hábiles, contados a partir de su
           recibo. Si no es posible atender la solicitud dentro de dicho
           término, se informará al interesado los motivos de la demora y la

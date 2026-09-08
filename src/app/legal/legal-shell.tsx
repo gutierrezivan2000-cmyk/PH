@@ -17,10 +17,10 @@ export function TopBar() {
     <header
       className="sticky top-0 z-50 border-b"
       style={{
-        background: "rgba(10,10,10,0.72)",
+        background: "rgb(var(--surface-rgb) / 0.72)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
-        borderColor: "rgba(255,255,255,0.07)",
+        borderColor: "rgb(var(--veil-rgb) / 0.07)",
       }}
     >
       <div className="mx-auto max-w-3xl px-5 h-16 flex items-center justify-between">
@@ -28,23 +28,23 @@ export function TopBar() {
           <div
             className="h-9 w-9 rounded-lg flex items-center justify-center text-sm font-bold text-white"
             style={{
-              background: "linear-gradient(135deg, #7c5cff, #5a3cf0)",
-              boxShadow: "0 0 24px rgba(124,92,255,0.35)",
+              background: "linear-gradient(135deg, var(--accent), var(--accent-lo))",
+              boxShadow: "0 0 24px rgb(var(--accent-rgb) / 0.35)",
             }}
           >
             S
           </div>
           <span
             className="text-[15px] font-medium tracking-[-0.025em]"
-            style={{ color: "#f6f5f7" }}
+            style={{ color: "var(--ink)" }}
           >
-            SOPH.<span style={{ color: "#9a7fff" }}>IA</span>
+            SOPH.<span style={{ color: "var(--accent-text)" }}>IA</span>
           </span>
         </Link>
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-[12.5px] transition-colors hover:text-white"
-          style={{ color: "rgba(246,245,247,0.66)" }}
+          style={{ color: "var(--ink-2)" }}
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Volver al inicio
@@ -58,11 +58,11 @@ export function Footer() {
   return (
     <footer
       className="border-t py-8"
-      style={{ borderColor: "rgba(255,255,255,0.07)" }}
+      style={{ borderColor: "rgb(var(--veil-rgb) / 0.07)" }}
     >
       <p
         className="text-center"
-        style={{ ...MONO_LABEL, color: "rgba(246,245,247,0.42)" }}
+        style={{ ...MONO_LABEL, color: "var(--ink-3)" }}
       >
         SOPH.IA © 2026 · Propiedad Horizontal · Colombia
       </p>
@@ -86,13 +86,13 @@ export function LegalPage({
   return (
     <div
       className="min-h-screen flex flex-col"
-      style={{ background: "#0a0a0a", color: "#f6f5f7" }}
+      style={{ background: "var(--surface-0)", color: "var(--ink)" }}
     >
       <TopBar />
 
       <main className="flex-1 w-full mx-auto max-w-3xl px-5 pt-14 pb-20">
         {/* Hero */}
-        <p style={{ ...MONO_LABEL, fontSize: 11, color: "#9a7fff" }}>
+        <p style={{ ...MONO_LABEL, fontSize: 11, color: "var(--accent-text)" }}>
           {eyebrow}
         </p>
         <h1 className="mt-3 text-3xl sm:text-4xl font-medium tracking-[-0.025em]">
@@ -100,7 +100,7 @@ export function LegalPage({
         </h1>
         <p
           className="mt-4 text-[14px] leading-relaxed max-w-2xl"
-          style={{ color: "rgba(246,245,247,0.66)" }}
+          style={{ color: "var(--ink-2)" }}
         >
           {intro}
         </p>
@@ -115,9 +115,9 @@ export function LegalPage({
           >
             <TriangleAlert
               className="h-4 w-4 flex-shrink-0 mt-0.5"
-              style={{ color: "#f5c97b" }}
+              style={{ color: "var(--legal)" }}
             />
-            <p className="text-[12.5px] leading-relaxed" style={{ color: "#f5c97b" }}>
+            <p className="text-[12.5px] leading-relaxed" style={{ color: "var(--legal)" }}>
               Documento de referencia. Consulte a su asesor legal para
               validación.
             </p>
@@ -146,17 +146,17 @@ export function Section({
   return (
     <section
       className="rounded-2xl border p-6 sm:p-7"
-      style={{ background: "#15151a", borderColor: "rgba(255,255,255,0.07)" }}
+      style={{ background: "var(--surface-2)", borderColor: "rgb(var(--veil-rgb) / 0.07)" }}
     >
       <div className="flex items-center gap-3 mb-4">
         <div
           className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: "#1d1d24", border: "1px solid rgba(255,255,255,0.07)" }}
+          style={{ background: "var(--surface-3)", border: "1px solid rgb(var(--veil-rgb) / 0.07)" }}
         >
-          <Icon className="h-4 w-4" style={{ color: "#9a7fff" }} />
+          <Icon className="h-4 w-4" style={{ color: "var(--accent-text)" }} />
         </div>
         <div>
-          <p style={{ ...MONO_LABEL, color: "rgba(246,245,247,0.42)" }}>
+          <p style={{ ...MONO_LABEL, color: "var(--ink-3)" }}>
             Sección {number}
           </p>
           <h2 className="text-[16px] font-medium tracking-[-0.025em] mt-0.5">
@@ -166,7 +166,7 @@ export function Section({
       </div>
       <div
         className="space-y-3 text-[13.5px] leading-relaxed"
-        style={{ color: "rgba(246,245,247,0.66)" }}
+        style={{ color: "var(--ink-2)" }}
       >
         {children}
       </div>
@@ -179,7 +179,7 @@ export function Item({ children }: { children: React.ReactNode }) {
     <li className="flex items-start gap-2.5">
       <span
         className="mt-[7px] h-1.5 w-1.5 rounded-full flex-shrink-0"
-        style={{ background: "#7c5cff" }}
+        style={{ background: "var(--accent)" }}
       />
       <span>{children}</span>
     </li>

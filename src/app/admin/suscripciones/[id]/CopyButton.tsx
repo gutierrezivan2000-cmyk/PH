@@ -27,7 +27,7 @@ export function CopyButton({ value }: Props) {
       className="inline-flex items-center justify-center h-5 w-5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-all"
     >
       {copied ? (
-        <Check className="h-3 w-3" style={{ color: "#4cd6a0" }} />
+        <Check className="h-3 w-3" style={{ color: "var(--ok-text)" }} />
       ) : (
         <Copy className="h-3 w-3" />
       )}

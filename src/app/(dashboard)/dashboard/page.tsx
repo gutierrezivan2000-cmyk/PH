@@ -28,12 +28,12 @@ const AGENT_META: Record<
   string,
   { monogram: string; accentColor: string }
 > = {
-  themis:   { monogram: "T", accentColor: "#a78bff" },
-  chronos:  { monogram: "C", accentColor: "#5fb4ff" },
-  metra:    { monogram: "M", accentColor: "#4cd6a0" },
-  nomethes: { monogram: "N", accentColor: "#ffb958" },
-  hermes:   { monogram: "H", accentColor: "#ff6fa8" },
-  logistes: { monogram: "L", accentColor: "#8a92ff" },
+  themis:   { monogram: "T", accentColor: "var(--accent-hi)" },
+  chronos:  { monogram: "C", accentColor: "var(--info)" },
+  metra:    { monogram: "M", accentColor: "var(--ok)" },
+  nomethes: { monogram: "N", accentColor: "var(--warn)" },
+  hermes:   { monogram: "H", accentColor: "var(--pink)" },
+  logistes: { monogram: "L", accentColor: "var(--logistes)" },
 };
 
 interface RecentDoc {
@@ -146,7 +146,7 @@ export default function DashboardPage() {
   if (checking) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#7c5cff" }} />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--accent-text)" }} />
       </div>
     );
   }
@@ -176,7 +176,7 @@ export default function DashboardPage() {
       icon: FilePlus2,
       title: "Generar documentos",
       desc: "Wizard de 4 pasos · ~3 min",
-      accentColor: "#7c5cff",
+      accentColor: "var(--accent)",
       isPrimary: true,
     },
     {
@@ -184,7 +184,7 @@ export default function DashboardPage() {
       icon: Scale,
       title: "Hablar con Themis",
       desc: "Revisar acta o reglamento",
-      accentColor: "#a78bff",
+      accentColor: "var(--accent-hi)",
       isPrimary: false,
     },
     {
@@ -192,7 +192,7 @@ export default function DashboardPage() {
       icon: Building2,
       title: "Nueva propiedad",
       desc: "Subir reglamento y manual",
-      accentColor: "#4cd6a0",
+      accentColor: "var(--ok)",
       isPrimary: false,
     },
     {
@@ -200,7 +200,7 @@ export default function DashboardPage() {
       icon: History,
       title: "Ver historial",
       desc: "38 documentos · 2026",
-      accentColor: "#5fb4ff",
+      accentColor: "var(--info)",
       isPrimary: false,
     },
   ];
@@ -213,15 +213,15 @@ export default function DashboardPage() {
 
         {/* ── Top Greeting Strip ─────────────────────────────────────── */}
         <div className="flex flex-col gap-1 pb-2">
-          <p style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="dark:block hidden">
+          <p style={{ ...monoLabel, color: "var(--ink-3)" }} className="dark:block hidden">
             {dateLabel}
           </p>
-          <p style={{ ...monoLabel, color: "rgba(10,10,10,0.42)" }} className="dark:hidden block">
+          <p style={{ ...monoLabel, color: "var(--ink-3)" }} className="dark:hidden block">
             {dateLabel}
           </p>
           <h1 className="text-3xl sm:text-4xl font-medium tracking-[-0.025em] text-foreground">
             {greeting},{" "}
-            <span style={{ color: "#7c5cff", fontStyle: "italic" }}>{firstName}.</span>
+            <span style={{ color: "var(--accent-text)", fontStyle: "italic" }}>{firstName}.</span>
           </h1>
         </div>
 
@@ -229,15 +229,15 @@ export default function DashboardPage() {
         <div
           className="relative overflow-hidden rounded-2xl"
           style={{
-            background: "radial-gradient(ellipse at 30% 50%, rgba(124,92,255,0.14) 0%, transparent 70%), #15151a",
-            border: "1px solid rgba(124,92,255,0.40)",
+            background: "radial-gradient(ellipse at 30% 50%, rgb(var(--accent-rgb) / 0.14) 0%, transparent 70%), var(--surface-2)",
+            border: "1px solid rgb(var(--accent-rgb) / 0.4)",
             padding: "32px",
           }}
         >
           {/* Radial glow */}
           <div
             className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full blur-3xl"
-            style={{ background: "rgba(124,92,255,0.15)" }}
+            style={{ background: "rgb(var(--accent-rgb) / 0.15)" }}
           />
 
           <div className="relative flex flex-col lg:flex-row lg:items-center gap-8">
@@ -249,14 +249,14 @@ export default function DashboardPage() {
                   <span
                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
                     style={{
-                      background: "rgba(76,214,160,0.12)",
-                      color: "#4cd6a0",
-                      border: "1px solid rgba(76,214,160,0.25)",
+                      background: "rgb(var(--ok-rgb) / 0.12)",
+                      color: "var(--ok-text)",
+                      border: "1px solid rgb(var(--ok-rgb) / 0.25)",
                     }}
                   >
                     <span className="relative flex h-1.5 w-1.5 flex-shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#4cd6a0" }} />
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "#4cd6a0" }} />
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "var(--ok)" }} />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "var(--ok)" }} />
                     </span>
                     obligaciones al día
                   </span>
@@ -268,14 +268,14 @@ export default function DashboardPage() {
                     style={
                       overdueCount > 0
                         ? {
-                            background: "rgba(255,111,111,0.12)",
-                            color: "#ff8585",
-                            border: "1px solid rgba(255,111,111,0.25)",
+                            background: "rgb(var(--danger-rgb) / 0.12)",
+                            color: "var(--danger-text)",
+                            border: "1px solid rgb(var(--danger-rgb) / 0.25)",
                           }
                         : {
-                            background: "rgba(255,185,88,0.12)",
-                            color: "#ffb958",
-                            border: "1px solid rgba(255,185,88,0.25)",
+                            background: "rgb(var(--warn-rgb) / 0.12)",
+                            color: "var(--warn-text)",
+                            border: "1px solid rgb(var(--warn-rgb) / 0.25)",
                           }
                     }
                   >
@@ -289,13 +289,13 @@ export default function DashboardPage() {
 
               <h2
                 className="text-[30px] font-medium leading-tight mb-3"
-                style={{ letterSpacing: "-0.025em", color: "#f6f5f7" }}
+                style={{ letterSpacing: "-0.025em", color: "var(--ink)" }}
               >
                 ¿Generamos los documentos de marzo?
               </h2>
-              <p className="text-sm mb-7" style={{ color: "rgba(246,245,247,0.66)" }}>
+              <p className="text-sm mb-7" style={{ color: "var(--ink-2)" }}>
                 Promedio del último mes:{" "}
-                <strong style={{ color: "#f6f5f7", fontWeight: 600 }}>3 minutos</strong>
+                <strong style={{ color: "var(--ink)", fontWeight: 600 }}>3 minutos</strong>
                 {" · "}3 documentos por copropiedad.
               </p>
 
@@ -305,8 +305,8 @@ export default function DashboardPage() {
                   <button
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 hover:-translate-y-0.5 active:translate-y-0"
                     style={{
-                      background: "#7c5cff",
-                      boxShadow: "0 4px 20px rgba(124,92,255,0.45)",
+                      background: "var(--accent)",
+                      boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.45)",
                     }}
                   >
                     <FilePlus2 className="h-4 w-4" />
@@ -318,9 +318,9 @@ export default function DashboardPage() {
                   <button
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:-translate-y-0.5"
                     style={{
-                      border: "1px solid rgba(255,255,255,0.10)",
-                      color: "rgba(246,245,247,0.80)",
-                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgb(var(--veil-rgb) / 0.1)",
+                      color: "var(--ink)",
+                      background: "rgb(var(--veil-rgb) / 0.04)",
                     }}
                   >
                     <History className="h-4 w-4" />
@@ -336,35 +336,35 @@ export default function DashboardPage() {
               <div
                 className="absolute right-2 top-6 w-28 h-36 rounded-xl flex items-end pb-4 justify-center"
                 style={{
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.06)",
+                  background: "rgb(var(--veil-rgb) / 0.03)",
+                  border: "1px solid rgb(var(--veil-rgb) / 0.06)",
                   transform: "rotate(9deg)",
                 }}
               >
-                <Presentation className="h-6 w-6" style={{ color: "rgba(255,185,88,0.55)" }} />
+                <Presentation className="h-6 w-6" style={{ color: "rgb(var(--warn-rgb) / 0.55)" }} />
               </div>
               {/* Card 2 — mid */}
               <div
                 className="absolute right-8 top-3 w-28 h-36 rounded-xl flex items-end pb-4 justify-center"
                 style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "rgb(var(--veil-rgb) / 0.05)",
+                  border: "1px solid rgb(var(--veil-rgb) / 0.08)",
                   transform: "rotate(3deg)",
                 }}
               >
-                <FileCheck2 className="h-6 w-6" style={{ color: "rgba(95,180,255,0.55)" }} />
+                <FileCheck2 className="h-6 w-6" style={{ color: "rgb(var(--info-rgb) / 0.55)" }} />
               </div>
               {/* Card 1 — front */}
               <div
                 className="absolute right-14 top-0 w-28 h-36 rounded-xl flex items-end pb-4 justify-center"
                 style={{
-                  background: "rgba(124,92,255,0.18)",
-                  border: "1px solid rgba(124,92,255,0.40)",
+                  background: "rgb(var(--accent-rgb) / 0.18)",
+                  border: "1px solid rgb(var(--accent-rgb) / 0.4)",
                   transform: "rotate(-2deg)",
-                  boxShadow: "0 8px 32px rgba(124,92,255,0.25)",
+                  boxShadow: "0 8px 32px rgb(var(--accent-rgb) / 0.25)",
                 }}
               >
-                <FileText className="h-6 w-6" style={{ color: "#a78bff" }} />
+                <FileText className="h-6 w-6" style={{ color: "var(--accent-text)" }} />
               </div>
             </div>
           </div>
@@ -374,13 +374,13 @@ export default function DashboardPage() {
         {upcoming.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <p style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>
+              <p style={{ ...monoLabel, color: "var(--ink-3)" }}>
                 Próximos vencimientos
               </p>
               <Link
                 href="/dashboard/calendario"
                 className="inline-flex items-center gap-1 text-[12px] font-medium transition-colors hover:text-foreground"
-                style={{ color: "#a78bff" }}
+                style={{ color: "var(--accent-text)" }}
               >
                 Ver calendario
                 <ArrowUpRight className="h-3.5 w-3.5" />
@@ -389,7 +389,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {upcoming.map((it) => {
                 const d = daysTo(it.dueDate);
-                const color = d < 0 ? "#ff8585" : d <= 7 ? "#ffb958" : "rgba(246,245,247,0.55)";
+                const color = d < 0 ? "var(--danger-text)" : d <= 7 ? "var(--warn)" : "var(--ink-2)";
                 const label =
                   d === 0
                     ? "Vence hoy"
@@ -404,7 +404,7 @@ export default function DashboardPage() {
                       className="rounded-2xl p-4 h-full cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
                       style={{
                         background: "var(--card)",
-                        border: `1px solid ${d < 0 ? "rgba(255,111,111,0.30)" : "var(--border)"}`,
+                        border: `1px solid ${d < 0 ? "rgb(var(--danger-rgb) / 0.3)" : "var(--border)"}`,
                       }}
                     >
                       <p
@@ -415,7 +415,7 @@ export default function DashboardPage() {
                       </p>
                       <p
                         className="text-[11px] truncate mb-2"
-                        style={{ color: "rgba(246,245,247,0.40)" }}
+                        style={{ color: "var(--ink-3)" }}
                       >
                         {it.propertyName}
                       </p>
@@ -439,10 +439,10 @@ export default function DashboardPage() {
 
         {/* ── Quick Actions Grid ──────────────────────────────────────── */}
         <div>
-          <p style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="mb-4 dark:block hidden">
+          <p style={{ ...monoLabel, color: "var(--ink-3)" }} className="mb-4 dark:block hidden">
             Accesos rápidos
           </p>
-          <p style={{ ...monoLabel, color: "rgba(10,10,10,0.42)" }} className="mb-4 dark:hidden block">
+          <p style={{ ...monoLabel, color: "var(--ink-3)" }} className="mb-4 dark:hidden block">
             Accesos rápidos
           </p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -455,7 +455,7 @@ export default function DashboardPage() {
                       ? `radial-gradient(ellipse at 80% 20%, ${action.accentColor}18 0%, transparent 60%), var(--card)`
                       : "var(--card)",
                     border: action.isPrimary
-                      ? `1px solid rgba(124,92,255,0.40)`
+                      ? `1px solid rgb(var(--accent-rgb) / 0.4)`
                       : "1px solid var(--border)",
                   }}
                 >
@@ -492,10 +492,10 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="dark:block hidden mb-1">
+              <p style={{ ...monoLabel, color: "var(--ink-3)" }} className="dark:block hidden mb-1">
                 Tus agentes
               </p>
-              <p style={{ ...monoLabel, color: "rgba(10,10,10,0.42)" }} className="dark:hidden block mb-1">
+              <p style={{ ...monoLabel, color: "var(--ink-3)" }} className="dark:hidden block mb-1">
                 Tus agentes
               </p>
               <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
@@ -505,7 +505,7 @@ export default function DashboardPage() {
             <Link
               href="/dashboard/asistente"
               className="text-xs font-semibold flex items-center gap-1 hover:opacity-80 transition-opacity"
-              style={{ color: "#a78bff" }}
+              style={{ color: "var(--accent-text)" }}
             >
               Ver todos <ChevronRight className="h-3 w-3" />
             </Link>
@@ -544,13 +544,13 @@ export default function DashboardPage() {
                         {/* Active chip */}
                         <div
                           className="flex items-center gap-1 px-1.5 py-0.5 rounded-full"
-                          style={{ background: "rgba(76,214,160,0.10)", border: "1px solid rgba(76,214,160,0.20)" }}
+                          style={{ background: "rgb(var(--ok-rgb) / 0.1)", border: "1px solid rgb(var(--ok-rgb) / 0.2)" }}
                         >
                           <span className="relative flex h-1.5 w-1.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#4cd6a0" }} />
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "#4cd6a0" }} />
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "var(--ok)" }} />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "var(--ok)" }} />
                           </span>
-                          <span className="text-[9px] font-semibold" style={{ color: "#4cd6a0" }}>activo</span>
+                          <span className="text-[9px] font-semibold" style={{ color: "var(--ok-text)" }}>activo</span>
                         </div>
                       </div>
 
@@ -592,7 +592,7 @@ export default function DashboardPage() {
                   <div className="flex items-start justify-between">
                     <div
                       className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0"
-                      style={{ background: "rgba(255,255,255,0.06)", color: "rgba(246,245,247,0.30)" }}
+                      style={{ background: "rgb(var(--veil-rgb) / 0.06)", color: "var(--ink-4)" }}
                     >
                       {meta.monogram}
                     </div>
@@ -600,12 +600,12 @@ export default function DashboardPage() {
 
                   {/* Name + role */}
                   <div>
-                    <p className="text-[15px] font-bold leading-none" style={{ color: "rgba(246,245,247,0.40)" }}>
+                    <p className="text-[15px] font-bold leading-none" style={{ color: "var(--ink-3)" }}>
                       {agent.name}
                     </p>
                     <p
                       className="mt-1 leading-none"
-                      style={{ ...monoLabel, fontSize: 9, color: "rgba(246,245,247,0.25)" }}
+                      style={{ ...monoLabel, fontSize: 9, color: "var(--ink-4)" }}
                     >
                       {agent.title}
                     </p>
@@ -620,9 +620,9 @@ export default function DashboardPage() {
                         fontFamily: "'Geist Mono', monospace",
                         letterSpacing: "0.08em",
                         fontWeight: 600,
-                        border: "1px solid rgba(124,92,255,0.30)",
-                        color: "#9a7fff",
-                        background: "rgba(124,92,255,0.10)",
+                        border: "1px solid rgb(var(--accent-rgb) / 0.3)",
+                        color: "var(--accent-text)",
+                        background: "rgb(var(--accent-rgb) / 0.1)",
                       }}
                     >
                       Próximamente
@@ -646,7 +646,7 @@ export default function DashboardPage() {
             <Link
               href="/dashboard/historial"
               className="text-xs font-semibold flex items-center gap-1 hover:opacity-80 transition-opacity"
-              style={{ color: "#a78bff" }}
+              style={{ color: "var(--accent-text)" }}
             >
               Ver todos <ArrowRight className="h-3 w-3" />
             </Link>
@@ -667,7 +667,7 @@ export default function DashboardPage() {
                 <Link
                   href="/dashboard/generar"
                   className="inline-flex items-center gap-1 mt-3 text-xs font-semibold hover:opacity-80 transition-opacity"
-                  style={{ color: "#a78bff" }}
+                  style={{ color: "var(--accent-text)" }}
                 >
                   Generar el primero <ArrowRight className="h-3 w-3" />
                 </Link>
@@ -703,17 +703,17 @@ export default function DashboardPage() {
                         <div
                           className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full flex-shrink-0"
                           style={{
-                            background: "rgba(76,214,160,0.10)",
-                            border: "1px solid rgba(76,214,160,0.25)",
+                            background: "rgb(var(--ok-rgb) / 0.1)",
+                            border: "1px solid rgb(var(--ok-rgb) / 0.25)",
                           }}
                         >
-                          <span style={{ ...monoLabel, fontSize: 9, color: "#4cd6a0" }}>Listo</span>
+                          <span style={{ ...monoLabel, fontSize: 9, color: "var(--ok-text)" }}>Listo</span>
                         </div>
                       )}
 
                       <ArrowRight
                         className="h-4 w-4 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-0.5"
-                        style={{ color: "#9a7fff" }}
+                        style={{ color: "var(--accent-text)" }}
                       />
                     </Link>
                   );

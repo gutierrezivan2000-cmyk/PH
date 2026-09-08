@@ -59,14 +59,14 @@ interface PropertyInfo {
 }
 
 const CATEGORY_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  legal:         { label: "Legal",         color: "#a78bff", bg: "rgba(124,92,255,0.10)",  border: "rgba(124,92,255,0.30)"  },
-  poliza:        { label: "Póliza",        color: "#ffb958", bg: "rgba(255,185,88,0.10)",  border: "rgba(255,185,88,0.30)"  },
-  mantenimiento: { label: "Mantenimiento", color: "#5fb4ff", bg: "rgba(95,180,255,0.10)",  border: "rgba(95,180,255,0.30)"  },
-  sgsst:         { label: "SG-SST",        color: "#ff8585", bg: "rgba(255,111,111,0.10)", border: "rgba(255,111,111,0.30)" },
-  finanzas:      { label: "Finanzas",      color: "#4cd6a0", bg: "rgba(76,214,160,0.10)",  border: "rgba(76,214,160,0.30)"  },
-  informe:       { label: "Informe",       color: "#5fd6c6", bg: "rgba(95,214,198,0.10)",  border: "rgba(95,214,198,0.30)"  },
-  asamblea:      { label: "Asamblea",      color: "#8fa8ff", bg: "rgba(143,168,255,0.10)", border: "rgba(143,168,255,0.30)" },
-  custom:        { label: "Recordatorio",  color: "rgba(255,255,255,0.60)", bg: "rgba(255,255,255,0.06)", border: "rgba(255,255,255,0.14)" },
+  legal:         { label: "Legal",         color: "var(--accent-text)", bg: "rgb(var(--accent-rgb) / 0.1)",  border: "rgb(var(--accent-rgb) / 0.3)"  },
+  poliza:        { label: "Póliza",        color: "var(--warn-text)", bg: "rgb(var(--warn-rgb) / 0.1)",  border: "rgb(var(--warn-rgb) / 0.3)"  },
+  mantenimiento: { label: "Mantenimiento", color: "var(--info-text)", bg: "rgb(var(--info-rgb) / 0.1)",  border: "rgb(var(--info-rgb) / 0.3)"  },
+  sgsst:         { label: "SG-SST",        color: "var(--danger-text)", bg: "rgb(var(--danger-rgb) / 0.1)", border: "rgb(var(--danger-rgb) / 0.3)" },
+  finanzas:      { label: "Finanzas",      color: "var(--ok-text)", bg: "rgb(var(--ok-rgb) / 0.1)",  border: "rgb(var(--ok-rgb) / 0.3)"  },
+  informe:       { label: "Informe",       color: "var(--teal)", bg: "rgb(var(--teal-rgb) / 0.10)",  border: "rgb(var(--teal-rgb) / 0.30)"  },
+  asamblea:      { label: "Asamblea",      color: "var(--logistes)", bg: "rgb(var(--logistes-rgb) / 0.10)", border: "rgb(var(--logistes-rgb) / 0.30)" },
+  custom:        { label: "Recordatorio",  color: "var(--ink-2)", bg: "rgb(var(--veil-rgb) / 0.06)", border: "rgb(var(--veil-rgb) / 0.14)" },
 };
 
 const monoLabel: React.CSSProperties = {
@@ -89,8 +89,8 @@ const card: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   background: "var(--hifi-bg-elev)",
-  border: "1px solid rgba(255,255,255,0.10)",
-  color: "#f6f5f7",
+  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
+  color: "var(--ink)",
   borderRadius: "10px",
   height: "38px",
   padding: "0 12px",
@@ -198,9 +198,9 @@ function AssetForm({
             onClick={() => setKind(k)}
             className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer"
             style={{
-              border: `1px solid ${kind === k ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
-              background: kind === k ? "rgba(124,92,255,0.15)" : "transparent",
-              color: kind === k ? "#a78bff" : "rgba(246,245,247,0.55)",
+              border: `1px solid ${kind === k ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.1)"}`,
+              background: kind === k ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
+              color: kind === k ? "var(--accent-hi)" : "var(--ink-2)",
             }}
           >
             {ASSET_KIND_LABELS[k]}
@@ -209,7 +209,7 @@ function AssetForm({
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
-          <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+          <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
             Nombre
           </label>
           <input
@@ -221,7 +221,7 @@ function AssetForm({
           />
         </div>
         <div>
-          <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+          <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
             Propiedad
           </label>
           <div className="relative">
@@ -236,11 +236,11 @@ function AssetForm({
                 </option>
               ))}
             </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "rgba(246,245,247,0.42)" }} />
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
           </div>
         </div>
         <div>
-          <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+          <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
             {kind === "poliza" ? "Vence" : "Próximo mantenimiento"}
           </label>
           <input
@@ -251,19 +251,19 @@ function AssetForm({
           />
         </div>
         <div>
-          <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+          <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
             {kind === "poliza" ? "Aseguradora" : "Contratista"} (opcional)
           </label>
           <input value={provider} onChange={(e) => setProvider(e.target.value)} style={inputStyle} maxLength={150} />
         </div>
         <div>
-          <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+          <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
             {kind === "poliza" ? "Número de póliza" : "Contrato"} (opcional)
           </label>
           <input value={reference} onChange={(e) => setReference(e.target.value)} style={inputStyle} maxLength={100} />
         </div>
         <div className="sm:col-span-2">
-          <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+          <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
             Se repite cada (meses, opcional)
           </label>
           <input
@@ -277,12 +277,12 @@ function AssetForm({
           />
         </div>
       </div>
-      {err && <p className="text-[12px]" style={{ color: "#ff8585" }}>{err}</p>}
+      {err && <p className="text-[12px]" style={{ color: "var(--danger-text)" }}>{err}</p>}
       <button
         type="submit"
         disabled={busy}
         className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-        style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+        style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
       >
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
         Guardar en la bitácora
@@ -307,23 +307,23 @@ function AssetRow({
   deleteAsset: (a: CommonAsset) => void;
 }) {
   const d = daysUntil(asset.dueDate.slice(0, 10));
-  const urgencyColor = d < 0 ? "#ff6f6f" : d <= 7 ? "#ffb958" : "rgba(246,245,247,0.55)";
+  const urgencyColor = d < 0 ? "var(--danger)" : d <= 7 ? "var(--warn)" : "var(--ink-3)";
   const propName = properties.find((p) => p.id === asset.propertyId)?.name;
   const busy = assetBusy === asset.id;
 
   return (
     <div
       className="rounded-xl p-4 flex items-start gap-3.5"
-      style={{ ...card, borderColor: d < 0 ? "rgba(255,111,111,0.25)" : "rgba(255,255,255,0.07)" }}
+      style={{ ...card, borderColor: d < 0 ? "rgb(var(--danger-rgb) / 0.25)" : "rgb(var(--veil-rgb) / 0.07)" }}
     >
       <span
         className="mt-0.5 shrink-0 px-2 py-0.5 rounded text-[9px]"
         style={{
           ...monoLabel,
           fontSize: 9,
-          color: asset.kind === "poliza" ? "#ffb958" : "#5fb4ff",
-          background: asset.kind === "poliza" ? "rgba(255,185,88,0.10)" : "rgba(95,180,255,0.10)",
-          border: `1px solid ${asset.kind === "poliza" ? "rgba(255,185,88,0.30)" : "rgba(95,180,255,0.30)"}`,
+          color: asset.kind === "poliza" ? "var(--warn)" : "var(--info)",
+          background: asset.kind === "poliza" ? "rgb(var(--warn-rgb) / 0.1)" : "rgb(var(--info-rgb) / 0.1)",
+          border: `1px solid ${asset.kind === "poliza" ? "rgb(var(--warn-rgb) / 0.3)" : "rgb(var(--info-rgb) / 0.3)"}`,
         }}
       >
         {ASSET_KIND_LABELS[asset.kind]}
@@ -331,16 +331,16 @@ function AssetRow({
 
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>{asset.name}</span>
+          <span className="text-[13.5px] font-medium" style={{ color: "var(--ink)" }}>{asset.name}</span>
           {propertyFilter === "all" && propName && (
-            <span className="inline-flex items-center gap-1 text-[10.5px]" style={{ ...monoMini, color: "rgba(246,245,247,0.40)" }}>
+            <span className="inline-flex items-center gap-1 text-[10.5px]" style={{ ...monoMini, color: "var(--ink-3)" }}>
               <Building2 className="h-3 w-3" />
               {propName}
             </span>
           )}
         </div>
         {(asset.provider || asset.reference || asset.recurrenceMonths) && (
-          <p className="text-[12px] mt-1" style={{ color: "rgba(246,245,247,0.50)" }}>
+          <p className="text-[12px] mt-1" style={{ color: "var(--ink-3)" }}>
             {[asset.provider, asset.reference ? `Ref. ${asset.reference}` : null, asset.recurrenceMonths ? `se repite ${recurrenceLabel(asset.recurrenceMonths)}` : null]
               .filter(Boolean)
               .join(" · ")}
@@ -356,7 +356,7 @@ function AssetRow({
           onClick={() => markAsset(asset, "done")}
           disabled={busy}
           className="p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.05] transition-colors"
-          style={{ color: "#4cd6a0" }}
+          style={{ color: "var(--ok-text)" }}
           title={asset.recurrenceMonths ? "Marcar hecho — pasa al próximo ciclo" : "Marcar hecho y archivar"}
         >
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
@@ -365,7 +365,7 @@ function AssetRow({
           onClick={() => deleteAsset(asset)}
           disabled={busy}
           className="p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.05] transition-colors"
-          style={{ color: "rgba(246,245,247,0.30)" }}
+          style={{ color: "var(--ink-4)" }}
           title="Eliminar del registro"
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -416,15 +416,15 @@ function RegistroTab({
   return (
     <>
       <div className="ui-card ui-sheen p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-        <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Propiedad</span>
+        <span style={{ ...monoLabel, color: "var(--ink-3)" }}>Propiedad</span>
         <div className="ui-scroll flex gap-2 flex-1 overflow-x-auto pb-0.5">
           <button
             onClick={() => setPropertyFilter("all")}
             className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
             style={{
-              border: `1px solid ${propertyFilter === "all" ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
-              background: propertyFilter === "all" ? "rgba(124,92,255,0.15)" : "transparent",
-              color: propertyFilter === "all" ? "#a78bff" : "rgba(246,245,247,0.55)",
+              border: `1px solid ${propertyFilter === "all" ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.1)"}`,
+              background: propertyFilter === "all" ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
+              color: propertyFilter === "all" ? "var(--accent-hi)" : "var(--ink-2)",
             }}
           >
             Todas
@@ -435,9 +435,9 @@ function RegistroTab({
               onClick={() => setPropertyFilter(p.id)}
               className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
               style={{
-                border: `1px solid ${propertyFilter === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
-                background: propertyFilter === p.id ? "rgba(124,92,255,0.15)" : "transparent",
-                color: propertyFilter === p.id ? "#a78bff" : "rgba(246,245,247,0.55)",
+                border: `1px solid ${propertyFilter === p.id ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.1)"}`,
+                background: propertyFilter === p.id ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
+                color: propertyFilter === p.id ? "var(--accent-hi)" : "var(--ink-2)",
               }}
             >
               {p.name}
@@ -448,8 +448,8 @@ function RegistroTab({
           onClick={() => setShowAssetForm((v) => !v)}
           className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
           style={{
-            background: showAssetForm ? "rgba(255,255,255,0.06)" : "#7c5cff",
-            color: showAssetForm ? "rgba(246,245,247,0.70)" : "#fff",
+            background: showAssetForm ? "rgb(var(--veil-rgb) / 0.06)" : "var(--accent)",
+            color: showAssetForm ? "var(--ink-2)" : "#fff",
           }}
         >
           {showAssetForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
@@ -459,12 +459,12 @@ function RegistroTab({
 
       {!showAssetForm && importTargetId && (
         <div className="ui-card ui-sheen p-4 flex items-start gap-3">
-          <Sparkles className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "#a78bff" }} />
+          <Sparkles className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "var(--accent-text)" }} />
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium mb-0.5" style={{ color: "#f6f5f7" }}>
+            <p className="text-[13px] font-medium mb-0.5" style={{ color: "var(--ink)" }}>
               ¿Tienes el listado en un documento?
             </p>
-            <p className="text-[12px] mb-2.5" style={{ color: "rgba(246,245,247,0.50)" }}>
+            <p className="text-[12px] mb-2.5" style={{ color: "var(--ink-3)" }}>
               Sube el Excel, PDF o Word con tus zonas comunes y pólizas — la IA organiza la lista
               {propertyFilter === "all" ? ` para ${properties.find((p) => p.id === importTargetId)?.name}` : ""} y tú revisas antes de guardar.
             </p>
@@ -479,17 +479,17 @@ function RegistroTab({
 
       {assetsLoading && (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#7c5cff" }} />
+          <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent-text)" }} />
         </div>
       )}
 
       {!assetsLoading && filtered.length === 0 && (
         <div className="rounded-2xl p-10 text-center" style={card}>
-          <ClipboardList className="h-8 w-8 mx-auto mb-3" style={{ color: "rgba(246,245,247,0.25)" }} />
-          <p className="text-[14px] mb-1" style={{ color: "rgba(246,245,247,0.70)" }}>
+          <ClipboardList className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
+          <p className="text-[14px] mb-1" style={{ color: "var(--ink-2)" }}>
             Aún no hay zonas comunes ni pólizas registradas
           </p>
-          <p className="text-[12.5px]" style={{ color: "rgba(246,245,247,0.40)" }}>
+          <p className="text-[12.5px]" style={{ color: "var(--ink-3)" }}>
             Añádelas a mano o importa el listado desde un documento — cada una avisa en Recordatorios cuando se acerca su fecha.
           </p>
         </div>
@@ -501,16 +501,16 @@ function RegistroTab({
             onClick={() => setShowArchived((v) => !v)}
             className="flex items-center gap-2 mb-2.5 cursor-pointer"
           >
-            <span style={{ ...monoLabel, color: "rgba(246,245,247,0.35)" }}>Archivados</span>
+            <span style={{ ...monoLabel, color: "var(--ink-4)" }}>Archivados</span>
             <span
               className="px-1.5 py-0.5 rounded-md text-[10px]"
-              style={{ ...monoMini, background: "rgba(255,255,255,0.05)", color: "rgba(246,245,247,0.45)" }}
+              style={{ ...monoMini, background: "rgb(var(--veil-rgb) / 0.05)", color: "var(--ink-3)" }}
             >
               {archived.length}
             </span>
             <ChevronDown
               className="h-3.5 w-3.5 transition-transform"
-              style={{ color: "rgba(246,245,247,0.35)", transform: showArchived ? "rotate(180deg)" : "none" }}
+              style={{ color: "var(--ink-4)", transform: showArchived ? "rotate(180deg)" : "none" }}
             />
           </button>
           {showArchived && (
@@ -521,10 +521,10 @@ function RegistroTab({
                   className="rounded-xl p-4 flex items-center gap-3.5"
                   style={{ ...card, opacity: 0.65 }}
                 >
-                  <Archive className="h-4 w-4 flex-shrink-0" style={{ color: "rgba(246,245,247,0.35)" }} />
+                  <Archive className="h-4 w-4 flex-shrink-0" style={{ color: "var(--ink-4)" }} />
                   <div className="flex-1 min-w-0">
-                    <span className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>{a.name}</span>
-                    <p className="text-[11.5px] mt-0.5" style={{ color: "rgba(246,245,247,0.40)" }}>
+                    <span className="text-[13.5px] font-medium" style={{ color: "var(--ink)" }}>{a.name}</span>
+                    <p className="text-[11.5px] mt-0.5" style={{ color: "var(--ink-3)" }}>
                       {ASSET_KIND_LABELS[a.kind]} · archivado
                     </p>
                   </div>
@@ -532,7 +532,7 @@ function RegistroTab({
                     onClick={() => restoreAsset(a)}
                     disabled={assetBusy === a.id}
                     className="ui-chip inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-3 py-1.5 cursor-pointer"
-                    style={{ background: "rgba(124,92,255,0.15)", color: "#a78bff", border: "1px solid rgba(124,92,255,0.35)" }}
+                    style={{ background: "rgb(var(--accent-rgb) / 0.15)", color: "var(--accent-text)", border: "1px solid rgb(var(--accent-rgb) / 0.35)" }}
                   >
                     {assetBusy === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                     Restaurar
@@ -774,19 +774,19 @@ export default function CalendarioPage() {
     const isDone = item.status === "done";
     const cat = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.custom;
     const urgencyColor = isDone
-      ? "rgba(246,245,247,0.35)"
+      ? "rgb(var(--ink-rgb) / 0.35)"
       : d < 0
-        ? "#ff6f6f"
+        ? "var(--danger)"
         : d <= 7
-          ? "#ffb958"
-          : "rgba(246,245,247,0.55)";
+          ? "var(--warn)"
+          : "var(--ink-3)";
 
     return (
       <div
         className="rounded-xl p-4 flex items-start gap-3.5 transition-colors"
         style={{
           ...card,
-          borderColor: !isDone && d < 0 ? "rgba(255,111,111,0.25)" : "rgba(255,255,255,0.07)",
+          borderColor: !isDone && d < 0 ? "rgb(var(--danger-rgb) / 0.25)" : "rgb(var(--veil-rgb) / 0.07)",
           opacity: isDone ? 0.6 : 1,
         }}
       >
@@ -796,15 +796,15 @@ export default function CalendarioPage() {
           disabled={busyKey === item.key}
           className="mt-0.5 h-5 w-5 rounded-full border flex items-center justify-center flex-shrink-0 transition-all cursor-pointer"
           style={{
-            borderColor: isDone ? "#4cd6a0" : "rgba(255,255,255,0.25)",
-            background: isDone ? "rgba(76,214,160,0.15)" : "transparent",
+            borderColor: isDone ? "var(--ok)" : "rgb(var(--veil-rgb) / 0.25)",
+            background: isDone ? "rgb(var(--ok-rgb) / 0.15)" : "transparent",
           }}
           title={isDone ? "Marcar como pendiente" : "Marcar como hecho"}
         >
           {busyKey === item.key ? (
-            <Loader2 className="h-3 w-3 animate-spin" style={{ color: "#4cd6a0" }} />
+            <Loader2 className="h-3 w-3 animate-spin" style={{ color: "var(--ok-text)" }} />
           ) : isDone ? (
-            <Check className="h-3 w-3" style={{ color: "#4cd6a0" }} />
+            <Check className="h-3 w-3" style={{ color: "var(--ok-text)" }} />
           ) : null}
         </button>
 
@@ -813,7 +813,7 @@ export default function CalendarioPage() {
             <span
               className="text-[13.5px] font-medium"
               style={{
-                color: "#f6f5f7",
+                color: "var(--ink)",
                 textDecoration: isDone ? "line-through" : "none",
               }}
             >
@@ -834,7 +834,7 @@ export default function CalendarioPage() {
             {propertyFilter === "all" && (
               <span
                 className="inline-flex items-center gap-1 text-[10.5px]"
-                style={{ ...monoMini, color: "rgba(246,245,247,0.40)" }}
+                style={{ ...monoMini, color: "var(--ink-3)" }}
               >
                 <Building2 className="h-3 w-3" />
                 {item.propertyName}
@@ -844,7 +844,7 @@ export default function CalendarioPage() {
           {item.description && !isDone && (
             <p
               className="text-[12px] leading-relaxed mt-1"
-              style={{ color: "rgba(246,245,247,0.50)" }}
+              style={{ color: "var(--ink-3)" }}
             >
               {item.description}
             </p>
@@ -860,7 +860,7 @@ export default function CalendarioPage() {
             onClick={() => mark(item, "dismiss")}
             disabled={busyKey === item.key}
             className="mt-0.5 p-1.5 rounded-lg transition-colors cursor-pointer hover:bg-white/[0.05]"
-            style={{ color: "rgba(246,245,247,0.30)" }}
+            style={{ color: "var(--ink-4)" }}
             title={
               item.source === "custom"
                 ? "Eliminar recordatorio"
@@ -890,7 +890,7 @@ export default function CalendarioPage() {
           <span style={{ ...monoLabel, color }}>{title}</span>
           <span
             className="px-1.5 py-0.5 rounded-md text-[10px]"
-            style={{ ...monoMini, background: "rgba(255,255,255,0.05)", color: "rgba(246,245,247,0.45)" }}
+            style={{ ...monoMini, background: "rgb(var(--veil-rgb) / 0.05)", color: "var(--ink-3)" }}
           >
             {list.length}
           </span>
@@ -934,20 +934,20 @@ export default function CalendarioPage() {
     }
 
     return (
-      <div className="rounded-2xl p-5" style={{ ...card, borderColor: "rgba(124,92,255,0.25)" }}>
+      <div className="rounded-2xl p-5" style={{ ...card, borderColor: "rgb(var(--accent-rgb) / 0.25)" }}>
         <div className="flex items-center justify-between mb-1">
-          <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
+          <p className="text-[13.5px] font-medium" style={{ color: "var(--ink)" }}>
             Perfil del edificio — {property.name}
           </p>
           <button
             onClick={() => setProfileFor(null)}
             className="p-1 rounded-lg cursor-pointer hover:bg-white/[0.05]"
-            style={{ color: "rgba(246,245,247,0.35)" }}
+            style={{ color: "var(--ink-4)" }}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
-        <p className="text-[12px] mb-4" style={{ color: "rgba(246,245,247,0.45)" }}>
+        <p className="text-[12px] mb-4" style={{ color: "var(--ink-3)" }}>
           Marca lo que tiene esta copropiedad y SOPH.IA generará sus obligaciones automáticamente.
         </p>
         <div className="flex flex-wrap gap-2 mb-4">
@@ -959,9 +959,9 @@ export default function CalendarioPage() {
                 onClick={() => setF((prev) => ({ ...prev, [t.key]: !on }))}
                 className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
                 style={{
-                  border: `1px solid ${on ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.12)"}`,
-                  background: on ? "rgba(124,92,255,0.15)" : "transparent",
-                  color: on ? "#a78bff" : "rgba(246,245,247,0.55)",
+                  border: `1px solid ${on ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.12)"}`,
+                  background: on ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
+                  color: on ? "var(--accent-text)" : "var(--ink-2)",
                 }}
               >
                 {on ? "✓ " : ""}
@@ -972,7 +972,7 @@ export default function CalendarioPage() {
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+            <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
               Vencimiento póliza zonas comunes
             </label>
             <input
@@ -986,7 +986,7 @@ export default function CalendarioPage() {
             onClick={save}
             disabled={saving}
             className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-            style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+            style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
           >
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
             Guardar perfil
@@ -1021,7 +1021,7 @@ export default function CalendarioPage() {
                 className="ui-chip inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer"
                 style={{
                   background: on ? "var(--hifi-accent)" : "transparent",
-                  color: on ? "#fff" : "rgba(246,245,247,0.55)",
+                  color: on ? "#fff" : "var(--ink-2)",
                 }}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -1035,15 +1035,15 @@ export default function CalendarioPage() {
       <>
         {/* Property filter + actions */}
         <div className="ui-card ui-sheen p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-          <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Propiedad</span>
+          <span style={{ ...monoLabel, color: "var(--ink-3)" }}>Propiedad</span>
           <div className="ui-scroll flex gap-2 flex-1 overflow-x-auto pb-0.5">
             <button
               onClick={() => setPropertyFilter("all")}
               className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
               style={{
-                border: `1px solid ${propertyFilter === "all" ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
-                background: propertyFilter === "all" ? "rgba(124,92,255,0.15)" : "transparent",
-                color: propertyFilter === "all" ? "#a78bff" : "rgba(246,245,247,0.55)",
+                border: `1px solid ${propertyFilter === "all" ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.1)"}`,
+                background: propertyFilter === "all" ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
+                color: propertyFilter === "all" ? "var(--accent-hi)" : "var(--ink-2)",
               }}
             >
               Todas
@@ -1054,9 +1054,9 @@ export default function CalendarioPage() {
                 onClick={() => setPropertyFilter(p.id)}
                 className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
                 style={{
-                  border: `1px solid ${propertyFilter === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
-                  background: propertyFilter === p.id ? "rgba(124,92,255,0.15)" : "transparent",
-                  color: propertyFilter === p.id ? "#a78bff" : "rgba(246,245,247,0.55)",
+                  border: `1px solid ${propertyFilter === p.id ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.1)"}`,
+                  background: propertyFilter === p.id ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
+                  color: propertyFilter === p.id ? "var(--accent-hi)" : "var(--ink-2)",
                 }}
               >
                 {p.name}
@@ -1070,8 +1070,8 @@ export default function CalendarioPage() {
             }}
             className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
             style={{
-              background: showAdd ? "rgba(255,255,255,0.06)" : "#7c5cff",
-              color: showAdd ? "rgba(246,245,247,0.70)" : "#fff",
+              background: showAdd ? "rgb(var(--veil-rgb) / 0.06)" : "var(--accent)",
+              color: showAdd ? "var(--ink-2)" : "#fff",
             }}
           >
             {showAdd ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
@@ -1084,7 +1084,7 @@ export default function CalendarioPage() {
           <button
             onClick={() => setProfileFor(propertyFilter)}
             className="inline-flex items-center gap-2 text-[12px] cursor-pointer transition-colors hover:text-white"
-            style={{ ...monoMini, color: "rgba(246,245,247,0.45)" }}
+            style={{ ...monoMini, color: "var(--ink-3)" }}
           >
             <Settings2 className="h-3.5 w-3.5" />
             Editar perfil del edificio
@@ -1095,10 +1095,10 @@ export default function CalendarioPage() {
         {!loading && unconfigured.length > 0 && !profileFor && propertyFilter === "all" && (
           <div
             className="rounded-2xl p-4 flex flex-wrap items-center gap-3"
-            style={{ background: "rgba(124,92,255,0.07)", border: "1px solid rgba(124,92,255,0.25)" }}
+            style={{ background: "rgb(var(--accent-rgb) / 0.07)", border: "1px solid rgb(var(--accent-rgb) / 0.25)" }}
           >
-            <CalendarClock className="h-4 w-4 flex-shrink-0" style={{ color: "#a78bff" }} />
-            <p className="text-[12.5px] flex-1" style={{ color: "rgba(246,245,247,0.75)" }}>
+            <CalendarClock className="h-4 w-4 flex-shrink-0" style={{ color: "var(--accent-text)" }} />
+            <p className="text-[12.5px] flex-1" style={{ color: "var(--ink-2)" }}>
               {unconfigured.length === 1
                 ? `Configura el perfil de ${unconfigured[0].name} para generar sus obligaciones (ascensor, piscina, póliza…).`
                 : `${unconfigured.length} propiedades sin perfil configurado — configúralas para generar sus obligaciones.`}
@@ -1106,7 +1106,7 @@ export default function CalendarioPage() {
             <button
               onClick={() => setProfileFor(unconfigured[0].id)}
               className="rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
-              style={{ background: "#7c5cff", color: "#fff" }}
+              style={{ background: "var(--accent)", color: "#fff" }}
             >
               Configurar
             </button>
@@ -1119,12 +1119,12 @@ export default function CalendarioPage() {
         {/* Add reminder form */}
         {showAdd && (
           <form onSubmit={addReminder} className="ui-card ui-sheen ui-rise p-5 space-y-4">
-            <p className="text-[13.5px] font-medium" style={{ color: "#f6f5f7" }}>
+            <p className="text-[13.5px] font-medium" style={{ color: "var(--ink)" }}>
               Nuevo recordatorio
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="sm:col-span-2">
-                <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                   Título
                 </label>
                 <input
@@ -1136,7 +1136,7 @@ export default function CalendarioPage() {
                 />
               </div>
               <div>
-                <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                   Propiedad
                 </label>
                 <div className="relative">
@@ -1153,12 +1153,12 @@ export default function CalendarioPage() {
                   </select>
                   <ChevronDown
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5"
-                    style={{ color: "rgba(246,245,247,0.42)" }}
+                    style={{ color: "var(--ink-3)" }}
                   />
                 </div>
               </div>
               <div>
-                <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                   Fecha límite
                 </label>
                 <input
@@ -1169,7 +1169,7 @@ export default function CalendarioPage() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                   Descripción (opcional)
                 </label>
                 <input
@@ -1182,7 +1182,7 @@ export default function CalendarioPage() {
               </div>
             </div>
             {addError && (
-              <p className="text-[12px]" style={{ color: "#ff8585" }}>
+              <p className="text-[12px]" style={{ color: "var(--danger-text)" }}>
                 {addError}
               </p>
             )}
@@ -1190,7 +1190,7 @@ export default function CalendarioPage() {
               type="submit"
               disabled={addBusy}
               className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-              style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+              style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
             >
               {addBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
               Crear recordatorio
@@ -1201,18 +1201,18 @@ export default function CalendarioPage() {
         {/* Loading */}
         {loading && (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#7c5cff" }} />
+            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent-text)" }} />
           </div>
         )}
 
         {/* Empty state */}
         {!loading && properties.length === 0 && (
           <div className="rounded-2xl p-10 text-center" style={card}>
-            <CalendarClock className="h-8 w-8 mx-auto mb-3" style={{ color: "rgba(246,245,247,0.25)" }} />
-            <p className="text-[14px] mb-1" style={{ color: "rgba(246,245,247,0.70)" }}>
+            <CalendarClock className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
+            <p className="text-[14px] mb-1" style={{ color: "var(--ink-2)" }}>
               Crea tu primera propiedad para activar el calendario
             </p>
-            <p className="text-[12.5px]" style={{ color: "rgba(246,245,247,0.40)" }}>
+            <p className="text-[12.5px]" style={{ color: "var(--ink-3)" }}>
               Las obligaciones legales y de mantenimiento se generan automáticamente por copropiedad.
             </p>
           </div>
@@ -1221,14 +1221,14 @@ export default function CalendarioPage() {
         {/* Groups */}
         {!loading && properties.length > 0 && (
           <>
-            <Group title="Vencidos" color="#ff6f6f" list={overdue} />
-            <Group title="Próximos 30 días" color="#ffb958" list={soon} />
-            <Group title="Más adelante" color="rgba(246,245,247,0.42)" list={later} />
+            <Group title="Vencidos" color="var(--danger-text)" list={overdue} />
+            <Group title="Próximos 30 días" color="var(--warn-text)" list={soon} />
+            <Group title="Más adelante" color="var(--ink-3)" list={later} />
 
             {pending.length === 0 && (
               <div className="rounded-2xl p-10 text-center" style={card}>
-                <Check className="h-8 w-8 mx-auto mb-3" style={{ color: "#4cd6a0" }} />
-                <p className="text-[14px]" style={{ color: "rgba(246,245,247,0.70)" }}>
+                <Check className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ok-text)" }} />
+                <p className="text-[14px]" style={{ color: "var(--ink-2)" }}>
                   Todo al día. Sin obligaciones pendientes en el horizonte.
                 </p>
               </div>
@@ -1241,19 +1241,19 @@ export default function CalendarioPage() {
                   onClick={() => setShowDone((v) => !v)}
                   className="flex items-center gap-2 mb-2.5 cursor-pointer"
                 >
-                  <span style={{ ...monoLabel, color: "rgba(246,245,247,0.35)" }}>
+                  <span style={{ ...monoLabel, color: "var(--ink-4)" }}>
                     Completados
                   </span>
                   <span
                     className="px-1.5 py-0.5 rounded-md text-[10px]"
-                    style={{ ...monoMini, background: "rgba(255,255,255,0.05)", color: "rgba(246,245,247,0.45)" }}
+                    style={{ ...monoMini, background: "rgb(var(--veil-rgb) / 0.05)", color: "var(--ink-3)" }}
                   >
                     {done.length}
                   </span>
                   <ChevronDown
                     className="h-3.5 w-3.5 transition-transform"
                     style={{
-                      color: "rgba(246,245,247,0.35)",
+                      color: "var(--ink-4)",
                       transform: showDone ? "rotate(180deg)" : "none",
                     }}
                   />

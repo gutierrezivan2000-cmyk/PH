@@ -69,15 +69,15 @@ export default function TerminosPage() {
         </p>
         <ul className="space-y-2">
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Plan Pro:</strong> USD $20
+            <strong style={{ color: "var(--ink)" }}>Plan Pro:</strong> USD $20
             por mes.
           </Item>
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Plan Elite:</strong> USD
+            <strong style={{ color: "var(--ink)" }}>Plan Elite:</strong> USD
             $200 por mes.
           </Item>
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Add-ons (complementos):</strong>{" "}
+            <strong style={{ color: "var(--ink)" }}>Add-ons (complementos):</strong>{" "}
             USD $5 por mes, cada uno.
           </Item>
         </ul>
@@ -199,7 +199,7 @@ export default function TerminosPage() {
           <a
             href="mailto:soporte@sophiagrouph.com"
             className="underline underline-offset-2"
-            style={{ color: "#9a7fff" }}
+            style={{ color: "var(--accent-text)" }}
           >
             soporte@sophiagrouph.com
           </a>

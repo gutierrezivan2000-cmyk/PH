@@ -31,16 +31,16 @@ export function ComingSoon({
           <Sparkles className="h-3 w-3" />
           Próximamente
         </MonoLabel>
-        <h2 className="text-[19px] font-semibold mb-2" style={{ color: "#f6f5f7" }}>
+        <h2 className="text-[19px] font-semibold mb-2" style={{ color: "var(--ink)" }}>
           {title}
         </h2>
-        <p className="text-[13.5px] leading-relaxed mb-7 max-w-[440px] mx-auto" style={{ color: "rgba(246,245,247,0.55)" }}>
+        <p className="text-[13.5px] leading-relaxed mb-7 max-w-[440px] mx-auto" style={{ color: "var(--ink-2)" }}>
           {description}
         </p>
         <Link
           href="/dashboard"
           className="ui-press inline-flex items-center gap-2 rounded-full text-[12.5px] font-medium px-4 py-2 cursor-pointer"
-          style={{ background: "rgba(255,255,255,0.06)", color: "rgba(246,245,247,0.75)" }}
+          style={{ background: "rgb(var(--veil-rgb) / 0.06)", color: "var(--ink-2)" }}
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Volver al inicio

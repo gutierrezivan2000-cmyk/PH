@@ -54,7 +54,7 @@ export function RoleButton({ userId, currentRole, isSelf }: Props) {
         onClick={handleClick}
         disabled={isPending}
         className="gap-2"
-        style={!isAdmin ? { background: "#7c5cff" } : undefined}
+        style={!isAdmin ? { background: "var(--accent)" } : undefined}
       >
         <ShieldCheck className="h-3.5 w-3.5" />
         {isPending
@@ -64,7 +64,7 @@ export function RoleButton({ userId, currentRole, isSelf }: Props) {
           : "Promover a admin"}
       </Button>
       {error && (
-        <p className="text-[11px] text-[#ff6f6f]">{error}</p>
+        <p className="text-[11px] text-[var(--danger)]">{error}</p>
       )}
     </div>
   );

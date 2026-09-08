@@ -301,9 +301,9 @@ export default function GenerarPage() {
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
                   style={{
-                    background: idx < 4 ? "rgba(124,92,255,0.10)" : "rgba(255,255,255,0.04)",
-                    border: idx === 0 ? "1.5px solid #7c5cff" : idx < 4 ? "1.5px solid rgba(76,214,160,0.50)" : "1.5px solid rgba(255,255,255,0.12)",
-                    color: idx === 0 ? "#9a7fff" : idx < 4 ? "#4cd6a0" : "rgba(246,245,247,0.42)",
+                    background: idx < 4 ? "rgb(var(--accent-rgb) / 0.1)" : "rgb(var(--veil-rgb) / 0.04)",
+                    border: idx === 0 ? "1.5px solid var(--accent)" : idx < 4 ? "1.5px solid rgb(var(--ok-rgb) / 0.5)" : "1.5px solid rgb(var(--veil-rgb) / 0.12)",
+                    color: idx === 0 ? "var(--accent-hi)" : idx < 4 ? "var(--ok)" : "var(--ink-3)",
                   }}
                 >
                   <span style={{ ...monoLabel, fontSize: "11px" }}>{step.num}</span>
@@ -311,7 +311,7 @@ export default function GenerarPage() {
                 <span
                   style={{
                     ...monoLabel,
-                    color: idx === 0 ? "#9a7fff" : idx < 4 ? "#4cd6a0" : "rgba(246,245,247,0.42)",
+                    color: idx === 0 ? "var(--accent-hi)" : idx < 4 ? "var(--ok)" : "var(--ink-3)",
                   }}
                 >
                   {step.label}
@@ -320,7 +320,7 @@ export default function GenerarPage() {
               {idx < STEPS.length - 1 && (
                 <div
                   className="h-px w-8 sm:w-12 mx-1 flex-shrink-0 mt-[-18px]"
-                  style={{ background: "rgba(255,255,255,0.07)" }}
+                  style={{ background: "rgb(var(--veil-rgb) / 0.07)" }}
                 />
               )}
             </div>
@@ -332,9 +332,9 @@ export default function GenerarPage() {
             <div
               className="flex items-center gap-2.5 px-4 py-3 rounded-2xl text-sm"
               style={{
-                background: "rgba(255,111,111,0.08)",
-                border: "1px solid rgba(255,111,111,0.25)",
-                color: "#ff6f6f",
+                background: "rgb(var(--danger-rgb) / 0.08)",
+                border: "1px solid rgb(var(--danger-rgb) / 0.25)",
+                color: "var(--danger-text)",
               }}
             >
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -348,22 +348,22 @@ export default function GenerarPage() {
               <span
                 style={{
                   ...monoLabelSm,
-                  color: "#7c5cff",
-                  background: "rgba(124,92,255,0.10)",
-                  border: "1px solid rgba(124,92,255,0.40)",
+                  color: "var(--accent-text)",
+                  background: "rgb(var(--accent-rgb) / 0.1)",
+                  border: "1px solid rgb(var(--accent-rgb) / 0.4)",
                   padding: "3px 8px",
                   borderRadius: "6px",
                 }}
               >
                 01
               </span>
-              <span style={{ ...monoLabelSm, color: "rgba(246,245,247,0.66)" }}>
+              <span style={{ ...monoLabelSm, color: "var(--ink-2)" }}>
                 Propiedad
               </span>
             </div>
             <h3
               className="font-medium mb-4"
-              style={{ color: "#f6f5f7", fontSize: "16px", fontWeight: 500 }}
+              style={{ color: "var(--ink)", fontSize: "16px", fontWeight: 500 }}
             >
               Selecciona tu propiedad
             </h3>
@@ -371,15 +371,15 @@ export default function GenerarPage() {
               <div
                 className="rounded-xl p-4 text-center"
                 style={{
-                  background: "rgba(255,185,88,0.07)",
-                  border: "1px solid rgba(255,185,88,0.25)",
+                  background: "rgb(var(--warn-rgb) / 0.07)",
+                  border: "1px solid rgb(var(--warn-rgb) / 0.25)",
                 }}
               >
-                <p className="text-sm" style={{ color: "#ffb958" }}>
+                <p className="text-sm" style={{ color: "var(--warn-text)" }}>
                   No tienes propiedades registradas.{" "}
                   <a
                     href="/dashboard/propiedades"
-                    style={{ color: "#9a7fff", fontWeight: 600, textDecoration: "underline" }}
+                    style={{ color: "var(--accent-text)", fontWeight: 600, textDecoration: "underline" }}
                   >
                     Agrega una primero
                   </a>
@@ -393,35 +393,35 @@ export default function GenerarPage() {
                   onChange={(e) => setSelectedProperty(e.target.value)}
                   className="w-full h-11 rounded-xl px-4 text-sm appearance-none cursor-pointer transition-all outline-none"
                   style={{
-                    background: "#1d1d24",
+                    background: "var(--surface-3)",
                     border: selectedProperty
-                      ? "1px solid rgba(124,92,255,0.40)"
-                      : "1px solid rgba(255,255,255,0.07)",
-                    color: selectedProperty ? "#f6f5f7" : "rgba(246,245,247,0.42)",
+                      ? "1px solid rgb(var(--accent-rgb) / 0.4)"
+                      : "1px solid rgb(var(--veil-rgb) / 0.07)",
+                    color: selectedProperty ? "var(--ink)" : "var(--ink-3)",
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.border = "1px solid #7c5cff";
-                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                    e.currentTarget.style.border = "1px solid var(--accent)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
                   }}
                   onBlur={(e) => {
                     e.currentTarget.style.border = selectedProperty
-                      ? "1px solid rgba(124,92,255,0.40)"
-                      : "1px solid rgba(255,255,255,0.07)";
+                      ? "1px solid rgb(var(--accent-rgb) / 0.4)"
+                      : "1px solid rgb(var(--veil-rgb) / 0.07)";
                     e.currentTarget.style.boxShadow = "none";
                   }}
                 >
-                  <option value="" style={{ background: "#1d1d24", color: "rgba(246,245,247,0.42)" }}>
+                  <option value="" style={{ background: "var(--surface-3)", color: "var(--ink-3)" }}>
                     Seleccionar propiedad...
                   </option>
                   {properties.map((p) => (
-                    <option key={p.id} value={p.id} style={{ background: "#1d1d24", color: "#f6f5f7" }}>
+                    <option key={p.id} value={p.id} style={{ background: "var(--surface-3)", color: "var(--ink)" }}>
                       {p.name} {p.address ? `— ${p.address}` : ""}
                     </option>
                   ))}
                 </select>
                 <ChevronRight
                   className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none h-4 w-4"
-                  style={{ color: "rgba(246,245,247,0.42)" }}
+                  style={{ color: "var(--ink-3)" }}
                 />
               </div>
             )}
@@ -433,22 +433,22 @@ export default function GenerarPage() {
               <span
                 style={{
                   ...monoLabelSm,
-                  color: "#7c5cff",
-                  background: "rgba(124,92,255,0.10)",
-                  border: "1px solid rgba(124,92,255,0.40)",
+                  color: "var(--accent-text)",
+                  background: "rgb(var(--accent-rgb) / 0.1)",
+                  border: "1px solid rgb(var(--accent-rgb) / 0.4)",
                   padding: "3px 8px",
                   borderRadius: "6px",
                 }}
               >
                 02
               </span>
-              <span style={{ ...monoLabelSm, color: "rgba(246,245,247,0.66)" }}>
+              <span style={{ ...monoLabelSm, color: "var(--ink-2)" }}>
                 Periodo
               </span>
             </div>
             <h3
               className="font-medium mb-4"
-              style={{ color: "#f6f5f7", fontSize: "16px", fontWeight: 500 }}
+              style={{ color: "var(--ink)", fontSize: "16px", fontWeight: 500 }}
             >
               Periodo del documento
             </h3>
@@ -459,26 +459,26 @@ export default function GenerarPage() {
                   onChange={(e) => setMonth(parseInt(e.target.value))}
                   className="w-full h-11 rounded-xl px-4 text-sm appearance-none cursor-pointer transition-all outline-none"
                   style={{
-                    background: "#1d1d24",
+                    background: "var(--surface-3)",
                     border: "1px solid var(--hifi-hairline)",
-                    color: "#f6f5f7",
+                    color: "var(--ink)",
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.border = "1px solid #7c5cff";
-                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                    e.currentTarget.style.border = "1px solid var(--accent)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
                   }}
                   onBlur={(e) => {
-                    e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                    e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                     e.currentTarget.style.boxShadow = "none";
                   }}
                 >
                   {MONTHS.map((m, i) => (
-                    <option key={m} value={i + 1} style={{ background: "#1d1d24" }}>{m}</option>
+                    <option key={m} value={i + 1} style={{ background: "var(--surface-3)" }}>{m}</option>
                   ))}
                 </select>
                 <ChevronRight
                   className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none h-4 w-4"
-                  style={{ color: "rgba(246,245,247,0.42)" }}
+                  style={{ color: "var(--ink-3)" }}
                 />
               </div>
               <input
@@ -489,16 +489,16 @@ export default function GenerarPage() {
                 max={2030}
                 className="w-full sm:w-28 h-11 rounded-xl px-4 text-sm outline-none transition-all"
                 style={{
-                  background: "#1d1d24",
+                  background: "var(--surface-3)",
                   border: "1px solid var(--hifi-hairline)",
-                  color: "#f6f5f7",
+                  color: "var(--ink)",
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.border = "1px solid #7c5cff";
-                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                  e.currentTarget.style.border = "1px solid var(--accent)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
                 }}
                 onBlur={(e) => {
-                  e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                  e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                   e.currentTarget.style.boxShadow = "none";
                 }}
               />
@@ -511,22 +511,22 @@ export default function GenerarPage() {
               <span
                 style={{
                   ...monoLabelSm,
-                  color: "#7c5cff",
-                  background: "rgba(124,92,255,0.10)",
-                  border: "1px solid rgba(124,92,255,0.40)",
+                  color: "var(--accent-text)",
+                  background: "rgb(var(--accent-rgb) / 0.1)",
+                  border: "1px solid rgb(var(--accent-rgb) / 0.4)",
                   padding: "3px 8px",
                   borderRadius: "6px",
                 }}
               >
                 03
               </span>
-              <span style={{ ...monoLabelSm, color: "rgba(246,245,247,0.66)" }}>
+              <span style={{ ...monoLabelSm, color: "var(--ink-2)" }}>
                 Documentos
               </span>
             </div>
             <h3
               className="font-medium mb-4"
-              style={{ color: "#f6f5f7", fontSize: "16px", fontWeight: 500 }}
+              style={{ color: "var(--ink)", fontSize: "16px", fontWeight: 500 }}
             >
               Que documentos necesitas?
             </h3>
@@ -536,17 +536,17 @@ export default function GenerarPage() {
                 {
                   kind: "informe" as const,
                   Icon: FileBarChart,
-                  accent: "#9a7fff",
-                  tint: "rgba(124,92,255,0.10)",
-                  edge: "rgba(124,92,255,0.40)",
+                  accent: "var(--accent-hi)",
+                  tint: "rgb(var(--accent-rgb) / 0.1)",
+                  edge: "rgb(var(--accent-rgb) / 0.4)",
                   desc: "Resumen ejecutivo de la gestión mensual de la copropiedad.",
                 },
                 {
                   kind: "acta" as const,
                   Icon: Scale,
-                  accent: "#4cd6a0",
-                  tint: "rgba(76,214,160,0.08)",
-                  edge: "rgba(76,214,160,0.35)",
+                  accent: "var(--ok)",
+                  tint: "rgb(var(--ok-rgb) / 0.08)",
+                  edge: "rgb(var(--ok-rgb) / 0.35)",
                   desc: "Acta de reunión del Consejo de Administración con formato legal.",
                 },
               ]).map(({ kind, Icon, accent, tint, edge, desc }) => {
@@ -557,8 +557,8 @@ export default function GenerarPage() {
                     key={kind}
                     className="ui-card-interactive flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all"
                     style={{
-                      background: on ? tint : "#1d1d24",
-                      border: `1px solid ${on ? edge : "rgba(255,255,255,0.07)"}`,
+                      background: on ? tint : "var(--surface-3)",
+                      border: `1px solid ${on ? edge : "rgb(var(--veil-rgb) / 0.07)"}`,
                     }}
                   >
                     <input
@@ -571,16 +571,16 @@ export default function GenerarPage() {
                     />
                     <Icon
                       className="h-5 w-5 flex-shrink-0 mt-0.5"
-                      style={{ color: on ? accent : "rgba(246,245,247,0.42)" }}
+                      style={{ color: on ? accent : "var(--ink-3)" }}
                     />
                     <div className="flex-1 min-w-0">
                       <span
                         className="text-sm font-medium block"
-                        style={{ color: on ? accent : "#f6f5f7" }}
+                        style={{ color: on ? accent : "var(--ink)" }}
                       >
                         {DOC_KIND_LABELS[kind]}
                       </span>
-                      <span className="text-xs block mt-0.5" style={{ color: "rgba(246,245,247,0.42)" }}>
+                      <span className="text-xs block mt-0.5" style={{ color: "var(--ink-3)" }}>
                         {desc}
                       </span>
                       {count > 0 && (
@@ -601,10 +601,10 @@ export default function GenerarPage() {
                 docKind === "informe" ? "cursor-pointer" : "cursor-not-allowed opacity-45"
               }`}
               style={{
-                background: includePptx ? "rgba(255,185,88,0.07)" : "#1d1d24",
+                background: includePptx ? "rgb(var(--warn-rgb) / 0.07)" : "var(--surface-3)",
                 border: includePptx
-                  ? "1px solid rgba(255,185,88,0.30)"
-                  : "1px solid rgba(255,255,255,0.07)",
+                  ? "1px solid rgb(var(--warn-rgb) / 0.3)"
+                  : "1px solid rgb(var(--veil-rgb) / 0.07)",
               }}
             >
               <input
@@ -613,20 +613,20 @@ export default function GenerarPage() {
                 disabled={docKind !== "informe"}
                 onChange={(e) => setIncludePptx(e.target.checked)}
                 className="h-4 w-4 rounded"
-                style={{ accentColor: "#ffb958" }}
+                style={{ accentColor: "var(--warn)" }}
               />
               <Presentation
                 className="h-5 w-5 flex-shrink-0"
-                style={{ color: includePptx ? "#ffb958" : "rgba(246,245,247,0.42)" }}
+                style={{ color: includePptx ? "var(--warn-text)" : "var(--ink-3)" }}
               />
               <div className="flex-1">
                 <span
                   className="text-sm font-medium block"
-                  style={{ color: includePptx ? "#ffb958" : "#f6f5f7" }}
+                  style={{ color: includePptx ? "var(--warn-text)" : "var(--ink)" }}
                 >
                   Añadir presentación PPTX
                 </span>
-                <span className="text-xs block mt-0.5" style={{ color: "rgba(246,245,247,0.42)" }}>
+                <span className="text-xs block mt-0.5" style={{ color: "var(--ink-3)" }}>
                   {docKind === "informe"
                     ? "Diapositivas construidas a partir del mismo informe. Opcional."
                     : "Solo disponible con el informe de gestión — un acta no tiene diapositivas."}
@@ -641,28 +641,28 @@ export default function GenerarPage() {
               <span
                 style={{
                   ...monoLabelSm,
-                  color: "#7c5cff",
-                  background: "rgba(124,92,255,0.10)",
-                  border: "1px solid rgba(124,92,255,0.40)",
+                  color: "var(--accent-text)",
+                  background: "rgb(var(--accent-rgb) / 0.1)",
+                  border: "1px solid rgb(var(--accent-rgb) / 0.4)",
                   padding: "3px 8px",
                   borderRadius: "6px",
                 }}
               >
                 04
               </span>
-              <span style={{ ...monoLabelSm, color: "rgba(246,245,247,0.66)" }}>
+              <span style={{ ...monoLabelSm, color: "var(--ink-2)" }}>
                 Archivos
               </span>
             </div>
             <h3
               className="font-medium mb-1"
-              style={{ color: "#f6f5f7", fontSize: "16px", fontWeight: 500 }}
+              style={{ color: "var(--ink)", fontSize: "16px", fontWeight: 500 }}
             >
               Archivos para el {DOC_KIND_LABELS[docKind].toLowerCase()}
             </h3>
             {/* Cada documento tiene su propia bandeja: los archivos del otro no
                 se mezclan ni se pierden al cambiar de tipo. */}
-            <p className="text-xs mb-4" style={{ color: "rgba(246,245,247,0.42)" }}>
+            <p className="text-xs mb-4" style={{ color: "var(--ink-3)" }}>
               Bandeja independiente
               {otherCount > 0
                 ? ` — el ${DOC_KIND_LABELS[otherKind].toLowerCase()} conserva sus ${otherCount} ${otherCount === 1 ? "archivo" : "archivos"} aparte.`
@@ -673,17 +673,17 @@ export default function GenerarPage() {
             <div
               className="mb-5 rounded-xl p-4"
               style={{
-                background: "rgba(124,92,255,0.06)",
-                border: "1px solid rgba(124,92,255,0.18)",
+                background: "rgb(var(--accent-rgb) / 0.06)",
+                border: "1px solid rgb(var(--accent-rgb) / 0.18)",
               }}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Lightbulb className="h-4 w-4" style={{ color: "#9a7fff" }} />
-                <span className="text-sm font-medium" style={{ color: "#9a7fff" }}>
+                <Lightbulb className="h-4 w-4" style={{ color: "var(--accent-text)" }} />
+                <span className="text-sm font-medium" style={{ color: "var(--accent-text)" }}>
                   Que deberia subir para obtener buenos resultados?
                 </span>
               </div>
-              <p className="text-xs mb-3" style={{ color: "rgba(246,245,247,0.66)" }}>
+              <p className="text-xs mb-3" style={{ color: "var(--ink-2)" }}>
                 No es obligatorio subir todo, pero entre mas informacion le des a la IA, mejores seran los documentos.
               </p>
 
@@ -692,8 +692,8 @@ export default function GenerarPage() {
               {docKind === "informe" ? (
                 <div className="mb-3">
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <FileBarChart className="h-3.5 w-3.5" style={{ color: "#9a7fff" }} />
-                    <span className="text-xs font-semibold" style={{ color: "#9a7fff" }}>
+                    <FileBarChart className="h-3.5 w-3.5" style={{ color: "var(--accent-text)" }} />
+                    <span className="text-xs font-semibold" style={{ color: "var(--accent-text)" }}>
                       Para el informe de gestión:
                     </span>
                   </div>
@@ -706,8 +706,8 @@ export default function GenerarPage() {
                       "Novedades de seguridad, personal o proveedores",
                     ].map((item) => (
                       <li key={item} className="flex items-start gap-1.5">
-                        <ChevronRight className="h-3 w-3 mt-0.5 flex-shrink-0" style={{ color: "#9a7fff" }} />
-                        <span className="text-xs" style={{ color: "rgba(246,245,247,0.66)" }}>{item}</span>
+                        <ChevronRight className="h-3 w-3 mt-0.5 flex-shrink-0" style={{ color: "var(--accent-text)" }} />
+                        <span className="text-xs" style={{ color: "var(--ink-2)" }}>{item}</span>
                       </li>
                     ))}
                   </ul>
@@ -715,8 +715,8 @@ export default function GenerarPage() {
               ) : (
                 <div className="mb-3">
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <Scale className="h-3.5 w-3.5" style={{ color: "#4cd6a0" }} />
-                    <span className="text-xs font-semibold" style={{ color: "#4cd6a0" }}>
+                    <Scale className="h-3.5 w-3.5" style={{ color: "var(--ok-text)" }} />
+                    <span className="text-xs font-semibold" style={{ color: "var(--ok-text)" }}>
                       Para el acta de reunión:
                     </span>
                   </div>
@@ -728,8 +728,8 @@ export default function GenerarPage() {
                       "Actas anteriores como referencia de formato",
                     ].map((item) => (
                       <li key={item} className="flex items-start gap-1.5">
-                        <ChevronRight className="h-3 w-3 mt-0.5 flex-shrink-0" style={{ color: "#4cd6a0" }} />
-                        <span className="text-xs" style={{ color: "rgba(246,245,247,0.66)" }}>{item}</span>
+                        <ChevronRight className="h-3 w-3 mt-0.5 flex-shrink-0" style={{ color: "var(--ok-text)" }} />
+                        <span className="text-xs" style={{ color: "var(--ink-2)" }}>{item}</span>
                       </li>
                     ))}
                   </ul>
@@ -738,9 +738,9 @@ export default function GenerarPage() {
 
               <div
                 className="mt-2 pt-2"
-                style={{ borderTop: "1px solid rgba(124,92,255,0.15)" }}
+                style={{ borderTop: "1px solid rgb(var(--accent-rgb) / 0.15)" }}
               >
-                <p className="text-xs italic" style={{ color: "rgba(246,245,247,0.42)" }}>
+                <p className="text-xs italic" style={{ color: "var(--ink-3)" }}>
                   {`Tambien puedes subir: PDFs, documentos Word, archivos de texto, hojas de calculo, imagenes y audios de hasta ${fileLimits.maxFileSizeMb} MB.`}
                 </p>
               </div>
@@ -757,24 +757,24 @@ export default function GenerarPage() {
                 className="flex flex-col items-center justify-center rounded-xl p-8 sm:p-12 cursor-pointer transition-all"
                 style={{
                   border: dragOver
-                    ? "1.5px dashed #7c5cff"
-                    : "1.5px dashed rgba(255,255,255,0.12)",
-                  background: dragOver ? "rgba(124,92,255,0.08)" : "rgba(255,255,255,0.02)",
+                    ? "1.5px dashed var(--accent)"
+                    : "1.5px dashed rgb(var(--veil-rgb) / 0.12)",
+                  background: dragOver ? "rgb(var(--accent-rgb) / 0.08)" : "rgb(var(--veil-rgb) / 0.02)",
                 }}
               >
                 <div
                   className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
                   style={{
-                    background: dragOver ? "rgba(124,92,255,0.20)" : "rgba(124,92,255,0.10)",
-                    border: "1px solid rgba(124,92,255,0.30)",
+                    background: dragOver ? "rgb(var(--accent-rgb) / 0.2)" : "rgb(var(--accent-rgb) / 0.1)",
+                    border: "1px solid rgb(var(--accent-rgb) / 0.3)",
                   }}
                 >
-                  <Upload className="h-7 w-7" style={{ color: "#9a7fff" }} />
+                  <Upload className="h-7 w-7" style={{ color: "var(--accent-text)" }} />
                 </div>
-                <span className="text-sm font-medium" style={{ color: "#f6f5f7" }}>
+                <span className="text-sm font-medium" style={{ color: "var(--ink)" }}>
                   Arrastra archivos o haz clic para seleccionar
                 </span>
-                <span className="text-xs mt-1" style={{ color: "rgba(246,245,247,0.42)" }}>
+                <span className="text-xs mt-1" style={{ color: "var(--ink-3)" }}>
                   {`PDF, Word, Excel, imagenes, audio — hasta ${fileLimits.maxFiles} archivos de ${fileLimits.maxFileSizeMb} MB`}
                 </span>
                 <input
@@ -795,18 +795,18 @@ export default function GenerarPage() {
                     key={`${file.name}-${i}`}
                     className="flex items-center justify-between rounded-xl px-4 py-2.5"
                     style={{
-                      background: "#1d1d24",
+                      background: "var(--surface-3)",
                       border: "1px solid var(--hifi-hairline)",
                     }}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <FileText className="h-4 w-4 flex-shrink-0" style={{ color: "#9a7fff" }} />
+                      <FileText className="h-4 w-4 flex-shrink-0" style={{ color: "var(--accent-text)" }} />
                       <span
                         className="text-sm truncate"
                         style={{
                           fontFamily: "'Geist Mono', monospace",
                           fontSize: "12px",
-                          color: "#f6f5f7",
+                          color: "var(--ink)",
                         }}
                       >
                         {file.name}
@@ -815,8 +815,8 @@ export default function GenerarPage() {
                         className="flex-shrink-0 px-2 py-0.5 rounded"
                         style={{
                           ...monoLabel,
-                          background: "rgba(255,255,255,0.06)",
-                          color: "rgba(246,245,247,0.66)",
+                          background: "rgb(var(--veil-rgb) / 0.06)",
+                          color: "var(--ink-2)",
                           border: "1px solid var(--hifi-hairline)",
                         }}
                       >
@@ -827,14 +827,14 @@ export default function GenerarPage() {
                       type="button"
                       onClick={() => removeFile(i)}
                       className="p-1.5 rounded-lg transition-colors ml-2 flex-shrink-0"
-                      style={{ color: "rgba(246,245,247,0.42)" }}
+                      style={{ color: "var(--ink-3)" }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "rgba(255,111,111,0.10)";
-                        e.currentTarget.style.color = "#ff6f6f";
+                        e.currentTarget.style.background = "rgb(var(--danger-rgb) / 0.1)";
+                        e.currentTarget.style.color = "var(--danger-text)";
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.background = "transparent";
-                        e.currentTarget.style.color = "rgba(246,245,247,0.42)";
+                        e.currentTarget.style.color = "var(--ink-3)";
                       }}
                     >
                       <X className="h-4 w-4" />
@@ -851,22 +851,22 @@ export default function GenerarPage() {
               <span
                 style={{
                   ...monoLabelSm,
-                  color: "#7c5cff",
-                  background: "rgba(124,92,255,0.10)",
-                  border: "1px solid rgba(124,92,255,0.40)",
+                  color: "var(--accent-text)",
+                  background: "rgb(var(--accent-rgb) / 0.1)",
+                  border: "1px solid rgb(var(--accent-rgb) / 0.4)",
                   padding: "3px 8px",
                   borderRadius: "6px",
                 }}
               >
                 05
               </span>
-              <span style={{ ...monoLabelSm, color: "rgba(246,245,247,0.66)" }}>
+              <span style={{ ...monoLabelSm, color: "var(--ink-2)" }}>
                 Notas
               </span>
             </div>
             <h3
               className="font-medium mb-4"
-              style={{ color: "#f6f5f7", fontSize: "16px", fontWeight: 500 }}
+              style={{ color: "var(--ink)", fontSize: "16px", fontWeight: 500 }}
             >
               Informacion adicional
             </h3>
@@ -877,16 +877,16 @@ export default function GenerarPage() {
               placeholder="Ejemplo: Este mes se realizo el cambio de bombas del cuarto de maquinas. Hubo un corte de agua del 3 al 5 de marzo por obras de la empresa de acueducto..."
               className="w-full rounded-xl px-4 py-3 text-sm resize-none outline-none transition-all"
               style={{
-                background: "#1d1d24",
+                background: "var(--surface-3)",
                 border: "1px solid var(--hifi-hairline)",
-                color: "#f6f5f7",
+                color: "var(--ink)",
               }}
               onFocus={(e) => {
-                e.currentTarget.style.border = "1px solid #7c5cff";
-                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,92,255,0.15)";
+                e.currentTarget.style.border = "1px solid var(--accent)";
+                e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
               }}
               onBlur={(e) => {
-                e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+                e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
                 e.currentTarget.style.boxShadow = "none";
               }}
             />
@@ -898,22 +898,22 @@ export default function GenerarPage() {
             disabled={loading}
             className="w-full h-14 rounded-xl flex items-center justify-center gap-2.5 text-base font-medium transition-all"
             style={{
-              background: loading ? "rgba(124,92,255,0.40)" : "#7c5cff",
+              background: loading ? "rgb(var(--accent-rgb) / 0.4)" : "var(--accent)",
               color: "#ffffff",
               cursor: loading ? "not-allowed" : "pointer",
-              boxShadow: loading ? "none" : "0 4px 24px rgba(124,92,255,0.35)",
+              boxShadow: loading ? "none" : "0 4px 24px rgb(var(--accent-rgb) / 0.35)",
               border: "none",
             }}
             onMouseEnter={(e) => {
               if (!loading) {
-                e.currentTarget.style.background = "#9a7fff";
-                e.currentTarget.style.boxShadow = "0 6px 32px rgba(124,92,255,0.50)";
+                e.currentTarget.style.background = "var(--accent-hi)";
+                e.currentTarget.style.boxShadow = "0 6px 32px rgb(var(--accent-rgb) / 0.5)";
               }
             }}
             onMouseLeave={(e) => {
               if (!loading) {
-                e.currentTarget.style.background = "#7c5cff";
-                e.currentTarget.style.boxShadow = "0 4px 24px rgba(124,92,255,0.35)";
+                e.currentTarget.style.background = "var(--accent)";
+                e.currentTarget.style.boxShadow = "0 4px 24px rgb(var(--accent-rgb) / 0.35)";
               }
             }}
           >

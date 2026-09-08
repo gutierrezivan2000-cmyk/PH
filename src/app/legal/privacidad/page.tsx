@@ -28,23 +28,23 @@ export default function PrivacidadPage() {
       <Section number="01" title="Qué datos recogemos" icon={Database}>
         <ul className="space-y-2">
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Datos de cuenta:</strong>{" "}
+            <strong style={{ color: "var(--ink)" }}>Datos de cuenta:</strong>{" "}
             nombre, correo electrónico, contraseña (cifrada) y datos de
             facturación asociados a la suscripción.
           </Item>
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Datos de propiedades:</strong>{" "}
+            <strong style={{ color: "var(--ink)" }}>Datos de propiedades:</strong>{" "}
             información de los conjuntos o copropiedades que administras
             (nombre, unidades, cifras de gestión) que decides registrar en la
             plataforma.
           </Item>
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Documentos subidos:</strong>{" "}
+            <strong style={{ color: "var(--ink)" }}>Documentos subidos:</strong>{" "}
             archivos que cargas como insumo para la generación de documentos
             (actas anteriores, informes, soportes).
           </Item>
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Datos de uso:</strong>{" "}
+            <strong style={{ color: "var(--ink)" }}>Datos de uso:</strong>{" "}
             registros técnicos de actividad (accesos, funciones utilizadas,
             documentos generados) necesarios para operar y mejorar el
             servicio.
@@ -85,23 +85,23 @@ export default function PrivacidadPage() {
         </p>
         <ul className="space-y-2">
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Vercel</strong> — alojamiento
+            <strong style={{ color: "var(--ink)" }}>Vercel</strong> — alojamiento
             de la aplicación y archivos.
           </Item>
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Neon</strong> — base de datos.
+            <strong style={{ color: "var(--ink)" }}>Neon</strong> — base de datos.
           </Item>
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Anthropic y OpenAI</strong> —
+            <strong style={{ color: "var(--ink)" }}>Anthropic y OpenAI</strong> —
             procesamiento de inteligencia artificial para la generación de
             documentos.
           </Item>
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>Resend</strong> — envío de
+            <strong style={{ color: "var(--ink)" }}>Resend</strong> — envío de
             correos transaccionales.
           </Item>
           <Item>
-            <strong style={{ color: "#f6f5f7" }}>ePayco</strong> —
+            <strong style={{ color: "var(--ink)" }}>ePayco</strong> —
             procesamiento de pagos. SOPH.IA no almacena números completos de
             tarjetas.
           </Item>
@@ -136,7 +136,7 @@ export default function PrivacidadPage() {
           <Link
             href="/legal/habeas-data"
             className="underline underline-offset-2"
-            style={{ color: "#9a7fff" }}
+            style={{ color: "var(--accent-text)" }}
           >
             Política de Tratamiento de Datos Personales (Habeas Data)
           </Link>
@@ -165,7 +165,7 @@ export default function PrivacidadPage() {
           <a
             href="mailto:soporte@sophiagrouph.com"
             className="underline underline-offset-2"
-            style={{ color: "#9a7fff" }}
+            style={{ color: "var(--accent-text)" }}
           >
             soporte@sophiagrouph.com
           </a>

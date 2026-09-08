@@ -7,12 +7,12 @@ import { AGENTS, AGENT_IDS, INCLUDED_AGENT_IDS } from "@/lib/agents";
 import { ArrowRight, MessageSquare, Zap, Hourglass } from "lucide-react";
 
 const AGENT_COLORS: Record<string, string> = {
-  themis: "#a78bff",
-  chronos: "#5fb4ff",
-  metra: "#4cd6a0",
-  nomethes: "#ffb958",
-  hermes: "#ff6fa8",
-  logistes: "#8a92ff",
+  themis: "var(--accent-hi)",
+  chronos: "var(--info)",
+  metra: "var(--ok)",
+  nomethes: "var(--warn)",
+  hermes: "var(--pink)",
+  logistes: "var(--logistes)",
 };
 
 const AGENT_MONOGRAMS: Record<string, string> = {
@@ -58,8 +58,8 @@ export default function AsistentePage() {
           <div
             className="rounded-2xl p-4 border flex items-center gap-4"
             style={{
-              background: "var(--hifi-surface-1, #15151a)",
-              borderColor: "var(--hifi-hairline-strong, rgba(255,255,255,0.14))",
+              background: "var(--hifi-surface-1, var(--surface-2))",
+              borderColor: "var(--hifi-hairline-strong, rgb(var(--veil-rgb) / 0.14))",
             }}
           >
             <div
@@ -103,7 +103,7 @@ export default function AsistentePage() {
           {AGENT_IDS.map((id) => {
             const agent = AGENTS[id];
             const included = accessible.includes(id);
-            const color = AGENT_COLORS[id] || "#7c5cff";
+            const color = AGENT_COLORS[id] || "var(--accent-text)";
             const monogram = AGENT_MONOGRAMS[id] || id[0].toUpperCase();
 
             if (included) {
@@ -112,8 +112,8 @@ export default function AsistentePage() {
                   <div
                     className="hifi-agent-tile group relative rounded-2xl p-5 border cursor-pointer overflow-hidden h-full"
                     style={{
-                      background: `radial-gradient(120% 100% at 100% 0%, color-mix(in oklab, ${color} 18%, transparent) 0%, transparent 70%), var(--hifi-surface-1, #15151a)`,
-                      borderColor: "var(--hifi-hairline, rgba(255,255,255,0.07))",
+                      background: `radial-gradient(120% 100% at 100% 0%, color-mix(in oklab, ${color} 18%, transparent) 0%, transparent 70%), var(--hifi-surface-1, var(--surface-2))`,
+                      borderColor: "var(--hifi-hairline, rgb(var(--veil-rgb) / 0.07))",
                       minHeight: 180,
                     }}
                   >
@@ -125,8 +125,8 @@ export default function AsistentePage() {
                         style={{
                           width: 44,
                           height: 44,
-                          background: `radial-gradient(120% 100% at 30% 20%, color-mix(in oklab, ${color} 70%, transparent) 0%, transparent 60%), var(--hifi-surface-2, #1d1d24)`,
-                          border: `1px solid color-mix(in oklab, ${color} 50%, rgba(255,255,255,0.07))`,
+                          background: `radial-gradient(120% 100% at 30% 20%, color-mix(in oklab, ${color} 70%, transparent) 0%, transparent 60%), var(--hifi-surface-2, var(--surface-3))`,
+                          border: `1px solid color-mix(in oklab, ${color} 50%, rgb(var(--veil-rgb) / 0.07))`,
                           color,
                           fontFamily: "var(--hifi-mono)",
                           fontWeight: 600,
@@ -140,8 +140,8 @@ export default function AsistentePage() {
                         style={{
                           fontFamily: "var(--hifi-mono)",
                           letterSpacing: "0.06em",
-                          background: "rgba(76,214,160,0.12)",
-                          border: "1px solid rgba(76,214,160,0.25)",
+                          background: "rgb(var(--ok-rgb) / 0.12)",
+                          border: "1px solid rgb(var(--ok-rgb) / 0.25)",
                           color: "var(--hifi-ok)",
                         }}
                       >
@@ -155,7 +155,7 @@ export default function AsistentePage() {
 
                     <div
                       className="text-base font-semibold mb-0.5 tracking-tight"
-                      style={{ color: "var(--hifi-ink, #f6f5f7)" }}
+                      style={{ color: "var(--hifi-ink, var(--ink))" }}
                     >
                       {agent.name}
                     </div>
@@ -191,8 +191,8 @@ export default function AsistentePage() {
                 key={id}
                 className="relative rounded-2xl p-5 border overflow-hidden h-full select-none"
                 style={{
-                  background: `radial-gradient(120% 100% at 100% 0%, color-mix(in oklab, ${color} 10%, transparent) 0%, transparent 70%), var(--hifi-surface-1, #15151a)`,
-                  borderColor: "var(--hifi-hairline, rgba(255,255,255,0.07))",
+                  background: `radial-gradient(120% 100% at 100% 0%, color-mix(in oklab, ${color} 10%, transparent) 0%, transparent 70%), var(--hifi-surface-1, var(--surface-2))`,
+                  borderColor: "var(--hifi-hairline, rgb(var(--veil-rgb) / 0.07))",
                   minHeight: 180,
                   opacity: 0.75,
                 }}
@@ -204,8 +204,8 @@ export default function AsistentePage() {
                     style={{
                       fontFamily: "var(--hifi-mono)",
                       letterSpacing: "0.1em",
-                      background: "rgba(124,92,255,0.12)",
-                      border: "1px solid rgba(124,92,255,0.35)",
+                      background: "rgb(var(--accent-rgb) / 0.12)",
+                      border: "1px solid rgb(var(--accent-rgb) / 0.35)",
                       color: "var(--hifi-accent-hi)",
                     }}
                   >
@@ -220,8 +220,8 @@ export default function AsistentePage() {
                     style={{
                       width: 44,
                       height: 44,
-                      background: `radial-gradient(120% 100% at 30% 20%, color-mix(in oklab, ${color} 70%, transparent) 0%, transparent 60%), var(--hifi-surface-2, #1d1d24)`,
-                      border: `1px solid color-mix(in oklab, ${color} 50%, rgba(255,255,255,0.07))`,
+                      background: `radial-gradient(120% 100% at 30% 20%, color-mix(in oklab, ${color} 70%, transparent) 0%, transparent 60%), var(--hifi-surface-2, var(--surface-3))`,
+                      border: `1px solid color-mix(in oklab, ${color} 50%, rgb(var(--veil-rgb) / 0.07))`,
                       color,
                       fontFamily: "var(--hifi-mono)",
                       fontWeight: 600,
@@ -252,8 +252,8 @@ export default function AsistentePage() {
         <div
           className="rounded-2xl p-5 border"
           style={{
-            background: "var(--hifi-surface-1, #15151a)",
-            borderColor: "var(--hifi-hairline, rgba(255,255,255,0.07))",
+            background: "var(--hifi-surface-1, var(--surface-2))",
+            borderColor: "var(--hifi-hairline, rgb(var(--veil-rgb) / 0.07))",
           }}
         >
           <div className="flex items-center gap-2 mb-3">

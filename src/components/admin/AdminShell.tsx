@@ -41,8 +41,8 @@ function BrandMark() {
       <div
         className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white flex-shrink-0"
         style={{
-          background: "linear-gradient(135deg, #7c5cff, #5a3cf0)",
-          boxShadow: "0 0 18px rgba(124,92,255,0.30)",
+          background: "linear-gradient(135deg, var(--accent), var(--accent-lo))",
+          boxShadow: "0 0 18px rgb(var(--accent-rgb) / 0.3)",
         }}
       >
         S
@@ -50,7 +50,7 @@ function BrandMark() {
       <div className="flex flex-col leading-tight">
         <span className="text-[15px] font-bold tracking-tight text-foreground">
           SOPH<span className="text-muted-foreground/60 font-normal">.</span>
-          <span style={{ color: "#7c5cff" }}>IA</span>
+          <span style={{ color: "var(--accent-text)" }}>IA</span>
         </span>
         <span
           className="text-[9px] uppercase text-muted-foreground/70"
@@ -78,17 +78,17 @@ export function AdminShell({ admin, children }: AdminShellProps) {
         className={cn(
           "group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all duration-200",
           isActive
-            ? "bg-[rgba(124,92,255,0.08)] border-[rgba(124,92,255,0.40)] text-foreground"
+            ? "bg-[rgb(var(--accent-rgb) / 0.08)] border-[rgb(var(--accent-rgb) / 0.4)] text-foreground"
             : "border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
         )}
-        style={isActive ? { boxShadow: "inset 2px 0 0 #7c5cff" } : undefined}
+        style={isActive ? { boxShadow: "inset 2px 0 0 var(--accent)" } : undefined}
       >
         <span
           className="text-[9.5px] w-6"
           style={{
             fontFamily: "var(--font-mono)",
             letterSpacing: "0.14em",
-            color: isActive ? "#9a7fff" : "rgba(255,255,255,0.30)",
+            color: isActive ? "var(--accent-text)" : "var(--ink-4)",
           }}
         >
           {item.n}
@@ -96,7 +96,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
         <item.icon
           className={cn(
             "h-[15px] w-[15px] flex-shrink-0",
-            isActive ? "text-[#7c5cff]" : "text-muted-foreground/80"
+            isActive ? "text-[var(--accent)]" : "text-muted-foreground/80"
           )}
         />
         <span className="flex-1 truncate text-[13px] font-medium">{item.name}</span>
@@ -133,7 +133,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
             className="rounded-xl border border-border bg-card px-3 py-2.5"
             style={{
               background:
-                "radial-gradient(120% 100% at 0% 0%, rgba(124,92,255,0.08), transparent 70%), var(--card)",
+                "radial-gradient(120% 100% at 0% 0%, rgb(var(--accent-rgb) / 0.08), transparent 70%), var(--card)",
             }}
           >
             <p
@@ -155,7 +155,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
 
           <button
             onClick={() => signOut({ callbackUrl: "/admin/login" })}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-[#ff6f6f] hover:bg-[#ff6f6f]/10 w-full transition-all duration-200"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 w-full transition-all duration-200"
           >
             <LogOut className="h-[15px] w-[15px]" />
             Cerrar sesión
@@ -187,7 +187,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
         <div className="border-t border-border p-3">
           <button
             onClick={() => signOut({ callbackUrl: "/admin/login" })}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-[#ff6f6f] hover:bg-[#ff6f6f]/10 w-full transition-all duration-200"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 w-full transition-all duration-200"
           >
             <LogOut className="h-[15px] w-[15px]" />
             Cerrar sesión

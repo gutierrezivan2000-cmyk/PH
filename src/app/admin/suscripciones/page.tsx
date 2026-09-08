@@ -116,22 +116,22 @@ async function SuscripcionesContent({ sp }: { sp: SearchParams }) {
     {
       label: "MRR estimado",
       value: `$${stats.mrr.toLocaleString("es-CO")}`,
-      color: "#4cd6a0",
+      color: "var(--ok-text)",
     },
     {
       label: "Activas",
       value: stats.activeCount.toLocaleString("es-CO"),
-      color: "#4cd6a0",
+      color: "var(--ok-text)",
     },
     {
       label: "Past due",
       value: stats.pastDueCount.toLocaleString("es-CO"),
-      color: "#ffb958",
+      color: "var(--warn-text)",
     },
     {
       label: "Canceladas 30d",
       value: stats.canceledLast30.toLocaleString("es-CO"),
-      color: "#ff6f6f",
+      color: "var(--danger-text)",
     },
   ];
 
@@ -184,7 +184,7 @@ async function SuscripcionesContent({ sp }: { sp: SearchParams }) {
               <thead>
                 <tr
                   className="border-b border-border"
-                  style={{ background: "rgba(255,255,255,0.02)" }}
+                  style={{ background: "rgb(var(--veil-rgb) / 0.02)" }}
                 >
                   {[
                     "Usuario",
@@ -204,7 +204,7 @@ async function SuscripcionesContent({ sp }: { sp: SearchParams }) {
                         fontSize: "10px",
                         letterSpacing: "0.14em",
                         textTransform: "uppercase",
-                        color: "rgba(255,255,255,0.40)",
+                        color: "var(--ink-3)",
                       }}
                     >
                       {h}
@@ -216,14 +216,14 @@ async function SuscripcionesContent({ sp }: { sp: SearchParams }) {
                 {subscriptions.map((s) => {
                   const diff = s.currentPeriodEnd ? daysDiff(new Date(s.currentPeriodEnd)) : null;
                   let expiryLabel = "—";
-                  let expiryColor = "rgba(255,255,255,0.40)";
+                  let expiryColor = "rgb(var(--veil-rgb) / 0.4)";
                   if (diff !== null) {
                     if (diff >= 0) {
                       expiryLabel = `vence en ${diff}d`;
-                      expiryColor = diff <= 7 ? "#ffb958" : "#4cd6a0";
+                      expiryColor = diff <= 7 ? "var(--warn)" : "var(--ok)";
                     } else {
                       expiryLabel = `venció hace ${Math.abs(diff)}d`;
-                      expiryColor = "#ff6f6f";
+                      expiryColor = "var(--danger)";
                     }
                   }
 
@@ -240,7 +240,7 @@ async function SuscripcionesContent({ sp }: { sp: SearchParams }) {
                             style={{
                               background: s.user.image
                                 ? undefined
-                                : "linear-gradient(135deg, #7c5cff, #5a3cf0)",
+                                : "linear-gradient(135deg, var(--accent), var(--accent-lo))",
                             }}
                           >
                             {s.user.image ? (
@@ -308,7 +308,7 @@ async function SuscripcionesContent({ sp }: { sp: SearchParams }) {
                           className="text-[12px] font-medium"
                           style={{
                             fontFamily: "var(--font-mono)",
-                            color: s.mrr > 0 ? "#4cd6a0" : "rgba(255,255,255,0.30)",
+                            color: s.mrr > 0 ? "var(--ok-text)" : "var(--ink-4)",
                           }}
                         >
                           ${s.mrr}
@@ -350,7 +350,7 @@ async function SuscripcionesContent({ sp }: { sp: SearchParams }) {
         {totalPages > 1 && (
           <div
             className="flex items-center justify-between px-5 py-3.5 border-t border-border"
-            style={{ background: "rgba(255,255,255,0.01)" }}
+            style={{ background: "rgb(var(--veil-rgb) / 0.01)" }}
           >
             <span
               className="text-[11px] text-muted-foreground/60"

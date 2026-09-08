@@ -95,10 +95,10 @@ const PLAN_CARDS: {
 ];
 
 const COMING_SOON_AGENTS = [
-  { id: "metra",    color: "#4cd6a0", name: "Metra",    role: "Analista Financiera" },
-  { id: "nomethes", color: "#ffb958", name: "Nomethes", role: "Consultor de Decisiones" },
-  { id: "hermes",   color: "#ff6fa8", name: "Hermes",   role: "Redactor de Comunicaciones" },
-  { id: "logistes", color: "#8a92ff", name: "Logistes", role: "Coordinador Operativo" },
+  { id: "metra",    color: "var(--ok-text)", name: "Metra",    role: "Analista Financiera" },
+  { id: "nomethes", color: "var(--warn-text)", name: "Nomethes", role: "Consultor de Decisiones" },
+  { id: "hermes",   color: "var(--pink)", name: "Hermes",   role: "Redactor de Comunicaciones" },
+  { id: "logistes", color: "var(--logistes)", name: "Logistes", role: "Coordinador Operativo" },
 ];
 
 export default function SuscripcionPage() {
@@ -173,9 +173,9 @@ export default function SuscripcionPage() {
           <div
             className="px-4 py-3 rounded-2xl text-sm"
             style={{
-              background: "rgba(255,111,111,0.08)",
-              border: "1px solid rgba(255,111,111,0.20)",
-              color: "#ff6f6f",
+              background: "rgb(var(--danger-rgb) / 0.08)",
+              border: "1px solid rgb(var(--danger-rgb) / 0.2)",
+              color: "var(--danger-text)",
             }}
           >
             {error}
@@ -193,10 +193,10 @@ export default function SuscripcionPage() {
                 style={
                   plan.featured
                     ? {
-                        background: "radial-gradient(ellipse at 50% 0%, rgba(124,92,255,0.20) 0%, #15151a 65%)",
-                        border: "1px solid rgba(124,92,255,0.40)",
+                        background: "radial-gradient(ellipse at 50% 0%, rgb(var(--accent-rgb) / 0.2) 0%, var(--surface-2) 65%)",
+                        border: "1px solid rgb(var(--accent-rgb) / 0.4)",
                         padding: "28px 24px",
-                        boxShadow: "0 0 0 1px rgba(124,92,255,0.15), 0 8px 40px rgba(124,92,255,0.20)",
+                        boxShadow: "0 0 0 1px rgb(var(--accent-rgb) / 0.15), 0 8px 40px rgb(var(--accent-rgb) / 0.2)",
                       }
                     : {
                         background: "var(--card)",
@@ -209,7 +209,7 @@ export default function SuscripcionPage() {
                   <>
                     <div
                       className="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 h-40 w-40 rounded-full blur-3xl"
-                      style={{ background: "rgba(124,92,255,0.25)" }}
+                      style={{ background: "rgb(var(--accent-rgb) / 0.25)" }}
                     />
                     <div className="absolute top-0 right-0">
                       <div
@@ -217,9 +217,9 @@ export default function SuscripcionPage() {
                         style={{
                           fontFamily: "'Geist Mono', monospace",
                           letterSpacing: "0.08em",
-                          background: "rgba(124,92,255,0.35)",
-                          color: "#c4b0ff",
-                          border: "1px solid rgba(124,92,255,0.40)",
+                          background: "rgb(var(--accent-rgb) / 0.35)",
+                          color: "var(--accent-pale)",
+                          border: "1px solid rgb(var(--accent-rgb) / 0.4)",
                           borderTopWidth: 0,
                           borderRightWidth: 0,
                         }}
@@ -232,7 +232,7 @@ export default function SuscripcionPage() {
 
                 {/* Eyebrow + chip */}
                 <div className={`flex items-start justify-between mb-5 ${plan.featured ? "mt-2" : ""}`}>
-                  <p style={{ ...monoLabel, color: plan.featured ? "#9a7fff" : "var(--muted-foreground)" }}>
+                  <p style={{ ...monoLabel, color: plan.featured ? "var(--accent-text)" : "var(--muted-foreground)" }}>
                     {plan.label}
                   </p>
                   <span
@@ -240,9 +240,9 @@ export default function SuscripcionPage() {
                     style={{
                       fontFamily: "'Geist Mono', monospace",
                       letterSpacing: "0.08em",
-                      background: plan.featured ? "rgba(124,92,255,0.20)" : "rgba(95,180,255,0.12)",
-                      color: plan.featured ? "#a78bff" : "#5fb4ff",
-                      border: `1px solid ${plan.featured ? "rgba(124,92,255,0.35)" : "rgba(95,180,255,0.25)"}`,
+                      background: plan.featured ? "rgb(var(--accent-rgb) / 0.2)" : "rgb(var(--info-rgb) / 0.12)",
+                      color: plan.featured ? "var(--accent-text)" : "var(--info)",
+                      border: `1px solid ${plan.featured ? "rgb(var(--accent-rgb) / 0.35)" : "rgb(var(--info-rgb) / 0.25)"}`,
                       whiteSpace: "nowrap",
                     }}
                   >
@@ -274,7 +274,7 @@ export default function SuscripcionPage() {
                       lineHeight: 1,
                       ...(plan.featured
                         ? {
-                            background: "linear-gradient(135deg, #ffffff 30%, #a78bff 100%)",
+                            background: "linear-gradient(135deg, #ffffff 30%, var(--accent-hi) 100%)",
                             WebkitBackgroundClip: "text",
                             WebkitTextFillColor: "transparent",
                             backgroundClip: "text",
@@ -298,7 +298,7 @@ export default function SuscripcionPage() {
                 {IS_DEMO && (
                   <div
                     className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold mb-4"
-                    style={{ background: "rgba(255,185,88,0.10)", color: "#ffb958", border: "1px solid rgba(255,185,88,0.20)" }}
+                    style={{ background: "rgb(var(--warn-rgb) / 0.1)", color: "var(--warn-text)", border: "1px solid rgb(var(--warn-rgb) / 0.2)" }}
                   >
                     <Zap className="h-3 w-3" /> Demo activo
                   </div>
@@ -310,9 +310,9 @@ export default function SuscripcionPage() {
                     <li key={f} className="flex items-center gap-2.5 text-sm text-foreground">
                       <div
                         className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ background: plan.featured ? "rgba(124,92,255,0.25)" : "rgba(124,92,255,0.15)" }}
+                        style={{ background: plan.featured ? "rgb(var(--accent-rgb) / 0.25)" : "rgb(var(--accent-rgb) / 0.15)" }}
                       >
-                        <Check className="h-2.5 w-2.5" style={{ color: plan.featured ? "#a78bff" : "#7c5cff" }} />
+                        <Check className="h-2.5 w-2.5" style={{ color: plan.featured ? "var(--accent-text)" : "var(--accent-text)" }} />
                       </div>
                       <span style={i === 0 ? { fontWeight: 700 } : undefined}>{f}</span>
                     </li>
@@ -323,11 +323,11 @@ export default function SuscripcionPage() {
                 {IS_DEMO ? (
                   <div
                     className="rounded-xl p-3 text-center"
-                    style={{ background: "rgba(255,185,88,0.08)", border: "1px solid rgba(255,185,88,0.15)" }}
+                    style={{ background: "rgb(var(--warn-rgb) / 0.08)", border: "1px solid rgb(var(--warn-rgb) / 0.15)" }}
                   >
                     <div className="flex items-center justify-center gap-2">
-                      <Shield className="h-4 w-4" style={{ color: "#ffb958" }} />
-                      <p className="text-sm font-semibold" style={{ color: "#ffb958" }}>Demo activo</p>
+                      <Shield className="h-4 w-4" style={{ color: "var(--warn-text)" }} />
+                      <p className="text-sm font-semibold" style={{ color: "var(--warn-text)" }}>Demo activo</p>
                     </div>
                   </div>
                 ) : (
@@ -337,7 +337,7 @@ export default function SuscripcionPage() {
                     className="w-full h-11 rounded-xl text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     style={
                       plan.featured
-                        ? { background: "#7c5cff", color: "#fff", boxShadow: "0 4px 20px rgba(124,92,255,0.45)" }
+                        ? { background: "var(--accent)", color: "#fff", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.45)" }
                         : { border: "1px solid var(--border)", color: "var(--foreground)", background: "transparent" }
                     }
                   >
@@ -354,7 +354,7 @@ export default function SuscripcionPage() {
         <div
           className="rounded-2xl p-5"
           style={{
-            background: "repeating-linear-gradient(135deg, transparent 0px, transparent 12px, rgba(124,92,255,0.025) 12px, rgba(124,92,255,0.025) 13px), var(--card)",
+            background: "repeating-linear-gradient(135deg, transparent 0px, transparent 12px, rgb(var(--accent-rgb) / 0.025) 12px, rgb(var(--accent-rgb) / 0.025) 13px), var(--card)",
             border: "1px solid var(--border)",
           }}
         >

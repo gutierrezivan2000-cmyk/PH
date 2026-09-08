@@ -142,7 +142,7 @@ export function AssetImport({
           onClick={() => inputRef.current?.click()}
           disabled={parsing}
           className="inline-flex items-center gap-2 rounded-full text-[12px] font-medium px-4 py-2 transition-all disabled:opacity-60 cursor-pointer"
-          style={{ background: "rgba(124,92,255,0.14)", color: "#a78bff", border: "1px solid rgba(124,92,255,0.35)" }}
+          style={{ background: "rgb(var(--accent-rgb) / 0.14)", color: "var(--accent-text)", border: "1px solid rgb(var(--accent-rgb) / 0.35)" }}
         >
           {parsing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
           {parsing ? "Leyendo el archivo con IA…" : "Importar de archivo (Excel/PDF) con IA"}
@@ -150,28 +150,28 @@ export function AssetImport({
       )}
 
       {parsing && (
-        <p className="text-[11.5px] mt-2 flex items-center gap-1.5" style={{ color: "rgba(246,245,247,0.45)" }}>
+        <p className="text-[11.5px] mt-2 flex items-center gap-1.5" style={{ color: "var(--ink-3)" }}>
           <FileSpreadsheet className="h-3.5 w-3.5" /> {fileName}
         </p>
       )}
 
-      {error && <p className="text-[12px] mt-2" style={{ color: "#ff8585" }}>{error}</p>}
+      {error && <p className="text-[12px] mt-2" style={{ color: "var(--danger-text)" }}>{error}</p>}
 
       {preview && (
-        <div className="mt-3 rounded-xl overflow-hidden" style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgba(124,92,255,0.25)" }}>
-          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="mt-3 rounded-xl overflow-hidden" style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgb(var(--accent-rgb) / 0.25)" }}>
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgb(var(--veil-rgb) / 0.06)" }}>
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" style={{ color: "#4cd6a0" }} />
-              <span className="text-[13px] font-medium" style={{ color: "#f6f5f7" }}>
+              <CheckCircle2 className="h-4 w-4" style={{ color: "var(--ok-text)" }} />
+              <span className="text-[13px] font-medium" style={{ color: "var(--ink)" }}>
                 {preview.length} {preview.length === 1 ? "registro detectado" : "registros detectados"}
               </span>
             </div>
-            <button onClick={() => { setPreview(null); setFileName(""); }} className="p-1 rounded cursor-pointer hover:bg-white/[0.06]" style={{ color: "rgba(246,245,247,0.45)" }}>
+            <button onClick={() => { setPreview(null); setFileName(""); }} className="p-1 rounded cursor-pointer hover:bg-white/[0.06]" style={{ color: "var(--ink-3)" }}>
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          <p className="px-4 pt-3 text-[11px]" style={{ color: "rgba(246,245,247,0.42)" }}>
+          <p className="px-4 pt-3 text-[11px]" style={{ color: "var(--ink-3)" }}>
             Revisa sobre todo las fechas — son lo más fácil de leer mal desde un documento escaneado.
           </p>
 
@@ -180,7 +180,7 @@ export function AssetImport({
               <div
                 key={i}
                 className="flex flex-wrap items-center gap-2 px-4 py-2.5"
-                style={{ borderBottom: i < preview.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
+                style={{ borderBottom: i < preview.length - 1 ? "1px solid rgb(var(--veil-rgb) / 0.04)" : "none" }}
               >
                 <button
                   onClick={() => updateRow(i, { kind: a.kind === "poliza" ? "zona_comun" : "poliza" })}
@@ -188,18 +188,18 @@ export function AssetImport({
                   style={{
                     ...monoLabel,
                     fontSize: 9,
-                    color: a.kind === "poliza" ? "#ffb958" : "#5fb4ff",
-                    background: a.kind === "poliza" ? "rgba(255,185,88,0.10)" : "rgba(95,180,255,0.10)",
-                    border: `1px solid ${a.kind === "poliza" ? "rgba(255,185,88,0.30)" : "rgba(95,180,255,0.30)"}`,
+                    color: a.kind === "poliza" ? "var(--warn)" : "var(--info)",
+                    background: a.kind === "poliza" ? "rgb(var(--warn-rgb) / 0.1)" : "rgb(var(--info-rgb) / 0.1)",
+                    border: `1px solid ${a.kind === "poliza" ? "rgb(var(--warn-rgb) / 0.3)" : "rgb(var(--info-rgb) / 0.3)"}`,
                   }}
                   title="Cambiar tipo"
                 >
                   {ASSET_KIND_LABELS[a.kind]}
                 </button>
-                <span className="text-[12.5px] font-medium truncate" style={{ color: "#f6f5f7", minWidth: 120, maxWidth: 220 }}>
+                <span className="text-[12.5px] font-medium truncate" style={{ color: "var(--ink)", minWidth: 120, maxWidth: 220 }}>
                   {a.name}
                 </span>
-                <span className="flex-1 min-w-0 text-[11.5px] truncate" style={{ color: "rgba(246,245,247,0.55)" }}>
+                <span className="flex-1 min-w-0 text-[11.5px] truncate" style={{ color: "var(--ink-2)" }}>
                   {[a.provider, a.reference ? `Ref. ${a.reference}` : null, a.recurrenceMonths ? recurrenceLabel(a.recurrenceMonths) : null]
                     .filter(Boolean)
                     .join(" · ") || "—"}
@@ -210,16 +210,16 @@ export function AssetImport({
                   onChange={(e) => updateRow(i, { dueDate: e.target.value || null })}
                   className="shrink-0 rounded px-2 py-1 text-[11.5px]"
                   style={{
-                    background: "rgba(255,255,255,0.04)",
-                    border: `1px solid ${a.dueDate ? "rgba(255,255,255,0.10)" : "rgba(255,111,111,0.40)"}`,
-                    color: "#f6f5f7",
+                    background: "rgb(var(--veil-rgb) / 0.04)",
+                    border: `1px solid ${a.dueDate ? "rgb(var(--veil-rgb) / 0.1)" : "rgb(var(--danger-rgb) / 0.4)"}`,
+                    color: "var(--ink)",
                     colorScheme: "dark",
                   }}
                 />
                 <button
                   onClick={() => setPreview((prev) => (prev ? prev.filter((_, j) => j !== i) : prev))}
                   className="p-1 rounded cursor-pointer hover:bg-white/[0.06] shrink-0"
-                  style={{ color: "rgba(255,133,133,0.5)" }}
+                  style={{ color: "rgb(var(--danger-rgb) / 0.5)" }}
                   title="Quitar de la lista"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -233,7 +233,7 @@ export function AssetImport({
               onClick={confirm}
               disabled={creating || preview.length === 0}
               className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2 transition-all disabled:opacity-50 cursor-pointer"
-              style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+              style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
             >
               {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
               Crear {preview.length} {preview.length === 1 ? "registro" : "registros"}

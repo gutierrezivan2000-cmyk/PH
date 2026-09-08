@@ -44,7 +44,7 @@ import { COMING_SOON, type ComingSoonKey } from "@/lib/feature-flags";
 const AGENTS = [
   {
     name: "Themis",
-    color: "#a78bff",
+    color: "var(--accent-text)",
     icon: Scale,
     included: true,
     role: "Asesora legal",
@@ -52,7 +52,7 @@ const AGENTS = [
   },
   {
     name: "Chronos",
-    color: "#5fb4ff",
+    color: "var(--info-text)",
     icon: Clock4,
     included: true,
     role: "Plazos",
@@ -60,7 +60,7 @@ const AGENTS = [
   },
   {
     name: "Metra",
-    color: "#4cd6a0",
+    color: "var(--ok-text)",
     icon: BarChart3,
     included: false,
     role: "Analista financiera",
@@ -68,7 +68,7 @@ const AGENTS = [
   },
   {
     name: "Nomethes",
-    color: "#ffb958",
+    color: "var(--warn-text)",
     icon: Lightbulb,
     included: false,
     role: "Consultor decisiones",
@@ -76,7 +76,7 @@ const AGENTS = [
   },
   {
     name: "Hermes",
-    color: "#ff6fa8",
+    color: "var(--pink)",
     icon: Send,
     included: false,
     role: "Redactor comunicaciones",
@@ -84,7 +84,7 @@ const AGENTS = [
   },
   {
     name: "Logistes",
-    color: "#8a92ff",
+    color: "var(--logistes)",
     icon: Calculator,
     included: false,
     role: "Coordinador operativo",
@@ -200,16 +200,16 @@ function PlanFeatureRow({ feature, color }: { feature: PlanFeature; color: strin
   return (
     <li className="flex items-center gap-2.5 text-sm">
       {pending ? (
-        <Clock size={15} style={{ color: "rgba(255,255,255,0.28)", flexShrink: 0 }} />
+        <Clock size={15} style={{ color: "var(--ink-4)", flexShrink: 0 }} />
       ) : (
         <Check size={15} style={{ color, flexShrink: 0 }} />
       )}
-      <span style={{ color: pending ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.68)" }}>
+      <span style={{ color: pending ? "var(--ink-3)" : "var(--ink-2)" }}>
         {text}
         {pending && (
           <span
             className="sophia-mono ml-1.5"
-            style={{ fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "#a78bff" }}
+            style={{ fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent-text)" }}
           >
             pronto
           </span>
@@ -220,10 +220,10 @@ function PlanFeatureRow({ feature, color }: { feature: PlanFeature; color: strin
 }
 
 const ADDON_AGENTS = [
-  { name: "Metra", role: "Analista financiera", color: "#4cd6a0" },
-  { name: "Nomethes", role: "Consultor decisiones", color: "#ffb958" },
-  { name: "Hermes", role: "Redactor comunicaciones", color: "#ff6fa8" },
-  { name: "Logistes", role: "Coordinador operativo", color: "#8a92ff" },
+  { name: "Metra", role: "Analista financiera", color: "var(--ok-text)" },
+  { name: "Nomethes", role: "Consultor decisiones", color: "var(--warn-text)" },
+  { name: "Hermes", role: "Redactor comunicaciones", color: "var(--pink)" },
+  { name: "Logistes", role: "Coordinador operativo", color: "var(--logistes)" },
 ];
 
 // ─────────────────────────────────────────────
@@ -290,8 +290,8 @@ function ChatDemo() {
     <div
       className="rounded-2xl overflow-hidden flex flex-col"
       style={{
-        background: "#15151a",
-        border: "1px solid rgba(255,255,255,0.07)",
+        background: "var(--surface-2)",
+        border: "1px solid rgb(var(--veil-rgb) / 0.07)",
         minHeight: 420,
       }}
     >
@@ -299,23 +299,23 @@ function ChatDemo() {
       <div
         className="flex items-center gap-3 px-4 py-3"
         style={{
-          background: "linear-gradient(90deg,#7c5cff22,#a78bff11)",
-          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          background: "linear-gradient(90deg,rgb(var(--accent-rgb) / 0.133),rgb(var(--accent-rgb) / 0.067))",
+          borderBottom: "1px solid rgb(var(--veil-rgb) / 0.07)",
         }}
       >
         <div
           className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
-          style={{ background: "#7c5cff", color: "#fff" }}
+          style={{ background: "var(--accent)", color: "#fff" }}
         >
           T
         </div>
         <div>
-          <p className="text-sm font-semibold" style={{ color: "#e8e4ff" }}>
+          <p className="text-sm font-semibold" style={{ color: "var(--accent-pale)" }}>
             Themis
           </p>
           <p
             className="text-xs"
-            style={{ color: "#7c5cff", fontFamily: "monospace" }}
+            style={{ color: "var(--accent-text)", fontFamily: "monospace" }}
           >
             Asesora legal · en línea
           </p>
@@ -323,8 +323,8 @@ function ChatDemo() {
         <div
           className="ml-auto w-2 h-2 rounded-full"
           style={{
-            background: "#4cd6a0",
-            boxShadow: "0 0 6px #4cd6a0",
+            background: "var(--ok)",
+            boxShadow: "0 0 6px var(--ok)",
           }}
         />
       </div>
@@ -341,20 +341,20 @@ function ChatDemo() {
               <div key={i} className="flex items-end gap-2">
                 <div
                   className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                  style={{ background: "#7c5cff33", color: "#a78bff" }}
+                  style={{ background: "rgb(var(--accent-rgb) / 0.2)", color: "var(--accent-text)" }}
                 >
                   T
                 </div>
                 <div
                   className="flex items-center gap-1 px-4 py-3 rounded-2xl rounded-bl-none"
-                  style={{ background: "#1d1d24" }}
+                  style={{ background: "var(--surface-3)" }}
                 >
                   {[0, 1, 2].map((dot) => (
                     <span
                       key={dot}
                       className="w-1.5 h-1.5 rounded-full"
                       style={{
-                        background: "#7c5cff",
+                        background: "var(--accent)",
                         display: "inline-block",
                         animation: `sophiaTypingBounce 1.2s ${dot * 0.2}s infinite`,
                       }}
@@ -370,7 +370,7 @@ function ChatDemo() {
               <div key={i} className="flex justify-end">
                 <div
                   className="max-w-[75%] px-4 py-2.5 rounded-2xl rounded-br-none text-sm"
-                  style={{ background: "#25252e", color: "#e8e4ff" }}
+                  style={{ background: "var(--surface-4)", color: "var(--accent-pale)" }}
                 >
                   {msg.text}
                 </div>
@@ -382,7 +382,7 @@ function ChatDemo() {
             <div key={i} className="flex items-start gap-2">
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-1"
-                style={{ background: "#7c5cff33", color: "#a78bff" }}
+                style={{ background: "rgb(var(--accent-rgb) / 0.2)", color: "var(--accent-text)" }}
               >
                 T
               </div>
@@ -390,29 +390,29 @@ function ChatDemo() {
                 <div
                   className="px-4 py-2.5 rounded-2xl rounded-tl-none text-sm"
                   style={{
-                    background: "#1d1d24",
-                    color: "rgba(255,255,255,0.82)",
+                    background: "var(--surface-3)",
+                    color: "var(--ink)",
                   }}
                 >
                   {msg.text}
                   {msg.file && (
                     <div
                       className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg"
-                      style={{ background: "#7c5cff1a", border: "1px solid #7c5cff44" }}
+                      style={{ background: "rgb(var(--accent-rgb) / 0.102)", border: "1px solid rgb(var(--accent-rgb) / 0.267)" }}
                     >
                       <Paperclip
                         size={13}
-                        style={{ color: "#a78bff" }}
+                        style={{ color: "var(--accent-text)" }}
                       />
                       <span
                         className="text-xs font-mono"
-                        style={{ color: "#a78bff" }}
+                        style={{ color: "var(--accent-text)" }}
                       >
                         {msg.file}
                       </span>
                       <Download
                         size={12}
-                        style={{ color: "#a78bff", marginLeft: "auto" }}
+                        style={{ color: "var(--accent-text)", marginLeft: "auto" }}
                       />
                     </div>
                   )}
@@ -420,9 +420,9 @@ function ChatDemo() {
                     <div
                       className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-md text-xs font-mono"
                       style={{
-                        background: "#7c5cff22",
-                        border: "1px solid #7c5cff55",
-                        color: "#c4b5fd",
+                        background: "rgb(var(--accent-rgb) / 0.133)",
+                        border: "1px solid rgb(var(--accent-rgb) / 0.333)",
+                        color: "var(--accent-pale)",
                       }}
                     >
                       <ShieldCheck size={11} />
@@ -445,9 +445,9 @@ function ChatDemo() {
             disabled={answering}
             className="text-xs px-3 py-1.5 rounded-full transition-all cursor-pointer text-left"
             style={{
-              background: "#1d1d24",
-              border: "1px solid #7c5cff35",
-              color: "#c4b5fd",
+              background: "var(--surface-3)",
+              border: "1px solid rgb(var(--accent-rgb) / 0.208)",
+              color: "var(--accent-pale)",
               opacity: answering ? 0.5 : 1,
             }}
           >
@@ -459,21 +459,21 @@ function ChatDemo() {
       {/* Compose bar */}
       <div
         className="flex items-center gap-2 px-3 py-3"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+        style={{ borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)" }}
       >
         <div
           className="flex-1 rounded-xl px-4 py-2 text-xs"
           style={{
-            background: "#25252e",
-            color: "rgba(255,255,255,0.3)",
-            border: "1px solid rgba(255,255,255,0.07)",
+            background: "var(--surface-4)",
+            color: "var(--ink-4)",
+            border: "1px solid rgb(var(--veil-rgb) / 0.07)",
           }}
         >
           Escribe a Themis...
         </div>
         <button
           className="w-8 h-8 rounded-xl flex items-center justify-center"
-          style={{ background: "#7c5cff" }}
+          style={{ background: "var(--accent)" }}
         >
           <Send size={14} color="#fff" />
         </button>
@@ -501,8 +501,8 @@ function DocCard({
     <div
       className="absolute rounded-xl p-4 w-72"
       style={{
-        background: "#1d1d24",
-        border: "1px solid rgba(255,255,255,0.09)",
+        background: "var(--surface-3)",
+        border: "1px solid rgb(var(--veil-rgb) / 0.09)",
         transform: rotate,
         zIndex,
         boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
@@ -510,15 +510,15 @@ function DocCard({
       }}
     >
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-semibold" style={{ color: "#e8e4ff" }}>
+        <p className="text-xs font-semibold" style={{ color: "var(--accent-pale)" }}>
           {title}
         </p>
         <span
           className="text-[10px] font-mono px-2 py-0.5 rounded"
           style={{
-            background: "#7c5cff22",
-            color: "#a78bff",
-            border: "1px solid #7c5cff33",
+            background: "rgb(var(--accent-rgb) / 0.133)",
+            color: "var(--accent-text)",
+            border: "1px solid rgb(var(--accent-rgb) / 0.2)",
           }}
         >
           {type}
@@ -530,7 +530,7 @@ function DocCard({
             key={i}
             className="h-2 rounded-full"
             style={{
-              background: "rgba(255,255,255,0.08)",
+              background: "rgb(var(--veil-rgb) / 0.08)",
               width: `${65 + ((i * 37) % 35)}%`,
             }}
           />
@@ -540,9 +540,9 @@ function DocCard({
         <div className="flex gap-2 mt-2">
           {(
             [
-              ["#4cd6a0", "Cumplido"],
-              ["#ffb958", "Parcial"],
-              ["#ff6fa8", "Pendiente"],
+              ["var(--ok)", "Cumplido"],
+              ["var(--warn)", "Parcial"],
+              ["var(--pink)", "Pendiente"],
             ] as [string, string][]
           ).map(([color, label]) => (
             <div key={label} className="flex items-center gap-1">
@@ -552,7 +552,7 @@ function DocCard({
               />
               <span
                 className="text-[9px] font-mono"
-                style={{ color: "rgba(255,255,255,0.4)" }}
+                style={{ color: "var(--ink-3)" }}
               >
                 {label}
               </span>
@@ -574,13 +574,13 @@ function SavingsCalculator() {
   return (
     <section
       className="py-24 px-6"
-      style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+      style={{ borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)" }}
     >
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-10 flex flex-col gap-3">
           <p
             className="text-xs font-medium tracking-widest uppercase sophia-mono"
-            style={{ color: "rgba(255,255,255,0.35)" }}
+            style={{ color: "var(--ink-4)" }}
           >
             Calculadora
           </p>
@@ -589,20 +589,20 @@ function SavingsCalculator() {
               fontSize: "clamp(28px, 3vw, 44px)",
               fontWeight: 500,
               letterSpacing: "-0.025em",
-              color: "rgba(255,255,255,0.95)",
+              color: "var(--ink)",
             }}
           >
             ¿Cuánto te ahorra{" "}
-            <em style={{ fontStyle: "italic", color: "#a78bff" }}>SOPH.IA</em>?
+            <em style={{ fontStyle: "italic", color: "var(--accent-text)" }}>SOPH.IA</em>?
           </h2>
         </div>
 
         <div
           className="rounded-3xl p-8 sm:p-12 flex flex-col gap-10"
           style={{
-            background: "linear-gradient(145deg, #1a1530, #15151a)",
-            border: "1px solid #7c5cff45",
-            boxShadow: "0 0 48px #7c5cff22, 0 0 0 1px #7c5cff22",
+            background: "linear-gradient(145deg, #1a1530, var(--surface-2))",
+            border: "1px solid rgb(var(--accent-rgb) / 0.271)",
+            boxShadow: "0 0 48px rgb(var(--accent-rgb) / 0.133), 0 0 0 1px rgb(var(--accent-rgb) / 0.133)",
           }}
         >
           {/* Input */}
@@ -611,16 +611,16 @@ function SavingsCalculator() {
               <label
                 htmlFor="sophia-props-slider"
                 className="text-sm"
-                style={{ color: "rgba(255,255,255,0.65)" }}
+                style={{ color: "var(--ink-2)" }}
               >
                 ¿Cuántas copropiedades administras?
               </label>
               <span
                 className="sophia-mono font-bold px-4 py-1.5 rounded-lg text-lg"
                 style={{
-                  background: "#7c5cff22",
-                  border: "1px solid #7c5cff45",
-                  color: "#a78bff",
+                  background: "rgb(var(--accent-rgb) / 0.133)",
+                  border: "1px solid rgb(var(--accent-rgb) / 0.271)",
+                  color: "var(--accent-text)",
                 }}
               >
                 {props}
@@ -634,11 +634,11 @@ function SavingsCalculator() {
               value={props}
               onChange={(e) => setProps(Number(e.target.value))}
               className="w-full cursor-pointer"
-              style={{ accentColor: "#7c5cff" }}
+              style={{ accentColor: "var(--accent)" }}
             />
             <div
               className="flex justify-between text-xs sophia-mono"
-              style={{ color: "rgba(255,255,255,0.25)" }}
+              style={{ color: "var(--ink-4)" }}
             >
               <span>1</span>
               <span>30</span>
@@ -650,7 +650,7 @@ function SavingsCalculator() {
             <div className="flex flex-col gap-1.5">
               <p
                 className="text-xs sophia-mono uppercase tracking-wider"
-                style={{ color: "rgba(255,255,255,0.35)" }}
+                style={{ color: "var(--ink-4)" }}
               >
                 Horas recuperadas al mes
               </p>
@@ -658,12 +658,12 @@ function SavingsCalculator() {
                 className="sophia-mono font-bold"
                 style={{
                   fontSize: "clamp(32px, 4vw, 48px)",
-                  color: "#7c5cff",
+                  color: "var(--accent-text)",
                   lineHeight: 1.1,
                 }}
               >
                 {hours} h{" "}
-                <span style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.5em" }}>
+                <span style={{ color: "var(--ink-4)", fontSize: "0.5em" }}>
                   → ~{minutesWithSophia} min
                 </span>
               </p>
@@ -671,7 +671,7 @@ function SavingsCalculator() {
             <div className="flex flex-col gap-1.5">
               <p
                 className="text-xs sophia-mono uppercase tracking-wider"
-                style={{ color: "rgba(255,255,255,0.35)" }}
+                style={{ color: "var(--ink-4)" }}
               >
                 Equivalente
               </p>
@@ -679,12 +679,12 @@ function SavingsCalculator() {
                 className="sophia-mono font-bold"
                 style={{
                   fontSize: "clamp(32px, 4vw, 48px)",
-                  color: "#7c5cff",
+                  color: "var(--accent-text)",
                   lineHeight: 1.1,
                 }}
               >
                 ${savings.toLocaleString("es-CO")}{" "}
-                <span style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.5em" }}>
+                <span style={{ color: "var(--ink-4)", fontSize: "0.5em" }}>
                   COP/mes
                 </span>
               </p>
@@ -693,7 +693,7 @@ function SavingsCalculator() {
 
           <p
             className="text-xs sophia-mono"
-            style={{ color: "rgba(255,255,255,0.3)" }}
+            style={{ color: "var(--ink-4)" }}
           >
             Estimación: 4 h/mes por copropiedad en informes, actas y
             presentaciones · valor hora $35.000 COP.
@@ -731,7 +731,7 @@ export default function LandingPage() {
           30% { transform: translateY(-3px); opacity: 1; }
         }
         @keyframes sophiaPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(124,92,255,0.20); }
+          0%, 100% { box-shadow: 0 0 0 0 rgb(var(--accent-rgb) / 0.2); }
           50% { box-shadow: 0 0 0 10px transparent; }
         }
         @keyframes sophiaDotPulse {
@@ -744,26 +744,26 @@ export default function LandingPage() {
         }
 
         .sophia-navlink {
-          color: rgba(255,255,255,0.6);
+          color: var(--ink-2);
           transition: color 0.2s;
         }
-        .sophia-navlink:hover { color: #fff; }
+        .sophia-navlink:hover { color: var(--ink); }
 
         .sophia-page {
           font-family: 'Geist', system-ui, sans-serif;
-          background: #0a0a0a;
-          color: rgba(255,255,255,0.87);
+          background: var(--surface-0);
+          color: var(--ink);
           overflow-x: hidden;
         }
         .sophia-mono {
           font-family: 'Geist Mono', monospace;
         }
         .sophia-hairline {
-          border-color: rgba(255,255,255,0.07);
+          border-color: rgb(var(--veil-rgb) / 0.07);
         }
-        .sophia-surface-1 { background: #15151a; }
-        .sophia-surface-2 { background: #1d1d24; }
-        .sophia-surface-3 { background: #25252e; }
+        .sophia-surface-1 { background: var(--surface-2); }
+        .sophia-surface-2 { background: var(--surface-3); }
+        .sophia-surface-3 { background: var(--surface-4); }
 
         .docs-fan:hover .doc-card-0 {
           transform: rotate(-6deg) translateY(-8px) !important;
@@ -784,10 +784,10 @@ export default function LandingPage() {
         <nav
           className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 h-16"
           style={{
-            background: "rgba(10,10,10,0.72)",
+            background: "rgb(var(--surface-rgb) / 0.72)",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
-            borderBottom: "1px solid rgba(255,255,255,0.07)",
+            borderBottom: "1px solid rgb(var(--veil-rgb) / 0.07)",
           }}
         >
           <div className="flex items-center gap-3">
@@ -795,17 +795,17 @@ export default function LandingPage() {
             <div
               className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-base"
               style={{
-                background: "linear-gradient(135deg,#7c5cff,#a78bff)",
+                background: "linear-gradient(135deg,var(--accent),var(--accent-hi))",
                 color: "#fff",
-                boxShadow: "0 2px 12px #7c5cff44",
+                boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.267)",
               }}
             >
               S
             </div>
             <span className="font-semibold text-base tracking-tight">
               SOPH
-              <span style={{ color: "rgba(255,255,255,0.3)" }}>.</span>
-              <span style={{ color: "#7c5cff" }}>IA</span>
+              <span style={{ color: "var(--ink-4)" }}>.</span>
+              <span style={{ color: "var(--accent-text)" }}>IA</span>
             </span>
           </div>
           <div className="hidden md:flex items-center gap-7">
@@ -827,8 +827,8 @@ export default function LandingPage() {
               href="/login"
               className="hidden sm:flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               style={{
-                color: "rgba(255,255,255,0.6)",
-                border: "1px solid rgba(255,255,255,0.12)",
+                color: "var(--ink-2)",
+                border: "1px solid rgb(var(--veil-rgb) / 0.12)",
               }}
             >
               Ingresar
@@ -836,7 +836,7 @@ export default function LandingPage() {
             <Link
               href="/login?mode=register"
               className="flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-              style={{ background: "#7c5cff", color: "#fff" }}
+              style={{ background: "var(--accent)", color: "#fff" }}
             >
               Probar 7 días gratis
             </Link>
@@ -854,7 +854,7 @@ export default function LandingPage() {
               width: 560,
               height: 560,
               borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(124,92,255,0.30), rgba(124,92,255,0.06) 45%, transparent 72%)",
+              background: "radial-gradient(circle, rgb(var(--accent-rgb) / 0.3), rgb(var(--accent-rgb) / 0.06) 45%, transparent 72%)",
               animation: "sophiaOrbDrift 14s ease-in-out infinite",
               filter: "blur(90px)",
             }}
@@ -881,9 +881,9 @@ export default function LandingPage() {
                 <span
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium sophia-mono"
                   style={{
-                    background: "#ffb95820",
-                    border: "1px solid #ffb95840",
-                    color: "#ffb958",
+                    background: "rgb(var(--warn-rgb) / 0.125)",
+                    border: "1px solid rgb(var(--warn-rgb) / 0.251)",
+                    color: "var(--warn-text)",
                   }}
                 >
                   <Scale size={11} />
@@ -892,15 +892,15 @@ export default function LandingPage() {
                 <span
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium sophia-mono"
                   style={{
-                    background: "#4cd6a020",
-                    border: "1px solid #4cd6a040",
-                    color: "#4cd6a0",
+                    background: "rgb(var(--ok-rgb) / 0.125)",
+                    border: "1px solid rgb(var(--ok-rgb) / 0.251)",
+                    color: "var(--ok-text)",
                   }}
                 >
                   <span
                     className="w-1.5 h-1.5 rounded-full"
                     style={{
-                      background: "#4cd6a0",
+                      background: "var(--ok)",
                       animation: "sophiaDotPulse 2s infinite",
                       display: "inline-block",
                     }}
@@ -916,14 +916,14 @@ export default function LandingPage() {
                   fontSize: "clamp(38px, 4.6vw, 62px)",
                   fontWeight: 500,
                   letterSpacing: "-0.03em",
-                  color: "rgba(255,255,255,0.95)",
+                  color: "var(--ink)",
                 }}
               >
                 Administra tu copropiedad{" "}
                 <em
                   style={{
                     fontStyle: "italic",
-                    color: "#a78bff",
+                    color: "var(--accent-text)",
                     fontWeight: 500,
                   }}
                 >
@@ -935,7 +935,7 @@ export default function LandingPage() {
               {/* Body */}
               <p
                 className="text-base leading-relaxed"
-                style={{ color: "rgba(255,255,255,0.5)", maxWidth: 480 }}
+                style={{ color: "var(--ink-3)", maxWidth: 480 }}
               >
                 {/* Encabeza con lo que HOY funciona. Cartera, presupuesto,
                     asambleas y comunicados siguen en el mapa de la sección
@@ -951,7 +951,7 @@ export default function LandingPage() {
                 <Link
                   href="/login?mode=register"
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
-                  style={{ background: "#7c5cff", color: "#fff" }}
+                  style={{ background: "var(--accent)", color: "#fff" }}
                 >
                   Probar 7 días gratis
                   <ArrowRight size={16} />
@@ -961,8 +961,8 @@ export default function LandingPage() {
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
                   style={{
                     background: "transparent",
-                    border: "1px solid rgba(255,255,255,0.15)",
-                    color: "rgba(255,255,255,0.75)",
+                    border: "1px solid rgb(var(--veil-rgb) / 0.15)",
+                    color: "var(--ink-2)",
                   }}
                 >
                   <FileOutput size={14} />
@@ -971,7 +971,7 @@ export default function LandingPage() {
               </div>
               <p
                 className="text-xs sophia-mono"
-                style={{ color: "rgba(255,255,255,0.35)", marginTop: -12 }}
+                style={{ color: "var(--ink-4)", marginTop: -12 }}
               >
                 7 días gratis · 5 generaciones de prueba · sin tarjeta · luego
                 eliges plan
@@ -988,12 +988,12 @@ export default function LandingPage() {
                     key={text}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sophia-mono"
                     style={{
-                      background: "#15151a",
-                      border: "1px solid rgba(255,255,255,0.09)",
-                      color: "rgba(255,255,255,0.5)",
+                      background: "var(--surface-2)",
+                      border: "1px solid rgb(var(--veil-rgb) / 0.09)",
+                      color: "var(--ink-3)",
                     }}
                   >
-                    <Icon size={11} style={{ color: "#a78bff" }} />
+                    <Icon size={11} style={{ color: "var(--accent-text)" }} />
                     {text}
                   </span>
                 ))}
@@ -1046,12 +1046,12 @@ export default function LandingPage() {
               <div
                 className="mt-8 inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium"
                 style={{
-                  background: "#15151a",
-                  border: "1px solid rgba(255,255,255,0.09)",
-                  color: "rgba(255,255,255,0.65)",
+                  background: "var(--surface-2)",
+                  border: "1px solid rgb(var(--veil-rgb) / 0.09)",
+                  color: "var(--ink-2)",
                 }}
               >
-                <Sparkles size={15} style={{ color: "#a78bff" }} />
+                <Sparkles size={15} style={{ color: "var(--accent-text)" }} />
                 3 documentos generados desde un solo prompt
               </div>
             </div>
@@ -1061,7 +1061,7 @@ export default function LandingPage() {
         {/* ── 3. CHAT DEMO BAND ── */}
         <section
           className="py-24 px-6"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+          style={{ borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)" }}
         >
           <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-start">
             {/* LEFT — Features */}
@@ -1072,18 +1072,18 @@ export default function LandingPage() {
                   fontSize: "clamp(32px, 3.5vw, 52px)",
                   fontWeight: 500,
                   letterSpacing: "-0.025em",
-                  color: "rgba(255,255,255,0.95)",
+                  color: "var(--ink)",
                 }}
               >
                 Hablas.{" "}
-                <em style={{ fontStyle: "italic", color: "#a78bff" }}>
+                <em style={{ fontStyle: "italic", color: "var(--accent-text)" }}>
                   Ella redacta.
                 </em>{" "}
                 Tú firmas.
               </h2>
               <p
                 className="text-sm leading-relaxed"
-                style={{ color: "rgba(255,255,255,0.5)", maxWidth: 440 }}
+                style={{ color: "var(--ink-3)", maxWidth: 440 }}
               >
                 Themis entiende lenguaje natural. Cuéntale qué necesitas y ella
                 produce el documento correcto, referenciado legalmente, listo
@@ -1095,19 +1095,19 @@ export default function LandingPage() {
                     Icon: FileCheck2,
                     title: "Validación legal en línea",
                     desc: "Cada cláusula referenciada al artículo de la Ley 675.",
-                    color: "#a78bff",
+                    color: "var(--accent-text)",
                   },
                   {
                     Icon: Layers,
                     title: "Memoria por copropiedad",
                     desc: "Themis recuerda el reglamento y los acuerdos previos del Consejo.",
-                    color: "#5fb4ff",
+                    color: "var(--info-text)",
                   },
                   {
                     Icon: FileOutput,
                     title: "Exporta donde necesites",
                     desc: "PDF · DOCX · PPTX · listos para tu Consejo.",
-                    color: "#4cd6a0",
+                    color: "var(--ok-text)",
                   },
                 ].map(({ Icon, title, desc, color }) => (
                   <div key={title} className="flex gap-4 items-start">
@@ -1120,13 +1120,13 @@ export default function LandingPage() {
                     <div>
                       <p
                         className="text-sm font-semibold mb-0.5"
-                        style={{ color: "rgba(255,255,255,0.87)" }}
+                        style={{ color: "var(--ink)" }}
                       >
                         {title}
                       </p>
                       <p
                         className="text-sm"
-                        style={{ color: "rgba(255,255,255,0.45)" }}
+                        style={{ color: "var(--ink-3)" }}
                       >
                         {desc}
                       </p>
@@ -1145,13 +1145,13 @@ export default function LandingPage() {
         <section
           id="agentes"
           className="py-24 px-6"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.07)", scrollMarginTop: 80 }}
+          style={{ borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)", scrollMarginTop: 80 }}
         >
           <div className="max-w-7xl mx-auto">
             <div className="mb-12 flex flex-col gap-3">
               <p
                 className="text-xs font-medium tracking-widest uppercase sophia-mono"
-                style={{ color: "rgba(255,255,255,0.35)" }}
+                style={{ color: "var(--ink-4)" }}
               >
                 Los agentes
               </p>
@@ -1160,7 +1160,7 @@ export default function LandingPage() {
                   fontSize: "clamp(28px, 3vw, 44px)",
                   fontWeight: 500,
                   letterSpacing: "-0.025em",
-                  color: "rgba(255,255,255,0.95)",
+                  color: "var(--ink)",
                 }}
               >
                 Seis especialistas, un solo chat.
@@ -1177,11 +1177,11 @@ export default function LandingPage() {
                     className="relative overflow-hidden rounded-2xl p-6 flex flex-col gap-3 cursor-default"
                     style={{
                       background: isHovered
-                        ? `radial-gradient(circle at 30% 30%, ${agent.color}18, #15151a 70%)`
-                        : `radial-gradient(circle at 30% 30%, ${agent.color}0d, #15151a 70%)`,
+                        ? `radial-gradient(circle at 30% 30%, ${agent.color}18, var(--surface-2) 70%)`
+                        : `radial-gradient(circle at 30% 30%, ${agent.color}0d, var(--surface-2) 70%)`,
                       border: isHovered
                         ? `1px solid ${agent.color}55`
-                        : "1px solid rgba(255,255,255,0.07)",
+                        : "1px solid rgb(var(--veil-rgb) / 0.07)",
                       boxShadow: isHovered
                         ? `0 8px 32px ${agent.color}25`
                         : "none",
@@ -1222,14 +1222,14 @@ export default function LandingPage() {
                         <span
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium sophia-mono"
                           style={{
-                            background: "#4cd6a015",
-                            border: "1px solid #4cd6a030",
-                            color: "#4cd6a0",
+                            background: "rgb(var(--ok-rgb) / 0.082)",
+                            border: "1px solid rgb(var(--ok-rgb) / 0.188)",
+                            color: "var(--ok-text)",
                           }}
                         >
                           <span
                             className="w-1.5 h-1.5 rounded-full"
-                            style={{ background: "#4cd6a0", display: "inline-block" }}
+                            style={{ background: "var(--ok)", display: "inline-block" }}
                           />
                           incluido
                         </span>
@@ -1237,9 +1237,9 @@ export default function LandingPage() {
                         <span
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium sophia-mono"
                           style={{
-                            background: "rgba(124,92,255,0.10)",
-                            border: "1px solid rgba(124,92,255,0.30)",
-                            color: "#9a7fff",
+                            background: "rgb(var(--accent-rgb) / 0.1)",
+                            border: "1px solid rgb(var(--accent-rgb) / 0.3)",
+                            color: "var(--accent-text)",
                           }}
                         >
                           Próximamente
@@ -1250,20 +1250,20 @@ export default function LandingPage() {
                     <div>
                       <p
                         className="font-semibold"
-                        style={{ fontSize: 22, color: "rgba(255,255,255,0.9)" }}
+                        style={{ fontSize: 22, color: "var(--ink)" }}
                       >
                         {agent.name}
                       </p>
                       <p
                         className="text-xs sophia-mono mt-0.5"
-                        style={{ color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.07em" }}
+                        style={{ color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}
                       >
                         {agent.role}
                       </p>
                     </div>
                     <p
                       className="text-sm leading-relaxed"
-                      style={{ color: "rgba(255,255,255,0.5)", zIndex: 1 }}
+                      style={{ color: "var(--ink-3)", zIndex: 1 }}
                     >
                       {agent.desc}
                     </p>
@@ -1278,9 +1278,9 @@ export default function LandingPage() {
         <section
           className="py-20 px-6"
           style={{
-            background: "#0e0e12",
-            borderTop: "1px solid rgba(255,255,255,0.07)",
-            borderBottom: "1px solid rgba(255,255,255,0.07)",
+            background: "var(--surface-1)",
+            borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)",
+            borderBottom: "1px solid rgb(var(--veil-rgb) / 0.07)",
           }}
         >
           <div className="max-w-7xl mx-auto">
@@ -1290,14 +1290,14 @@ export default function LandingPage() {
                 fontSize: "clamp(28px, 3vw, 44px)",
                 fontWeight: 500,
                 letterSpacing: "-0.025em",
-                color: "rgba(255,255,255,0.9)",
+                color: "var(--ink)",
               }}
             >
               De{" "}
               <span
                 style={{
                   textDecoration: "line-through",
-                  color: "rgba(255,255,255,0.35)",
+                  color: "var(--ink-4)",
                 }}
               >
                 ocho horas
@@ -1315,14 +1315,14 @@ export default function LandingPage() {
                 <div key={label} className="flex flex-col gap-1">
                   <p
                     className="sophia-mono font-bold"
-                    style={{ fontSize: 56, color: "#fff", lineHeight: 1 }}
+                    style={{ fontSize: 56, color: "var(--ink)", lineHeight: 1 }}
                   >
-                    <span style={{ color: "#7c5cff" }}>·</span>
+                    <span style={{ color: "var(--accent-text)" }}>·</span>
                     {num}
                   </p>
                   <p
                     className="text-xs sophia-mono uppercase tracking-wider"
-                    style={{ color: "rgba(255,255,255,0.35)" }}
+                    style={{ color: "var(--ink-4)" }}
                   >
                     {label}
                   </p>
@@ -1336,20 +1336,20 @@ export default function LandingPage() {
         <section
           className="py-10 overflow-hidden relative"
           style={{
-            borderBottom: "1px solid rgba(255,255,255,0.07)",
+            borderBottom: "1px solid rgb(var(--veil-rgb) / 0.07)",
           }}
         >
           {/* Fade masks */}
           <div
             className="absolute inset-y-0 left-0 z-10 w-24 pointer-events-none"
             style={{
-              background: "linear-gradient(to right, #0a0a0a, transparent)",
+              background: "linear-gradient(to right, var(--surface-0), transparent)",
             }}
           />
           <div
             className="absolute inset-y-0 right-0 z-10 w-24 pointer-events-none"
             style={{
-              background: "linear-gradient(to left, #0a0a0a, transparent)",
+              background: "linear-gradient(to left, var(--surface-0), transparent)",
             }}
           />
           <div
@@ -1364,20 +1364,20 @@ export default function LandingPage() {
                 key={`${name}-${i}`}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full flex-shrink-0"
                 style={{
-                  background: "#15151a",
-                  border: "1px solid rgba(255,255,255,0.07)",
+                  background: "var(--surface-2)",
+                  border: "1px solid rgb(var(--veil-rgb) / 0.07)",
                 }}
               >
-                <FileCheck2 size={13} style={{ color: "#7c5cff" }} />
+                <FileCheck2 size={13} style={{ color: "var(--accent-text)" }} />
                 <span
                   className="text-sm font-medium"
-                  style={{ color: "rgba(255,255,255,0.65)" }}
+                  style={{ color: "var(--ink-2)" }}
                 >
                   {name}
                 </span>
                 <span
                   className="text-xs sophia-mono"
-                  style={{ color: "rgba(255,255,255,0.2)" }}
+                  style={{ color: "var(--ink-4)" }}
                 >
                   SOPH.IA
                 </span>
@@ -1392,7 +1392,7 @@ export default function LandingPage() {
             <div className="mb-12 flex flex-col gap-3">
               <p
                 className="text-xs font-medium tracking-widest uppercase sophia-mono"
-                style={{ color: "rgba(255,255,255,0.35)" }}
+                style={{ color: "var(--ink-4)" }}
               >
                 La plataforma
               </p>
@@ -1401,15 +1401,15 @@ export default function LandingPage() {
                   fontSize: "clamp(28px, 3vw, 44px)",
                   fontWeight: 500,
                   letterSpacing: "-0.025em",
-                  color: "rgba(255,255,255,0.95)",
+                  color: "var(--ink)",
                 }}
               >
                 Todo lo que un administrador hace,{" "}
-                <em style={{ fontStyle: "italic", color: "#a78bff" }}>en un solo lugar</em>.
+                <em style={{ fontStyle: "italic", color: "var(--accent-text)" }}>en un solo lugar</em>.
               </h2>
               <p
                 className="text-base leading-relaxed"
-                style={{ color: "rgba(255,255,255,0.5)", maxWidth: 640 }}
+                style={{ color: "var(--ink-3)", maxWidth: 640 }}
               >
                 No es solo generar documentos. SOPH.IA cubre el ciclo completo: cobrar, rendir
                 cuentas, convocar, comunicar y responderle a los residentes.
@@ -1420,7 +1420,7 @@ export default function LandingPage() {
               {[
                 {
                   Icon: Wallet,
-                  color: "#4cd6a0",
+                  color: "var(--ok-text)",
                   title: "Cartera y recaudo",
                   soon: "cartera" as const,
                   desc: "Causa las cuotas del mes con un clic, registra pagos que se aplican solos al cobro más antiguo, y entrega estados de cuenta con tu logo.",
@@ -1428,7 +1428,7 @@ export default function LandingPage() {
                 },
                 {
                   Icon: MessageSquare,
-                  color: "#ff8585",
+                  color: "var(--danger-text)",
                   title: "Cobro de cartera con IA",
                   soon: "cartera" as const,
                   desc: "Cartera por edades, intereses de mora dentro del tope legal, y cartas de cobro —de recordatorio a prejurídico— redactadas con la deuda real.",
@@ -1436,7 +1436,7 @@ export default function LandingPage() {
                 },
                 {
                   Icon: PieChart,
-                  color: "#ffb958",
+                  color: "var(--warn-text)",
                   title: "Presupuesto y ejecución",
                   soon: "presupuesto" as const,
                   desc: "Presupuesto anual por rubros, ejecutado vs presupuestado, fondo de imprevistos del 1% vigilado, y exporte a Excel para tu contador.",
@@ -1444,14 +1444,14 @@ export default function LandingPage() {
                 },
                 {
                   Icon: Users,
-                  color: "#5fb4ff",
+                  color: "var(--info-text)",
                   title: "Portal del residente",
                   desc: "Cada unidad recibe un enlace privado para ver su estado de cuenta, comunicados y documentos. Sin usuarios ni contraseñas que administrar.",
                   tag: "Business",
                 },
                 {
                   Icon: CreditCard,
-                  color: "#a78bff",
+                  color: "var(--accent-text)",
                   title: "Pago en línea",
                   desc: "Tus residentes pagan la administración desde el portal y el pago se concilia solo en tu cartera. El dinero llega directo a tu cuenta.",
                   tag: "Business",
@@ -1464,34 +1464,34 @@ export default function LandingPage() {
                 },
                 {
                   Icon: CalendarClock,
-                  color: "#5fd6c6",
+                  color: "var(--teal)",
                   title: "Calendario de cumplimiento",
                   desc: "Asamblea ordinaria, póliza de zonas comunes, ascensores, piscina, SG-SST y fondo de imprevistos: se generan solos según tu edificio.",
                 },
                 {
                   Icon: Gavel,
-                  color: "#8fa8ff",
+                  color: "var(--logistes)",
                   title: "Asambleas",
                   soon: "asambleas" as const,
                   desc: "Convocatoria formal que valida los 15 días de ley, y control automático de términos: acta en 20 días hábiles e impugnación a 2 meses.",
                 },
                 {
                   Icon: BadgeCheck,
-                  color: "#4cd6a0",
+                  color: "var(--ok-text)",
                   title: "Certificados con QR",
                   soon: "certificados" as const,
                   desc: "Paz y salvos y constancias de residencia con código QR: cualquiera verifica en línea si son auténticos, están vencidos o revocados.",
                 },
                 {
                   Icon: Send,
-                  color: "#ff6fa8",
+                  color: "var(--pink)",
                   title: "Comunicados",
                   soon: "comunicados" as const,
                   desc: "Describe la circular en una línea y la IA la redacta. Se envía con tu marca a cada residente, sin que vean los correos de los demás.",
                 },
                 {
                   Icon: QrCode,
-                  color: "#ffb958",
+                  color: "var(--warn-text)",
                   title: "PQRS y asistente del reglamento",
                   soon: "pqrs" as const,
                   desc: "Los residentes radican peticiones con número de seguimiento, y una IA les responde dudas leyendo el reglamento de tu copropiedad.",
@@ -1499,7 +1499,7 @@ export default function LandingPage() {
                 },
                 {
                   Icon: Layers,
-                  color: "#a78bff",
+                  color: "var(--accent-text)",
                   title: "Portafolio y lote",
                   desc: "¿Administras decenas de copropiedades? Vista consolidada y generación de todos los informes del mes en una sola acción.",
                   tag: "Élite",
@@ -1532,9 +1532,9 @@ export default function LandingPage() {
                           fontSize: 9,
                           letterSpacing: "0.14em",
                           textTransform: "uppercase",
-                          background: "rgba(124,92,255,0.12)",
-                          border: "1px solid rgba(124,92,255,0.30)",
-                          color: "#a78bff",
+                          background: "rgb(var(--accent-rgb) / 0.12)",
+                          border: "1px solid rgb(var(--accent-rgb) / 0.3)",
+                          color: "var(--accent-text)",
                         }}
                       >
                         Próximamente
@@ -1547,9 +1547,9 @@ export default function LandingPage() {
                             fontSize: 9,
                             letterSpacing: "0.14em",
                             textTransform: "uppercase",
-                            background: "rgba(255,255,255,0.05)",
-                            border: "1px solid rgba(255,255,255,0.10)",
-                            color: "rgba(255,255,255,0.45)",
+                            background: "rgb(var(--veil-rgb) / 0.05)",
+                            border: "1px solid rgb(var(--veil-rgb) / 0.1)",
+                            color: "var(--ink-3)",
                           }}
                         >
                           {f.tag}
@@ -1562,14 +1562,14 @@ export default function LandingPage() {
                       fontSize: 16,
                       fontWeight: 600,
                       letterSpacing: "-0.01em",
-                      color: "rgba(255,255,255,0.92)",
+                      color: "var(--ink)",
                     }}
                   >
                     {f.title}
                   </h3>
                   <p
                     className="text-[13.5px] leading-relaxed"
-                    style={{ color: "rgba(255,255,255,0.48)" }}
+                    style={{ color: "var(--ink-3)" }}
                   >
                     {f.desc}
                   </p>
@@ -1580,26 +1580,26 @@ export default function LandingPage() {
             {/* Import IA highlight */}
             <div
               className="ui-card ui-sheen mt-4 p-6 flex flex-col md:flex-row md:items-center gap-5"
-              style={{ borderColor: "rgba(124,92,255,0.28)" }}
+              style={{ borderColor: "rgb(var(--accent-rgb) / 0.28)" }}
             >
               <div
                 className="flex items-center justify-center rounded-2xl flex-shrink-0"
                 style={{
                   width: 52,
                   height: 52,
-                  background: "rgba(124,92,255,0.12)",
-                  border: "1px solid rgba(124,92,255,0.30)",
+                  background: "rgb(var(--accent-rgb) / 0.12)",
+                  border: "1px solid rgb(var(--accent-rgb) / 0.3)",
                 }}
               >
-                <Upload className="h-6 w-6" style={{ color: "#a78bff" }} />
+                <Upload className="h-6 w-6" style={{ color: "var(--accent-text)" }} />
               </div>
               <div className="flex-1">
-                <h3 style={{ fontSize: 17, fontWeight: 600, color: "rgba(255,255,255,0.92)" }}>
+                <h3 style={{ fontSize: 17, fontWeight: 600, color: "var(--ink)" }}>
                   Empezar no te toma una tarde: toma un archivo
                 </h3>
                 <p
                   className="text-[13.5px] leading-relaxed mt-1"
-                  style={{ color: "rgba(255,255,255,0.48)" }}
+                  style={{ color: "var(--ink-3)" }}
                 >
                   Sube el Excel, PDF o Word donde ya tienes tus unidades — aunque esté
                   desordenado. La IA identifica apartamento, propietario, correo, teléfono,
@@ -1620,7 +1620,7 @@ export default function LandingPage() {
             <div className="mb-12 flex flex-col gap-3">
               <p
                 className="text-xs font-medium tracking-widest uppercase sophia-mono"
-                style={{ color: "rgba(255,255,255,0.35)" }}
+                style={{ color: "var(--ink-4)" }}
               >
                 Cómo funciona
               </p>
@@ -1629,11 +1629,11 @@ export default function LandingPage() {
                   fontSize: "clamp(28px, 3vw, 44px)",
                   fontWeight: 500,
                   letterSpacing: "-0.025em",
-                  color: "rgba(255,255,255,0.95)",
+                  color: "var(--ink)",
                 }}
               >
                 Cómo funciona en{" "}
-                <em style={{ fontStyle: "italic", color: "#a78bff" }}>
+                <em style={{ fontStyle: "italic", color: "var(--accent-text)" }}>
                   3 pasos
                 </em>
                 .
@@ -1665,37 +1665,37 @@ export default function LandingPage() {
                   key={num}
                   className="relative overflow-hidden rounded-2xl p-7 flex flex-col gap-4"
                   style={{
-                    background: "#15151a",
-                    border: "1px solid rgba(255,255,255,0.07)",
+                    background: "var(--surface-2)",
+                    border: "1px solid rgb(var(--veil-rgb) / 0.07)",
                   }}
                 >
                   <div className="flex items-start justify-between">
                     <span
                       className="sophia-mono font-bold"
-                      style={{ fontSize: 40, color: "#7c5cff", lineHeight: 1 }}
+                      style={{ fontSize: 40, color: "var(--accent-text)", lineHeight: 1 }}
                     >
                       {num}
                     </span>
                     <div
                       className="w-10 h-10 rounded-lg flex items-center justify-center"
                       style={{
-                        background: "#7c5cff20",
-                        border: "1px solid #7c5cff40",
+                        background: "rgb(var(--accent-rgb) / 0.125)",
+                        border: "1px solid rgb(var(--accent-rgb) / 0.251)",
                       }}
                     >
-                      <Icon size={18} style={{ color: "#a78bff" }} />
+                      <Icon size={18} style={{ color: "var(--accent-text)" }} />
                     </div>
                   </div>
                   <div>
                     <p
                       className="font-semibold mb-1.5"
-                      style={{ fontSize: 17, color: "rgba(255,255,255,0.9)" }}
+                      style={{ fontSize: 17, color: "var(--ink)" }}
                     >
                       {title}
                     </p>
                     <p
                       className="text-sm leading-relaxed"
-                      style={{ color: "rgba(255,255,255,0.45)" }}
+                      style={{ color: "var(--ink-3)" }}
                     >
                       {desc}
                     </p>
@@ -1713,13 +1713,13 @@ export default function LandingPage() {
         <section
           id="planes"
           className="py-24 px-6"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.07)", scrollMarginTop: 80 }}
+          style={{ borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)", scrollMarginTop: 80 }}
         >
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12 flex flex-col gap-3">
               <p
                 className="text-xs font-medium tracking-widest uppercase sophia-mono"
-                style={{ color: "rgba(255,255,255,0.35)" }}
+                style={{ color: "var(--ink-4)" }}
               >
                 Planes
               </p>
@@ -1728,14 +1728,14 @@ export default function LandingPage() {
                   fontSize: "clamp(28px, 3vw, 44px)",
                   fontWeight: 500,
                   letterSpacing: "-0.025em",
-                  color: "rgba(255,255,255,0.95)",
+                  color: "var(--ink)",
                 }}
               >
                 Simple. Transparente. Sin sorpresas.
               </h2>
               <p
                 className="text-sm sophia-mono"
-                style={{ color: "rgba(255,255,255,0.4)" }}
+                style={{ color: "var(--ink-3)" }}
               >
                 7 días gratis · 5 generaciones de prueba · sin tarjeta · luego
                 eliges plan
@@ -1747,14 +1747,14 @@ export default function LandingPage() {
               <div
                 className="rounded-2xl p-7 flex flex-col gap-6"
                 style={{
-                  background: "#15151a",
-                  border: "1px solid rgba(255,255,255,0.09)",
+                  background: "var(--surface-2)",
+                  border: "1px solid rgb(var(--veil-rgb) / 0.09)",
                 }}
               >
                 <div>
                   <p
                     className="text-xs sophia-mono uppercase tracking-wider mb-3"
-                    style={{ color: "rgba(255,255,255,0.35)" }}
+                    style={{ color: "var(--ink-4)" }}
                   >
                     Plan Pro
                   </p>
@@ -1763,7 +1763,7 @@ export default function LandingPage() {
                       style={{
                         fontSize: 44,
                         fontWeight: 700,
-                        color: "rgba(255,255,255,0.9)",
+                        color: "var(--ink)",
                         lineHeight: 1,
                       }}
                     >
@@ -1771,23 +1771,23 @@ export default function LandingPage() {
                     </span>
                     <span
                       className="text-sm"
-                      style={{ color: "rgba(255,255,255,0.4)" }}
+                      style={{ color: "var(--ink-3)" }}
                     >
                       COP/mes
                     </span>
                   </div>
                   <p
                     className="text-xs sophia-mono mb-2"
-                    style={{ color: "rgba(255,255,255,0.35)" }}
+                    style={{ color: "var(--ink-4)" }}
                   >
                     ≈ USD 24
                   </p>
                   <span
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs sophia-mono"
                     style={{
-                      background: "#7c5cff18",
-                      border: "1px solid #7c5cff35",
-                      color: "#a78bff",
+                      background: "rgb(var(--accent-rgb) / 0.094)",
+                      border: "1px solid rgb(var(--accent-rgb) / 0.208)",
+                      color: "var(--accent-text)",
                     }}
                   >
                     7 días gratis · sin tarjeta
@@ -1795,14 +1795,14 @@ export default function LandingPage() {
                 </div>
                 <ul className="flex flex-col gap-3">
                   {PRO_FEATURES.map((f) => (
-                    <PlanFeatureRow key={typeof f === "string" ? f : f.text} feature={f} color="#7c5cff" />
+                    <PlanFeatureRow key={typeof f === "string" ? f : f.text} feature={f} color="var(--accent-text)" />
                   ))}
                   <li className="flex items-center gap-2.5 text-sm">
                     <Minus
                       size={15}
-                      style={{ color: "rgba(255,255,255,0.2)", flexShrink: 0 }}
+                      style={{ color: "var(--ink-4)", flexShrink: 0 }}
                     />
-                    <span style={{ color: "rgba(255,255,255,0.25)" }}>
+                    <span style={{ color: "var(--ink-4)" }}>
                       Generar en lote
                     </span>
                   </li>
@@ -1811,8 +1811,8 @@ export default function LandingPage() {
                   href="/login?mode=register"
                   className="block text-center py-3 rounded-xl text-sm font-semibold transition-all"
                   style={{
-                    border: "1px solid rgba(255,255,255,0.15)",
-                    color: "rgba(255,255,255,0.75)",
+                    border: "1px solid rgb(var(--veil-rgb) / 0.15)",
+                    color: "var(--ink-2)",
                   }}
                 >
                   Empezar gratis
@@ -1823,18 +1823,18 @@ export default function LandingPage() {
               <div
                 className="relative rounded-2xl p-7 flex flex-col gap-6"
                 style={{
-                  background: "linear-gradient(145deg, #1a1530, #15151a)",
-                  border: "1px solid #7c5cff55",
-                  boxShadow: "0 0 48px #7c5cff22, 0 0 0 1px #7c5cff22",
+                  background: "linear-gradient(145deg, #1a1530, var(--surface-2))",
+                  border: "1px solid rgb(var(--accent-rgb) / 0.333)",
+                  boxShadow: "0 0 48px rgb(var(--accent-rgb) / 0.133), 0 0 0 1px rgb(var(--accent-rgb) / 0.133)",
                 }}
               >
                 {/* Ribbon */}
                 <div
                   className="absolute top-4 right-4 text-xs font-medium px-2.5 py-1 rounded-lg sophia-mono text-right"
                   style={{
-                    background: "#7c5cff25",
-                    border: "1px solid #7c5cff45",
-                    color: "#a78bff",
+                    background: "rgb(var(--accent-rgb) / 0.145)",
+                    border: "1px solid rgb(var(--accent-rgb) / 0.271)",
+                    color: "var(--accent-text)",
                     maxWidth: 140,
                   }}
                 >
@@ -1843,7 +1843,7 @@ export default function LandingPage() {
                 <div>
                   <p
                     className="text-xs sophia-mono uppercase tracking-wider mb-3"
-                    style={{ color: "#a78bff" }}
+                    style={{ color: "var(--accent-text)" }}
                   >
                     Plan Business
                   </p>
@@ -1852,7 +1852,7 @@ export default function LandingPage() {
                       style={{
                         fontSize: 44,
                         fontWeight: 700,
-                        color: "#c4b5fd",
+                        color: "var(--accent-pale)",
                         lineHeight: 1,
                       }}
                     >
@@ -1874,13 +1874,13 @@ export default function LandingPage() {
                 </div>
                 <ul className="flex flex-col gap-3">
                   {BUSINESS_FEATURES.map((f) => (
-                    <PlanFeatureRow key={typeof f === "string" ? f : f.text} feature={f} color="#a78bff" />
+                    <PlanFeatureRow key={typeof f === "string" ? f : f.text} feature={f} color="var(--accent-text)" />
                   ))}
                 </ul>
                 <Link
                   href="/login?mode=register"
                   className="block text-center py-3 rounded-xl text-sm font-semibold transition-all"
-                  style={{ background: "#7c5cff", color: "#fff" }}
+                  style={{ background: "var(--accent)", color: "#fff" }}
                 >
                   Subir a Business
                 </Link>
@@ -1890,14 +1890,14 @@ export default function LandingPage() {
               <div
                 className="rounded-2xl p-7 flex flex-col gap-6"
                 style={{
-                  background: "#15151a",
-                  border: "1px solid rgba(255,255,255,0.09)",
+                  background: "var(--surface-2)",
+                  border: "1px solid rgb(var(--veil-rgb) / 0.09)",
                 }}
               >
                 <div>
                   <p
                     className="text-xs sophia-mono uppercase tracking-wider mb-3"
-                    style={{ color: "rgba(255,255,255,0.35)" }}
+                    style={{ color: "var(--ink-4)" }}
                   >
                     Plan Elite
                   </p>
@@ -1906,34 +1906,34 @@ export default function LandingPage() {
                       style={{
                         fontSize: 44,
                         fontWeight: 700,
-                        color: "rgba(255,255,255,0.9)",
+                        color: "var(--ink)",
                         lineHeight: 1,
                       }}
                     >
                       $749.900
                     </span>
-                    <span className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+                    <span className="text-sm" style={{ color: "var(--ink-3)" }}>
                       COP/mes
                     </span>
                   </div>
                   <p
                     className="text-xs sophia-mono mb-2"
-                    style={{ color: "rgba(255,255,255,0.35)" }}
+                    style={{ color: "var(--ink-4)" }}
                   >
                     ≈ USD 183
                   </p>
                 </div>
                 <ul className="flex flex-col gap-3">
                   {ELITE_FEATURES.map((f) => (
-                    <PlanFeatureRow key={typeof f === "string" ? f : f.text} feature={f} color="#7c5cff" />
+                    <PlanFeatureRow key={typeof f === "string" ? f : f.text} feature={f} color="var(--accent-text)" />
                   ))}
                 </ul>
                 <Link
                   href="/login?mode=register"
                   className="block text-center py-3 rounded-xl text-sm font-semibold transition-all"
                   style={{
-                    border: "1px solid rgba(255,255,255,0.15)",
-                    color: "rgba(255,255,255,0.75)",
+                    border: "1px solid rgb(var(--veil-rgb) / 0.15)",
+                    color: "var(--ink-2)",
                   }}
                 >
                   Subir a Elite
@@ -1945,21 +1945,21 @@ export default function LandingPage() {
             <div
               className="mt-6 rounded-2xl p-6"
               style={{
-                background: "#15151a",
-                border: "1px solid rgba(255,255,255,0.09)",
+                background: "var(--surface-2)",
+                border: "1px solid rgb(var(--veil-rgb) / 0.09)",
                 backgroundImage:
-                  "repeating-linear-gradient(45deg, transparent, transparent 14px, rgba(255,255,255,0.015) 14px, rgba(255,255,255,0.015) 15px)",
+                  "repeating-linear-gradient(45deg, transparent, transparent 14px, rgb(var(--veil-rgb) / 0.015) 14px, rgb(var(--veil-rgb) / 0.015) 15px)",
               }}
             >
               <p
                 className="text-xs sophia-mono uppercase tracking-wider mb-1"
-                style={{ color: "rgba(255,255,255,0.35)" }}
+                style={{ color: "var(--ink-4)" }}
               >
                 Más agentes · Próximamente
               </p>
               <p
                 className="text-sm leading-relaxed mb-5"
-                style={{ color: "rgba(255,255,255,0.45)" }}
+                style={{ color: "var(--ink-3)" }}
               >
                 Estos agentes especializados se lanzarán como complementos de tu
                 plan. Themis y Chronos ya están incluidos en todos los planes.
@@ -1970,8 +1970,8 @@ export default function LandingPage() {
                     key={a.name}
                     className="flex items-center gap-3 rounded-xl px-3 py-2.5"
                     style={{
-                      background: "#1d1d24",
-                      border: "1px solid rgba(255,255,255,0.07)",
+                      background: "var(--surface-3)",
+                      border: "1px solid rgb(var(--veil-rgb) / 0.07)",
                     }}
                   >
                     <div
@@ -1985,12 +1985,12 @@ export default function LandingPage() {
                       {a.name[0]}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>
+                      <p className="text-sm font-medium truncate" style={{ color: "var(--ink)" }}>
                         {a.name}
                       </p>
                       <p
                         className="text-[10px] font-semibold sophia-mono uppercase"
-                        style={{ color: "#a78bff", letterSpacing: "0.08em" }}
+                        style={{ color: "var(--accent-text)", letterSpacing: "0.08em" }}
                       >
                         Próximamente
                       </p>
@@ -2002,7 +2002,7 @@ export default function LandingPage() {
 
             <p
               className="text-center text-xs sophia-mono mt-8"
-              style={{ color: "rgba(255,255,255,0.3)" }}
+              style={{ color: "var(--ink-4)" }}
             >
               Cobro en COP procesado por ePayco. 7 días de prueba gratis · sin tarjeta.
             </p>
@@ -2015,8 +2015,8 @@ export default function LandingPage() {
             <div
               className="rounded-3xl p-10 sm:p-14 grid lg:grid-cols-2 gap-10 items-center"
               style={{
-                background: "#15151a",
-                border: "1px solid rgba(255,255,255,0.09)",
+                background: "var(--surface-2)",
+                border: "1px solid rgb(var(--veil-rgb) / 0.09)",
               }}
             >
               <div className="flex flex-col gap-5">
@@ -2026,14 +2026,14 @@ export default function LandingPage() {
                     fontSize: "clamp(26px, 3vw, 40px)",
                     fontWeight: 500,
                     letterSpacing: "-0.025em",
-                    color: "rgba(255,255,255,0.95)",
+                    color: "var(--ink)",
                   }}
                 >
                   Tu próxima acta · lista en tres minutos.
                 </h2>
                 <p
                   className="text-sm leading-relaxed"
-                  style={{ color: "rgba(255,255,255,0.45)", maxWidth: 380 }}
+                  style={{ color: "var(--ink-3)", maxWidth: 380 }}
                 >
                   Únete a los administradores que ya entregan informes listos el
                   viernes, no el sábado.
@@ -2048,9 +2048,9 @@ export default function LandingPage() {
                       key={text}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sophia-mono"
                       style={{
-                        background: "#25252e",
-                        border: "1px solid rgba(255,255,255,0.08)",
-                        color: "rgba(255,255,255,0.4)",
+                        background: "var(--surface-4)",
+                        border: "1px solid rgb(var(--veil-rgb) / 0.08)",
+                        color: "var(--ink-3)",
                       }}
                     >
                       <Icon size={11} />
@@ -2064,7 +2064,7 @@ export default function LandingPage() {
                   href="/login?mode=register"
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-xl text-base font-semibold transition-all"
                   style={{
-                    background: "#7c5cff",
+                    background: "var(--accent)",
                     color: "#fff",
                     animation: "sophiaPulse 2.5s infinite",
                   }}
@@ -2080,7 +2080,7 @@ export default function LandingPage() {
         {/* ── 10. FOOTER ── */}
         <footer
           className="py-14 px-6"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+          style={{ borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)" }}
         >
           <div className="max-w-7xl mx-auto grid sm:grid-cols-2 lg:grid-cols-5 gap-10">
             {/* Brand */}
@@ -2089,7 +2089,7 @@ export default function LandingPage() {
                 <div
                   className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-base"
                   style={{
-                    background: "linear-gradient(135deg,#7c5cff,#a78bff)",
+                    background: "linear-gradient(135deg,var(--accent),var(--accent-hi))",
                     color: "#fff",
                   }}
                 >
@@ -2097,20 +2097,20 @@ export default function LandingPage() {
                 </div>
                 <span className="font-semibold text-base tracking-tight">
                   SOPH
-                  <span style={{ color: "rgba(255,255,255,0.3)" }}>.</span>
-                  <span style={{ color: "#7c5cff" }}>IA</span>
+                  <span style={{ color: "var(--ink-4)" }}>.</span>
+                  <span style={{ color: "var(--accent-text)" }}>IA</span>
                 </span>
               </div>
               <p
                 className="text-sm leading-relaxed"
-                style={{ color: "rgba(255,255,255,0.35)", maxWidth: 260 }}
+                style={{ color: "var(--ink-4)", maxWidth: 260 }}
               >
                 Inteligencia artificial para administradores de propiedad
                 horizontal en Colombia.
               </p>
               <p
                 className="text-xs sophia-mono"
-                style={{ color: "rgba(255,255,255,0.2)" }}
+                style={{ color: "var(--ink-4)" }}
               >
                 © 2026 SOPH.IA · Todos los derechos reservados.
               </p>
@@ -2146,7 +2146,7 @@ export default function LandingPage() {
               <div key={col.title} className="flex flex-col gap-4">
                 <p
                   className="text-xs font-semibold uppercase tracking-wider sophia-mono"
-                  style={{ color: "rgba(255,255,255,0.35)" }}
+                  style={{ color: "var(--ink-4)" }}
                 >
                   {col.title}
                 </p>
@@ -2163,7 +2163,7 @@ export default function LandingPage() {
                               : undefined
                           }
                           className="text-sm transition-colors"
-                          style={{ color: "rgba(255,255,255,0.45)" }}
+                          style={{ color: "var(--ink-3)" }}
                         >
                           {label}
                         </a>
@@ -2171,7 +2171,7 @@ export default function LandingPage() {
                         <Link
                           href={href}
                           className="text-sm transition-colors"
-                          style={{ color: "rgba(255,255,255,0.45)" }}
+                          style={{ color: "var(--ink-3)" }}
                         >
                           {label}
                         </Link>

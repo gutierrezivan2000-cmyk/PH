@@ -34,17 +34,17 @@ function PlanStatusChip({ usage }: { usage: UsageData }) {
         href="/dashboard/suscripcion"
         className="flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors"
         style={{
-          background: urgent ? "rgba(255,185,88,0.10)" : "rgba(124,92,255,0.08)",
-          borderColor: urgent ? "rgba(255,185,88,0.30)" : "rgba(124,92,255,0.30)",
+          background: urgent ? "rgb(var(--warn-rgb) / 0.1)" : "rgb(var(--accent-rgb) / 0.08)",
+          borderColor: urgent ? "rgb(var(--warn-rgb) / 0.3)" : "rgb(var(--accent-rgb) / 0.3)",
         }}
       >
-        <Sparkles className="h-3.5 w-3.5" style={{ color: urgent ? "#ffb958" : "#9a7fff" }} />
+        <Sparkles className="h-3.5 w-3.5" style={{ color: urgent ? "var(--warn-text)" : "var(--accent-hi)" }} />
         <span
           className="text-[11px] font-medium"
           style={{
             fontFamily: "var(--font-mono)",
             letterSpacing: "0.06em",
-            color: urgent ? "#ffb958" : "#9a7fff",
+            color: urgent ? "var(--warn-text)" : "var(--accent-hi)",
           }}
         >
           PRUEBA GRATIS · {daysLeft === 0 ? "TERMINA HOY" : `${daysLeft} DÍA${daysLeft === 1 ? "" : "S"}`}
@@ -58,12 +58,12 @@ function PlanStatusChip({ usage }: { usage: UsageData }) {
       <Link
         href="/dashboard/suscripcion"
         className="flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors"
-        style={{ background: "rgba(255,185,88,0.10)", borderColor: "rgba(255,185,88,0.30)" }}
+        style={{ background: "rgb(var(--warn-rgb) / 0.1)", borderColor: "rgb(var(--warn-rgb) / 0.3)" }}
       >
-        <Sparkles className="h-3.5 w-3.5" style={{ color: "#ffb958" }} />
+        <Sparkles className="h-3.5 w-3.5" style={{ color: "var(--warn-text)" }} />
         <span
           className="text-[11px] font-medium"
-          style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.06em", color: "#ffb958" }}
+          style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.06em", color: "var(--warn-text)" }}
         >
           PLAN VENCIDO · RENOVAR (PERÍODO DE GRACIA)
         </span>
@@ -83,14 +83,14 @@ function PlanStatusChip({ usage }: { usage: UsageData }) {
         href="/dashboard/suscripcion"
         className="flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors"
         style={{
-          background: "rgba(255,111,111,0.10)",
-          borderColor: "rgba(255,111,111,0.30)",
+          background: "rgb(var(--danger-rgb) / 0.1)",
+          borderColor: "rgb(var(--danger-rgb) / 0.3)",
         }}
       >
-        <Sparkles className="h-3.5 w-3.5" style={{ color: "#ff8585" }} />
+        <Sparkles className="h-3.5 w-3.5" style={{ color: "var(--danger-text)" }} />
         <span
           className="text-[11px] font-medium"
-          style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.06em", color: "#ff8585" }}
+          style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.06em", color: "var(--danger-text)" }}
         >
           {label}
         </span>
@@ -117,14 +117,14 @@ export function UsageCard() {
         <div className="flex items-center gap-3 mb-6">
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{ background: "rgba(124,92,255,0.10)", color: "#9a7fff" }}
+            style={{ background: "rgb(var(--accent-rgb) / 0.1)", color: "var(--accent-text)" }}
           >
             <Activity className="h-4 w-4" />
           </div>
           <h3 className="text-sm font-semibold text-foreground">Uso del plan</h3>
         </div>
         <div className="h-24 flex items-center justify-center">
-          <div className="w-6 h-6 border-2 border-border border-t-[#7c5cff] rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-border border-t-[var(--accent)] rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -139,7 +139,7 @@ export function UsageCard() {
           <div className="flex items-center gap-3">
             <div
               className="w-9 h-9 rounded-lg flex items-center justify-center"
-              style={{ background: "rgba(124,92,255,0.10)", color: "#9a7fff" }}
+              style={{ background: "rgb(var(--accent-rgb) / 0.1)", color: "var(--accent-text)" }}
             >
               <Activity className="h-4 w-4" />
             </div>
@@ -156,9 +156,9 @@ export function UsageCard() {
           <div
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium"
             style={{
-              background: "rgba(124,92,255,0.10)",
-              borderColor: "rgba(124,92,255,0.40)",
-              color: "#9a7fff",
+              background: "rgb(var(--accent-rgb) / 0.1)",
+              borderColor: "rgb(var(--accent-rgb) / 0.4)",
+              color: "var(--accent-text)",
               fontFamily: "var(--font-mono)",
             }}
           >
@@ -180,7 +180,7 @@ export function UsageCard() {
             <p className="text-[11px] text-muted-foreground mt-0.5">hoy</p>
           </div>
           <div className="ml-auto text-right">
-            <p className="text-sm font-semibold" style={{ color: "#9a7fff" }}>Generaciones ilimitadas</p>
+            <p className="text-sm font-semibold" style={{ color: "var(--accent-text)" }}>Generaciones ilimitadas</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">durante la fase de prueba</p>
           </div>
         </div>
@@ -193,9 +193,9 @@ export function UsageCard() {
   const monthlyRemaining = usage.limits.generationsPerMonth - usage.monthlyGenerations;
 
   const getBarColor = (percent: number) => {
-    if (percent >= 90) return "#ff6f6f";
-    if (percent >= 70) return "#ffb958";
-    return "#7c5cff";
+    if (percent >= 90) return "var(--danger)";
+    if (percent >= 70) return "var(--warn)";
+    return "var(--accent)";
   };
 
   const monthlyColor = getBarColor(monthlyPercent);
@@ -207,7 +207,7 @@ export function UsageCard() {
         <div className="flex items-center gap-3">
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{ background: "rgba(124,92,255,0.10)", color: "#9a7fff" }}
+            style={{ background: "rgb(var(--accent-rgb) / 0.1)", color: "var(--accent-text)" }}
           >
             <Activity className="h-4 w-4" />
           </div>
@@ -226,9 +226,9 @@ export function UsageCard() {
         <div
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium"
           style={{
-            background: "rgba(124,92,255,0.10)",
-            borderColor: "rgba(124,92,255,0.40)",
-            color: "#9a7fff",
+            background: "rgb(var(--accent-rgb) / 0.1)",
+            borderColor: "rgb(var(--accent-rgb) / 0.4)",
+            color: "var(--accent-text)",
             fontFamily: "var(--font-mono)",
           }}
         >

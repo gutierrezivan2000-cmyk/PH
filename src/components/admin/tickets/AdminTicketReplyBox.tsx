@@ -46,8 +46,8 @@ export function AdminTicketReplyBox({ ticketId, ticketStatus }: AdminTicketReply
     <div
       className="rounded-2xl overflow-hidden"
       style={{
-        background: internal ? "rgba(255,185,88,0.05)" : "var(--card)",
-        border: internal ? "1px solid rgba(255,185,88,0.20)" : "1px solid var(--border)",
+        background: internal ? "rgb(var(--warn-rgb) / 0.05)" : "var(--card)",
+        border: internal ? "1px solid rgb(var(--warn-rgb) / 0.2)" : "1px solid var(--border)",
         transition: "background 0.2s, border-color 0.2s",
       }}
     >
@@ -68,7 +68,7 @@ export function AdminTicketReplyBox({ ticketId, ticketStatus }: AdminTicketReply
       />
 
       {error && (
-        <p className="px-4 pb-2 text-[11px]" style={{ color: "#ff8585", fontFamily: "var(--font-mono)" }}>
+        <p className="px-4 pb-2 text-[11px]" style={{ color: "var(--danger-text)", fontFamily: "var(--font-mono)" }}>
           {error}
         </p>
       )}
@@ -82,15 +82,15 @@ export function AdminTicketReplyBox({ ticketId, ticketStatus }: AdminTicketReply
           <div
             className="relative h-5 w-9 rounded-full transition-colors cursor-pointer"
             style={{
-              background: internal ? "rgba(255,185,88,0.30)" : "rgba(255,255,255,0.08)",
-              border: internal ? "1px solid rgba(255,185,88,0.50)" : "1px solid rgba(255,255,255,0.12)",
+              background: internal ? "rgb(var(--warn-rgb) / 0.3)" : "rgb(var(--veil-rgb) / 0.08)",
+              border: internal ? "1px solid rgb(var(--warn-rgb) / 0.5)" : "1px solid rgb(var(--veil-rgb) / 0.12)",
             }}
             onClick={() => setInternal((v) => !v)}
           >
             <span
               className="absolute top-0.5 h-4 w-4 rounded-full transition-all"
               style={{
-                background: internal ? "#ffb958" : "rgba(255,255,255,0.30)",
+                background: internal ? "var(--warn)" : "rgb(var(--veil-rgb) / 0.3)",
                 left: internal ? "calc(100% - 18px)" : "2px",
               }}
             />
@@ -106,7 +106,7 @@ export function AdminTicketReplyBox({ ticketId, ticketStatus }: AdminTicketReply
             style={{
               fontFamily: "var(--font-mono)",
               letterSpacing: "0.10em",
-              color: internal ? "#ffb958" : "rgba(255,255,255,0.35)",
+              color: internal ? "var(--warn-text)" : "var(--ink-4)",
             }}
           >
             <Lock className="h-3 w-3" />
@@ -119,11 +119,11 @@ export function AdminTicketReplyBox({ ticketId, ticketStatus }: AdminTicketReply
           disabled={!content.trim() || sending || isClosed}
           className="h-9 px-4 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
           style={{
-            background: internal ? "#ffb958" : "#7c5cff",
+            background: internal ? "var(--warn)" : "var(--accent)",
             color: internal ? "#0a0a0a" : "white",
             boxShadow: internal
-              ? "0 4px 14px rgba(255,185,88,0.20)"
-              : "0 4px 14px rgba(124,92,255,0.25)",
+              ? "0 4px 14px rgb(var(--warn-rgb) / 0.2)"
+              : "0 4px 14px rgb(var(--accent-rgb) / 0.25)",
           }}
         >
           {sending ? (

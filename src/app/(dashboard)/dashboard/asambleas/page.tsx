@@ -58,8 +58,8 @@ const card: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   background: "var(--hifi-bg-elev)",
-  border: "1px solid rgba(255,255,255,0.10)",
-  color: "#f6f5f7",
+  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
+  color: "var(--ink)",
   borderRadius: "10px",
   height: "40px",
   padding: "0 12px",
@@ -324,14 +324,14 @@ La Administración`;
       <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-[1080px] mx-auto space-y-4">
         {loading && (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#7c5cff" }} />
+            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent-text)" }} />
           </div>
         )}
 
         {!loading && properties.length === 0 && (
           <div className="rounded-2xl p-10 text-center" style={card}>
-            <Gavel className="h-8 w-8 mx-auto mb-3" style={{ color: "rgba(246,245,247,0.25)" }} />
-            <p className="text-[14px]" style={{ color: "rgba(246,245,247,0.70)" }}>
+            <Gavel className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
+            <p className="text-[14px]" style={{ color: "var(--ink-2)" }}>
               Crea una propiedad primero para convocar asambleas.
             </p>
           </div>
@@ -341,7 +341,7 @@ La Administración`;
           <>
             {/* Property + new */}
             <div className="ui-card ui-sheen p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-              <span style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }}>Propiedad</span>
+              <span style={{ ...monoLabel, color: "var(--ink-3)" }}>Propiedad</span>
               <div className="ui-scroll flex gap-2 flex-1 overflow-x-auto pb-0.5">
                 {properties.map((p) => (
                   <button
@@ -349,9 +349,9 @@ La Administración`;
                     onClick={() => setPropertyId(p.id)}
                     className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
                     style={{
-                      border: `1px solid ${propertyId === p.id ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
-                      background: propertyId === p.id ? "rgba(124,92,255,0.15)" : "transparent",
-                      color: propertyId === p.id ? "#a78bff" : "rgba(246,245,247,0.55)",
+                      border: `1px solid ${propertyId === p.id ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.1)"}`,
+                      background: propertyId === p.id ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
+                      color: propertyId === p.id ? "var(--accent-hi)" : "var(--ink-2)",
                     }}
                   >
                     {p.name}
@@ -362,8 +362,8 @@ La Administración`;
                 onClick={() => setShowForm((v) => !v)}
                 className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
                 style={{
-                  background: showForm ? "rgba(255,255,255,0.06)" : "#7c5cff",
-                  color: showForm ? "rgba(246,245,247,0.70)" : "#fff",
+                  background: showForm ? "rgb(var(--veil-rgb) / 0.06)" : "var(--accent)",
+                  color: showForm ? "var(--ink-2)" : "#fff",
                 }}
               >
                 <Plus
@@ -385,9 +385,9 @@ La Administración`;
                       onClick={() => setType(t)}
                       className="ui-chip flex-1 px-3 py-2.5 rounded-xl text-[12.5px] font-medium cursor-pointer capitalize"
                       style={{
-                        border: `1px solid ${type === t ? "rgba(124,92,255,0.50)" : "rgba(255,255,255,0.10)"}`,
-                        background: type === t ? "rgba(124,92,255,0.15)" : "transparent",
-                        color: type === t ? "#a78bff" : "rgba(246,245,247,0.55)",
+                        border: `1px solid ${type === t ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.1)"}`,
+                        background: type === t ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
+                        color: type === t ? "var(--accent-hi)" : "var(--ink-2)",
                       }}
                     >
                       {t}
@@ -397,7 +397,7 @@ La Administración`;
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                       Fecha y hora
                     </label>
                     <input
@@ -408,7 +408,7 @@ La Administración`;
                     />
                   </div>
                   <div>
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                       Modalidad
                     </label>
                     <div className="relative">
@@ -423,12 +423,12 @@ La Administración`;
                       </select>
                       <ChevronDown
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5"
-                        style={{ color: "rgba(246,245,247,0.42)" }}
+                        style={{ color: "var(--ink-3)" }}
                       />
                     </div>
                   </div>
                   <div className="sm:col-span-2">
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                       {modality === "virtual" ? "Enlace de la reunión" : "Lugar"}
                     </label>
                     <input
@@ -440,7 +440,7 @@ La Administración`;
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label style={{ ...monoLabel, color: "rgba(246,245,247,0.42)" }} className="block mb-1.5">
+                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
                       Orden del día (un punto por línea)
                     </label>
                     <textarea
@@ -458,8 +458,8 @@ La Administración`;
                     className="flex items-start gap-2 px-3 py-2.5 rounded-lg text-[12.5px]"
                     style={
                       noticeWarning
-                        ? { background: "rgba(255,185,88,0.10)", border: "1px solid rgba(255,185,88,0.30)", color: "#ffb958" }
-                        : { background: "rgba(76,214,160,0.08)", border: "1px solid rgba(76,214,160,0.25)", color: "#4cd6a0" }
+                        ? { background: "rgb(var(--warn-rgb) / 0.1)", border: "1px solid rgb(var(--warn-rgb) / 0.3)", color: "var(--warn-text)" }
+                        : { background: "rgb(var(--ok-rgb) / 0.08)", border: "1px solid rgb(var(--ok-rgb) / 0.25)", color: "var(--ok-text)" }
                     }
                   >
                     {noticeWarning ? (
@@ -480,7 +480,7 @@ La Administración`;
                 )}
 
                 {formError && (
-                  <p className="text-[12px]" style={{ color: "#ff8585" }}>
+                  <p className="text-[12px]" style={{ color: "var(--danger-text)" }}>
                     {formError}
                   </p>
                 )}
@@ -489,7 +489,7 @@ La Administración`;
                   type="submit"
                   disabled={creating}
                   className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-                  style={{ background: "#7c5cff", boxShadow: "0 8px 24px -8px rgba(124,92,255,0.50)" }}
+                  style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                 >
                   {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gavel className="h-3.5 w-3.5" />}
                   {creating ? "Creando…" : "Crear y abrir convocatoria"}
@@ -501,7 +501,7 @@ La Administración`;
             {notice && (
               <p
                 className="text-[12.5px] rounded-xl p-3"
-                style={{ background: "rgba(255,185,88,0.10)", color: "#ffb958", border: "1px solid rgba(255,185,88,0.30)" }}
+                style={{ background: "rgb(var(--warn-rgb) / 0.1)", color: "var(--warn-text)", border: "1px solid rgb(var(--warn-rgb) / 0.3)" }}
               >
                 {notice}
               </p>
@@ -509,10 +509,10 @@ La Administración`;
             {createdId && (
               <div
                 className="flex flex-wrap items-center gap-3 rounded-xl p-3"
-                style={{ background: "rgba(76,214,160,0.08)", border: "1px solid rgba(76,214,160,0.30)" }}
+                style={{ background: "rgb(var(--ok-rgb) / 0.08)", border: "1px solid rgb(var(--ok-rgb) / 0.3)" }}
               >
-                <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: "#4cd6a0" }} />
-                <span className="text-[12.5px] flex-1" style={{ color: "#4cd6a0" }}>
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: "var(--ok-text)" }} />
+                <span className="text-[12.5px] flex-1" style={{ color: "var(--ok-text)" }}>
                   Convocatoria creada.
                 </span>
                 <a
@@ -520,7 +520,7 @@ La Administración`;
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-1.5"
-                  style={{ background: "#4cd6a0", color: "#0a0a0a" }}
+                  style={{ background: "var(--ok)", color: "#0a0a0a" }}
                 >
                   <Printer className="h-3.5 w-3.5" />
                   Abrir para imprimir
@@ -528,7 +528,7 @@ La Administración`;
               </div>
             )}
             {actionError && (
-              <p className="text-[12px]" style={{ color: "#ff8585" }}>
+              <p className="text-[12px]" style={{ color: "var(--danger-text)" }}>
                 {actionError}
               </p>
             )}
@@ -536,11 +536,11 @@ La Administración`;
             {/* List */}
             {assemblies.length === 0 ? (
               <div className="rounded-2xl p-10 text-center" style={card}>
-                <Gavel className="h-8 w-8 mx-auto mb-3" style={{ color: "rgba(246,245,247,0.25)" }} />
-                <p className="text-[14px] mb-1" style={{ color: "rgba(246,245,247,0.70)" }}>
+                <Gavel className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
+                <p className="text-[14px] mb-1" style={{ color: "var(--ink-2)" }}>
                   Sin asambleas convocadas en esta propiedad
                 </p>
-                <p className="text-[12.5px]" style={{ color: "rgba(246,245,247,0.40)" }}>
+                <p className="text-[12.5px]" style={{ color: "var(--ink-3)" }}>
                   La convocatoria valida los plazos de la Ley 675 y los términos del acta se
                   vigilan desde el Calendario.
                 </p>
@@ -564,30 +564,30 @@ La Administración`;
                           style={{
                             ...monoLabel,
                             fontSize: 9.5,
-                            background: a.type === "ordinaria" ? "rgba(143,168,255,0.10)" : "rgba(255,185,88,0.10)",
-                            color: a.type === "ordinaria" ? "#8fa8ff" : "#ffb958",
-                            border: `1px solid ${a.type === "ordinaria" ? "rgba(143,168,255,0.30)" : "rgba(255,185,88,0.30)"}`,
+                            background: a.type === "ordinaria" ? "rgb(var(--logistes-rgb) / 0.10)" : "rgb(var(--warn-rgb) / 0.1)",
+                            color: a.type === "ordinaria" ? "var(--logistes)" : "var(--warn)",
+                            border: `1px solid ${a.type === "ordinaria" ? "rgb(var(--logistes-rgb) / 0.30)" : "rgb(var(--warn-rgb) / 0.3)"}`,
                           }}
                         >
                           {a.type}
                         </span>
-                        <p className="text-[13.5px] font-medium flex-1" style={{ color: "#f6f5f7", textDecoration: cancelled ? "line-through" : "none" }}>
+                        <p className="text-[13.5px] font-medium flex-1" style={{ color: "var(--ink)", textDecoration: cancelled ? "line-through" : "none" }}>
                           {fmtDate(a.date)}
                         </p>
                         {cancelled ? (
-                          <span style={{ ...monoMini, color: "#ff8585" }}>CANCELADA</span>
+                          <span style={{ ...monoMini, color: "var(--danger-text)" }}>CANCELADA</span>
                         ) : a.convokedAt ? (
-                          <span className="inline-flex items-center gap-1" style={{ ...monoMini, color: "#4cd6a0" }}>
+                          <span className="inline-flex items-center gap-1" style={{ ...monoMini, color: "var(--ok-text)" }}>
                             <MailCheck className="h-3 w-3" />
                             Convocada
                           </span>
                         ) : (
-                          <span style={{ ...monoMini, color: "#ffb958" }}>Sin enviar</span>
+                          <span style={{ ...monoMini, color: "var(--warn-text)" }}>Sin enviar</span>
                         )}
                       </div>
 
                       {!cancelled && (
-                        <p style={{ ...monoMini, color: "rgba(246,245,247,0.40)" }}>
+                        <p style={{ ...monoMini, color: "var(--ink-3)" }}>
                           {past ? (
                             <>
                               Acta: antes del {fmtShort(actaDue)}
@@ -603,7 +603,7 @@ La Administración`;
                       )}
 
                       {sentOkId === a.id && (
-                        <p className="text-[12px]" style={{ color: "#4cd6a0" }}>
+                        <p className="text-[12px]" style={{ color: "var(--ok-text)" }}>
                           Convocatoria enviada por correo a las unidades.
                         </p>
                       )}
@@ -614,7 +614,7 @@ La Administración`;
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 rounded-full text-[11.5px] px-3 py-1.5 transition-colors hover:bg-white/[0.06]"
-                          style={{ color: "rgba(246,245,247,0.65)", border: "1px solid rgba(255,255,255,0.12)" }}
+                          style={{ color: "var(--ink-2)", border: "1px solid rgb(var(--veil-rgb) / 0.12)" }}
                         >
                           <Printer className="h-3 w-3" />
                           Convocatoria
@@ -624,7 +624,7 @@ La Administración`;
                             onClick={() => sendByEmail(a)}
                             disabled={busyId === a.id}
                             className="inline-flex items-center gap-1.5 rounded-full text-[11.5px] px-3 py-1.5 transition-colors cursor-pointer hover:bg-white/[0.06] disabled:opacity-50"
-                            style={{ color: "#a78bff", border: "1px solid rgba(124,92,255,0.35)" }}
+                            style={{ color: "var(--accent-text)", border: "1px solid rgb(var(--accent-rgb) / 0.35)" }}
                           >
                             {busyId === a.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                             Enviar por correo
@@ -635,7 +635,7 @@ La Administración`;
                             onClick={() => patch(a.id, "mark_convoked")}
                             disabled={busyId === a.id}
                             className="inline-flex items-center gap-1.5 rounded-full text-[11.5px] px-3 py-1.5 transition-colors cursor-pointer hover:bg-white/[0.06] disabled:opacity-50"
-                            style={{ color: "rgba(246,245,247,0.55)", border: "1px solid rgba(255,255,255,0.12)" }}
+                            style={{ color: "var(--ink-2)", border: "1px solid rgb(var(--veil-rgb) / 0.12)" }}
                           >
                             <CheckCircle2 className="h-3 w-3" />
                             Marcar enviada
@@ -646,7 +646,7 @@ La Administración`;
                             onClick={() => patch(a.id, "acta_ready")}
                             disabled={busyId === a.id}
                             className="inline-flex items-center gap-1.5 rounded-full text-[11.5px] px-3 py-1.5 transition-colors cursor-pointer hover:bg-white/[0.06] disabled:opacity-50"
-                            style={{ color: "#4cd6a0", border: "1px solid rgba(76,214,160,0.35)" }}
+                            style={{ color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.35)" }}
                           >
                             <FileCheck2 className="h-3 w-3" />
                             Acta publicada
@@ -662,7 +662,7 @@ La Administración`;
                             }}
                             disabled={busyId === a.id}
                             className="ui-press p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.06]"
-                            style={{ color: "rgba(255,133,133,0.70)" }}
+                            style={{ color: "rgb(var(--danger-rgb) / 0.7)" }}
                             title="Cancelar asamblea"
                           >
                             <Ban className="h-3.5 w-3.5" />
@@ -672,7 +672,7 @@ La Administración`;
                             onClick={() => patch(a.id, "restore")}
                             disabled={busyId === a.id}
                             className="ui-press p-1.5 rounded-lg cursor-pointer hover:bg-white/[0.06]"
-                            style={{ color: "#4cd6a0" }}
+                            style={{ color: "var(--ok-text)" }}
                             title="Restaurar"
                           >
                             <RotateCcw className="h-3.5 w-3.5" />

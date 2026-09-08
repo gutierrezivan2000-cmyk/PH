@@ -45,21 +45,21 @@ export function RenewalBanner() {
 
   const config = {
     expired: {
-      color: "#ff6f6f",
-      bg: "rgba(255,111,111,0.10)",
-      border: "rgba(255,111,111,0.30)",
+      color: "var(--danger-text)",
+      bg: "rgb(var(--danger-rgb) / 0.1)",
+      border: "rgb(var(--danger-rgb) / 0.3)",
       text: "Tu plan venció. Renuévalo para seguir generando documentos.",
     },
     grace: {
-      color: "#ffb958",
-      bg: "rgba(255,185,88,0.10)",
-      border: "rgba(255,185,88,0.30)",
+      color: "var(--warn-text)",
+      bg: "rgb(var(--warn-rgb) / 0.1)",
+      border: "rgb(var(--warn-rgb) / 0.3)",
       text: "Tu plan venció y estás en período de gracia. Renuévalo para no perder el acceso.",
     },
     soon: {
-      color: "#ffb958",
-      bg: "rgba(255,185,88,0.08)",
-      border: "rgba(255,185,88,0.22)",
+      color: "var(--warn-text)",
+      bg: "rgb(var(--warn-rgb) / 0.08)",
+      border: "rgb(var(--warn-rgb) / 0.22)",
       text: `Tu plan se renueva el ${fmt(periodEndsAt)}. Renuévalo en Suscripción para no interrumpir el servicio.`,
     },
   }[variant];

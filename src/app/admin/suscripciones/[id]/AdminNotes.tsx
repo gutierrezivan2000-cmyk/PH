@@ -44,14 +44,14 @@ export function AdminNotes({ subscriptionId, initialNotes }: Props) {
         onBlur={save}
         placeholder="Notas internas del administrador…"
         rows={8}
-        className="w-full rounded-xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 resize-none focus-visible:outline-none focus-visible:border-[#7c5cff] focus-visible:ring-[3px] focus-visible:ring-[rgba(124,92,255,0.15)] transition-all"
+        className="w-full rounded-xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 resize-none focus-visible:outline-none focus-visible:border-[var(--accent)] focus-visible:ring-[3px] focus-visible:ring-[rgb(var(--accent-rgb) / 0.15)] transition-all"
         style={{ fontFamily: "var(--font-mono)", fontSize: "12px", lineHeight: "1.6" }}
       />
       <div className="flex items-center justify-between">
-        {error && <p className="text-[11px] text-[#ff6f6f]">{error}</p>}
+        {error && <p className="text-[11px] text-[var(--danger)]">{error}</p>}
         {saved && (
           <p
-            className="text-[11px] text-[#4cd6a0]"
+            className="text-[11px] text-[var(--ok)]"
             style={{ fontFamily: "var(--font-mono)" }}
           >
             ✓ Guardado

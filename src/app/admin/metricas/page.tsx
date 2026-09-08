@@ -18,10 +18,10 @@ const MONO: React.CSSProperties = {
 const MONTH_ABBR = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
 const AGENT_COLORS: Record<string, string> = {
-  metra: "#4cd6a0",
-  nomethes: "#ffb958",
-  hermes: "#ff6fa8",
-  logistes: "#8a92ff",
+  metra: "var(--ok)",
+  nomethes: "var(--warn)",
+  hermes: "var(--pink)",
+  logistes: "var(--logistes)",
 };
 
 // ---- Data loading ----
@@ -239,7 +239,7 @@ function KpiCard({
       >
         <Icon size={16} />
       </div>
-      <p style={{ ...MONO, color: "rgba(255,255,255,0.45)", marginBottom: 8 }}>{label}</p>
+      <p style={{ ...MONO, color: "var(--ink-3)", marginBottom: 8 }}>{label}</p>
       <p
         style={{
           fontSize: 26,
@@ -253,7 +253,7 @@ function KpiCard({
         {value}
       </p>
       {sub && (
-        <p style={{ ...MONO, fontSize: 10, color: "rgba(255,255,255,0.35)" }}>{sub}</p>
+        <p style={{ ...MONO, fontSize: 10, color: "var(--ink-4)" }}>{sub}</p>
       )}
     </div>
   );
@@ -271,7 +271,7 @@ function SectionCard({ title, label, children }: { title: string; label?: string
       }}
     >
       <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border)" }}>
-        {label && <p style={{ ...MONO, color: "rgba(255,255,255,0.4)", marginBottom: 4 }}>{label}</p>}
+        {label && <p style={{ ...MONO, color: "var(--ink-3)", marginBottom: 4 }}>{label}</p>}
         <p style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em" }}>
           {title}
         </p>
@@ -324,32 +324,32 @@ async function MetricasContent() {
               ? `${d.mrrDelta >= 0 ? "+" : ""}$${d.mrrDelta} / ${d.mrrDelta >= 0 ? "+" : ""}${d.mrrDeltaPct}%`
               : `vs mes anterior $${d.mrrLastMonth}`
           }
-          tint="rgba(124,92,255,0.10)"
-          accent="#9a7fff"
+          tint="rgb(var(--accent-rgb) / 0.1)"
+          accent="var(--accent-hi)"
         />
         <KpiCard
           icon={Users}
           label="Usuarios activos (30d)"
           value={d.activeUsers30d.toLocaleString("es-CO")}
           sub={`de ${d.totalUsers} usuarios totales`}
-          tint="rgba(95,180,255,0.10)"
-          accent="#5fb4ff"
+          tint="rgb(var(--info-rgb) / 0.1)"
+          accent="var(--info)"
         />
         <KpiCard
           icon={BarChart2}
           label="Tasa de conversión"
           value={`${d.conversionRate}%`}
           sub={`${d.activeSubs} subs activas / ${d.totalUsers} usuarios`}
-          tint="rgba(76,214,160,0.10)"
-          accent="#4cd6a0"
+          tint="rgb(var(--ok-rgb) / 0.1)"
+          accent="var(--ok)"
         />
         <KpiCard
           icon={XCircle}
           label="Churn (30d)"
           value={`${d.churnRate}%`}
           sub={`${d.canceledLast30} cancelaciones en 30d`}
-          tint="rgba(255,111,111,0.08)"
-          accent="#ff8585"
+          tint="rgb(var(--danger-rgb) / 0.08)"
+          accent="var(--danger)"
         />
       </div>
 
@@ -368,7 +368,7 @@ async function MetricasContent() {
                   style={{
                     ...MONO,
                     fontSize: 9,
-                    color: m.mrr > 0 ? "#9a7fff" : "rgba(255,255,255,0.25)",
+                    color: m.mrr > 0 ? "var(--accent-text)" : "var(--ink-4)",
                     letterSpacing: "0.06em",
                   }}
                 >
@@ -383,14 +383,14 @@ async function MetricasContent() {
                       borderRadius: "4px 4px 0 0",
                       background:
                         m.mrr > 0
-                          ? "linear-gradient(180deg, #9a7fff 0%, #7c5cff 100%)"
-                          : "rgba(255,255,255,0.06)",
-                      border: m.mrr === 0 ? "1px solid rgba(255,255,255,0.08)" : undefined,
+                          ? "linear-gradient(180deg, var(--accent-hi) 0%, var(--accent) 100%)"
+                          : "rgb(var(--veil-rgb) / 0.06)",
+                      border: m.mrr === 0 ? "1px solid rgb(var(--veil-rgb) / 0.08)" : undefined,
                       transition: "height 0.3s",
                     }}
                   />
                 </div>
-                <p style={{ ...MONO, color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em" }}>
+                <p style={{ ...MONO, color: "var(--ink-3)", letterSpacing: "0.08em" }}>
                   {m.label}
                 </p>
               </div>
@@ -403,9 +403,9 @@ async function MetricasContent() {
       <SectionCard label="Distribución" title="Distribución por plan">
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {[
-            { label: "Pro", count: d.planDistribution.pro, color: "#5fb4ff" },
-            { label: "Elite", count: d.planDistribution.elite, color: "#9a7fff" },
-            { label: "Sin suscripción", count: d.planDistribution.noSub, color: "rgba(255,255,255,0.15)" },
+            { label: "Pro", count: d.planDistribution.pro, color: "var(--info-text)" },
+            { label: "Elite", count: d.planDistribution.elite, color: "var(--accent-text)" },
+            { label: "Sin suscripción", count: d.planDistribution.noSub, color: "var(--ink-4)" },
           ].map((p) => {
             const pct = planTotal > 0 ? ((p.count / planTotal) * 100).toFixed(1) : "0";
             return (
@@ -418,8 +418,8 @@ async function MetricasContent() {
                     marginBottom: 6,
                   }}
                 >
-                  <p style={{ ...MONO, color: "rgba(255,255,255,0.6)" }}>{p.label}</p>
-                  <p style={{ ...MONO, color: "rgba(255,255,255,0.45)" }}>
+                  <p style={{ ...MONO, color: "var(--ink-2)" }}>{p.label}</p>
+                  <p style={{ ...MONO, color: "var(--ink-3)" }}>
                     {p.count} · {pct}%
                   </p>
                 </div>
@@ -427,7 +427,7 @@ async function MetricasContent() {
                   style={{
                     height: 6,
                     borderRadius: 3,
-                    background: "rgba(255,255,255,0.06)",
+                    background: "rgb(var(--veil-rgb) / 0.06)",
                     overflow: "hidden",
                   }}
                 >
@@ -451,7 +451,7 @@ async function MetricasContent() {
       <SectionCard label="Top usuarios" title="Más activos en 30 días">
         <div>
           {d.topUsers.length === 0 ? (
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", textAlign: "center", padding: "20px 0" }}>
+            <p style={{ fontSize: 13, color: "var(--ink-4)", textAlign: "center", padding: "20px 0" }}>
               Sin datos de actividad aún.
             </p>
           ) : (
@@ -469,14 +469,14 @@ async function MetricasContent() {
                     gap: 12,
                     padding: "10px 0",
                     borderBottom:
-                      i < d.topUsers.length - 1 ? "1px solid rgba(255,255,255,0.05)" : undefined,
+                      i < d.topUsers.length - 1 ? "1px solid rgb(var(--veil-rgb) / 0.05)" : undefined,
                   }}
                 >
                   <p
                     style={{
                       ...MONO,
                       fontSize: 11,
-                      color: i < 3 ? "#9a7fff" : "rgba(255,255,255,0.3)",
+                      color: i < 3 ? "var(--accent-text)" : "var(--ink-4)",
                       fontWeight: 700,
                     }}
                   >
@@ -486,15 +486,15 @@ async function MetricasContent() {
                     <p style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)" }}>
                       {u.name || u.email}
                     </p>
-                    <p style={{ ...MONO, fontSize: 9, color: "rgba(255,255,255,0.35)" }}>{u.email}</p>
+                    <p style={{ ...MONO, fontSize: 9, color: "var(--ink-4)" }}>{u.email}</p>
                   </div>
-                  <p style={{ ...MONO, fontSize: 10, color: "#4cd6a0", textAlign: "center" }}>
+                  <p style={{ ...MONO, fontSize: 10, color: "var(--ok-text)", textAlign: "center" }}>
                     {u.generations} gen
                   </p>
-                  <p style={{ ...MONO, fontSize: 10, color: "#5fb4ff", textAlign: "center" }}>
+                  <p style={{ ...MONO, fontSize: 10, color: "var(--info-text)", textAlign: "center" }}>
                     {u.chats} chats
                   </p>
-                  <p style={{ ...MONO, fontSize: 10, color: "#ffb958", textAlign: "center" }}>
+                  <p style={{ ...MONO, fontSize: 10, color: "var(--warn-text)", textAlign: "center" }}>
                     {u.properties} prop
                   </p>
                 </div>
@@ -508,7 +508,7 @@ async function MetricasContent() {
       <SectionCard label="Add-ons" title="Add-ons más activos">
         <div style={{ display: "flex", gap: 16, alignItems: "flex-end", height: 100 }}>
           {addonEntries.map(([id, count]) => {
-            const color = AGENT_COLORS[id] || "#9a7fff";
+            const color = AGENT_COLORS[id] || "var(--accent-text)";
             const pct = maxAddon > 0 ? (count / maxAddon) * 100 : 0;
             const name = id.charAt(0).toUpperCase() + id.slice(1);
             return (
@@ -525,12 +525,12 @@ async function MetricasContent() {
                       width: "100%",
                       height: `${Math.max(pct, count > 0 ? 5 : 0)}%`,
                       borderRadius: "4px 4px 0 0",
-                      background: count > 0 ? color : "rgba(255,255,255,0.06)",
+                      background: count > 0 ? color : "var(--ink-4)",
                       opacity: count > 0 ? 0.85 : 1,
                     }}
                   />
                 </div>
-                <p style={{ ...MONO, color: "rgba(255,255,255,0.4)", letterSpacing: "0.06em" }}>
+                <p style={{ ...MONO, color: "var(--ink-3)", letterSpacing: "0.06em" }}>
                   {name}
                 </p>
               </div>
@@ -543,24 +543,24 @@ async function MetricasContent() {
       <SectionCard label="Soporte" title="Tickets este mes">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 16 }}>
           {[
-            { label: "Creados", value: d.tickets.created, color: "rgba(255,255,255,0.7)" },
-            { label: "Resueltos", value: d.tickets.resolved, color: "#4cd6a0" },
+            { label: "Creados", value: d.tickets.created, color: "var(--ink-2)" },
+            { label: "Resueltos", value: d.tickets.resolved, color: "var(--ok-text)" },
             {
               label: "SLA urgentes (<24h)",
               value: `${d.tickets.urgentSla24h} / ${d.tickets.urgentTotal}`,
-              color: "#ffb958",
+              color: "var(--warn-text)",
             },
           ].map((t) => (
             <div
               key={t.label}
               style={{
-                background: "rgba(255,255,255,0.03)",
+                background: "rgb(var(--veil-rgb) / 0.03)",
                 border: "1px solid var(--border)",
                 borderRadius: 10,
                 padding: "14px 16px",
               }}
             >
-              <p style={{ ...MONO, color: "rgba(255,255,255,0.4)", marginBottom: 8 }}>{t.label}</p>
+              <p style={{ ...MONO, color: "var(--ink-3)", marginBottom: 8 }}>{t.label}</p>
               <p
                 style={{
                   fontSize: 22,

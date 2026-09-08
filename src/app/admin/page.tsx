@@ -101,8 +101,8 @@ async function OverviewContent() {
       sub: `+${data.newUsers30d} en 30 días`,
       href: "/admin/usuarios",
       icon: Users,
-      tint: "rgba(124,92,255,0.10)",
-      accent: "#9a7fff",
+      tint: "rgb(var(--accent-rgb) / 0.1)",
+      accent: "var(--accent-hi)",
     },
     {
       label: "MRR estimado",
@@ -110,8 +110,8 @@ async function OverviewContent() {
       sub: `${data.activeSubs} suscripciones activas`,
       href: "/admin/suscripciones",
       icon: CreditCard,
-      tint: "rgba(76,214,160,0.10)",
-      accent: "#4cd6a0",
+      tint: "rgb(var(--ok-rgb) / 0.1)",
+      accent: "var(--ok)",
     },
     {
       label: "Tickets abiertos",
@@ -122,8 +122,8 @@ async function OverviewContent() {
           : "Sin urgentes",
       href: "/admin/tickets",
       icon: TicketIcon,
-      tint: "rgba(255,185,88,0.10)",
-      accent: "#ffb958",
+      tint: "rgb(var(--warn-rgb) / 0.1)",
+      accent: "var(--warn)",
     },
     {
       label: "Generaciones / 30d",
@@ -131,8 +131,8 @@ async function OverviewContent() {
       sub: `${data.generations7d} en 7 días`,
       href: "/admin/metricas",
       icon: Activity,
-      tint: "rgba(95,180,255,0.10)",
-      accent: "#5fb4ff",
+      tint: "rgb(var(--info-rgb) / 0.1)",
+      accent: "var(--info)",
     },
   ];
 
@@ -148,11 +148,11 @@ async function OverviewContent() {
         <div
           className="flex items-center gap-3 px-4 py-3 rounded-xl border mb-6"
           style={{
-            background: "rgba(255,111,111,0.06)",
-            borderColor: "rgba(255,111,111,0.30)",
+            background: "rgb(var(--danger-rgb) / 0.06)",
+            borderColor: "rgb(var(--danger-rgb) / 0.3)",
           }}
         >
-          <AlertCircle className="h-4 w-4 flex-shrink-0" style={{ color: "#ff8585" }} />
+          <AlertCircle className="h-4 w-4 flex-shrink-0" style={{ color: "var(--danger-text)" }} />
           <div className="flex-1">
             <p className="text-[13px] font-medium text-foreground">
               {data.pastDueSubs} suscripción{data.pastDueSubs !== 1 ? "es" : ""} con pago atrasado
@@ -165,8 +165,8 @@ async function OverviewContent() {
             href="/admin/suscripciones?status=past_due"
             className="text-xs font-medium px-3 py-1.5 rounded-full border transition-colors"
             style={{
-              borderColor: "rgba(255,111,111,0.40)",
-              color: "#ff8585",
+              borderColor: "rgb(var(--danger-rgb) / 0.4)",
+              color: "var(--danger-text)",
             }}
           >
             Ver
@@ -210,7 +210,7 @@ async function OverviewContent() {
                   className="text-[11px] mt-1 truncate"
                   style={{
                     fontFamily: "var(--font-mono)",
-                    color: "rgba(255,255,255,0.45)",
+                    color: "var(--ink-3)",
                   }}
                 >
                   {s.sub}
@@ -273,16 +273,16 @@ async function OverviewContent() {
                     textTransform: "uppercase",
                     background:
                       t.priority === "urgent"
-                        ? "rgba(255,111,111,0.12)"
+                        ? "rgb(var(--danger-rgb) / 0.12)"
                         : t.priority === "high"
-                          ? "rgba(255,185,88,0.12)"
-                          : "rgba(255,255,255,0.05)",
+                          ? "rgb(var(--warn-rgb) / 0.12)"
+                          : "rgb(var(--veil-rgb) / 0.05)",
                     color:
                       t.priority === "urgent"
-                        ? "#ff8585"
+                        ? "var(--danger)"
                         : t.priority === "high"
-                          ? "#ffb958"
-                          : "rgba(255,255,255,0.55)",
+                          ? "var(--warn)"
+                          : "var(--ink-2)",
                   }}
                 >
                   {t.priority}

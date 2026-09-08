@@ -119,7 +119,7 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
   };
 
   const selectBase =
-    "rounded-lg border border-border bg-card text-sm text-foreground px-3 h-9 focus-visible:outline-none focus-visible:border-[#7c5cff] transition-all cursor-pointer";
+    "rounded-lg border border-border bg-card text-sm text-foreground px-3 h-9 focus-visible:outline-none focus-visible:border-[var(--accent)] transition-all cursor-pointer";
 
   return (
     <section className="rounded-2xl border border-border bg-card overflow-hidden mb-6">
@@ -129,7 +129,7 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
         <span className="text-[11px] text-muted-foreground">para la generación en lote</span>
         <div className="flex items-center gap-2 ml-auto">
           {saved && (
-            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: "#4cd6a0" }}>
+            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: "var(--ok-text)" }}>
               <CheckCircle2 className="h-3.5 w-3.5" /> Guardado
             </span>
           )}
@@ -153,7 +153,7 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
         </p>
 
         {error && (
-          <div className="mb-4 rounded-xl px-4 py-2.5 text-[13px]" style={{ background: "rgba(255,111,111,0.10)", border: "1px solid rgba(255,111,111,0.25)", color: "#ff6f6f" }}>
+          <div className="mb-4 rounded-xl px-4 py-2.5 text-[13px]" style={{ background: "rgb(var(--danger-rgb) / 0.1)", border: "1px solid rgb(var(--danger-rgb) / 0.25)", color: "var(--danger-text)" }}>
             {error}
           </div>
         )}
@@ -168,13 +168,13 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
             {files.length > 0 && (
               <ul className="space-y-2 mb-4">
                 {files.map((f, i) => (
-                  <li key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ background: "#1d1d24", border: "1px solid var(--hifi-hairline)" }}>
+                  <li key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ background: "var(--surface-3)", border: "1px solid var(--hifi-hairline)" }}>
                     <FileText className="h-4 w-4 text-muted-foreground/70 flex-shrink-0" />
                     <span className="flex-1 min-w-0 truncate text-[13px] text-foreground">{f.name}</span>
                     <span className="text-[11px] text-muted-foreground/60" style={{ fontFamily: "var(--font-mono)" }}>
                       {(f.size / 1024 / 1024).toFixed(1)} MB
                     </span>
-                    <button onClick={() => removeFile(i)} className="text-muted-foreground/60 hover:text-[#ff6f6f] transition-colors" aria-label="Quitar">
+                    <button onClick={() => removeFile(i)} className="text-muted-foreground/60 hover:text-[var(--danger)] transition-colors" aria-label="Quitar">
                       <X className="h-4 w-4" />
                     </button>
                   </li>
@@ -186,11 +186,11 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading || files.length >= 20}
-              className="w-full flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-6 transition-colors hover:border-[#7c5cff]/50 disabled:opacity-50"
-              style={{ borderColor: "rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.02)" }}
+              className="w-full flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-6 transition-colors hover:border-[var(--accent)]/50 disabled:opacity-50"
+              style={{ borderColor: "rgb(var(--veil-rgb) / 0.14)", background: "rgb(var(--veil-rgb) / 0.02)" }}
             >
               {uploading ? (
-                <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#9a7fff" }} />
+                <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--accent-text)" }} />
               ) : (
                 <Upload className="h-5 w-5 text-muted-foreground" />
               )}
@@ -217,7 +217,7 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
                 onChange={(e) => onNoteChange(e.target.value)}
                 rows={3}
                 placeholder="Ej. Aprobada cuota extraordinaria de $X; pendiente cambio de bomba…"
-                className="w-full rounded-xl border border-border bg-card text-sm text-foreground px-3 py-2.5 placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:border-[#7c5cff] transition-all resize-y"
+                className="w-full rounded-xl border border-border bg-card text-sm text-foreground px-3 py-2.5 placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:border-[var(--accent)] transition-all resize-y"
               />
             </div>
           </>

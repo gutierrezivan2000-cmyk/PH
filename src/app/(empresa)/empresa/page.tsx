@@ -73,7 +73,7 @@ export default async function EmpresaOverviewPage() {
       value: data.totalProperties.toLocaleString("es-CO"),
       sub: "en tu portafolio",
       icon: Building2,
-      tint: "#7c5cff",
+      tint: "var(--accent)",
     },
     {
       label: "Generaciones del mes",
@@ -82,21 +82,21 @@ export default async function EmpresaOverviewPage() {
         : data.generationsThisMonth.toLocaleString("es-CO"),
       sub: monthlyCap ? "informes/actas completados" : "ilimitado en beta",
       icon: FileText,
-      tint: "#4cd6a0",
+      tint: "var(--ok)",
     },
     {
       label: "Sin informe reciente",
       value: data.withoutRecentReport.toLocaleString("es-CO"),
       sub: "en los últimos 30 días",
       icon: AlertTriangle,
-      tint: data.withoutRecentReport > 0 ? "#ffb958" : "#4cd6a0",
+      tint: data.withoutRecentReport > 0 ? "var(--warn)" : "var(--ok)",
     },
     {
       label: "Documentos cargados",
       value: data.totalDocuments.toLocaleString("es-CO"),
       sub: "reglamentos y manuales",
       icon: FolderOpen,
-      tint: "#5fb4ff",
+      tint: "var(--info)",
     },
   ];
 
@@ -111,7 +111,7 @@ export default async function EmpresaOverviewPage() {
             <Link
               href="/empresa/generar"
               className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold text-white transition-all hover:opacity-90"
-              style={{ background: "#7c5cff", boxShadow: "0 4px 20px rgba(124,92,255,0.35)" }}
+              style={{ background: "var(--accent)", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.35)" }}
             >
               <Layers className="h-4 w-4" />
               Generar en lote
@@ -149,9 +149,9 @@ export default async function EmpresaOverviewPage() {
         <div className="grid sm:grid-cols-2 gap-4 mb-8">
           <Link
             href="/empresa/propiedades"
-            className="group rounded-2xl border border-border bg-card p-5 flex items-center gap-4 hover:border-[#7c5cff]/40 transition-colors"
+            className="group rounded-2xl border border-border bg-card p-5 flex items-center gap-4 hover:border-[var(--accent)]/40 transition-colors"
           >
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(124,92,255,0.12)", color: "#9a7fff" }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgb(var(--accent-rgb) / 0.12)", color: "var(--accent-text)" }}>
               <Building2 className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0">
@@ -162,9 +162,9 @@ export default async function EmpresaOverviewPage() {
           </Link>
           <Link
             href="/empresa/generar"
-            className="group rounded-2xl border border-border bg-card p-5 flex items-center gap-4 hover:border-[#7c5cff]/40 transition-colors"
+            className="group rounded-2xl border border-border bg-card p-5 flex items-center gap-4 hover:border-[var(--accent)]/40 transition-colors"
           >
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(76,214,160,0.12)", color: "#4cd6a0" }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgb(var(--ok-rgb) / 0.12)", color: "var(--ok-text)" }}>
               <Layers className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0">

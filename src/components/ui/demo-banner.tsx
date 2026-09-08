@@ -7,9 +7,9 @@ export function DemoBanner() {
     <div
       className="flex items-center justify-center gap-2 px-4 py-1.5 text-[11px] font-medium border-b"
       style={{
-        background: "rgba(244,199,128,0.10)",
-        borderColor: "rgba(244,199,128,0.30)",
-        color: "#f4c780",
+        background: "rgb(var(--legal-rgb) / 0.10)",
+        borderColor: "rgb(var(--legal-rgb) / 0.30)",
+        color: "var(--legal)",
         fontFamily: "var(--font-mono)",
         letterSpacing: "0.12em",
         textTransform: "uppercase",
