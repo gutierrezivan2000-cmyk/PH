@@ -23,6 +23,32 @@ function PlanStatusChip({ usage }: { usage: UsageData }) {
   const status = usage.planStatus;
   if (!status) return null;
 
+  // Fase de pruebas abierta: sin cuenta atrás ni aviso de vencimiento, porque
+  // no hay nada que venza. Se dice qué tiene abierto y por qué.
+  if (status === "testing") {
+    return (
+      <div
+        className="flex items-center gap-2 px-3 py-2 rounded-xl border"
+        style={{
+          background: "rgb(var(--accent-rgb) / 0.08)",
+          borderColor: "rgb(var(--accent-rgb) / 0.3)",
+        }}
+      >
+        <Sparkles className="h-3.5 w-3.5" style={{ color: "var(--accent-hi)" }} />
+        <span
+          className="text-[11px] font-medium"
+          style={{
+            fontFamily: "var(--font-mono)",
+            letterSpacing: "0.06em",
+            color: "var(--accent-hi)",
+          }}
+        >
+          FASE DE PRUEBAS · FUNCIONES PRO
+        </span>
+      </div>
+    );
+  }
+
   if (status === "trialing" && usage.trialEndsAt) {
     const daysLeft = Math.max(
       0,
@@ -149,7 +175,7 @@ export function UsageCard() {
                 className="text-[10px] uppercase text-muted-foreground/70 mt-0.5"
                 style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.14em" }}
               >
-                Acceso completo de prueba
+                Acceso sin restricciones
               </p>
             </div>
           </div>

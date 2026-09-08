@@ -187,19 +187,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             token.role = created.role;
             token.sessionAt = Date.now();
 
-            // Start the 7-day free trial for brand-new Google accounts.
+            // Alta con Google: durante la fase de pruebas no se crea ninguna
+            // suscripción de prueba. Crearla ahora dejaría una fila que vence
+            // en 7 días y volvería a bloquear al usuario en cuanto la fase
+            // termine, sin que él haya hecho nada.
             try {
-              const { TRIAL_DAYS } = await import("@/lib/plan");
-              const now = new Date();
-              await db.subscription.create({
-                data: {
-                  userId: created.id,
-                  status: "trialing",
-                  planId: "pro",
-                  currentPeriodStart: now,
-                  currentPeriodEnd: new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
-                },
-              });
+              const { TRIAL_DAYS, OPEN_TESTING } = await import("@/lib/plan");
+              if (!OPEN_TESTING) {
+                const now = new Date();
+                await db.subscription.create({
+                  data: {
+                    userId: created.id,
+                    status: "trialing",
+                    planId: "pro",
+                    currentPeriodStart: now,
+                    currentPeriodEnd: new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+                  },
+                });
+              }
             } catch (subErr) {
               console.error("[AUTH] trial subscription create failed:", subErr);
             }

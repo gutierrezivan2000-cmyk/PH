@@ -1,6 +1,13 @@
 import { db } from "@/lib/db";
 import { PLANS, TRIAL_LIMITS } from "@/lib/epayco";
-import { normalizePlanId, hasActiveAccess, TRIAL_DAYS, type AccessCheck } from "@/lib/plan";
+import {
+  normalizePlanId,
+  hasActiveAccess,
+  TRIAL_DAYS,
+  OPEN_TESTING,
+  TESTING_PLAN_ID,
+  type AccessCheck,
+} from "@/lib/plan";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -67,6 +74,11 @@ function activeGenerationWhere(userId: string, since: Date) {
 export async function checkSubscriptionAccess(userId: string): Promise<AccessCheck> {
   if (IS_DEMO) return { allowed: true, status: "active" };
 
+  // Fase de pruebas: todos entran con funciones Pro. Se devuelve ANTES de
+  // tocar la base para no crear suscripciones de prueba que luego vencerían y
+  // volverían a bloquear al usuario cuando esta fase termine.
+  if (OPEN_TESTING) return { allowed: true, status: "testing" };
+
   // Beta testers (existing accounts) get unrestricted access, no trial row.
   if (await isGrandfathered(userId)) return { allowed: true, status: "beta" };
 
@@ -103,7 +115,7 @@ type PlanLimits = {
 };
 
 function getPlanLimits(planId?: string | null): PlanLimits {
-  const p = normalizePlanId(planId);
+  const p = normalizePlanId(OPEN_TESTING ? TESTING_PLAN_ID : planId);
   if (p === "elite") return { ...PLANS.elite.limits };
   if (p === "business") return { ...PLANS.business.limits };
   return { ...PLANS.pro.limits };
@@ -253,6 +265,10 @@ export async function failStuckGenerations(userId: string): Promise<void> {
 export async function getGenerationFileLimits(
   userId: string
 ): Promise<{ maxFiles: number; maxFileSizeMb: number }> {
+  if (OPEN_TESTING) {
+    const l = getPlanLimits(TESTING_PLAN_ID);
+    return { maxFiles: l.maxFilesPerGeneration, maxFileSizeMb: l.maxFileSizeMb };
+  }
   try {
     const access = await checkSubscriptionAccess(userId);
     if (access.status === "beta") {
@@ -277,6 +293,7 @@ export async function getGenerationFileLimits(
 
 /** Max properties allowed for the user's current plan (trial = Pro level). */
 export async function getMaxProperties(userId: string): Promise<number> {
+  if (OPEN_TESTING) return PLANS[TESTING_PLAN_ID as "pro"].maxProperties;
   try {
     const sub = await db.subscription.findUnique({ where: { userId } });
     const p = normalizePlanId(sub?.planId);

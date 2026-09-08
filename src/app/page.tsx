@@ -838,7 +838,7 @@ export default function LandingPage() {
               className="flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
-              Probar 7 días gratis
+              Entrar gratis
             </Link>
           </div>
         </nav>
@@ -953,7 +953,7 @@ export default function LandingPage() {
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
                   style={{ background: "var(--accent)", color: "#fff" }}
                 >
-                  Probar 7 días gratis
+                  Entrar gratis
                   <ArrowRight size={16} />
                 </Link>
                 <Link
@@ -973,8 +973,7 @@ export default function LandingPage() {
                 className="text-xs sophia-mono"
                 style={{ color: "var(--ink-4)", marginTop: -12 }}
               >
-                7 días gratis · 5 generaciones de prueba · sin tarjeta · luego
-                eliges plan
+                Gratis durante la fase de pruebas · sin tarjeta
               </p>
 
               {/* Honest value row */}
@@ -1737,8 +1736,7 @@ export default function LandingPage() {
                 className="text-sm sophia-mono"
                 style={{ color: "var(--ink-3)" }}
               >
-                7 días gratis · 5 generaciones de prueba · sin tarjeta · luego
-                eliges plan
+                Gratis durante la fase de pruebas · sin tarjeta
               </p>
             </div>
 
@@ -1790,7 +1788,7 @@ export default function LandingPage() {
                       color: "var(--accent-text)",
                     }}
                   >
-                    7 días gratis · sin tarjeta
+                    Gratis en fase de pruebas · sin tarjeta
                   </span>
                 </div>
                 <ul className="flex flex-col gap-3">
@@ -2004,7 +2002,7 @@ export default function LandingPage() {
               className="text-center text-xs sophia-mono mt-8"
               style={{ color: "var(--ink-4)" }}
             >
-              Cobro en COP procesado por ePayco. 7 días de prueba gratis · sin tarjeta.
+              Cobro en COP procesado por ePayco. Ahora mismo el acceso es gratuito mientras dura la fase de pruebas.
             </p>
           </div>
         </section>
@@ -2069,7 +2067,7 @@ export default function LandingPage() {
                     animation: "sophiaPulse 2.5s infinite",
                   }}
                 >
-                  Probar 7 días gratis
+                  Entrar gratis
                   <ArrowRight size={18} />
                 </Link>
               </div>

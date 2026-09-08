@@ -47,7 +47,7 @@ const PLAN_CARDS: {
     priceCop: "99.900",
     usd: "≈ USD 24",
     tagline: "Para empezar",
-    chip: "Trial 7 días",
+    chip: "Gratis en pruebas",
     cta: "Empezar gratis",
     featured: false,
     features: [
