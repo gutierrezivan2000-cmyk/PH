@@ -49,7 +49,7 @@ interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  attachments?: { name: string; url: string; type: string; size: number }[];
+  attachments?: { name: string; url: string; type: string; size: number; generado?: boolean }[];
   createdAt: string;
 }
 
@@ -117,6 +117,8 @@ export default function AgentPage() {
   // PDF, red caída) se tragaba en un catch vacío: el usuario pulsaba
   // «Exportar PDF» y no ocurría nada, sin descarga y sin explicación.
   const [exportError, setExportError] = useState("");
+  // Aviso mientras el agente construye un archivo: tarda varios segundos.
+  const [herramientaEnCurso, setHerramientaEnCurso] = useState("");
   // Id del chat recién creado por el envío en curso (ver el efecto de carga).
   const skipReloadForChatId = useRef<string | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -507,6 +509,43 @@ export default function AgentPage() {
                   );
                 }
               } catch { /* ignore */ }
+            } else if (eventType === "herramienta") {
+              try {
+                const { nombre } = JSON.parse(data);
+                setHerramientaEnCurso(
+                  nombre === "generar_hoja_de_calculo" ? "Generando la hoja de cálculo…"
+                    : nombre === "generar_documento_word" ? "Generando el documento de Word…"
+                    : "Generando el PDF…"
+                );
+              } catch { /* ignore */ }
+            } else if (eventType === "archivo") {
+              try {
+                const ficha = JSON.parse(data);
+                setHerramientaEnCurso("");
+                // El archivo puede llegar ANTES del primer texto: si la burbuja
+                // aún no existe se crea aquí, o el adjunto se perdería.
+                if (!assistantMsgAdded) {
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      id: assistantMsgId,
+                      role: "assistant",
+                      content: "",
+                      attachments: [ficha],
+                      createdAt: new Date().toISOString(),
+                    },
+                  ]);
+                  assistantMsgAdded = true;
+                } else {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantMsgId
+                        ? { ...m, attachments: [...(m.attachments || []), ficha] }
+                        : m
+                    )
+                  );
+                }
+              } catch { /* ignore */ }
             } else if (eventType === "error") {
               try {
                 const { error } = JSON.parse(data);
@@ -573,6 +612,7 @@ export default function AgentPage() {
         { id: `err-${Date.now()}`, role: "assistant", content: "Error de conexion. Intenta de nuevo.", createdAt: new Date().toISOString() },
       ]);
     } finally {
+      setHerramientaEnCurso("");
       setIsLoading(false);
       setUploadStatus("");
     }
@@ -1204,13 +1244,21 @@ export default function AgentPage() {
                       {/* Attachments */}
                       {msg.attachments && msg.attachments.length > 0 && (
                         <div className={`flex flex-wrap gap-1.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                          {msg.attachments.map((att, i) => (
-                            <div
+                          {msg.attachments.map((att, i) => {
+                            const Ficha = att.generado ? "a" : "div";
+                            return (
+                            <Ficha
                               key={i}
-                              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
+                              {...(att.generado
+                                ? { href: att.url, download: att.name, title: `Descargar ${att.name}` }
+                                : {})}
+                              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${
+                                att.generado ? "cursor-pointer hover:opacity-80 transition-opacity" : ""
+                              }`}
                               style={{
                                 background: "rgb(var(--accent-rgb) / 0.1)",
                                 border: "1px solid rgb(var(--accent-rgb) / 0.22)",
+                                textDecoration: "none",
                               }}
                             >
                               <span style={{ color: "var(--accent-text)" }}>{getFileIcon(att.type)}</span>
@@ -1237,8 +1285,12 @@ export default function AgentPage() {
                               >
                                 {(att.size / 1024).toFixed(0)}KB
                               </span>
-                            </div>
-                          ))}
+                              {att.generado && (
+                                <Download className="h-3 w-3" style={{ color: "var(--accent-text)" }} />
+                              )}
+                            </Ficha>
+                            );
+                          })}
                         </div>
                       )}
 
@@ -1319,6 +1371,13 @@ export default function AgentPage() {
                       <span className="hifi-typing-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: agentColor, display: "block", opacity: 0.4 }} />
                       <span className="hifi-typing-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: agentColor, display: "block", opacity: 0.4 }} />
                       <span className="hifi-typing-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: agentColor, display: "block", opacity: 0.4 }} />
+                      {/* Construir y subir un archivo tarda varios segundos: sin
+                          decirlo, los tres puntos parecen que se colgó. */}
+                      {herramientaEnCurso && (
+                        <span className="text-[12px] ml-1.5" style={{ color: "var(--ink-3)" }}>
+                          {herramientaEnCurso}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}

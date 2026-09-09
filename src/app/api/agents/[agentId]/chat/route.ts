@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 import { NextRequest, NextResponse } from "next/server";
+import type Anthropic from "@anthropic-ai/sdk";
 import {
   MAX_IMAGE_BYTES,
   MAX_IMAGE_MB_LABEL,
@@ -398,6 +399,19 @@ export async function POST(
     const agent = AGENTS[agentId];
     let systemPrompt = agent.systemPrompt;
 
+    // Los seis agentes comparten esta capacidad, así que se añade aquí una vez
+    // en lugar de repetirla en cada prompt. Las descripciones de las
+    // herramientas dicen CUÁNDO usarlas; esto le dice que existen y que el
+    // archivo es el entregable, no un extra que haya que ofrecer.
+    systemPrompt += `
+
+ARCHIVOS DESCARGABLES
+Puedes entregar archivos de verdad: hojas de cálculo (.xlsx), documentos de Word (.docx) y PDF.
+Cuando lo que pide el usuario se trabaja mejor en un archivo —un cuadro, un presupuesto, una
+relación, un acta, una carta, un informe— genéralo con la herramienta correspondiente en lugar de
+volcar una tabla larga en el chat. No pidas permiso ni preguntes si lo quiere en Excel: hazlo.
+Después del archivo, resume en una o dos frases qué contiene; no repitas su contenido.`;
+
     try {
       const memory = await db.agentMemory.findFirst({ where: { userId, agentId } });
       if (memory?.content) {
@@ -683,32 +697,135 @@ export async function POST(
               systemBlocks.push({ type: "text", text: volatileSystemNote });
             }
 
-            const stream = anthropic.messages.stream({
-              model: "claude-haiku-4-5-20251001",
-              max_tokens: 2048,
-              temperature: 0.5,
-              system: systemBlocks,
-              messages: anthropicMessages,
-            });
+            const { HERRAMIENTAS_ARCHIVO, ejecutarHerramienta } = await import("@/lib/agent-tools");
+            const { firmarDescarga } = await import("@/lib/agent-file-token");
+
+            // Conversación de trabajo: crece con lo que responde el modelo y con
+            // los resultados de las herramientas, sin tocar el historial guardado.
+            const mensajes: Anthropic.MessageParam[] = [...anthropicMessages];
+            const archivosGenerados: {
+              name: string;
+              url: string;
+              type: string;
+              size: number;
+              generado: true;
+            }[] = [];
 
             let fullReply = "";
+            let stream!: ReturnType<typeof anthropic.messages.stream>;
 
-            for await (const event of stream) {
-              if (
-                event.type === "content_block_delta" &&
-                event.delta.type === "text_delta"
-              ) {
-                fullReply += event.delta.text;
-                controller.enqueue(
-                  encoder.encode(`event: delta\ndata: ${JSON.stringify({ text: event.delta.text })}\n\n`)
-                );
+            // Dos vueltas: una para pedir el archivo y otra para comentarlo. Más
+            // vueltas solo alargarían la espera sin aportar.
+            for (let vuelta = 0; vuelta < 3; vuelta++) {
+              stream = anthropic.messages.stream({
+                model: "claude-haiku-4-5-20251001",
+                // 2048 se quedaba corto en cuanto la herramienta lleva una tabla:
+                // el JSON se cortaba a medias y la llamada quedaba inválida.
+                max_tokens: 8192,
+                temperature: 0.5,
+                system: systemBlocks,
+                messages: mensajes,
+                tools: HERRAMIENTAS_ARCHIVO,
+              });
+
+              for await (const event of stream) {
+                if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+                  fullReply += event.delta.text;
+                  controller.enqueue(
+                    encoder.encode(`event: delta\ndata: ${JSON.stringify({ text: event.delta.text })}\n\n`)
+                  );
+                }
               }
+
+              const respuesta = await stream.finalMessage();
+              if (respuesta.stop_reason !== "tool_use") break;
+
+              const llamadas = respuesta.content.filter(
+                (b: Anthropic.ContentBlock): b is Anthropic.ToolUseBlock => b.type === "tool_use"
+              );
+              mensajes.push({ role: "assistant", content: respuesta.content });
+
+              const resultados: Anthropic.ToolResultBlockParam[] = [];
+              for (const llamada of llamadas) {
+                // Aviso en vivo: generar y subir un archivo tarda varios segundos
+                // y sin esto la pantalla se queda muda a mitad de la respuesta.
+                controller.enqueue(
+                  encoder.encode(
+                    `event: herramienta\ndata: ${JSON.stringify({ nombre: llamada.name })}\n\n`
+                  )
+                );
+
+                const { archivo, error } = await ejecutarHerramienta(llamada.name, llamada.input);
+                if (!archivo) {
+                  resultados.push({
+                    type: "tool_result",
+                    tool_use_id: llamada.id,
+                    is_error: true,
+                    content: error || "No se pudo generar el archivo.",
+                  });
+                  continue;
+                }
+
+                try {
+                  const { put } = await import("@vercel/blob");
+                  const blob = await put(
+                    `agent-files/${session.user.id}/${Date.now()}-${archivo.nombre}`,
+                    archivo.buffer,
+                    { access: "private", contentType: archivo.mime, addRandomSuffix: true }
+                  );
+                  // El blob es privado: se entrega por una ruta propia con un
+                  // permiso firmado, atado a este usuario.
+                  const enlace = `/api/agents/files?t=${encodeURIComponent(
+                    firmarDescarga({
+                      url: blob.url,
+                      nombre: archivo.nombre,
+                      mime: archivo.mime,
+                      userId: session.user.id,
+                    })
+                  )}`;
+                  const ficha = {
+                    name: archivo.nombre,
+                    url: enlace,
+                    type: archivo.mime,
+                    size: archivo.buffer.length,
+                    generado: true as const,
+                  };
+                  archivosGenerados.push(ficha);
+                  controller.enqueue(
+                    encoder.encode(`event: archivo\ndata: ${JSON.stringify(ficha)}\n\n`)
+                  );
+                  resultados.push({
+                    type: "tool_result",
+                    tool_use_id: llamada.id,
+                    content:
+                      `Archivo "${archivo.nombre}" generado y entregado al usuario ` +
+                      `(${(archivo.buffer.length / 1024).toFixed(0)} KB). Ya lo tiene disponible para ` +
+                      `descargar: NO repitas su contenido en el mensaje, solo dile en una frase qué contiene.`,
+                  });
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : String(e);
+                  console.error("[api/agents/chat] no se pudo guardar el archivo generado:", msg);
+                  resultados.push({
+                    type: "tool_result",
+                    tool_use_id: llamada.id,
+                    is_error: true,
+                    content: "El archivo se generó pero no se pudo guardar. Dile al usuario que lo intente de nuevo.",
+                  });
+                }
+              }
+
+              mensajes.push({ role: "user", content: resultados });
             }
 
-            if (fullReply && !IS_DEMO) {
+            if ((fullReply || archivosGenerados.length > 0) && !IS_DEMO) {
               try {
                 await db.agentMessage.create({
-                  data: { chatId: chatId!, role: "assistant", content: fullReply },
+                  data: {
+                    chatId: chatId!,
+                    role: "assistant",
+                    content: fullReply,
+                    attachments: archivosGenerados.length > 0 ? archivosGenerados : undefined,
+                  },
                 });
               } catch (err) {
                 console.error("[api/agents/chat] save assistant message failed:", err);
