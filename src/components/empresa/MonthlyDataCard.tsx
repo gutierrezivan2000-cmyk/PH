@@ -3,6 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { upload as blobUpload } from "@vercel/blob/client";
 import {
+  limiteBytesPara,
+  mensajeDeTamano,
+  tipoDeArchivo,
+  ACCEPT_ARCHIVOS,
+  MAX_AUDIO_MB,
+} from "@/lib/upload-limits";
+import {
   CalendarDays,
   Upload,
   FileText,
@@ -82,7 +89,20 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
     setError("");
     try {
       const added: FileRef[] = [];
-      for (const file of Array.from(list).slice(0, 20)) {
+      const seleccionados = Array.from(list).slice(0, 20);
+
+      // Se comprueba ANTES de subir: el tope depende del tipo (una grabación de
+      // asamblea necesita mucho más que un PDF) y avisar después de esperar la
+      // subida entera era parte de lo que los usuarios reportaban como error.
+      const grande = seleccionados.find((f) => f.size > limiteBytesPara(f.name));
+      if (grande) {
+        setError(mensajeDeTamano(grande));
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      for (const file of seleccionados) {
         const safeName = file.name.replace(/[^\w.\-]+/g, "_");
         const result = await blobUpload(
           `monthly/${propertyId}/${year}-${month}/${Date.now()}-${safeName}`,
@@ -90,16 +110,21 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
           {
             access: "private",
             handleUploadUrl: "/api/upload/token",
-            contentType: file.type || "application/octet-stream",
+            // El navegador deja el tipo vacío en muchas grabaciones; mandar
+            // "application/octet-stream" garantizaba el rechazo del servidor.
+            contentType: tipoDeArchivo(file),
+            multipart: file.size > 10 * 1024 * 1024,
           }
         );
-        added.push({ name: file.name, url: result.url, type: file.type, size: file.size });
+        added.push({ name: file.name, url: result.url, type: tipoDeArchivo(file), size: file.size });
       }
       const next = [...files, ...added].slice(0, 20);
       setFiles(next);
       await persist(next, additionalText);
     } catch {
-      setError("No se pudo subir el archivo. Revisa el tipo y que no supere 25 MB.");
+      setError(
+        `No se pudo subir el archivo. Revisa que sea un formato admitido y que la grabación no supere ${MAX_AUDIO_MB} MB.`
+      );
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -202,7 +227,7 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
               ref={fileInputRef}
               type="file"
               multiple
-              accept=".pdf,.docx,.doc,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp"
+              accept={ACCEPT_ARCHIVOS}
               className="hidden"
               onChange={(e) => handleFiles(e.target.files)}
             />

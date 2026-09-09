@@ -52,7 +52,7 @@ export const PLANS = {
     limits: {
       generationsPerDay: 3,
       generationsPerMonth: 15,
-      maxFileSizeMb: 25,
+      maxFileSizeMb: 50, // documentos; el audio va aparte en @/lib/upload-limits
       maxFilesPerGeneration: 20,
       maxAudioMinutes: 30,
       agentMessagesPerDay: 30,
@@ -76,7 +76,7 @@ export const PLANS = {
     limits: {
       generationsPerDay: 5,
       generationsPerMonth: 40,
-      maxFileSizeMb: 25,
+      maxFileSizeMb: 50, // documentos; el audio va aparte en @/lib/upload-limits
       maxFilesPerGeneration: 20,
       maxAudioMinutes: 45,
       agentMessagesPerDay: 60,
@@ -100,7 +100,7 @@ export const PLANS = {
     limits: {
       generationsPerDay: 10,
       generationsPerMonth: 100,
-      maxFileSizeMb: 25,
+      maxFileSizeMb: 50, // documentos; el audio va aparte en @/lib/upload-limits
       maxFilesPerGeneration: 20,
       maxAudioMinutes: 60,
       agentMessagesPerDay: 150,
