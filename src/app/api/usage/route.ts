@@ -18,7 +18,7 @@ export async function GET() {
   if (IS_DEMO) {
     return NextResponse.json({
       ...getDemoUsage(DEMO_USER.id),
-      fileLimits: { maxFiles: 20, maxFileSizeMb: 25 },
+      fileLimits: { maxFiles: 20, maxFileSizeMb: 50 },
     });
   }
 

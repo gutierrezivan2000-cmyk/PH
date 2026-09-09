@@ -82,3 +82,46 @@ export function limiteBytesPara(nombre: string): number {
 
 /** El mayor de los topes: sirve para el mensaje genérico de la interfaz. */
 export const MAX_ANY_MB = Math.max(MAX_AUDIO_MB, MAX_DOC_MB);
+
+/**
+ * Tipo MIME por extensión, para cuando el navegador no lo sabe.
+ *
+ * Muchos móviles y gestores de archivos entregan la grabación con `type`
+ * vacío; el cliente mandaba entonces "application/octet-stream", que la lista
+ * de arriba NO admite, y la subida moría tras subir el archivo entero con un
+ * error en inglés de la librería de almacenamiento.
+ */
+const TIPOS_POR_EXTENSION: Record<string, string> = {
+  mp3: "audio/mpeg", m4a: "audio/mp4", mp4: "audio/mp4", aac: "audio/aac",
+  wav: "audio/wav", ogg: "audio/ogg", oga: "audio/ogg", opus: "audio/ogg",
+  webm: "audio/webm", amr: "audio/amr", "3gp": "audio/3gpp", "3gpp": "audio/3gpp",
+  flac: "audio/flac", caf: "audio/x-caf", wma: "audio/x-ms-wma",
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  csv: "text/csv", txt: "text/plain",
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
+};
+
+export function tipoDeArchivo(file: { name: string; type?: string }): string {
+  const porExtension = TIPOS_POR_EXTENSION[extensionDe(file.name)];
+  // La extensión manda sobre un `type` genérico.
+  if (porExtension && (!file.type || file.type === "application/octet-stream")) return porExtension;
+  return file.type || porExtension || "application/octet-stream";
+}
+
+/** Extensiones que ofrece el selector de archivos, alineadas con lo que se sabe leer. */
+export const ACCEPT_ARCHIVOS =
+  ".pdf,.doc,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp," +
+  ".mp3,.wav,.ogg,.oga,.opus,.m4a,.mp4,.aac,.webm,.amr,.3gp,.flac";
+
+/** Explica el tope del archivo concreto, no un número genérico. */
+export function mensajeDeTamano(file: { name: string; size: number }): string {
+  const mb = (file.size / 1024 / 1024).toFixed(1);
+  const tope = limiteMbPara(file.name);
+  return esAudio(file.name)
+    ? `"${file.name}" pesa ${mb} MB y el máximo para audio es ${tope} MB. Si la grabación es más larga, súbela partida en dos archivos.`
+    : `"${file.name}" pesa ${mb} MB y el máximo para documentos es ${tope} MB.`;
+}
