@@ -20,6 +20,7 @@ import {
   MessageSquare,
   ChevronRight,
 } from "lucide-react";
+import { tinte } from "@/lib/tinte";
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
@@ -452,7 +453,7 @@ export default function DashboardPage() {
                   className="group relative overflow-hidden rounded-2xl p-5 flex flex-col gap-3 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
                   style={{
                     background: action.isPrimary
-                      ? `radial-gradient(ellipse at 80% 20%, ${action.accentColor}18 0%, transparent 60%), var(--card)`
+                      ? `radial-gradient(ellipse at 80% 20%, ${tinte(action.accentColor, 0.09)} 0%, transparent 60%), var(--card)`
                       : "var(--card)",
                     border: action.isPrimary
                       ? `1px solid rgb(var(--accent-rgb) / 0.4)`
@@ -463,7 +464,7 @@ export default function DashboardPage() {
                   <div className="flex items-start justify-between">
                     <div
                       className="w-[38px] h-[38px] rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: `${action.accentColor}18` }}
+                      style={{ background: `${tinte(action.accentColor, 0.09)}` }}
                     >
                       <action.icon className="h-5 w-5" style={{ color: action.accentColor }} />
                     </div>
@@ -523,14 +524,14 @@ export default function DashboardPage() {
                     <div
                       className="group relative overflow-hidden rounded-2xl p-4 flex flex-col gap-3 cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
                       style={{
-                        background: `radial-gradient(ellipse at 50% 0%, ${meta.accentColor}1f 0%, transparent 65%), var(--card)`,
+                        background: `radial-gradient(ellipse at 50% 0%, ${tinte(meta.accentColor, 0.12)} 0%, transparent 65%), var(--card)`,
                         border: "1px solid var(--border)",
                       }}
                     >
                       {/* Hover border glow */}
                       <div
                         className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                        style={{ boxShadow: `inset 0 0 0 1px ${meta.accentColor}60` }}
+                        style={{ boxShadow: `inset 0 0 0 1px ${tinte(meta.accentColor, 0.38)}` }}
                       />
 
                       {/* Top row */}

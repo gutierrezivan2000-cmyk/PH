@@ -16,6 +16,7 @@ import {
   ArrowRight,
   ArrowUpRight,
 } from "lucide-react";
+import { tinte } from "@/lib/tinte";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -126,7 +127,7 @@ export default async function EmpresaOverviewPage() {
               <div className="flex items-center justify-between mb-4">
                 <div
                   className="w-9 h-9 rounded-lg flex items-center justify-center"
-                  style={{ background: `${k.tint}1a`, color: k.tint }}
+                  style={{ background: `${tinte(k.tint, 0.1)}`, color: k.tint }}
                 >
                   <k.icon className="h-4 w-4" />
                 </div>

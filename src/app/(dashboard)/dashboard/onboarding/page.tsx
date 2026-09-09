@@ -29,6 +29,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { upload as blobUpload } from "@vercel/blob/client";
+import { tinte } from "@/lib/tinte";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -893,7 +894,7 @@ export default function OnboardingPage() {
                       width: 36,
                       height: 36,
                       background: item.bg,
-                      border: `1px solid ${item.color}30`,
+                      border: `1px solid ${tinte(item.color, 0.19)}`,
                     }}
                   >
                     <item.icon className="h-4 w-4" style={{ color: item.color }} />

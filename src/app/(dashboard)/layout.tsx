@@ -4,7 +4,8 @@ import { SessionProvider } from "next-auth/react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { DemoBanner } from "@/components/ui/demo-banner";
 import { RenewalBanner } from "@/components/dashboard/RenewalBanner";
-import { useState, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { usePathname } from "next/navigation";
 
 const ChatBot = lazy(() => import("@/components/dashboard/ChatBot").then(m => ({ default: m.ChatBot })));
 
@@ -13,12 +14,45 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const barraMovilRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Publica el alto real de la barra superior móvil en `--topbar-h`.
+   *
+   * El chat del agente ocupa el alto exacto de la ventana menos las barras que
+   * tiene encima. Ese descuento estaba escrito a mano como «52px», pero la
+   * barra mide 61: sobraban nueve píxeles de desplazamiento muerto y el chat
+   * rebotaba al escribir. Igual que con el banner de demo, se mide en vez de
+   * suponerse. En escritorio la barra no se pinta y la variable queda en 0.
+   */
+  useEffect(() => {
+    const el = barraMovilRef.current;
+    const publicar = () => {
+      const alto = el ? Math.round(el.getBoundingClientRect().height) : 0;
+      document.documentElement.style.setProperty("--topbar-h", `${alto}px`);
+    };
+    publicar();
+    if (!el) return;
+    const ro = new ResizeObserver(publicar);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty("--topbar-h");
+    };
+  }, [pathname]);
+  const enChatDeAgente = /^\/dashboard\/asistente\/[^/]+$/.test(pathname || "");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
     <SessionProvider>
-      <div className="flex flex-col min-h-screen bg-background relative">
+      {/* `min-h-screen` aquí y en <main> medía la ventana ENTERA, pero ambos
+          arrancan debajo del banner de demo: la página acababa midiendo
+          100vh + el alto del banner y aparecía una barra de desplazamiento
+          vertical de treinta y pico píxeles sin nada que mostrar. La variable
+          la publica el propio banner midiéndose, y vale 0 cuando no lo hay. */}
+      <div className="flex flex-col min-h-[calc(100dvh-var(--demo-banner-h,0px))] bg-background relative">
         <DemoBanner />
         <div className="flex flex-1 relative">
           <Sidebar
@@ -33,10 +67,11 @@ export default function DashboardLayout({
               onClick={() => setSidebarOpen(false)}
             />
           )}
-          <main className="flex-1 min-h-screen w-full overflow-x-hidden">
+          <main className="flex-1 min-h-[calc(100dvh-var(--demo-banner-h,0px))] w-full overflow-x-hidden">
             <RenewalBanner />
             {/* Mobile top bar */}
             <div
+              ref={barraMovilRef}
               className="lg:hidden sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/85 px-4 py-3 backdrop-blur-xl"
               style={{ WebkitBackdropFilter: "blur(20px)" }}
             >
@@ -76,7 +111,9 @@ export default function DashboardLayout({
         </div>
 
         <Suspense fallback={null}>
-          <ChatBot />
+          {/* Dos chats a la vez confunden, y el botón flotante caía justo
+              encima del botón de enviar del agente. */}
+          {!enChatDeAgente && <ChatBot />}
         </Suspense>
       </div>
     </SessionProvider>

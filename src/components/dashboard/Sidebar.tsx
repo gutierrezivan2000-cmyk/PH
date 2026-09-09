@@ -249,7 +249,11 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col min-h-screen sticky top-0 transition-all duration-300 ease-in-out relative group/sidebar",
+          // `min-h-screen` mide la ventana entera, pero la barra arranca DEBAJO
+          // del banner de demo: en las pantallas cortas su alto mínimo se salía
+          // justo lo que mide el banner. La variable la publica el propio banner
+          // midiéndose, y vale 0 cuando no lo hay.
+          "hidden lg:flex flex-col min-h-[calc(100dvh-var(--demo-banner-h,0px))] sticky top-0 transition-all duration-300 ease-in-out relative group/sidebar",
           "bg-background border-r border-border",
           collapsed ? "w-[72px]" : "w-[260px]"
         )}

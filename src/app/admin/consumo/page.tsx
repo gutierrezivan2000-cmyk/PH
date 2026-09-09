@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/db";
 import { Layers, Activity, AlertTriangle, DollarSign } from "lucide-react";
+import { tinte } from "@/lib/tinte";
 
 const MONTHS = [
   "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
@@ -171,7 +172,7 @@ async function ConsumoContent() {
 function StatCard({ icon: Icon, tint, label, value, sub }: { icon: typeof Activity; tint: string; label: string; value: string; sub: string }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
-      <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-4" style={{ background: `${tint}1a`, color: tint }}>
+      <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-4" style={{ background: `${tinte(tint, 0.1)}`, color: tint }}>
         <Icon className="h-4 w-4" />
       </div>
       <p className="text-[10px] uppercase text-muted-foreground/70 mb-1" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.14em" }}>{label}</p>

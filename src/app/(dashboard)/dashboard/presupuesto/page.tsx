@@ -25,6 +25,7 @@ import {
   Receipt,
   Scale,
 } from "lucide-react";
+import { tinte } from "@/lib/tinte";
 
 interface Property {
   id: string;
@@ -470,7 +471,7 @@ function PresupuestoPage() {
                             <span style={{ ...monoLabel, color: "var(--ink-3)" }}>{k.label}</span>
                             <span
                               className="flex items-center justify-center rounded-lg flex-shrink-0"
-                              style={{ width: 26, height: 26, background: `${k.color}1a` }}
+                              style={{ width: 26, height: 26, background: `${tinte(k.color, 0.1)}` }}
                             >
                               <k.Icon className="h-3.5 w-3.5" style={{ color: k.color }} />
                             </span>
