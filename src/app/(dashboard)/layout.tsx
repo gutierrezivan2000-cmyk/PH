@@ -3,9 +3,17 @@
 import { SessionProvider } from "next-auth/react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { DemoBanner } from "@/components/ui/demo-banner";
-import { useState, lazy, Suspense } from "react";
+import { useState } from "react";
+import dynamic from "next/dynamic";
 
-const ChatBot = lazy(() => import("@/components/dashboard/ChatBot").then(m => ({ default: m.ChatBot })));
+// El ChatBot es un widget flotante puramente de cliente (depende de la sesion
+// y del pathname del navegador). next/dynamic con ssr: false lo declara como
+// tal, en vez de lazy + Suspense, que deja que el arbol del servidor y el del
+// cliente puedan diferir en la hidratacion.
+const ChatBot = dynamic(
+  () => import("@/components/dashboard/ChatBot").then((m) => m.ChatBot),
+  { ssr: false }
+);
 
 export default function DashboardLayout({
   children,
@@ -65,9 +73,7 @@ export default function DashboardLayout({
           </main>
         </div>
 
-        <Suspense fallback={null}>
-          <ChatBot />
-        </Suspense>
+        <ChatBot />
       </div>
     </SessionProvider>
   );
