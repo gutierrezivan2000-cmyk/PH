@@ -27,6 +27,7 @@ import {
   Copy,
   MessageCircle,
 } from "lucide-react";
+import { tinte } from "@/lib/tinte";
 
 interface Property {
   id: string;
@@ -616,7 +617,7 @@ function CarteraPage() {
                         <span style={{ ...monoLabel, color: "var(--ink-3)" }}>{k.label}</span>
                         <span
                           className="flex items-center justify-center rounded-lg flex-shrink-0"
-                          style={{ width: 26, height: 26, background: empty ? "rgb(var(--veil-rgb) / 0.04)" : `${k.rail}1a` }}
+                          style={{ width: 26, height: 26, background: empty ? "rgb(var(--veil-rgb) / 0.04)" : `${tinte(k.rail, 0.1)}` }}
                         >
                           <k.Icon className="h-3.5 w-3.5" style={{ color: empty ? "var(--ink-4)" : k.rail }} />
                         </span>

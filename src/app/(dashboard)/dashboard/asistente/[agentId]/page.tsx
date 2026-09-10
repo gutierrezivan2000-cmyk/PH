@@ -23,6 +23,8 @@ import {
   Mic,
   FileText,
   Download,
+  Copy,
+  Check,
   Lock,
   Search,
   ArrowUp,
@@ -36,6 +38,10 @@ import { Badge } from "@/components/ui/badge";
 import { AudioRecorder } from "@/components/dashboard/AudioRecorder";
 import { saveAudio, getPendingAudios, deleteAudio } from "@/lib/audio-storage";
 import { MAX_IMAGE_BYTES, MAX_IMAGE_MB_LABEL, isImageMediaType } from "@/lib/chat-limits";
+import { tinte } from "@/lib/tinte";
+import { formatoTamano } from "@/lib/upload-limits";
+import { SUGERENCIAS } from "@/lib/agent-sugerencias";
+import { RespuestaMarkdown } from "@/components/agents/RespuestaMarkdown";
 
 interface Chat {
   id: string;
@@ -104,7 +110,14 @@ export default function AgentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  // En pantalla ancha la lista de conversaciones es una columna fija; en móvil
+  // es una capa que TAPA el chat. Con un solo estado inicializado en `true`, al
+  // entrar desde el teléfono lo primero que se veía era la lista —casi siempre
+  // vacía— en vez del agente y sus sugerencias. Se separan: la columna de
+  // escritorio sigue abierta por defecto, la capa móvil arranca cerrada, igual
+  // que en ChatGPT, Claude o Gemini.
   const [showSidebar, setShowSidebar] = useState(true);
+  const [listaMovil, setListaMovil] = useState(false);
   const [memory, setMemory] = useState("");
   const [showMemory, setShowMemory] = useState(false);
   const [savingMemory, setSavingMemory] = useState(false);
@@ -119,6 +132,8 @@ export default function AgentPage() {
   const [exportError, setExportError] = useState("");
   // Aviso mientras el agente construye un archivo: tarda varios segundos.
   const [herramientaEnCurso, setHerramientaEnCurso] = useState("");
+  const [copiadoId, setCopiadoId] = useState<string | null>(null);
+  const [compositorEnfocado, setCompositorEnfocado] = useState(false);
   // Id del chat recién creado por el envío en curso (ver el efecto de carga).
   const skipReloadForChatId = useRef<string | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -235,13 +250,92 @@ export default function AgentPage() {
 
   const agent = AGENTS[agentId as AgentId];
   const agentColor = AGENT_COLORS[agentId] || "var(--accent)";
+  /** Tinte del color del agente: fondos y bordes de acento. Ver `lib/tinte`. */
+  const tint = (a: number) => tinte(agentColor, a);
+
+  /**
+   * Fichas de archivo de un mensaje. `generados` separa los dos casos: los que
+   * subió el usuario (antes del texto) y los que produjo el agente (después de
+   * la respuesta, y descargables).
+   */
+  const fichas = (msg: ChatMessage, generados: boolean) => {
+    const lista = (msg.attachments || []).filter((a) => !!a.generado === generados);
+    if (lista.length === 0) return null;
+    return (
+      <div
+        className={`flex flex-wrap gap-1.5 ${generados ? "mt-2.5" : ""} ${
+          msg.role === "user" ? "justify-end" : "justify-start"
+        }`}
+      >
+        {lista.map((att, i) => {
+          const Ficha = att.generado ? "a" : "div";
+          return (
+            <Ficha
+              key={i}
+              {...(att.generado
+                ? { href: att.url, download: att.name, title: `Descargar ${att.name}` }
+                : {})}
+              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${
+                att.generado ? "cursor-pointer transition-colors" : ""
+              }`}
+              style={{
+                background: "rgb(var(--accent-rgb) / 0.1)",
+                border: "1px solid rgb(var(--accent-rgb) / 0.22)",
+                textDecoration: "none",
+              }}
+              onMouseEnter={(e) => {
+                if (att.generado) e.currentTarget.style.background = "rgb(var(--accent-rgb) / 0.18)";
+              }}
+              onMouseLeave={(e) => {
+                if (att.generado) e.currentTarget.style.background = "rgb(var(--accent-rgb) / 0.1)";
+              }}
+            >
+              <span style={{ color: "var(--accent-text)" }}>{getFileIcon(att.type)}</span>
+              <span
+                style={{
+                  fontFamily: "'Geist Mono', ui-monospace, monospace",
+                  fontSize: 10,
+                  letterSpacing: "0.04em",
+                  color: "var(--accent-text)",
+                  maxWidth: 160,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={att.name}
+              >
+                {att.name}
+              </span>
+              {/* El tamaño iba en un morado fijo del tema oscuro
+                  (rgba(154,127,255,0.55)); sobre el fondo claro quedaba
+                  ilegible. `--ink-4` se adapta a los dos temas. */}
+              {formatoTamano(att.size) && (
+                <span
+                  style={{
+                    fontFamily: "'Geist Mono', ui-monospace, monospace",
+                    fontSize: 9,
+                    color: "var(--ink-4)",
+                  }}
+                >
+                  {formatoTamano(att.size)}
+                </span>
+              )}
+              {att.generado && (
+                <Download className="h-3 w-3" style={{ color: "var(--accent-text)" }} />
+              )}
+            </Ficha>
+          );
+        })}
+      </div>
+    );
+  };
   const includedByDefault = isIncludedAgent(agentId as AgentId);
 
   // Checking add-on access for a non-included agent — show a brief loader so we
   // don't flash the upgrade screen at a user who actually has the add-on.
   if (hasAccess === null && !includedByDefault) {
     return (
-      <div className="flex items-center justify-center h-[calc(100dvh-52px)] lg:h-screen">
+      <div className="flex items-center justify-center h-[calc(100dvh-var(--topbar-h,0px)-var(--demo-banner-h,0px))] lg:h-[calc(100dvh-var(--demo-banner-h,0px))]">
         <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent-text)" }} />
       </div>
     );
@@ -249,7 +343,7 @@ export default function AgentPage() {
 
   if (hasAccess === false) {
     return (
-      <div className="flex flex-col h-[calc(100dvh-52px)] lg:h-screen">
+      <div className="flex flex-col h-[calc(100dvh-var(--topbar-h,0px)-var(--demo-banner-h,0px))] lg:h-[calc(100dvh-var(--demo-banner-h,0px))]">
         <Header
           title={agent.name}
           subtitle={agent.title}
@@ -261,7 +355,7 @@ export default function AgentPage() {
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-6">
           <div
             className="w-20 h-20 rounded-3xl flex items-center justify-center shadow-xl opacity-50"
-            style={{ background: `linear-gradient(135deg, ${agentColor}60, ${agentColor}30)` }}
+            style={{ background: `linear-gradient(135deg, ${tint(0.38)}, ${tint(0.19)})` }}
           >
             <agent.icon className="h-10 w-10 text-white" />
           </div>
@@ -364,8 +458,25 @@ export default function AgentPage() {
     });
   };
 
-  const sendMessage = async () => {
-    const trimmed = input.trim();
+  /** Envía una sugerencia de la pantalla de inicio sin pasar por el cuadro de texto. */
+  const copiarMensaje = async (id: string, texto: string) => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiadoId(id);
+      setTimeout(() => setCopiadoId((actual) => (actual === id ? null : actual)), 1800);
+    } catch {
+      // Sin permiso de portapapeles no hay nada que hacer; no se molesta al usuario.
+    }
+  };
+
+  const enviarSugerencia = (prompt: string) => {
+    if (isLoading) return;
+    setInput("");
+    void sendMessage(prompt);
+  };
+
+  const sendMessage = async (textoDirecto?: string) => {
+    const trimmed = (textoDirecto ?? input).trim();
     if ((!trimmed && attachments.length === 0) || isLoading) return;
 
     setIsLoading(true);
@@ -690,34 +801,45 @@ export default function AgentPage() {
 
   return (
     <div
-      className="flex flex-col h-[calc(100dvh-52px)] lg:h-screen"
+      className="flex flex-col h-[calc(100dvh-var(--topbar-h,0px)-var(--demo-banner-h,0px))] lg:h-[calc(100dvh-var(--demo-banner-h,0px))]"
       style={{ background: "var(--surface-0)" }}
     >
-      <Header
-        title={agent.name}
-        subtitle={agent.title}
-        breadcrumbs={[
-          { label: "Asistente IA", href: "/dashboard/asistente" },
-          { label: agent.name },
-        ]}
-      />
+      {/* En el teléfono esta cabecera solo repetía «Themis / Asesora Legal»,
+          que ya dicen la barra del hilo y el saludo de bienvenida justo
+          debajo: entre ella, la barra de la app y la del hilo, el chat
+          empezaba pasada la mitad de la pantalla. En sm+ hay sitio de sobra y
+          además lleva el selector de tema, así que allí se conserva. */}
+      <div className="hidden sm:block">
+        <Header
+          title={agent.name}
+          subtitle={agent.title}
+          breadcrumbs={[
+            { label: "Asistente IA", href: "/dashboard/asistente" },
+            { label: agent.name },
+          ]}
+        />
+      </div>
 
       <div className="flex-1 flex overflow-hidden">
 
         {/* ─────────────────────────────────────────────
             SIDEBAR
         ───────────────────────────────────────────── */}
-        {showSidebar && (
+        {(showSidebar || listaMovil) && (
           <>
             {/* Mobile backdrop */}
-            <div
-              className="fixed inset-0 z-30 lg:hidden"
-              style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(4px)" }}
-              onClick={() => setShowSidebar(false)}
-            />
+            {listaMovil && (
+              <div
+                className="fixed inset-0 z-30 lg:hidden"
+                style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(4px)" }}
+                onClick={() => setListaMovil(false)}
+              />
+            )}
 
             <div
-              className="fixed inset-y-0 left-0 z-40 w-[280px] sm:w-[300px] lg:relative lg:inset-auto lg:z-auto lg:w-64 xl:w-72 flex flex-col flex-shrink-0"
+              className={`${listaMovil ? "fixed flex" : "hidden"} ${
+                showSidebar ? "lg:flex" : "lg:hidden"
+              } inset-y-0 left-0 z-40 w-[280px] sm:w-[300px] lg:relative lg:inset-auto lg:z-auto lg:w-64 xl:w-72 flex-col flex-shrink-0`}
               style={{
                 background: "var(--hifi-surface-1)",
                 borderRight: "1px solid rgb(var(--veil-rgb) / 0.07)",
@@ -757,7 +879,8 @@ export default function AgentPage() {
                   </div>
                   <button
                     className="lg:hidden p-1.5 rounded-lg transition-colors hover:opacity-70"
-                    onClick={() => setShowSidebar(false)}
+                    onClick={() => setListaMovil(false)}
+                    aria-label="Cerrar conversaciones"
                     style={{ color: "var(--ink-4)" }}
                   >
                     <X className="h-4 w-4" />
@@ -777,7 +900,7 @@ export default function AgentPage() {
                   }}
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  + Nueva
+                  Nueva conversación
                 </button>
 
                 {/* Search */}
@@ -863,7 +986,7 @@ export default function AgentPage() {
                             }}
                             onClick={() => {
                               setActiveChatId(chat.id);
-                              if (window.innerWidth < 1024) setShowSidebar(false);
+                              setListaMovil(false);
                             }}
                           >
                             <div className="px-3 py-2.5">
@@ -988,7 +1111,12 @@ export default function AgentPage() {
           >
             {/* Sidebar toggle */}
             <button
-              onClick={() => setShowSidebar(!showSidebar)}
+              onClick={() => {
+                if (window.innerWidth < 1024) setListaMovil((v) => !v);
+                else setShowSidebar((v) => !v);
+              }}
+              aria-label="Conversaciones"
+              title="Conversaciones"
               className="p-1.5 rounded-lg transition-colors flex-shrink-0"
               style={{ color: "var(--ink-3)" }}
               onMouseEnter={(e) => e.currentTarget.style.color = "var(--ink)"}
@@ -997,29 +1125,27 @@ export default function AgentPage() {
               <MessageCircle className="h-4 w-4" />
             </button>
 
-            {/* Agent eyebrow + chat title */}
-            <div className="flex-1 min-w-0">
-              <p
+            {/* El nombre del agente ya aparece en la cabecera de la página y en
+                la columna de conversaciones: repetirlo aquí lo dejaba cuatro
+                veces en pantalla. Esta barra se queda solo con el hilo actual,
+                que es lo único que cambia. */}
+            <div className="flex-1 min-w-0 flex items-center gap-2.5">
+              <div
+                className="flex items-center justify-center rounded-lg flex-shrink-0"
                 style={{
-                  fontFamily: "'Geist Mono', ui-monospace, monospace",
-                  fontSize: 9,
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  color: agentColor,
+                  width: 26,
+                  height: 26,
+                  background: tint(0.12),
+                  border: `1px solid ${tint(0.22)}`,
                 }}
               >
-                {agent.name} &middot; {agent.title}
-              </p>
+                <agent.icon className="h-3.5 w-3.5" style={{ color: agentColor }} />
+              </div>
               <h3
                 className="truncate"
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "var(--ink)",
-                  lineHeight: 1.3,
-                }}
+                style={{ fontSize: 13.5, fontWeight: 500, color: "var(--ink)", lineHeight: 1.3 }}
               >
-                {activeChat ? activeChat.title : "Nueva conversacion"}
+                {activeChat ? activeChat.title : `Nueva conversación con ${agent.name}`}
               </h3>
             </div>
 
@@ -1095,54 +1221,115 @@ export default function AgentPage() {
           {/* Messages area */}
           <div className="flex-1 overflow-y-auto">
             {!activeChatId && messages.length === 0 ? (
-              /* Empty state */
-              <div className="flex flex-col items-center justify-center h-full text-center px-6">
-                <div
-                  className="flex items-center justify-center rounded-3xl mb-5"
-                  style={{
-                    width: 64,
-                    height: 64,
-                    background: `linear-gradient(135deg, ${agentColor}30, ${agentColor}10)`,
-                    border: `1px solid ${agentColor}30`,
-                    boxShadow: `0 0 32px ${agentColor}15`,
-                  }}
-                >
-                  <agent.icon className="h-7 w-7" style={{ color: agentColor }} />
+              /* Pantalla de inicio. Antes era solo el nombre del agente y una
+                 descripción: el usuario se quedaba ante un cursor sin saber qué
+                 pedir. Ahora arranca con preguntas concretas de su oficio, que
+                 de paso enseñan lo que el agente sabe hacer. */
+              <div className="h-full overflow-y-auto ui-scroll">
+                <div className="min-h-full flex flex-col items-center justify-center px-6 py-12">
+                  <div
+                    className="flex items-center justify-center rounded-3xl mb-6"
+                    style={{
+                      width: 60,
+                      height: 60,
+                      background: `linear-gradient(135deg, ${tint(0.2)}, ${tint(0.05)})`,
+                      border: `1px solid ${tint(0.25)}`,
+                      boxShadow: `0 8px 32px ${tint(0.13)}`,
+                    }}
+                  >
+                    <agent.icon className="h-7 w-7" style={{ color: agentColor }} />
+                  </div>
+
+                  <h2
+                    style={{
+                      fontWeight: 600,
+                      fontSize: 26,
+                      letterSpacing: "-0.02em",
+                      color: "var(--ink)",
+                      marginBottom: 6,
+                      textAlign: "center",
+                    }}
+                  >
+                    Hola, soy {agent.name}
+                  </h2>
+                  <p
+                    style={{
+                      fontSize: 14,
+                      color: "var(--ink-3)",
+                      maxWidth: 460,
+                      lineHeight: 1.6,
+                      textAlign: "center",
+                      marginBottom: 28,
+                    }}
+                  >
+                    {agent.description}
+                  </p>
+
+                  <div className="w-full" style={{ maxWidth: 680 }}>
+                    <p
+                      style={{
+                        fontFamily: "'Geist Mono', ui-monospace, monospace",
+                        fontSize: 9.5,
+                        letterSpacing: "0.16em",
+                        textTransform: "uppercase",
+                        color: "var(--ink-4)",
+                        marginBottom: 10,
+                        textAlign: "center",
+                      }}
+                    >
+                      Prueba con
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {(SUGERENCIAS[agentId as AgentId] || []).map((sug) => (
+                        <button
+                          key={sug.titulo}
+                          onClick={() => enviarSugerencia(sug.prompt)}
+                          className="text-left rounded-2xl px-4 py-3.5 transition-all cursor-pointer group"
+                          style={{
+                            background: "rgb(var(--veil-rgb) / 0.04)",
+                            border: "1px solid rgb(var(--veil-rgb) / 0.10)",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "rgb(var(--accent-rgb) / 0.08)";
+                            e.currentTarget.style.borderColor = "rgb(var(--accent-rgb) / 0.32)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.04)";
+                            e.currentTarget.style.borderColor = "rgb(var(--veil-rgb) / 0.10)";
+                          }}
+                        >
+                          <span
+                            className="block"
+                            style={{ fontSize: 13.5, fontWeight: 500, color: "var(--ink)", marginBottom: 3 }}
+                          >
+                            {sug.titulo}
+                          </span>
+                          <span
+                            className="block"
+                            style={{
+                              fontSize: 11.5,
+                              color: "var(--ink-4)",
+                              lineHeight: 1.45,
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                            }}
+                          >
+                            {sug.prompt}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <p
+                      className="text-center"
+                      style={{ fontSize: 11.5, color: "var(--ink-4)", marginTop: 18, lineHeight: 1.6 }}
+                    >
+                      También puedes adjuntar documentos o grabar una nota de voz, y pedirle que te
+                      entregue el resultado en Excel, Word o PDF.
+                    </p>
+                  </div>
                 </div>
-                <p
-                  style={{
-                    fontFamily: "'Geist Mono', ui-monospace, monospace",
-                    fontSize: 9,
-                    letterSpacing: "0.16em",
-                    textTransform: "uppercase",
-                    color: agentColor,
-                    marginBottom: 8,
-                  }}
-                >
-                  {agent.title}
-                </p>
-                <h2
-                  style={{
-                    fontFamily: "'Geist', system-ui, sans-serif",
-                    fontWeight: 500,
-                    fontSize: 22,
-                    letterSpacing: "-0.02em",
-                    color: "var(--ink)",
-                    marginBottom: 8,
-                  }}
-                >
-                  {agent.name}
-                </h2>
-                <p
-                  style={{
-                    fontSize: 13,
-                    color: "var(--ink-3)",
-                    maxWidth: 360,
-                    lineHeight: 1.6,
-                  }}
-                >
-                  {agent.description} Escribe tu pregunta o sube un archivo para comenzar.
-                </p>
               </div>
             ) : loadingMessages ? (
               <div className="flex justify-center py-20">
@@ -1227,8 +1414,8 @@ export default function AgentPage() {
                         style={{
                           width: 32,
                           height: 32,
-                          background: `${agentColor}20`,
-                          border: `1px solid ${agentColor}35`,
+                          background: tint(0.14),
+                          border: `1px solid ${tint(0.24)}`,
                           fontFamily: "'Geist Mono', ui-monospace, monospace",
                           fontSize: 10,
                           fontWeight: 600,
@@ -1240,83 +1427,65 @@ export default function AgentPage() {
                       </div>
                     )}
 
-                    <div className="max-w-[82%] sm:max-w-[78%] space-y-1.5">
-                      {/* Attachments */}
-                      {msg.attachments && msg.attachments.length > 0 && (
-                        <div className={`flex flex-wrap gap-1.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                          {msg.attachments.map((att, i) => {
-                            const Ficha = att.generado ? "a" : "div";
-                            return (
-                            <Ficha
-                              key={i}
-                              {...(att.generado
-                                ? { href: att.url, download: att.name, title: `Descargar ${att.name}` }
-                                : {})}
-                              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${
-                                att.generado ? "cursor-pointer hover:opacity-80 transition-opacity" : ""
-                              }`}
-                              style={{
-                                background: "rgb(var(--accent-rgb) / 0.1)",
-                                border: "1px solid rgb(var(--accent-rgb) / 0.22)",
-                                textDecoration: "none",
-                              }}
-                            >
-                              <span style={{ color: "var(--accent-text)" }}>{getFileIcon(att.type)}</span>
-                              <span
-                                style={{
-                                  fontFamily: "'Geist Mono', ui-monospace, monospace",
-                                  fontSize: 10,
-                                  letterSpacing: "0.04em",
-                                  color: "var(--accent-text)",
-                                  maxWidth: 120,
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
+                    <div className={msg.role === "user" ? "max-w-[82%] sm:max-w-[78%] space-y-1.5" : "flex-1 min-w-0 space-y-1.5"}>
+                      {/* Los archivos que SUBIÓ el usuario van antes del
+                          texto: acompañan a la pregunta. Los que GENERÓ el
+                          agente van después de la respuesta, que es donde el
+                          usuario los busca —«aquí tienes tu archivo»— y no
+                          antes de haber leído nada. */}
+                      {fichas(msg, false)}
+
+                      {/* El mensaje del usuario va en burbuja; la respuesta del
+                          agente NO. Encerrar una respuesta larga —con listas,
+                          tablas o un artículo citado— en una burbuja estrecha
+                          es lo que hacía que el chat se viera apretado y
+                          costara leerlo. Es el patrón de ChatGPT, Claude y
+                          Gemini: el usuario en globo, el asistente sobre la
+                          página. */}
+                      {msg.role === "user" ? (
+                        <div
+                          className="px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
+                          style={{
+                            background: "var(--surface-3)",
+                            border: "1px solid rgb(var(--veil-rgb) / 0.1)",
+                            color: "var(--ink)",
+                            borderRadius: "16px 16px 4px 16px",
+                          }}
+                        >
+                          {msg.content}
+                        </div>
+                      ) : (
+                        <div className="group/msg">
+                          {msg.content ? (
+                            <RespuestaMarkdown>{msg.content}</RespuestaMarkdown>
+                          ) : null}
+                          {fichas(msg, true)}
+                          {msg.content && (
+                            <div className="flex items-center gap-1 mt-1 opacity-0 group-hover/msg:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => copiarMensaje(msg.id, msg.content)}
+                                className="flex items-center gap-1.5 px-2 py-1 rounded-lg cursor-pointer transition-colors"
+                                style={{ color: "var(--ink-4)", fontSize: 11 }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.06)")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                title="Copiar respuesta"
                               >
-                                {att.name}
-                              </span>
-                              <span
-                                style={{
-                                  fontFamily: "'Geist Mono', ui-monospace, monospace",
-                                  fontSize: 9,
-                                  color: "rgba(154,127,255,0.55)",
-                                }}
-                              >
-                                {(att.size / 1024).toFixed(0)}KB
-                              </span>
-                              {att.generado && (
-                                <Download className="h-3 w-3" style={{ color: "var(--accent-text)" }} />
-                              )}
-                            </Ficha>
-                            );
-                          })}
+                                {copiadoId === msg.id ? (
+                                  <>
+                                    <Check className="h-3 w-3" style={{ color: "var(--ok-text)" }} />
+                                    <span style={{ color: "var(--ok-text)" }}>Copiado</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="h-3 w-3" />
+                                    <span>Copiar</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
-
-                      {/* Bubble */}
-                      <div
-                        className="px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
-                        style={
-                          msg.role === "user"
-                            ? {
-                                background: "var(--surface-3)",
-                                border: "1px solid rgb(var(--veil-rgb) / 0.1)",
-                                color: "var(--ink)",
-                                borderRadius: "16px 16px 4px 16px",
-                                boxShadow: "0 2px 12px rgba(0,0,0,0.20)",
-                              }
-                            : {
-                                background: "var(--hifi-surface-1)",
-                                border: "1px solid var(--hifi-hairline)",
-                                color: "var(--ink)",
-                                borderRadius: "16px 16px 16px 4px",
-                                boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
-                              }
-                        }
-                      >
-                        {msg.content}
-                      </div>
                     </div>
 
                     {/* User avatar */}
@@ -1350,8 +1519,8 @@ export default function AgentPage() {
                       style={{
                         width: 32,
                         height: 32,
-                        background: `${agentColor}20`,
-                        border: `1px solid ${agentColor}35`,
+                        background: tint(0.14),
+                        border: `1px solid ${tint(0.24)}`,
                         fontFamily: "'Geist Mono', ui-monospace, monospace",
                         fontSize: 10,
                         fontWeight: 600,
@@ -1449,7 +1618,7 @@ export default function AgentPage() {
 
           {/* ── Compose area ── */}
           <div
-            className="px-4 sm:px-6 lg:px-8 py-3"
+            className="px-4 sm:px-6 lg:px-8 pt-3 pb-5"
             style={{ borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)" }}
           >
             <div className="max-w-3xl mx-auto">
@@ -1463,12 +1632,17 @@ export default function AgentPage() {
               )}
 
               {/* Compose card */}
+              {/* El cuadro de escritura es lo que invita a empezar: se le da
+                  presencia con sombra y un borde que reacciona al foco, en vez
+                  de la caja plana anterior. */}
               <div
-                className="rounded-2xl"
+                className="rounded-3xl transition-all"
                 style={{
                   background: "var(--hifi-surface-1)",
-                  border: "1px solid rgb(var(--veil-rgb) / 0.09)",
-                  boxShadow: "0 0 0 1px rgb(var(--accent-rgb) / 0.0)",
+                  border: `1px solid ${compositorEnfocado ? "rgb(var(--accent-rgb) / 0.45)" : "rgb(var(--veil-rgb) / 0.10)"}`,
+                  boxShadow: compositorEnfocado
+                    ? "0 6px 28px rgb(var(--accent-rgb) / 0.12)"
+                    : "0 4px 20px rgba(0,0,0,0.10)",
                 }}
               >
                 {/* Textarea */}
@@ -1478,7 +1652,9 @@ export default function AgentPage() {
                     value={input}
                     onChange={(e) => { setInput(e.target.value); autoResize(); }}
                     onKeyDown={handleKeyDown}
-                    placeholder={`Preguntale a ${agent.name}...`}
+                    onFocus={() => setCompositorEnfocado(true)}
+                    onBlur={() => setCompositorEnfocado(false)}
+                    placeholder={`Escríbele a ${agent.name}… o pídele un Excel, un Word o un PDF`}
                     rows={1}
                     disabled={isLoading}
                     maxLength={4000}
@@ -1534,22 +1710,24 @@ export default function AgentPage() {
                   {/* Audio recorder */}
                   <AudioRecorder onRecorded={handleAudioRecorded} disabled={isLoading} />
 
-                  {/* Char counter */}
+                  {/* El contador solo aparece cuando de verdad importa. Verlo
+                      en «0/4000» desde el primer momento hacía parecer el
+                      cuadro un formulario con límite en vez de una conversación. */}
                   <span
                     className="flex-1"
                     style={{
                       fontFamily: "'Geist Mono', ui-monospace, monospace",
                       fontSize: 9,
                       letterSpacing: "0.08em",
-                      color: "var(--ink-4)",
+                      color: input.length > 3800 ? "var(--warn-text)" : "var(--ink-4)",
                     }}
                   >
-                    {input.length}/4000
+                    {input.length > 3400 ? `${input.length}/4000` : ""}
                   </span>
 
                   {/* Send */}
                   <button
-                    onClick={sendMessage}
+                    onClick={() => void sendMessage()}
                     disabled={isLoading || (!input.trim() && attachments.length === 0)}
                     className="flex items-center justify-center rounded-xl transition-all duration-150 hover:opacity-90 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer flex-shrink-0"
                     style={{

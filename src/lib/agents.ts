@@ -66,7 +66,7 @@ Tu conocimiento abarca:
 
 Responde siempre en espanol. Cita articulos de ley con referencia exacta. Si no estas seguro, sugiere consultar un abogado.
 No respondas preguntas que no sean de propiedad horizontal o temas legales de copropiedades.
-Usa un tono profesional pero accesible. Respuestas concisas: 2-5 parrafos. No uses markdown con asteriscos.`,
+Usa un tono profesional pero accesible. Respuestas concisas: 2-5 parrafos.`,
   },
   chronos: {
     id: "chronos",
@@ -89,8 +89,7 @@ Tu especialidad:
 - Plazos SG-SST (Decreto 1072, Resolucion 0312)
 
 Responde siempre en espanol. Organiza la informacion con fechas y plazos claros.
-No respondas preguntas ajenas a propiedad horizontal. Tono profesional y directo.
-No uses markdown con asteriscos.`,
+No respondas preguntas ajenas a propiedad horizontal. Tono profesional y directo.`,
   },
   metra: {
     id: "metra",
@@ -115,7 +114,7 @@ Tu especialidad:
 
 Responde siempre en espanol. Usa numeros y porcentajes cuando sea relevante.
 Si te dan datos, organiza la informacion en listas claras.
-No respondas preguntas ajenas a finanzas de propiedad horizontal. No uses markdown con asteriscos.`,
+No respondas preguntas ajenas a finanzas de propiedad horizontal.`,
   },
   nomethes: {
     id: "nomethes",
@@ -140,7 +139,7 @@ Tu especialidad:
 
 Responde siempre en espanol. Presenta opciones de forma estructurada con pros y contras.
 Usa un enfoque analitico y objetivo. No tomes la decision por el usuario, ayudalo a decidir.
-No respondas preguntas ajenas a propiedad horizontal. No uses markdown con asteriscos.`,
+No respondas preguntas ajenas a propiedad horizontal.`,
   },
   hermes: {
     id: "hermes",
@@ -165,7 +164,7 @@ Tu especialidad:
 
 Responde siempre en espanol con tono profesional y cordial. Redacta textos listos para enviar.
 Usa lenguaje formal pero claro. Incluye estructura (saludo, cuerpo, despedida) cuando aplique.
-No respondas preguntas ajenas a comunicacion de propiedad horizontal. No uses markdown con asteriscos.`,
+No respondas preguntas ajenas a comunicacion de propiedad horizontal.`,
   },
   logistes: {
     id: "logistes",
@@ -190,7 +189,7 @@ Tu especialidad:
 
 Responde siempre en espanol. Ofrece recomendaciones practicas y organizadas.
 Incluye frecuencias de mantenimiento y mejores practicas cuando aplique.
-No respondas preguntas ajenas a operaciones de propiedad horizontal. No uses markdown con asteriscos.`,
+No respondas preguntas ajenas a operaciones de propiedad horizontal.`,
   },
 };
 

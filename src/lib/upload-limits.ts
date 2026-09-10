@@ -125,3 +125,19 @@ export function mensajeDeTamano(file: { name: string; size: number }): string {
     ? `"${file.name}" pesa ${mb} MB y el máximo para audio es ${tope} MB. Si la grabación es más larga, súbela partida en dos archivos.`
     : `"${file.name}" pesa ${mb} MB y el máximo para documentos es ${tope} MB.`;
 }
+
+/**
+ * Tamaño de archivo legible para la interfaz.
+ *
+ * Antes las fichas de archivo del chat mostraban `(size/1024).toFixed(0)}KB`:
+ * un archivo de 402 bytes aparecía como «0KB» —parecía vacío o roto— y uno de
+ * 3 MB como «2930KB». Se escala la unidad y se conserva un decimal por debajo
+ * de 10 KB, que es donde el redondeo a entero engaña.
+ */
+export function formatoTamano(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  const kb = bytes / 1024;
+  if (kb < 1000) return `${kb < 10 ? kb.toFixed(1) : Math.round(kb)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}

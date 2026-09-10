@@ -405,6 +405,11 @@ export async function POST(
     // archivo es el entregable, no un extra que haya que ofrecer.
     systemPrompt += `
 
+FORMATO DE TUS RESPUESTAS
+La interfaz muestra formato: usa encabezados, listas y TABLAS cuando aclaren
+—plazos, mayorías, comparativas, cuotas—. No abuses: en una respuesta corta
+basta el texto corrido. Cita los artículos de la Ley 675 en negrita.
+
 ARCHIVOS DESCARGABLES
 Puedes entregar archivos de verdad: hojas de cálculo (.xlsx), documentos de Word (.docx) y PDF.
 Cuando lo que pide el usuario se trabaja mejor en un archivo —un cuadro, un presupuesto, una

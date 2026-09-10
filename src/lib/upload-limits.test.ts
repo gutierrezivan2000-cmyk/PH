@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   esAudio, limiteMbPara, limiteBytesPara, extensionDe,
-  ALLOWED_CONTENT_TYPES, MAX_AUDIO_MB, MAX_DOC_MB,
+  ALLOWED_CONTENT_TYPES, MAX_AUDIO_MB, MAX_DOC_MB, formatoTamano,
 } from "./upload-limits";
 
 describe("topes por tipo de archivo", () => {
@@ -50,5 +50,34 @@ describe("topes por tipo de archivo", () => {
     const horasQueCabenTranscribiendo = (4 * Math.floor(200 / 60) * 10) / 60;
     expect(horasQueCabenTranscribiendo).toBeGreaterThan(1.5);
     expect(MAX_AUDIO_MB).toBeLessThanOrEqual(250);
+  });
+});
+
+describe("formatoTamano", () => {
+  // El bug concreto: un .docx de 402 bytes se mostraba como «0KB» en la ficha
+  // de archivo del chat, y parecía que la descarga estaba vacía.
+  it("no colapsa a cero los archivos de menos de 1 KB", () => {
+    expect(formatoTamano(402)).toBe("402 B");
+    expect(formatoTamano(1)).toBe("1 B");
+  });
+
+  it("usa un decimal por debajo de 10 KB, donde redondear engaña", () => {
+    expect(formatoTamano(1536)).toBe("1.5 KB");
+    expect(formatoTamano(8900)).toBe("8.7 KB");
+  });
+
+  it("redondea a entero entre 10 KB y 1000 KB", () => {
+    expect(formatoTamano(50 * 1024)).toBe("50 KB");
+  });
+
+  it("escala a MB en vez de mostrar «2930KB»", () => {
+    expect(formatoTamano(3 * 1024 * 1024)).toBe("3.0 MB");
+    expect(formatoTamano(25 * 1024 * 1024)).toBe("25.0 MB");
+  });
+
+  it("devuelve cadena vacía para tamaños ausentes o absurdos, para poder ocultar la etiqueta", () => {
+    expect(formatoTamano(0)).toBe("");
+    expect(formatoTamano(-5)).toBe("");
+    expect(formatoTamano(NaN)).toBe("");
   });
 });

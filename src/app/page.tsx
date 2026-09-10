@@ -36,6 +36,7 @@ import {
   Clock,
 } from "lucide-react";
 import { COMING_SOON, type ComingSoonKey } from "@/lib/feature-flags";
+import { tinte } from "@/lib/tinte";
 
 // ─────────────────────────────────────────────
 // Data
@@ -1112,7 +1113,7 @@ export default function LandingPage() {
                   <div key={title} className="flex gap-4 items-start">
                     <div
                       className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ background: `${color}20`, border: `1px solid ${color}40` }}
+                      style={{ background: `${tinte(color, 0.13)}`, border: `1px solid ${tinte(color, 0.25)}` }}
                     >
                       <Icon size={18} style={{ color }} />
                     </div>
@@ -1176,13 +1177,13 @@ export default function LandingPage() {
                     className="relative overflow-hidden rounded-2xl p-6 flex flex-col gap-3 cursor-default"
                     style={{
                       background: isHovered
-                        ? `radial-gradient(circle at 30% 30%, ${agent.color}18, var(--surface-2) 70%)`
-                        : `radial-gradient(circle at 30% 30%, ${agent.color}0d, var(--surface-2) 70%)`,
+                        ? `radial-gradient(circle at 30% 30%, ${tinte(agent.color, 0.09)}, var(--surface-2) 70%)`
+                        : `radial-gradient(circle at 30% 30%, ${tinte(agent.color, 0.05)}, var(--surface-2) 70%)`,
                       border: isHovered
-                        ? `1px solid ${agent.color}55`
+                        ? `1px solid ${tinte(agent.color, 0.33)}`
                         : "1px solid rgb(var(--veil-rgb) / 0.07)",
                       boxShadow: isHovered
-                        ? `0 8px 32px ${agent.color}25`
+                        ? `0 8px 32px ${tinte(agent.color, 0.15)}`
                         : "none",
                       transform: isHovered ? "translateY(-3px)" : "none",
                       transition:
@@ -1209,8 +1210,8 @@ export default function LandingPage() {
                       <div
                         className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
                         style={{
-                          background: `${agent.color}25`,
-                          border: `1px solid ${agent.color}50`,
+                          background: `${tinte(agent.color, 0.15)}`,
+                          border: `1px solid ${tinte(agent.color, 0.31)}`,
                           color: agent.color,
                         }}
                       >
@@ -1514,8 +1515,8 @@ export default function LandingPage() {
                       style={{
                         width: 40,
                         height: 40,
-                        background: `${f.color}18`,
-                        border: `1px solid ${f.color}35`,
+                        background: `${tinte(f.color, 0.09)}`,
+                        border: `1px solid ${tinte(f.color, 0.21)}`,
                       }}
                     >
                       <f.Icon className="h-5 w-5" style={{ color: f.color }} />
@@ -1975,8 +1976,8 @@ export default function LandingPage() {
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                       style={{
-                        background: `${a.color}20`,
-                        border: `1px solid ${a.color}40`,
+                        background: `${tinte(a.color, 0.13)}`,
+                        border: `1px solid ${tinte(a.color, 0.25)}`,
                         color: a.color,
                       }}
                     >

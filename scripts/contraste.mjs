@@ -16,8 +16,14 @@ const PAGES = [
 
 const AUDIT = `(() => {
   const parse = (c) => {
+    // Chrome devuelve color-mix() ya resuelto como \`color(srgb r g b / a)\`
+    // con los canales en 0..1, no como rgb(). Sin esta rama, todos los fondos
+    // y textos con tinte de acento se leían como \`null\` y el auditor los
+    // saltaba en silencio: justo los que hay que comprobar.
+    const cs = c.match(/color\\(srgb\\s+([\\d.eE+-]+)\\s+([\\d.eE+-]+)\\s+([\\d.eE+-]+)(?:\\s*\\/\\s*([\\d.eE+-]+))?\\)/);
+    if (cs) return { r: +cs[1]*255, g: +cs[2]*255, b: +cs[3]*255, a: cs[4] === undefined ? 1 : +cs[4] };
     const m = c.match(/rgba?\\(([^)]+)\\)/); if (!m) return null;
-    const p = m[1].split(",").map(s => parseFloat(s.trim()));
+    const p = m[1].split(/[,\\s/]+/).filter(Boolean).map(s => parseFloat(s));
     return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
   };
   const over = (fg, bg) => ({ r: fg.r*fg.a + bg.r*(1-fg.a), g: fg.g*fg.a + bg.g*(1-fg.a), b: fg.b*fg.a + bg.b*(1-fg.a), a: 1 });
