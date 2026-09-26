@@ -1,7 +1,30 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, Square, Trash2 } from "lucide-react";
+import { Boton } from "@/components/kit";
+
+/* Estilos locales («Índice»): la grabadora vive en la fila de herramientas del
+   redactor del chat (`.k-redactor .herr`), cuyos botones ya son de texto a 40 px
+   (44 en móvil). Aquí solo el estado «grabando»: cuadro de tinta + tiempo con
+   cifras tabulares + onda en --ink. Nada de rojo: el naranja del sistema solo
+   significa vencido, error u hoy. */
+const CSS_GRABADORA = `
+.grab { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.grab-vivo { display: inline-flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px;
+  border: 1.5px solid var(--rule); font-size: 14px; font-weight: 700; color: var(--ink); }
+.grab-vivo > i { width: 10px; height: 10px; flex: none; background: var(--ink); }
+.grab-vivo canvas { width: 88px; height: 20px; color: var(--ink); }
+.grab-vivo time { font: 600 14px/1 var(--f-mono); font-feature-settings: "tnum" 1; }
+.grab-btn { display: inline-flex; align-items: center; min-height: 40px; padding: 0; font-size: 14px; font-weight: 700;
+  color: var(--ink); background: transparent; cursor: pointer; }
+.grab-btn:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.grab-btn:disabled { color: var(--ink-3); cursor: not-allowed; text-decoration: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .grab-vivo > i { animation: grab-pulso 1.2s ease-in-out infinite alternate; }
+}
+@keyframes grab-pulso { to { opacity: .35; } }
+@media (max-width: 860px) { .grab-vivo, .grab-btn { min-height: 44px; } }
+`;
 
 interface AudioRecorderProps {
   onRecorded: (file: File) => void;
@@ -99,7 +122,8 @@ export function AudioRecorder({ onRecorded, disabled, maxSeconds = 300 }: AudioR
       const barWidth = Math.max(1, (cssWidth - gap * (bars - 1)) / bars);
       const mid = cssHeight / 2;
 
-      ctx2d.fillStyle = "#ef4444";
+      // La onda toma la tinta del tema (color del lienzo = var(--ink)).
+      ctx2d.fillStyle = getComputedStyle(canvas).color;
       for (let i = 0; i < bars; i++) {
         let sum = 0;
         for (let j = 0; j < samplesPerBar; j++) {
@@ -145,7 +169,7 @@ export function AudioRecorder({ onRecorded, disabled, maxSeconds = 300 }: AudioR
     cancelledRef.current = false;
     try {
       if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-        setError("Tu navegador no soporta grabacion de audio.");
+        setError("Tu navegador no soporta grabación de audio.");
         return;
       }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -198,9 +222,9 @@ export function AudioRecorder({ onRecorded, disabled, maxSeconds = 300 }: AudioR
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.toLowerCase().includes("permission") || msg.toLowerCase().includes("denied")) {
-        setError("Permiso de microfono denegado.");
+        setError("Permiso de micrófono denegado.");
       } else {
-        setError("No se pudo acceder al microfono.");
+        setError("No se pudo acceder al micrófono.");
       }
       cleanupStream();
       setIsRecording(false);
@@ -224,55 +248,49 @@ export function AudioRecorder({ onRecorded, disabled, maxSeconds = 300 }: AudioR
     return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
+  const estilos = (
+    <style href="grabadora-audio" precedence="default">
+      {CSS_GRABADORA}
+    </style>
+  );
+
   if (isRecording) {
     return (
-      <div className="flex items-center gap-2">
-        <button
-          onClick={cancelRecording}
-          className="p-2.5 rounded-xl border border-gray-200 dark:border-white/10 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors flex-shrink-0"
-          title="Cancelar"
-          type="button"
-        >
-          <Trash2 className="h-4 w-4 text-red-500" />
-        </button>
-        <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl">
-          <canvas
-            ref={canvasRef}
-            className="h-5 w-[88px]"
-            aria-label="Onda de audio en vivo"
-          />
-          <span className="text-xs font-medium text-red-700 dark:text-red-300 tabular-nums">
-            {formatTime(seconds)}
-          </span>
-        </div>
-        <button
-          onClick={stopRecording}
-          className="p-2.5 rounded-xl bg-[var(--danger)] hover:opacity-90 text-[var(--on-danger)] transition-colors flex-shrink-0 shadow-md"
-          title="Enviar"
-          type="button"
-        >
-          <Square className="h-4 w-4 fill-current" />
-        </button>
-      </div>
+      <span className="grab" role="group" aria-label="Grabación de audio">
+        {estilos}
+        <span className="grab-vivo">
+          <i aria-hidden="true" />
+          Grabando
+          <canvas ref={canvasRef} aria-hidden="true" />
+          <time>{formatTime(seconds)}</time>
+        </span>
+        <Boton variante="fantasma" tam={40} onClick={cancelRecording}>
+          Cancelar
+        </Boton>
+        <Boton variante="secundario" tam={40} onClick={stopRecording} aria-label="Terminar la grabación y adjuntarla">
+          Terminar
+        </Boton>
+      </span>
     );
   }
 
   return (
-    <div className="relative">
+    <span className="grab">
+      {estilos}
       <button
         onClick={startRecording}
         disabled={disabled}
-        className="p-2.5 rounded-xl border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-        title="Grabar audio"
+        className="grab-btn"
+        title="Grabar una nota de voz"
         type="button"
       >
-        <Mic className="h-4 w-4 text-gray-500" />
+        Grabar audio
       </button>
       {error && (
-        <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-[var(--danger)] text-[var(--on-danger)] text-[10px] rounded whitespace-nowrap">
+        <span className="k-err" role="alert">
           {error}
-        </div>
+        </span>
       )}
-    </div>
+    </span>
   );
 }

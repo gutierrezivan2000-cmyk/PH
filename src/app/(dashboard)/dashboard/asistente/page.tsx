@@ -1,34 +1,60 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Header } from "@/components/dashboard/Header";
 import { AGENTS, AGENT_IDS, INCLUDED_AGENT_IDS } from "@/lib/agents";
-import { ArrowRight, MessageSquare, Zap, Hourglass } from "lucide-react";
-
-const AGENT_COLORS: Record<string, string> = {
-  themis: "var(--accent-hi)",
-  chronos: "var(--info)",
-  metra: "var(--ok)",
-  nomethes: "var(--warn)",
-  hermes: "var(--pink)",
-  logistes: "var(--logistes)",
-};
-
-const AGENT_MONOGRAMS: Record<string, string> = {
-  themis: "T",
-  chronos: "C",
-  metra: "M",
-  nomethes: "N",
-  hermes: "H",
-  logistes: "L",
-};
+import { SUGERENCIAS } from "@/lib/agent-sugerencias";
+import {
+  BotonSugerencia,
+  CabeceraPieza,
+  FichaAgente,
+  Pagina,
+  Panel,
+  Pieza,
+  type AgenteId,
+} from "@/components/kit";
 
 interface AgentUsage {
   daily: number;
   weekly: number;
   limits: { agentMessagesPerDay: number; agentMessagesPerWeek: number };
 }
+
+/* Estilos locales de la pantalla (SPEC §g 04, lista de agentes):
+   - contador de uso con cifras de 34 px/62 % (como `.stat` de la maqueta);
+   - fichas activas en 6 + 6 columnas; las 4 en preparación en 3 columnas cada
+     una, en vertical (celda del sigilo achurada arriba), porque a 3 columnas la
+     ficha horizontal del kit no deja sitio al nombre. En ≤ 860 px vuelven a la
+     ficha horizontal del kit, una por fila. */
+const CSS_ASISTENTE = `
+.asis-uso { margin: 0; display: grid; gap: 4px; justify-items: end; text-align: right; }
+.asis-uso > span { font-size: 13px; color: var(--ink-3); }
+.asis-uso > p { margin: 0; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; justify-content: flex-end;
+  font-size: 14px; color: var(--ink-2); white-space: nowrap; }
+.asis-uso b { font: 800 34px/1 var(--f-sans); font-stretch: 62%; letter-spacing: -.02em; color: var(--ink); }
+.asis-uso p > span + b { margin-left: 12px; }
+.asis-activos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g); }
+.asis-prep { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--g); margin-top: var(--g); }
+.asis-como { margin-top: 56px; max-width: 68ch; }
+.asis-como ul { list-style: none; margin: 0; padding: 0; }
+.asis-como li { padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 15px; line-height: 1.45; color: var(--ink-2); }
+.asis-como li b { color: var(--ink); font-weight: 700; }
+@media (min-width: 861px) {
+  .asis-prep .k-agente { grid-template-columns: minmax(0, 1fr); grid-template-rows: 132px minmax(0, 1fr); }
+  .asis-prep .k-agente > .sig { min-height: 0; border-right: 0; border-bottom: 1.5px solid var(--line-strong); }
+  .asis-prep .k-agente .top { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .asis-prep .k-agente .top :is(h2, h3) { font-size: 26px; }
+}
+@media (max-width: 1180px) {
+  .asis-prep { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  .asis-uso { justify-items: start; text-align: left; }
+  .asis-uso > p { justify-content: flex-start; }
+  .asis-activos, .asis-prep { grid-template-columns: minmax(0, 1fr); }
+  .asis-como { margin-top: 40px; }
+}
+`;
 
 export default function AsistentePage() {
   const [usage, setUsage] = useState<AgentUsage | null>(null);
@@ -48,229 +74,105 @@ export default function AsistentePage() {
       .catch(console.error);
   }, []);
 
+  // Mismo criterio de siempre: con acceso = ficha activa; sin acceso = «Próximamente».
+  const activos = AGENT_IDS.filter((id) => accessible.includes(id));
+  const enPreparacion = AGENT_IDS.filter((id) => !accessible.includes(id));
+  const incluidos = INCLUDED_AGENT_IDS.map((id) => AGENTS[id].name);
+
+  const subtitulo = [
+    `${activos.length} ${activos.length === 1 ? "activo" : "activos"}`,
+    enPreparacion.length > 0 ? `${enPreparacion.length} en preparación` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <div>
-      <Header title="Asistente IA" subtitle="Tus agentes inteligentes de Propiedad Horizontal" />
-      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-5xl mx-auto space-y-6">
-
-        {/* Usage row */}
-        {usage && (
-          <div
-            className="rounded-2xl p-4 border flex items-center gap-4"
-            style={{
-              background: "var(--hifi-surface-1, var(--surface-2))",
-              borderColor: "var(--hifi-hairline-strong, rgb(var(--veil-rgb) / 0.14))",
-            }}
-          >
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "var(--hifi-accent-soft)", color: "var(--hifi-accent-hi)" }}
-            >
-              <Zap className="h-5 w-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div
-                className="text-xs font-medium mb-1"
-                style={{ fontFamily: "var(--hifi-mono)", letterSpacing: "0.1em", color: "var(--hifi-ink-faint)" }}
-              >
-                USO DE MENSAJES
-              </div>
-              <div className="flex items-center gap-4 text-sm" style={{ color: "var(--hifi-ink-dim)" }}>
-                <span>
-                  Hoy:{" "}
-                  <strong style={{ color: "var(--hifi-ink)" }}>
-                    {usage.daily}
-                  </strong>
-                  <span style={{ color: "var(--hifi-ink-faint)" }}> / {usage.limits.agentMessagesPerDay}</span>
-                </span>
-                <span
-                  style={{ width: 1, height: 14, background: "var(--hifi-hairline-strong)", display: "inline-block" }}
-                />
-                <span>
-                  Semana:{" "}
-                  <strong style={{ color: "var(--hifi-ink)" }}>
-                    {usage.weekly}
-                  </strong>
-                  <span style={{ color: "var(--hifi-ink-faint)" }}> / {usage.limits.agentMessagesPerWeek}</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Agents grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {AGENT_IDS.map((id) => {
-            const agent = AGENTS[id];
-            const included = accessible.includes(id);
-            const color = AGENT_COLORS[id] || "var(--accent-text)";
-            const monogram = AGENT_MONOGRAMS[id] || id[0].toUpperCase();
-
-            if (included) {
-              return (
-                <Link key={id} href={`/dashboard/asistente/${id}`}>
-                  <div
-                    className="hifi-agent-tile group relative rounded-2xl p-5 border cursor-pointer overflow-hidden h-full"
-                    style={{
-                      background: `radial-gradient(120% 100% at 100% 0%, color-mix(in oklab, ${color} 18%, transparent) 0%, transparent 70%), var(--hifi-surface-1, var(--surface-2))`,
-                      borderColor: "var(--hifi-hairline, rgb(var(--veil-rgb) / 0.07))",
-                      minHeight: 180,
-                    }}
-                  >
-                    {/* Included badge */}
-                    <div className="flex items-center justify-between mb-4">
-                      {/* Agent monogram */}
-                      <div
-                        className="flex items-center justify-center rounded-xl flex-shrink-0"
-                        style={{
-                          width: 44,
-                          height: 44,
-                          background: `radial-gradient(120% 100% at 30% 20%, color-mix(in oklab, ${color} 70%, transparent) 0%, transparent 60%), var(--hifi-surface-2, var(--surface-3))`,
-                          border: `1px solid color-mix(in oklab, ${color} 50%, rgb(var(--veil-rgb) / 0.07))`,
-                          color,
-                          fontFamily: "var(--hifi-mono)",
-                          fontWeight: 600,
-                          fontSize: 16,
-                        }}
-                      >
-                        {monogram}
-                      </div>
-                      <span
-                        className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full"
-                        style={{
-                          fontFamily: "var(--hifi-mono)",
-                          letterSpacing: "0.06em",
-                          background: "rgb(var(--ok-rgb) / 0.12)",
-                          border: "1px solid rgb(var(--ok-rgb) / 0.25)",
-                          color: "var(--hifi-ok)",
-                        }}
-                      >
-                        <span
-                          className="hifi-pulse-ok"
-                          style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", display: "inline-block" }}
-                        />
-                        incluido
-                      </span>
-                    </div>
-
-                    <div
-                      className="text-base font-semibold mb-0.5 tracking-tight"
-                      style={{ color: "var(--hifi-ink, var(--ink))" }}
-                    >
-                      {agent.name}
-                    </div>
-                    <div
-                      className="text-[10px] mb-3"
-                      style={{
-                        fontFamily: "var(--hifi-mono)",
-                        letterSpacing: "0.1em",
-                        color: "var(--hifi-ink-faint)",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {agent.title}
-                    </div>
-                    <p className="text-xs leading-relaxed" style={{ color: "var(--hifi-ink-dim)" }}>
-                      {agent.description}
-                    </p>
-
-                    {/* Arrow on hover */}
-                    <div
-                      className="absolute bottom-5 right-5 opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:translate-x-0 -translate-x-1"
-                      style={{ color: "var(--hifi-accent-hi)" }}
-                    >
-                      <ArrowRight className="h-4 w-4" />
-                    </div>
-                  </div>
-                </Link>
-              );
+    <>
+      <Header title="Asistente IA" />
+      <style href="asistente-lista" precedence="default">
+        {CSS_ASISTENTE}
+      </style>
+      <Pagina>
+        <Pieza>
+          <CabeceraPieza
+            nn="04"
+            titulo="Asistente IA"
+            subtitulo={subtitulo}
+            acciones={
+              // Uso real de /api/agents/usage (mensajes enviados hoy y esta semana frente al límite del plan).
+              usage && (
+                <div className="asis-uso">
+                  <span>Mensajes a los agentes</span>
+                  <p>
+                    <b>{usage.daily}</b>
+                    <span>de {usage.limits.agentMessagesPerDay} hoy</span>
+                    <b>{usage.weekly}</b>
+                    <span>de {usage.limits.agentMessagesPerWeek} esta semana</span>
+                  </p>
+                </div>
+              )
             }
+          />
 
-            return (
-              <div
-                key={id}
-                className="relative rounded-2xl p-5 border overflow-hidden h-full select-none"
-                style={{
-                  background: `radial-gradient(120% 100% at 100% 0%, color-mix(in oklab, ${color} 10%, transparent) 0%, transparent 70%), var(--hifi-surface-1, var(--surface-2))`,
-                  borderColor: "var(--hifi-hairline, rgb(var(--veil-rgb) / 0.07))",
-                  minHeight: 180,
-                  opacity: 0.75,
-                }}
-              >
-                {/* Coming-soon badge (top-right, keeps name + functions readable) */}
-                <div className="absolute top-4 right-4 z-10">
-                  <span
-                    className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full"
-                    style={{
-                      fontFamily: "var(--hifi-mono)",
-                      letterSpacing: "0.1em",
-                      background: "rgb(var(--accent-rgb) / 0.12)",
-                      border: "1px solid rgb(var(--accent-rgb) / 0.35)",
-                      color: "var(--hifi-accent-hi)",
-                    }}
-                  >
-                    <Hourglass className="h-3 w-3" />
-                    PRÓXIMAMENTE
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between mb-4">
-                  <div
-                    className="flex items-center justify-center rounded-xl flex-shrink-0"
-                    style={{
-                      width: 44,
-                      height: 44,
-                      background: `radial-gradient(120% 100% at 30% 20%, color-mix(in oklab, ${color} 70%, transparent) 0%, transparent 60%), var(--hifi-surface-2, var(--surface-3))`,
-                      border: `1px solid color-mix(in oklab, ${color} 50%, rgb(var(--veil-rgb) / 0.07))`,
-                      color,
-                      fontFamily: "var(--hifi-mono)",
-                      fontWeight: 600,
-                      fontSize: 16,
-                    }}
-                  >
-                    {monogram}
-                  </div>
-                </div>
-                <div className="text-base font-semibold mb-0.5 tracking-tight" style={{ color: "var(--hifi-ink)" }}>
-                  {agent.name}
-                </div>
-                <div
-                  className="text-[10px] mb-3"
-                  style={{ fontFamily: "var(--hifi-mono)", letterSpacing: "0.1em", color: "var(--hifi-ink-faint)", textTransform: "uppercase" }}
-                >
-                  {agent.title}
-                </div>
-                <p className="text-xs leading-relaxed" style={{ color: "var(--hifi-ink-dim)" }}>
-                  {agent.description}
-                </p>
+          {activos.length > 0 && (
+            <section aria-labelledby="asis-activos-t">
+              <h2 id="asis-activos-t" className="k-sr">
+                Agentes activos
+              </h2>
+              <div className="asis-activos">
+                {activos.map((id) => (
+                  <FichaAgente
+                    key={id}
+                    agente={id as AgenteId}
+                    href={`/dashboard/asistente/${id}`}
+                    sugerencias={(SUGERENCIAS[id] || []).slice(0, 3).map((s) => (
+                      // Abre el chat con la pregunta escrita en el redactor (no se envía sola).
+                      <BotonSugerencia
+                        key={s.titulo}
+                        href={`/dashboard/asistente/${id}?pregunta=${encodeURIComponent(s.prompt)}`}
+                      >
+                        {s.titulo}
+                      </BotonSugerencia>
+                    ))}
+                  />
+                ))}
               </div>
-            );
-          })}
-        </div>
+            </section>
+          )}
 
-        {/* Info section */}
-        <div
-          className="rounded-2xl p-5 border"
-          style={{
-            background: "var(--hifi-surface-1, var(--surface-2))",
-            borderColor: "var(--hifi-hairline, rgb(var(--veil-rgb) / 0.07))",
-          }}
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <MessageSquare className="h-4 w-4" style={{ color: "var(--hifi-accent)" }} />
-            <span className="text-sm font-semibold" style={{ color: "var(--hifi-ink)" }}>
-              ¿Cómo funcionan los agentes?
-            </span>
-          </div>
-          <div className="space-y-2 text-xs leading-relaxed" style={{ color: "var(--hifi-ink-dim)" }}>
-            <p>— Cada agente tiene su propia especialidad y recuerda el contexto de tus conversaciones anteriores.</p>
-            <p>— Puedes crear múltiples chats con cada agente para organizar tus consultas por tema.</p>
-            <p>— Los agentes pueden recibir imágenes y documentos como parte de la conversación.</p>
-            <p>— La memoria del agente guarda notas importantes que persisten entre sesiones.</p>
-            <p>— Tu plan incluye <strong style={{ color: "var(--hifi-themis)" }}>Themis</strong> y <strong style={{ color: "var(--hifi-chronos)" }}>Chronos</strong>. Los demás agentes estarán disponibles próximamente.</p>
-          </div>
-        </div>
-      </div>
-    </div>
+          {enPreparacion.length > 0 && (
+            <section aria-labelledby="asis-prep-t">
+              <h2 id="asis-prep-t" className="k-sr">
+                Agentes en preparación
+              </h2>
+              <div className="asis-prep">
+                {enPreparacion.map((id) => (
+                  <FichaAgente key={id} agente={id as AgenteId} activo={false} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <Panel titulo="Cómo funcionan los agentes" nivel={2} className="asis-como">
+            <ul>
+              <li>Cada agente tiene su propia especialidad y recuerda el contexto de tus conversaciones anteriores.</li>
+              <li>Puedes crear múltiples chats con cada agente para organizar tus consultas por tema.</li>
+              <li>Los agentes pueden recibir imágenes y documentos como parte de la conversación.</li>
+              <li>La memoria del agente guarda notas importantes que persisten entre sesiones.</li>
+              <li>
+                Tu plan incluye{" "}
+                {incluidos.map((n, i) => (
+                  <span key={n}>
+                    {i > 0 && (i === incluidos.length - 1 ? " y " : ", ")}
+                    <b>{n}</b>
+                  </span>
+                ))}
+                . Los demás agentes estarán disponibles próximamente.
+              </li>
+            </ul>
+          </Panel>
+        </Pieza>
+      </Pagina>
+    </>
   );
 }

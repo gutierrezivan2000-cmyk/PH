@@ -1,10 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Activity, TrendingUp, Calendar, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { pedirJSON } from "@/components/dashboard/datosIndice";
+import {
+  Boton,
+  ErrorCarga,
+  Esqueleto,
+  Estado,
+  Kpi,
+  Kpis,
+  Medidor,
+  type TipoEstado,
+} from "@/components/kit";
 
-interface UsageData {
+export interface UsageData {
   monthlyGenerations: number;
   dailyGenerations: number;
   monthlyTokens: number;
@@ -19,140 +28,162 @@ interface UsageData {
   periodEndsAt?: string | null;
 }
 
-function PlanStatusChip({ usage }: { usage: UsageData }) {
+export const URL_USO = "/api/usage";
+
+/**
+ * Pide /api/usage con la caché de 2 s del armazón (`pedirJSON`): el índice
+ * lateral ya pide esta misma ruta al entrar, y la pantalla de Suscripción
+ * también la lee para marcar el plan actual; así sale una sola petición.
+ * Devuelve null si la respuesta no es 2xx o no trae el uso (sin red, 401…).
+ */
+export function pedirUso(fresco?: boolean): Promise<UsageData | null> {
+  return pedirJSON<UsageData>(URL_USO, { fresco }).then((d) =>
+    d && d.limits && typeof d.monthlyGenerations === "number" ? d : null
+  );
+}
+
+/**
+ * Estado del plan en palabras: los mismos casos y textos que tenía el chip de
+ * estado (ahora en caja normal, con forma + color + palabra). `ahora` es el
+ * momento de la lectura (Date.now fuera del render).
+ */
+export function estadoDelPlan(
+  usage: UsageData,
+  ahora: number
+): { texto: string; tipo: TipoEstado } | null {
   const status = usage.planStatus;
   if (!status) return null;
 
   // Fase de pruebas abierta: sin cuenta atrás ni aviso de vencimiento, porque
   // no hay nada que venza. Se dice qué tiene abierto y por qué.
-  if (status === "testing") {
-    return (
-      <div
-        className="flex items-center gap-2 px-3 py-2 rounded-xl border"
-        style={{
-          background: "rgb(var(--accent-rgb) / 0.08)",
-          borderColor: "rgb(var(--accent-rgb) / 0.3)",
-        }}
-      >
-        <Sparkles className="h-3.5 w-3.5" style={{ color: "var(--accent-hi)" }} />
-        <span
-          className="text-[11px] font-medium"
-          style={{
-            fontFamily: "var(--font-mono)",
-            letterSpacing: "0.06em",
-            color: "var(--accent-hi)",
-          }}
-        >
-          FASE DE PRUEBAS · FUNCIONES PRO
-        </span>
-      </div>
-    );
-  }
+  if (status === "testing") return { texto: "Fase de pruebas · funciones Pro", tipo: "ok" };
 
   if (status === "trialing" && usage.trialEndsAt) {
-    const daysLeft = Math.max(
-      0,
-      Math.ceil((new Date(usage.trialEndsAt).getTime() - Date.now()) / 86400000)
-    );
+    const daysLeft = Math.max(0, Math.ceil((new Date(usage.trialEndsAt).getTime() - ahora) / 86400000));
     const urgent = daysLeft <= 2;
-    return (
-      <Link
-        href="/dashboard/suscripcion"
-        className="flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors"
-        style={{
-          background: urgent ? "rgb(var(--warn-rgb) / 0.1)" : "rgb(var(--accent-rgb) / 0.08)",
-          borderColor: urgent ? "rgb(var(--warn-rgb) / 0.3)" : "rgb(var(--accent-rgb) / 0.3)",
-        }}
-      >
-        <Sparkles className="h-3.5 w-3.5" style={{ color: urgent ? "var(--warn-text)" : "var(--accent-hi)" }} />
-        <span
-          className="text-[11px] font-medium"
-          style={{
-            fontFamily: "var(--font-mono)",
-            letterSpacing: "0.06em",
-            color: urgent ? "var(--warn-text)" : "var(--accent-hi)",
-          }}
-        >
-          PRUEBA GRATIS · {daysLeft === 0 ? "TERMINA HOY" : `${daysLeft} DÍA${daysLeft === 1 ? "" : "S"}`}
-        </span>
-      </Link>
-    );
+    return {
+      texto: `Prueba gratis · ${daysLeft === 0 ? "termina hoy" : `${daysLeft} día${daysLeft === 1 ? "" : "s"}`}`,
+      tipo: urgent ? "falta" : "pendiente",
+    };
   }
 
-  if (status === "grace") {
-    return (
-      <Link
-        href="/dashboard/suscripcion"
-        className="flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors"
-        style={{ background: "rgb(var(--warn-rgb) / 0.1)", borderColor: "rgb(var(--warn-rgb) / 0.3)" }}
-      >
-        <Sparkles className="h-3.5 w-3.5" style={{ color: "var(--warn-text)" }} />
-        <span
-          className="text-[11px] font-medium"
-          style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.06em", color: "var(--warn-text)" }}
-        >
-          PLAN VENCIDO · RENOVAR (PERÍODO DE GRACIA)
-        </span>
-      </Link>
-    );
-  }
+  if (status === "grace") return { texto: "Plan vencido · renovar (período de gracia)", tipo: "vencido" };
 
   if (status === "trial_expired" || status === "past_due" || status === "canceled" || status === "expired") {
-    const label =
+    const texto =
       status === "trial_expired"
-        ? "PRUEBA FINALIZADA · ELIGE UN PLAN"
+        ? "Prueba finalizada · elige un plan"
         : status === "expired"
-        ? "PLAN VENCIDO · RENOVAR"
-        : "PLAN INACTIVO · REACTIVAR";
-    return (
-      <Link
-        href="/dashboard/suscripcion"
-        className="flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors"
-        style={{
-          background: "rgb(var(--danger-rgb) / 0.1)",
-          borderColor: "rgb(var(--danger-rgb) / 0.3)",
-        }}
-      >
-        <Sparkles className="h-3.5 w-3.5" style={{ color: "var(--danger-text)" }} />
-        <span
-          className="text-[11px] font-medium"
-          style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.06em", color: "var(--danger-text)" }}
-        >
-          {label}
-        </span>
-      </Link>
-    );
+        ? "Plan vencido · renovar"
+        : "Plan inactivo · reactivar";
+    return { texto, tipo: "vencido" };
   }
+
+  if (status === "beta") return { texto: "Acceso sin restricciones", tipo: "ok" };
 
   return null;
 }
 
-export function UsageCard() {
+/* Rejilla local del bloque de uso (SPEC §f.6 «medidor», maqueta secundarias d):
+   título en las columnas 1–3 y el medidor con la cifra en 4–12; en móvil, apilado. */
+const CSS_USO = `
+.k-uso { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); align-items: center;
+  border-top: 2px solid var(--rule); padding: 16px 0 22px; }
+.k-uso > .t { grid-column: 1 / 4; min-width: 0; }
+.k-uso > .t h2 { margin: 0; }
+.k-uso > .t p { margin: 6px 0 0; font-size: 14px; line-height: 1.35; color: var(--ink-2); }
+.k-uso > .m { grid-column: 4 / 13; min-width: 0; }
+.k-uso .k-kpis { margin: 0; }
+@media (max-width: 1180px) {
+  .k-uso > .t { grid-column: 1 / 5; }
+  .k-uso > .m { grid-column: 5 / 13; }
+}
+@media (max-width: 860px) {
+  .k-uso { display: block; }
+  .k-uso > .m { margin-top: 16px; }
+}
+`;
+
+function Marco({ children, etiqueta }: { children: ReactNode; etiqueta?: string }) {
+  return (
+    <section className="k-uso" aria-labelledby={etiqueta ? undefined : "k-uso-t"} aria-label={etiqueta}>
+      <style href="k-uso-local" precedence="default">
+        {CSS_USO}
+      </style>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * Uso del plan (SPEC §f.6 «medidor»). `alCargar` recibe la respuesta de
+ * /api/usage cada vez que llega (también tras «Reintentar»): Suscripción la usa
+ * para marcar el plan actual sin pedirla por su cuenta.
+ */
+export function UsageCard({ alCargar }: { alCargar?: (usage: UsageData) => void } = {}) {
   const [usage, setUsage] = useState<UsageData | null>(null);
+  const alCargarRef = useRef(alCargar);
+  useEffect(() => {
+    alCargarRef.current = alCargar;
+  });
+  // Si /api/usage falla, se dice (antes quedaba cargando para siempre).
+  const [fallo, setFallo] = useState(false);
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
-    fetch("/api/usage")
-      .then((res) => res.json())
-      .then(setUsage)
-      .catch(console.error);
-  }, []);
+    let vivo = true;
+    pedirUso(intento > 0).then((d) => {
+      if (!vivo) return;
+      if (d) {
+        setUsage(d);
+        alCargarRef.current?.(d);
+      } else setFallo(true);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [intento]);
 
   if (!usage) {
-    return (
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{ background: "rgb(var(--accent-rgb) / 0.1)", color: "var(--accent-text)" }}
-          >
-            <Activity className="h-4 w-4" />
+    if (fallo) {
+      // Sin el filete del bloque: el error de carga ya trae el suyo.
+      return (
+        <section aria-label="Uso del plan">
+          <div>
+            <ErrorCarga
+              titulo="No pudimos cargar el uso del plan."
+              texto="Revisa tu conexión e inténtalo de nuevo."
+              acciones={
+                <Boton
+                  variante="secundario"
+                  onClick={() => {
+                    setFallo(false);
+                    setIntento((n) => n + 1);
+                  }}
+                >
+                  Reintentar
+                </Boton>
+              }
+            />
           </div>
-          <h3 className="text-sm font-semibold text-foreground">Uso del plan</h3>
+        </section>
+      );
+    }
+    // Esqueleto con la forma real: título a la izquierda y dos filas de medidor.
+    return (
+      <Marco etiqueta="Uso del plan">
+        <div className="t">
+          <Esqueleto variante="bloque" etiquetaAccesible="Cargando el uso del plan…" />
         </div>
-        <div className="h-24 flex items-center justify-center">
-          <div className="w-6 h-6 border-2 border-border border-t-[var(--accent)] rounded-full animate-spin" />
+        <div className="m">
+          <div className="k-esq" aria-hidden="true" style={{ gridTemplateColumns: "96px minmax(0, 1fr)", columnGap: 14 }}>
+            <i style={{ width: "70%" }} />
+            <i style={{ height: 22 }} />
+            <i style={{ width: "50%" }} />
+            <i style={{ height: 22 }} />
+          </div>
         </div>
-      </div>
+      </Marco>
     );
   }
 
@@ -160,149 +191,53 @@ export function UsageCard() {
   // misleading "X / 3" bars.
   if (usage.planStatus === "beta") {
     return (
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center"
-              style={{ background: "rgb(var(--accent-rgb) / 0.1)", color: "var(--accent-text)" }}
-            >
-              <Activity className="h-4 w-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Uso del plan</h3>
-              <p
-                className="text-[10px] uppercase text-muted-foreground/70 mt-0.5"
-                style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.14em" }}
-              >
-                Acceso sin restricciones
-              </p>
-            </div>
-          </div>
-          <div
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium"
-            style={{
-              background: "rgb(var(--accent-rgb) / 0.1)",
-              borderColor: "rgb(var(--accent-rgb) / 0.4)",
-              color: "var(--accent-text)",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            <Sparkles className="h-3 w-3" />
-            <span>BETA</span>
-          </div>
+      <Marco>
+        <div className="t">
+          <h2 id="k-uso-t" className="k-t22">Uso del plan</h2>
+          <p>
+            <Estado tipo="ok" tamLetra={14}>Generaciones ilimitadas</Estado>
+          </p>
+          <p>Durante la fase de prueba.</p>
         </div>
-        <div className="flex items-center gap-6">
-          <div>
-            <p className="text-2xl font-semibold text-foreground tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>
-              {usage.monthlyGenerations}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">este mes</p>
-          </div>
-          <div>
-            <p className="text-2xl font-semibold text-foreground tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>
-              {usage.dailyGenerations}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">hoy</p>
-          </div>
-          <div className="ml-auto text-right">
-            <p className="text-sm font-semibold" style={{ color: "var(--accent-text)" }}>Generaciones ilimitadas</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">durante la fase de prueba</p>
-          </div>
+        <div className="m">
+          <Kpis>
+            <Kpi cifra={usage.monthlyGenerations} etiqueta="Generaciones este mes" tamLetra={32} />
+            <Kpi cifra={usage.dailyGenerations} etiqueta="Generaciones hoy" tamLetra={32} />
+          </Kpis>
         </div>
-      </div>
+      </Marco>
     );
   }
 
-  const monthlyPercent = Math.min((usage.monthlyGenerations / usage.limits.generationsPerMonth) * 100, 100);
-  const dailyPercent = Math.min((usage.dailyGenerations / usage.limits.generationsPerDay) * 100, 100);
   const monthlyRemaining = usage.limits.generationsPerMonth - usage.monthlyGenerations;
-
-  const getBarColor = (percent: number) => {
-    if (percent >= 90) return "var(--danger)";
-    if (percent >= 70) return "var(--warn)";
-    return "var(--accent)";
-  };
-
-  const monthlyColor = getBarColor(monthlyPercent);
-  const dailyColor = getBarColor(dailyPercent);
+  const dailyRemaining = Math.max(0, usage.limits.generationsPerDay - usage.dailyGenerations);
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 transition-all duration-200">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{ background: "rgb(var(--accent-rgb) / 0.1)", color: "var(--accent-text)" }}
-          >
-            <Activity className="h-4 w-4" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Uso del plan</h3>
-            <p
-              className="text-[10px] uppercase text-muted-foreground/70 mt-0.5"
-              style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.14em" }}
-            >
-              {monthlyRemaining > 0
-                ? `${monthlyRemaining} generaciones restantes`
-                : "Límite alcanzado"}
-            </p>
-          </div>
-        </div>
-        <div
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium"
-          style={{
-            background: "rgb(var(--accent-rgb) / 0.1)",
-            borderColor: "rgb(var(--accent-rgb) / 0.4)",
-            color: "var(--accent-text)",
-            fontFamily: "var(--font-mono)",
-          }}
-        >
-          <span className="tabular-nums">{Math.round(monthlyPercent)}%</span>
-        </div>
+    <Marco>
+      <div className="t">
+        <h2 id="k-uso-t" className="k-t22">Uso del plan</h2>
+        <p>
+          {monthlyRemaining > 0 ? (
+            // Derivado de /api/usage: tope del plan menos lo generado (mes y día).
+            <>
+              Generaciones: {monthlyRemaining === 1 ? "queda" : "quedan"} {monthlyRemaining} este mes y{" "}
+              {dailyRemaining} hoy.
+            </>
+          ) : (
+            <Estado tipo="vencido" tamLetra={14}>Límite alcanzado</Estado>
+          )}
+        </p>
       </div>
-
-      <div className="space-y-4">
-        {/* Monthly */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-3.5 w-3.5 text-muted-foreground/60" />
-              <span className="text-xs font-medium text-muted-foreground">Mensuales</span>
-            </div>
-            <span className="text-xs font-medium tabular-nums text-foreground" style={{ fontFamily: "var(--font-mono)" }}>
-              {usage.monthlyGenerations}
-              <span className="text-muted-foreground/60"> / {usage.limits.generationsPerMonth}</span>
-            </span>
-          </div>
-          <div className="w-full h-1.5 rounded-full overflow-hidden bg-secondary">
-            <div
-              className="h-full rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${monthlyPercent}%`, background: monthlyColor }}
-            />
-          </div>
-        </div>
-
-        {/* Daily */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-3.5 w-3.5 text-muted-foreground/60" />
-              <span className="text-xs font-medium text-muted-foreground">Hoy</span>
-            </div>
-            <span className="text-xs font-medium tabular-nums text-foreground" style={{ fontFamily: "var(--font-mono)" }}>
-              {usage.dailyGenerations}
-              <span className="text-muted-foreground/60"> / {usage.limits.generationsPerDay}</span>
-            </span>
-          </div>
-          <div className="w-full h-1.5 rounded-full overflow-hidden bg-secondary">
-            <div
-              className="h-full rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${dailyPercent}%`, background: dailyColor }}
-            />
-          </div>
-        </div>
+      <div className="m">
+        <Medidor
+          filas={[
+            { etiqueta: "Este mes", usado: usage.monthlyGenerations, total: usage.limits.generationsPerMonth },
+            { etiqueta: "Hoy", usado: usage.dailyGenerations, total: usage.limits.generationsPerDay },
+          ]}
+          libres={Math.max(0, monthlyRemaining)}
+          unidadLibres="restantes"
+        />
       </div>
-    </div>
+    </Marco>
   );
 }

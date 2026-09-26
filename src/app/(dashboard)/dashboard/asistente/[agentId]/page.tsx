@@ -1,47 +1,44 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Header } from "@/components/dashboard/Header";
-import { Button } from "@/components/ui/button";
-import { AGENTS, isValidAgentId, isIncludedAgent, INCLUDED_AGENT_IDS, type AgentId } from "@/lib/agents";
-import {
-  Send,
-  Plus,
-  Trash2,
-  ArrowLeft,
-  Loader2,
-  Bot,
-  MessageCircle,
-  Brain,
-  ChevronRight,
-  Upload,
-  X,
-  Paperclip,
-  Image as ImageIcon,
-  Mic,
-  FileText,
-  Download,
-  Copy,
-  Check,
-  Lock,
-  Search,
-  ArrowUp,
-  Scale,
-  Share2,
-  MoreHorizontal,
-  Building2,
-} from "lucide-react";
 import { upload } from "@vercel/blob/client";
-import { Badge } from "@/components/ui/badge";
+import { Header } from "@/components/dashboard/Header";
 import { AudioRecorder } from "@/components/dashboard/AudioRecorder";
+import { RespuestaMarkdown } from "@/components/agents/RespuestaMarkdown";
+import { AGENTS, isValidAgentId, isIncludedAgent, INCLUDED_AGENT_IDS, type AgentId } from "@/lib/agents";
 import { saveAudio, getPendingAudios, deleteAudio } from "@/lib/audio-storage";
 import { MAX_IMAGE_BYTES, MAX_IMAGE_MB_LABEL, isImageMediaType } from "@/lib/chat-limits";
-import { tinte } from "@/lib/tinte";
 import { formatoTamano } from "@/lib/upload-limits";
 import { SUGERENCIAS } from "@/lib/agent-sugerencias";
-import { RespuestaMarkdown } from "@/components/agents/RespuestaMarkdown";
+import {
+  AGENTES,
+  AreaTexto,
+  Aviso,
+  Boton,
+  BotonIcono,
+  Buscador,
+  CabeceraPieza,
+  Chevron,
+  Cruz,
+  ErrorCarga,
+  Escribiendo,
+  Esqueleto,
+  FichaAgente,
+  Flecha,
+  MensajeUsuario,
+  MenuMas,
+  Modal,
+  Pagina,
+  Pieza,
+  RespuestaAgente,
+  Sigilo,
+  TipoArchivo,
+  tipoDeArchivo,
+  type AgenteId,
+  type ItemMenu,
+} from "@/components/kit";
 
 interface Chat {
   id: string;
@@ -65,16 +62,6 @@ interface PendingAttachment {
   persistedId?: string;
 }
 
-/* ── Agent color map ── */
-const AGENT_COLORS: Record<string, string> = {
-  themis: "var(--accent-hi)",
-  chronos: "var(--info)",
-  metra: "var(--ok)",
-  nomethes: "var(--warn)",
-  hermes: "var(--pink)",
-  logistes: "var(--logistes)",
-};
-
 function formatRelativeDate(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
@@ -83,7 +70,7 @@ function formatRelativeDate(iso: string): string {
   if (diffDays === 0) return "Hoy";
   if (diffDays === 1) return "Ayer";
   if (diffDays < 7) return "Esta semana";
-  return d.toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit" });
+  return fechaCorta(d);
 }
 
 function groupChatsByDate(chats: Chat[]): { label: string; items: Chat[] }[] {
@@ -97,16 +84,192 @@ function groupChatsByDate(chats: Chat[]): { label: string; items: Chat[] }[] {
   return order.map((label) => ({ label, items: groups[label] }));
 }
 
+/* Fechas con el formato del SPEC («18 sep», «3:42 p. m.»). Salen de los
+   createdAt/updatedAt reales que devuelve la API del chat. */
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+function mismoDia(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function horaDe(d: Date): string {
+  return d.toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" });
+}
+
+function fechaCorta(d: Date): string {
+  const base = `${d.getDate()} ${MESES[d.getMonth()]}`;
+  return d.getFullYear() === new Date().getFullYear() ? base : `${base} ${d.getFullYear()}`;
+}
+
+/** Hora de un mensaje: «3:42 p. m.» si es de hoy; «18 sep · 3:42 p. m.» si no. */
+function fechaMensaje(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return mismoDia(d, new Date()) ? horaDe(d) : `${fechaCorta(d)} · ${horaDe(d)}`;
+}
+
+/** Fecha de una conversación en la lista: la hora si es de hoy; si no, el día. */
+function fechaHilo(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return mismoDia(d, new Date()) ? horaDe(d) : fechaCorta(d);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Estilos locales del chat (SPEC §g 04, maqueta secundarias.html c).
+   El kit trae la respuesta-documento, el mensaje del usuario, el redactor y
+   la ficha de agente; aquí va el armazón propio de esta pantalla: carril de
+   conversaciones (3 columnas; 4 en ≤ 1180) + conversación (9; 8), el hilo
+   activo en área negativa que sangra medio medianil, las fichas de archivo y
+   la bienvenida. El alto del chat es EXACTAMENTE el de la ventana (menos el
+   dock móvil y el banner de demo): el contenido hace scroll por dentro.
+   ════════════════════════════════════════════════════════════════════ */
+const CSS_CHAT = `
+.asis-cuerpo { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr); column-gap: var(--g); padding: 0 var(--pad); }
+.asis-carril { grid-column: 1 / 4; grid-row: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.asis-conv { position: relative; grid-column: 4 / 13; grid-row: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.asis-cuerpo[data-carril="no"] .asis-conv { grid-column: 2 / 12; }
+.asis-velo, .asis-cerrar, .asis-solo-movil { display: none; }
+
+.asis-agente { display: flex; align-items: flex-end; gap: 16px; padding: 18px 0 16px; border-bottom: 2px solid var(--rule); }
+.asis-agente > div { min-width: 0; }
+.asis-agente .nom { display: block; font: 800 32px/.9 var(--f-sans); font-stretch: 72%; letter-spacing: -.02em; }
+.asis-agente .of { display: block; margin-top: 6px; font-size: 14px; line-height: 1.3; color: var(--ink-2); }
+.asis-carril > * { flex: none; }
+.asis-carril > .k-btn { margin-top: 14px; }
+.asis-carril > .k-campo { margin-top: 10px; }
+.asis-carril > .asis-hilos { position: relative; flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  margin: 4px calc(var(--g) / -2 - 6px) 0; padding: 0 calc(var(--g) / 2 + 6px) 16px; }
+.asis-hilos-t { margin: 16px 0 4px; font-size: 13px; font-weight: 600; color: var(--ink-3); }
+.asis-hilos ul { list-style: none; margin: 0; padding: 0; }
+.asis-hilo { display: block; width: 100%; padding: 11px 0; border-bottom: 1px solid var(--line); text-align: left;
+  font-size: 15px; font-weight: 500; line-height: 1.3; color: var(--ink); background: transparent; cursor: pointer; overflow-wrap: anywhere; }
+.asis-hilo small { display: block; margin-top: 3px; font-size: 13px; font-weight: 400; color: var(--ink-3); }
+.asis-hilo:hover { background: var(--hl); box-shadow: calc(var(--g) / -2) 0 0 var(--hl), calc(var(--g) / 2) 0 0 var(--hl); }
+.asis-hilo[aria-current="true"] { background: var(--neg-area); color: var(--on-neg-area); font-weight: 600;
+  box-shadow: calc(var(--g) / -2) 0 0 var(--neg-area), calc(var(--g) / 2) 0 0 var(--neg-area), calc(var(--g) / -2 - 4px) 0 0 var(--neg-area-edge); }
+.asis-hilo[aria-current="true"] small { color: var(--on-neg-area-2); }
+:root .asis-hilo:focus-visible { outline-offset: -3px; }
+:root .asis-hilo[aria-current="true"]:focus-visible { outline-color: var(--on-neg-area); }
+.asis-hilos-vacio { margin: 16px 0 0; font-size: 14px; line-height: 1.45; color: var(--ink-3); }
+.asis-hilos-vacio + .k-btn { margin-top: 8px; }
+.asis-hilos .k-esq { margin-top: 16px; }
+.asis-memoria { border-top: 2px solid var(--rule); padding: 4px 0 14px; }
+.asis-memoria > button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px;
+  font-size: 15px; font-weight: 700; color: var(--ink); background: transparent; cursor: pointer; }
+.asis-memoria > button svg { width: 14px; height: 14px; flex: none; }
+.asis-memoria > button[aria-expanded="true"] svg { transform: rotate(90deg); }
+.asis-memoria p { margin: 0 0 8px; font-size: 13px; line-height: 1.35; color: var(--ink-3); }
+.asis-memoria .k-in { min-height: 112px; font-size: 15px; }
+.asis-memoria .k-btn { margin-top: 8px; }
+
+.asis-barra { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.asis-barra h2 { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 18px; font-weight: 650; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asis-barra .k-btn { gap: 10px; }
+.asis-barra .k-btn svg { width: 12px; height: 12px; }
+.asis-barra .k-menu > .peligro small { white-space: nowrap; }
+.asis-aviso { padding-top: 12px; }
+.asis-conv > * { flex: none; }
+/* position: relative contiene lo «solo para lectores» (absoluto) de las respuestas:
+   sin esto, el título oculto de las notas al pie alargaba la página entera. */
+.asis-conv > .asis-mensajes { position: relative; flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  margin: 0 calc(var(--g) / -2); padding: 0 calc(var(--g) / 2); }
+.asis-hilo-conv { display: flex; flex-direction: column; padding: 24px 0 8px; }
+.asis-hilo-conv > .k-msg-u:first-child { margin-top: 0; }
+.asis-hilo-conv > .k-aviso { margin: 0 0 24px; }
+.asis-texto-u { white-space: pre-wrap; overflow-wrap: anywhere; }
+.asis-fichas { list-style: none; margin: 2px 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.k-msg-u > .asis-fichas { margin: 0 0 10px; justify-content: flex-end; }
+.asis-ficha { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; max-width: 100%; padding: 6px 12px 6px 8px;
+  border: 1.5px solid var(--line-strong); color: var(--ink); background: transparent; }
+.asis-ficha .n { min-width: 0; font-size: 15px; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; }
+.asis-ficha .p { font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+.asis-ficha .d { font-size: 14px; font-weight: 700; white-space: nowrap; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.asis-ficha img { width: 28px; height: 28px; flex: none; object-fit: cover; }
+a.asis-ficha { border-color: var(--rule); }
+a.asis-ficha:hover { background: var(--hl); }
+.asis-escribe .cuerpo { display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 56px; }
+.asis-escribe .asis-herr { margin: 0; font-size: 14px; color: var(--ink-2); }
+.asis-bloq { max-width: 560px; margin-top: 4px; padding: 16px 18px 18px; border: 2px solid var(--rule); }
+.asis-bloq h3 { margin: 0; font: 800 22px/1.05 var(--f-sans); font-stretch: 75%; letter-spacing: -.01em; }
+.asis-bloq p { margin: 8px 0 14px; font-size: 15px; line-height: 1.45; color: var(--ink-2); }
+
+.asis-bienv { padding: 40px 0 24px; max-width: 780px; }
+.asis-bienv h3 { margin: 20px 0 0; font: 800 40px/.95 var(--f-sans); font-stretch: 72%; letter-spacing: -.03em; }
+.asis-bienv > p { margin: 12px 0 0; max-width: 60ch; font-size: 17px; line-height: 1.5; color: var(--ink-2); }
+.asis-bienv > p.asis-rot { margin-top: 28px; font-size: 13px; font-weight: 600; color: var(--ink-3); }
+.asis-bienv > p.asis-nota { margin-top: 18px; font-size: 14px; line-height: 1.45; color: var(--ink-3); }
+.asis-sugs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.asis-sug { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 44px; padding: 12px 14px;
+  border: 1.5px solid var(--line-strong); background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+.asis-sug:hover { border-color: var(--rule); background: var(--hl); }
+.asis-sug b { font-size: 15px; font-weight: 700; line-height: 1.25; }
+.asis-sug span { font-size: 14px; line-height: 1.4; color: var(--ink-3);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+.asis-redactar { padding: 12px 0 14px; }
+.asis-redactar .k-redactor textarea { max-height: 160px; overflow-y: auto; }
+.asis-redactar .k-redactor .herr { gap: 20px; }
+.asis-subiendo { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.asis-conteo { font: 500 13px/1 var(--f-mono); color: var(--ink-3); }
+.asis-conteo[data-alto] { color: var(--warn-text); }
+.asis-pend { list-style: none; margin: 0; padding: 12px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.asis-pend .asis-ficha { padding-right: 0; }
+.asis-adjerr { padding-top: 12px; }
+
+@media (max-width: 1180px) {
+  .asis-carril { grid-column: 1 / 5; }
+  .asis-conv { grid-column: 5 / 13; }
+}
+/* Por debajo de 1024 px la lista de conversaciones es una capa que se abre con
+   «Conversaciones» (cerrada por defecto: se entra al agente, no a la lista). */
+@media (max-width: 1023px) {
+  .asis-cuerpo { display: flex; flex-direction: column; }
+  .asis-conv { flex: 1 1 auto; }
+  .asis-carril { display: none; }
+  .asis-carril[data-movil] { display: flex; position: fixed; top: 0; bottom: 0; left: 0; z-index: 41;
+    width: min(380px, calc(100vw - 32px)); padding: 0 16px; background: var(--surface-0);
+    border-right: 2px solid var(--rule); box-shadow: var(--shadow-pop); }
+  .asis-velo { display: block; position: fixed; inset: 0; z-index: 40; background: var(--scrim); }
+  .asis-cerrar { display: inline-flex; margin-left: auto; align-self: flex-start; }
+  .asis-solo-movil { display: inline-flex; }
+  .asis-solo-escritorio { display: none; }
+  .asis-hilos { margin: 4px -16px 0; padding: 0 16px 16px; }
+  .asis-hilo:hover { box-shadow: -8px 0 0 var(--hl), 8px 0 0 var(--hl); }
+  .asis-hilo[aria-current="true"] { box-shadow: -8px 0 0 var(--neg-area), 8px 0 0 var(--neg-area), -12px 0 0 var(--neg-area-edge); }
+}
+@media (max-width: 860px) {
+  .asis-barra { flex-wrap: wrap; gap: 8px; min-height: 0; padding: 8px 0 10px; }
+  .asis-barra h2 { order: 3; flex-basis: 100%; font-size: 16px; }
+  .asis-barra .k-btn, .asis-barra .k-bt { min-height: 44px; }
+  .asis-barra .k-mas > .k-bt { margin-left: auto; }
+  .asis-bienv { padding-top: 24px; }
+  .asis-bienv h3 { font-size: 32px; }
+  .asis-sugs { grid-template-columns: minmax(0, 1fr); }
+  .asis-hilo-conv { padding-top: 16px; }
+  .asis-redactar { padding: 10px 0 12px; }
+  .asis-redactar .k-redactor textarea { min-height: 52px; padding: 12px 12px 4px; font-size: 16px; }
+  .asis-redactar .k-redactor .herr { gap: 16px; padding: 0 12px 4px; }
+  .asis-redactar .k-redactor > .k-btn { margin: 0 8px 8px 0; }
+  .asis-redactar .k-aviso-ia { margin-top: 6px; font-size: 12px; }
+}
+`;
+
 export default function AgentPage() {
   const params = useParams();
   const router = useRouter();
+  // Pregunta sugerida desde la lista de agentes (?pregunta=…): se deja escrita
+  // en el redactor; el usuario decide si la envía tal cual o la ajusta.
+  const busqueda = useSearchParams();
   const { data: session } = useSession();
   const agentId = params.agentId as string;
 
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(() => busqueda.get("pregunta") ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -133,12 +296,12 @@ export default function AgentPage() {
   // Aviso mientras el agente construye un archivo: tarda varios segundos.
   const [herramientaEnCurso, setHerramientaEnCurso] = useState("");
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
-  const [compositorEnfocado, setCompositorEnfocado] = useState(false);
   // Id del chat recién creado por el envío en curso (ver el efecto de carga).
   const skipReloadForChatId = useRef<string | null>(null);
-  const [showExportMenu, setShowExportMenu] = useState(false);
   const [sidebarSearch, setSidebarSearch] = useState("");
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+  // Conversación que se va a eliminar (el modal pide confirmación antes de borrar).
+  const [porEliminar, setPorEliminar] = useState<Chat | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -147,17 +310,10 @@ export default function AgentPage() {
   const isValid = isValidAgentId(agentId);
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, []);
 
   useEffect(() => { scrollToBottom(); }, [messages, isLoading, scrollToBottom]);
-
-  useEffect(() => {
-    if (!showExportMenu) return;
-    const close = () => setShowExportMenu(false);
-    document.addEventListener("click", close, { once: true });
-    return () => document.removeEventListener("click", close);
-  }, [showExportMenu]);
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
@@ -166,6 +322,17 @@ export default function AgentPage() {
       el.style.height = Math.min(el.scrollHeight, 160) + "px";
     }
   }, []);
+
+  // Si la pregunta llega escrita desde la lista de agentes, el cuadro se ajusta a ella.
+  useEffect(() => { autoResize(); }, [autoResize, hasAccess]);
+
+  // La capa de conversaciones (móvil) se cierra con Escape, como el índice.
+  useEffect(() => {
+    if (!listaMovil) return;
+    const alTeclear = (e: KeyboardEvent) => { if (e.key === "Escape") setListaMovil(false); };
+    document.addEventListener("keydown", alTeclear);
+    return () => document.removeEventListener("keydown", alTeclear);
+  }, [listaMovil]);
 
   // Resolve agent access (included agents + active add-ons)
   useEffect(() => {
@@ -237,157 +404,84 @@ export default function AgentPage() {
       .finally(() => setLoadingMessages(false));
   }, [activeChatId, agentId]);
 
+  // Alto exacto de la ventana: menos el dock móvil (--topbar-h, lo mide el
+  // armazón) y el banner de demo (--demo-banner-h, lo mide el banner).
+  const ALTO =
+    "flex flex-col h-[calc(100dvh-var(--topbar-h,0px)-var(--demo-banner-h,0px))] lg:h-[calc(100dvh-var(--demo-banner-h,0px))]";
+
   if (!isValid) {
     return (
-      <div className="p-8 text-center">
-        <p style={{ color: "var(--ink-3)" }}>Agente no encontrado.</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.push("/dashboard/asistente")}>
-          <ArrowLeft className="h-4 w-4 mr-2" /> Volver
-        </Button>
-      </div>
+      <>
+        <Header title="Asistente IA" />
+        <Pagina>
+          <Pieza>
+            <ErrorCarga
+              titulo="Agente no encontrado."
+              texto="La dirección no corresponde a ninguno de los agentes de SOPH.IA."
+              acciones={
+                <Boton variante="secundario" flecha="vuelve" onClick={() => router.push("/dashboard/asistente")}>
+                  Volver
+                </Boton>
+              }
+            />
+          </Pieza>
+        </Pagina>
+      </>
     );
   }
 
   const agent = AGENTS[agentId as AgentId];
-  const agentColor = AGENT_COLORS[agentId] || "var(--accent)";
-  /** Tinte del color del agente: fondos y bordes de acento. Ver `lib/tinte`. */
-  const tint = (a: number) => tinte(agentColor, a);
-
-  /**
-   * Fichas de archivo de un mensaje. `generados` separa los dos casos: los que
-   * subió el usuario (antes del texto) y los que produjo el agente (después de
-   * la respuesta, y descargables).
-   */
-  const fichas = (msg: ChatMessage, generados: boolean) => {
-    const lista = (msg.attachments || []).filter((a) => !!a.generado === generados);
-    if (lista.length === 0) return null;
-    return (
-      <div
-        className={`flex flex-wrap gap-1.5 ${generados ? "mt-2.5" : ""} ${
-          msg.role === "user" ? "justify-end" : "justify-start"
-        }`}
-      >
-        {lista.map((att, i) => {
-          const Ficha = att.generado ? "a" : "div";
-          return (
-            <Ficha
-              key={i}
-              {...(att.generado
-                ? { href: att.url, download: att.name, title: `Descargar ${att.name}` }
-                : {})}
-              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${
-                att.generado ? "cursor-pointer transition-colors" : ""
-              }`}
-              style={{
-                background: "rgb(var(--accent-rgb) / 0.1)",
-                border: "1px solid rgb(var(--accent-rgb) / 0.22)",
-                textDecoration: "none",
-              }}
-              onMouseEnter={(e) => {
-                if (att.generado) e.currentTarget.style.background = "rgb(var(--accent-rgb) / 0.18)";
-              }}
-              onMouseLeave={(e) => {
-                if (att.generado) e.currentTarget.style.background = "rgb(var(--accent-rgb) / 0.1)";
-              }}
-            >
-              <span style={{ color: "var(--accent-text)" }}>{getFileIcon(att.type)}</span>
-              <span
-                style={{
-                  fontFamily: "'Geist Mono', ui-monospace, monospace",
-                  fontSize: 10,
-                  letterSpacing: "0.04em",
-                  color: "var(--accent-text)",
-                  maxWidth: 160,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-                title={att.name}
-              >
-                {att.name}
-              </span>
-              {/* El tamaño iba en un morado fijo del tema oscuro
-                  (rgba(154,127,255,0.55)); sobre el fondo claro quedaba
-                  ilegible. `--ink-4` se adapta a los dos temas. */}
-              {formatoTamano(att.size) && (
-                <span
-                  style={{
-                    fontFamily: "'Geist Mono', ui-monospace, monospace",
-                    fontSize: 9,
-                    color: "var(--ink-4)",
-                  }}
-                >
-                  {formatoTamano(att.size)}
-                </span>
-              )}
-              {att.generado && (
-                <Download className="h-3 w-3" style={{ color: "var(--accent-text)" }} />
-              )}
-            </Ficha>
-          );
-        })}
-      </div>
-    );
-  };
+  /** Identidad del agente en el kit: sigilo, oficio y género gramatical. */
+  const idKit = agentId as AgenteId;
+  const ficha = AGENTES[idKit];
   const includedByDefault = isIncludedAgent(agentId as AgentId);
 
   // Checking add-on access for a non-included agent — show a brief loader so we
   // don't flash the upgrade screen at a user who actually has the add-on.
   if (hasAccess === null && !includedByDefault) {
     return (
-      <div className="flex items-center justify-center h-[calc(100dvh-var(--topbar-h,0px)-var(--demo-banner-h,0px))] lg:h-[calc(100dvh-var(--demo-banner-h,0px))]">
-        <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent-text)" }} />
+      <div className={ALTO}>
+        <Header
+          title={agent.name}
+          breadcrumbs={[
+            { label: "Asistente IA", href: "/dashboard/asistente" },
+            { label: agent.name },
+          ]}
+        />
+        <Pagina>
+          <Pieza>
+            <Esqueleto variante="bloque" etiquetaAccesible={`Comprobando el acceso a ${agent.name}…`} />
+          </Pieza>
+        </Pagina>
       </div>
     );
   }
 
   if (hasAccess === false) {
     return (
-      <div className="flex flex-col h-[calc(100dvh-var(--topbar-h,0px)-var(--demo-banner-h,0px))] lg:h-[calc(100dvh-var(--demo-banner-h,0px))]">
+      <>
         <Header
           title={agent.name}
-          subtitle={agent.title}
           breadcrumbs={[
             { label: "Asistente IA", href: "/dashboard/asistente" },
             { label: agent.name },
           ]}
         />
-        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-6">
-          <div
-            className="w-20 h-20 rounded-3xl flex items-center justify-center shadow-xl opacity-50"
-            style={{ background: `linear-gradient(135deg, ${tint(0.38)}, ${tint(0.19)})` }}
-          >
-            <agent.icon className="h-10 w-10 text-white" />
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <span
-              className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-3 py-1.5 rounded-full mb-1"
-              style={{
-                fontFamily: "var(--hifi-mono, ui-monospace)",
-                letterSpacing: "0.12em",
-                background: "rgb(var(--accent-rgb) / 0.12)",
-                border: "1px solid rgb(var(--accent-rgb) / 0.35)",
-                color: "var(--accent-text)",
-              }}
-            >
-              PRÓXIMAMENTE
-            </span>
-            <h2 className="text-xl font-bold" style={{ color: "var(--ink)" }}>
-              {agent.name} está en camino
-            </h2>
-            <p className="text-sm max-w-sm leading-relaxed" style={{ color: "var(--ink-2)" }}>
-              {agent.description}
-            </p>
-            <p className="text-xs mt-2 max-w-xs" style={{ color: "var(--ink-4)" }}>
-              Estamos afinando este agente. Mientras tanto, Themis y Chronos están
-              disponibles para ayudarte.
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => router.push("/dashboard/asistente")}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Volver a agentes
-          </Button>
-        </div>
-      </div>
+        <Pagina>
+          <Pieza>
+            <CabeceraPieza nn="04" titulo={`${agent.name} está en camino`} subtitulo={agent.description} />
+            <div style={{ maxWidth: 640 }}>
+              <FichaAgente agente={idKit} activo={false} nivel={2} />
+              <p style={{ margin: "18px 0 20px", fontSize: 15, lineHeight: 1.45, color: "var(--ink-2)", maxWidth: "60ch" }}>
+                Estamos afinando este agente. Mientras tanto, Themis y Chronos están disponibles para ayudarte.
+              </p>
+              <Boton variante="secundario" flecha="vuelve" onClick={() => router.push("/dashboard/asistente")}>
+                Volver a agentes
+              </Boton>
+            </div>
+          </Pieza>
+        </Pagina>
+      </>
     );
   }
 
@@ -486,7 +580,7 @@ export default function AgentPage() {
       const uploaded: { name: string; url: string; type: string; size: number }[] = [];
       for (let i = 0; i < attachments.length; i++) {
         const att = attachments[i];
-        setUploadStatus(`Subiendo ${i + 1}/${attachments.length}...`);
+        setUploadStatus(`Subiendo ${i + 1} de ${attachments.length}…`);
         const safeName = att.file.name.replace(/[^\w.\-]+/g, "_");
         const result = await upload(`agent-files/${Date.now()}-${safeName}`, att.file, {
           access: "private",
@@ -596,7 +690,7 @@ export default function AgentPage() {
                   setChats((prev) => [
                     {
                       id: meta.chatId,
-                      title: meta.title || "Nueva conversacion",
+                      title: meta.title || "Nueva conversación",
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
                       _count: { messages: 2 },
@@ -700,7 +794,7 @@ export default function AgentPage() {
         if (!activeChatId && data.chatId) {
           setActiveChatId(data.chatId);
           setChats((prev) => [
-            { id: data.chatId, title: data.title || "Nueva conversacion", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), _count: { messages: 2 } },
+            { id: data.chatId, title: data.title || "Nueva conversación", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), _count: { messages: 2 } },
             ...prev,
           ]);
         } else {
@@ -720,7 +814,7 @@ export default function AgentPage() {
     } catch {
       setMessages((prev) => [
         ...prev,
-        { id: `err-${Date.now()}`, role: "assistant", content: "Error de conexion. Intenta de nuevo.", createdAt: new Date().toISOString() },
+        { id: `err-${Date.now()}`, role: "assistant", content: "Error de conexión. Intenta de nuevo.", createdAt: new Date().toISOString() },
       ]);
     } finally {
       setHerramientaEnCurso("");
@@ -739,6 +833,7 @@ export default function AgentPage() {
   const startNewChat = () => {
     setActiveChatId(null);
     setMessages([]);
+    setListaMovil(false);
   };
 
   const deleteChat = async (chatId: string) => {
@@ -752,7 +847,6 @@ export default function AgentPage() {
   const exportChat = async (format: "txt" | "pdf") => {
     if (!activeChatId || exporting) return;
     setExporting(true);
-    setShowExportMenu(false);
     setExportError("");
     try {
       const res = await fetch(`/api/agents/${agentId}/chat/export?chatId=${activeChatId}&format=${format}`);
@@ -777,12 +871,6 @@ export default function AgentPage() {
     } finally { setExporting(false); }
   };
 
-  const getFileIcon = (type: string) => {
-    if (type.startsWith("image/")) return <ImageIcon className="h-3.5 w-3.5" />;
-    if (type.startsWith("audio/")) return <Mic className="h-3.5 w-3.5" />;
-    return <FileText className="h-3.5 w-3.5" />;
-  };
-
   const filteredChats = sidebarSearch.trim()
     ? chats.filter((c) => c.title.toLowerCase().includes(sidebarSearch.toLowerCase()))
     : chats;
@@ -791,762 +879,388 @@ export default function AgentPage() {
 
   const activeChat = chats.find((c) => c.id === activeChatId);
 
-  /* ── User initials ── */
-  const userInitials = session?.user?.name
-    ? session.user.name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()
-    : "AM";
+  /** Autor de los mensajes del usuario: su nombre de la sesión. */
+  const nombreUsuario = session?.user?.name?.trim() || "Tú";
+  const estadoAgente = ficha.femenino ? "activa" : "activo";
 
-  /* ── Agent monogram ── */
-  const agentMonogram = agent.name.slice(0, 2).toUpperCase();
+  /** Lista ↔ chat: columna fija en escritorio, capa en móvil (mismo criterio de siempre). */
+  const alternarLista = () => {
+    if (window.innerWidth < 1024) setListaMovil((v) => !v);
+    else setShowSidebar((v) => !v);
+  };
+
+  // Acciones de la conversación abierta: exportar (si ya tiene mensajes) y
+  // eliminar, que pide confirmación (SPEC §5.6: nada de papeleras sueltas).
+  const accionesConversacion: ItemMenu[] = [];
+  if (activeChatId && messages.length > 0) {
+    accionesConversacion.push(
+      { etiqueta: "Exportar TXT", alElegir: () => void exportChat("txt"), deshabilitado: exporting },
+      { etiqueta: "Exportar PDF", alElegir: () => void exportChat("pdf"), deshabilitado: exporting },
+    );
+  }
+  if (activeChat) {
+    accionesConversacion.push({
+      etiqueta: "Eliminar conversación…",
+      nota: "pide confirmación",
+      peligro: true,
+      alElegir: () => setPorEliminar(activeChat),
+    });
+  }
+
+  /**
+   * Fichas de archivo de un mensaje. `generados` separa los dos casos: los que
+   * subió el usuario (antes del texto) y los que produjo el agente (después de
+   * la respuesta, y descargables).
+   */
+  const fichas = (msg: ChatMessage, generados: boolean) => {
+    const lista = (msg.attachments || []).filter((a) => !!a.generado === generados);
+    if (lista.length === 0) return null;
+    return (
+      <ul className="asis-fichas" aria-label={generados ? "Archivos generados" : "Archivos adjuntos"}>
+        {lista.map((att, i) => {
+          const tam = formatoTamano(att.size);
+          const contenido = (
+            <>
+              <TipoArchivo>{tipoDeArchivo(att.name)}</TipoArchivo>
+              <span className="n">{att.name}</span>
+              {tam && <span className="p">{tam}</span>}
+            </>
+          );
+          return (
+            <li key={i}>
+              {att.generado ? (
+                <a href={att.url} download={att.name} title={`Descargar ${att.name}`} className="asis-ficha">
+                  {contenido}
+                  <span className="d">Descargar</span>
+                </a>
+              ) : (
+                <span className="asis-ficha">{contenido}</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
 
   return (
-    <div
-      className="flex flex-col h-[calc(100dvh-var(--topbar-h,0px)-var(--demo-banner-h,0px))] lg:h-[calc(100dvh-var(--demo-banner-h,0px))]"
-      style={{ background: "var(--surface-0)" }}
-    >
-      {/* En el teléfono esta cabecera solo repetía «Themis / Asesora Legal»,
-          que ya dicen la barra del hilo y el saludo de bienvenida justo
-          debajo: entre ella, la barra de la app y la del hilo, el chat
-          empezaba pasada la mitad de la pantalla. En sm+ hay sitio de sobra y
-          además lleva el selector de tema, así que allí se conserva. */}
-      <div className="hidden sm:block">
-        <Header
-          title={agent.name}
-          subtitle={agent.title}
-          breadcrumbs={[
-            { label: "Asistente IA", href: "/dashboard/asistente" },
-            { label: agent.name },
-          ]}
-        />
-      </div>
+    <div className={ALTO}>
+      <style href="asistente-chat" precedence="default">
+        {CSS_CHAT}
+      </style>
+      <Header
+        title={agent.name}
+        breadcrumbs={[
+          { label: "Asistente IA", href: "/dashboard/asistente" },
+          { label: agent.name },
+        ]}
+      />
 
-      <div className="flex-1 flex overflow-hidden">
-
-        {/* ─────────────────────────────────────────────
-            SIDEBAR
-        ───────────────────────────────────────────── */}
+      <div className="asis-cuerpo" data-carril={showSidebar ? "si" : "no"}>
+        {/* ─────────────  CARRIL: agente + conversaciones + memoria  ───────────── */}
         {(showSidebar || listaMovil) && (
           <>
-            {/* Mobile backdrop */}
-            {listaMovil && (
-              <div
-                className="fixed inset-0 z-30 lg:hidden"
-                style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(4px)" }}
-                onClick={() => setListaMovil(false)}
-              />
-            )}
+            {listaMovil && <div className="asis-velo" aria-hidden="true" onClick={() => setListaMovil(false)} />}
 
-            <div
-              className={`${listaMovil ? "fixed flex" : "hidden"} ${
-                showSidebar ? "lg:flex" : "lg:hidden"
-              } inset-y-0 left-0 z-40 w-[280px] sm:w-[300px] lg:relative lg:inset-auto lg:z-auto lg:w-64 xl:w-72 flex-col flex-shrink-0`}
-              style={{
-                background: "var(--hifi-surface-1)",
-                borderRight: "1px solid rgb(var(--veil-rgb) / 0.07)",
-              }}
+            <aside
+              id="asis-carril"
+              className="asis-carril"
+              data-movil={listaMovil || undefined}
+              aria-label={`Conversaciones con ${agent.name}`}
             >
-              {/* Sidebar header */}
-              <div
-                className="p-4 space-y-3"
-                style={{ borderBottom: "1px solid var(--hifi-hairline)" }}
-              >
-                {/* Eyebrow + agent name */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p
-                      style={{
-                        fontFamily: "'Geist Mono', ui-monospace, monospace",
-                        fontSize: 9,
-                        letterSpacing: "0.16em",
-                        textTransform: "uppercase",
-                        color: "var(--ink-4)",
-                      }}
-                    >
-                      Conversaciones
-                    </p>
-                    <p
-                      style={{
-                        fontFamily: "'Geist Mono', ui-monospace, monospace",
-                        fontSize: 11,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        color: agentColor,
-                        marginTop: 2,
-                      }}
-                    >
-                      {agent.name}
-                    </p>
-                  </div>
-                  <button
-                    className="lg:hidden p-1.5 rounded-lg transition-colors hover:opacity-70"
-                    onClick={() => setListaMovil(false)}
-                    aria-label="Cerrar conversaciones"
-                    style={{ color: "var(--ink-4)" }}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+              <div className="asis-agente">
+                <Sigilo agente={idKit} ancho={48} />
+                <div>
+                  <span className="nom">{agent.name}</span>
+                  <span className="of">
+                    {ficha.oficio} · {estadoAgente}
+                  </span>
                 </div>
-
-                {/* New chat button */}
-                <button
-                  onClick={startNewChat}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 transition-all duration-150 hover:opacity-90 active:scale-[0.98] cursor-pointer"
-                  style={{
-                    background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
-                    boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.25)",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "var(--on-accent)",
-                  }}
+                <Boton
+                  variante="secundario"
+                  tam={40}
+                  className="asis-cerrar"
+                  onClick={() => setListaMovil(false)}
+                  aria-label="Cerrar conversaciones"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  Nueva conversación
-                </button>
-
-                {/* Search */}
-                <div className="relative">
-                  <Search
-                    className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none"
-                    style={{ color: "var(--ink-4)" }}
-                  />
-                  <input
-                    type="text"
-                    value={sidebarSearch}
-                    onChange={(e) => setSidebarSearch(e.target.value)}
-                    placeholder="Buscar conversaciones..."
-                    className="w-full focus:outline-none"
-                    style={{
-                      paddingLeft: 32,
-                      paddingRight: 12,
-                      paddingTop: 8,
-                      paddingBottom: 8,
-                      background: "var(--surface-3)",
-                      border: "1px solid var(--hifi-hairline)",
-                      borderRadius: 10,
-                      fontSize: 12,
-                      color: "var(--ink)",
-                      fontFamily: "'Geist', system-ui, sans-serif",
-                    }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.border = "1px solid rgb(var(--accent-rgb) / 0.4)";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-                    }}
-                  />
-                </div>
+                  Cerrar
+                </Boton>
               </div>
 
-              {/* Chat list */}
-              <div className="flex-1 overflow-y-auto py-2">
+              <Boton variante="secundario" flecha="crea" ancho onClick={startNewChat}>
+                Nueva conversación
+              </Boton>
+
+              <Buscador
+                etiquetaAccesible="Buscar conversaciones"
+                value={sidebarSearch}
+                onChange={(e) => setSidebarSearch(e.target.value)}
+              />
+
+              <div className="asis-hilos">
                 {loadingChats ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--ink-4)" }} />
-                  </div>
+                  <Esqueleto variante="tabla" filas={3} etiquetaAccesible="Cargando conversaciones…" />
                 ) : filteredChats.length === 0 ? (
-                  <p
-                    className="text-center py-8 px-4 leading-relaxed"
-                    style={{ fontSize: 12, color: "var(--ink-4)" }}
-                  >
-                    {sidebarSearch ? "Sin resultados" : `No tienes conversaciones con ${agent.name}. Empieza una nueva.`}
-                  </p>
+                  sidebarSearch ? (
+                    <>
+                      <p className="asis-hilos-vacio" role="status">
+                        No encontramos «{sidebarSearch}» en tus conversaciones con {agent.name}.
+                      </p>
+                      <Boton variante="fantasma" tam={40} onClick={() => setSidebarSearch("")}>
+                        Limpiar búsqueda
+                      </Boton>
+                    </>
+                  ) : (
+                    <p className="asis-hilos-vacio">
+                      No tienes conversaciones con {agent.name}. Empieza una nueva.
+                    </p>
+                  )
                 ) : (
                   chatGroups.map((group) => (
                     <div key={group.label}>
-                      {/* Section label */}
-                      <p
-                        className="px-4 pt-3 pb-1"
-                        style={{
-                          fontFamily: "'Geist Mono', ui-monospace, monospace",
-                          fontSize: 9,
-                          letterSpacing: "0.14em",
-                          textTransform: "uppercase",
-                          color: "var(--ink-4)",
-                        }}
-                      >
-                        {group.label}
-                      </p>
-
-                      {group.items.map((chat) => {
-                        const isActive = activeChatId === chat.id;
-                        return (
-                          <div
-                            key={chat.id}
-                            className="group relative mx-2 mb-0.5 rounded-xl cursor-pointer transition-all duration-150"
-                            style={{
-                              background: isActive
-                                ? "radial-gradient(ellipse at 0% 50%, rgb(var(--accent-rgb) / 0.12) 0%, rgb(var(--accent-rgb) / 0.04) 100%)"
-                                : "transparent",
-                              borderLeft: isActive
-                                ? "2px solid var(--accent)"
-                                : "2px solid transparent",
-                              boxShadow: isActive
-                                ? "inset 0 0 0 1px rgb(var(--accent-rgb) / 0.15)"
-                                : "none",
-                            }}
-                            onClick={() => {
-                              setActiveChatId(chat.id);
-                              setListaMovil(false);
-                            }}
-                          >
-                            <div className="px-3 py-2.5">
-                              <div className="flex items-start justify-between gap-2">
-                                <span
-                                  className="truncate flex-1"
-                                  style={{
-                                    fontSize: 13,
-                                    fontWeight: 500,
-                                    color: isActive ? "var(--ink)" : "var(--ink-2)",
-                                  }}
-                                >
-                                  {chat.title}
-                                </span>
-                                <span
-                                  style={{
-                                    fontFamily: "'Geist Mono', ui-monospace, monospace",
-                                    fontSize: 9,
-                                    color: "var(--ink-4)",
-                                    flexShrink: 0,
-                                    paddingTop: 2,
-                                  }}
-                                >
-                                  {new Date(chat.updatedAt).toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit" })}
-                                </span>
-                              </div>
-                              <p
-                                className="mt-0.5"
-                                style={{
-                                  fontSize: 11,
-                                  color: "var(--ink-4)",
-                                  display: "-webkit-box",
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: "vertical",
-                                  overflow: "hidden",
+                      <p className="asis-hilos-t">{group.label}</p>
+                      <ul>
+                        {group.items.map((chat) => {
+                          const isActive = activeChatId === chat.id;
+                          const n = chat._count.messages;
+                          return (
+                            <li key={chat.id}>
+                              <button
+                                type="button"
+                                className="asis-hilo"
+                                aria-current={isActive ? "true" : undefined}
+                                onClick={() => {
+                                  setActiveChatId(chat.id);
+                                  setListaMovil(false);
                                 }}
                               >
-                                {chat._count.messages} mensajes
-                              </p>
-                            </div>
-
-                            {/* Delete button */}
-                            <button
-                              onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }}
-                              className="absolute right-2 top-2.5 opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all duration-150"
-                              style={{ background: "rgb(var(--danger-rgb) / 0.1)" }}
-                            >
-                              <Trash2 className="h-3 w-3" style={{ color: "var(--danger-text)" }} />
-                            </button>
-                          </div>
-                        );
-                      })}
+                                {chat.title}
+                                <small>
+                                  {fechaHilo(chat.updatedAt)} · {n} {n === 1 ? "mensaje" : "mensajes"}
+                                </small>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </div>
                   ))
                 )}
               </div>
 
-              {/* Memory section */}
-              <div
-                className="p-3"
-                style={{ borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)" }}
-              >
+              <div className="asis-memoria">
                 <button
+                  type="button"
+                  aria-expanded={showMemory}
+                  aria-controls="asis-memoria-panel"
                   onClick={() => setShowMemory(!showMemory)}
-                  className="flex items-center gap-2 w-full transition-colors"
-                  style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-3)" }}
                 >
-                  <Brain className="h-3.5 w-3.5" style={{ color: agentColor }} />
-                  Memoria del agente
-                  <ChevronRight
-                    className="h-3 w-3 ml-auto transition-transform"
-                    style={{ transform: showMemory ? "rotate(90deg)" : "none" }}
-                  />
+                  Memoria de {agent.name}
+                  <Chevron dir="der" />
                 </button>
                 {showMemory && (
-                  <div className="mt-2 space-y-2">
-                    <textarea
+                  <div id="asis-memoria-panel">
+                    <AreaTexto
                       value={memory}
                       onChange={(e) => setMemory(e.target.value)}
                       rows={4}
-                      placeholder="Escribe notas que el agente recordara entre sesiones..."
-                      className="w-full resize-none focus:outline-none"
+                      placeholder="Escribe notas que el agente recordará entre sesiones…"
                       maxLength={10000}
-                      style={{
-                        fontSize: 12,
-                        padding: "8px 12px",
-                        background: "var(--surface-3)",
-                        border: "1px solid var(--hifi-hairline)",
-                        borderRadius: 10,
-                        color: "var(--ink)",
-                        fontFamily: "'Geist', system-ui, sans-serif",
-                      }}
+                      aria-label={`Memoria de ${agent.name}`}
                     />
-                    <button
+                    <Boton
+                      variante="secundario"
+                      tam={40}
+                      ancho
                       onClick={saveMemory}
-                      disabled={savingMemory}
-                      className="w-full rounded-lg py-1.5 text-xs font-semibold transition-all hover:opacity-90 disabled:opacity-50 cursor-pointer"
-                      style={{
-                        background: "rgb(var(--accent-rgb) / 0.15)",
-                        border: "1px solid rgb(var(--accent-rgb) / 0.3)",
-                        color: "var(--accent-text)",
-                      }}
+                      cargando={savingMemory}
+                      textoCargando="Guardando…"
                     >
-                      {savingMemory ? "Guardando..." : "Guardar memoria"}
-                    </button>
+                      Guardar memoria
+                    </Boton>
                   </div>
                 )}
               </div>
-            </div>
+            </aside>
           </>
         )}
 
-        {/* ─────────────────────────────────────────────
-            MAIN CHAT AREA
-        ───────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col min-w-0" style={{ background: "var(--surface-0)" }}>
-
-          {/* Chat header bar */}
-          <div
-            className="flex items-center gap-3 px-4 py-3"
-            style={{ borderBottom: "1px solid var(--hifi-hairline)" }}
-          >
-            {/* Sidebar toggle */}
+        {/* ─────────────  CONVERSACIÓN  ───────────── */}
+        <section className="asis-conv" aria-labelledby="asis-conv-t">
+          <div className="asis-barra">
+            {/* Mismo botón y mismo criterio que antes (ancho < 1024 → capa); uno por
+                tamaño para que aria-expanded diga el estado que de verdad se ve. */}
             <button
-              onClick={() => {
-                if (window.innerWidth < 1024) setListaMovil((v) => !v);
-                else setShowSidebar((v) => !v);
-              }}
-              aria-label="Conversaciones"
-              title="Conversaciones"
-              className="p-1.5 rounded-lg transition-colors flex-shrink-0"
-              style={{ color: "var(--ink-3)" }}
-              onMouseEnter={(e) => e.currentTarget.style.color = "var(--ink)"}
-              onMouseLeave={(e) => e.currentTarget.style.color = "var(--ink-3)"}
+              type="button"
+              className="k-btn k-sec k-40 asis-solo-escritorio"
+              aria-expanded={showSidebar}
+              aria-controls="asis-carril"
+              onClick={alternarLista}
             >
-              <MessageCircle className="h-4 w-4" />
+              Conversaciones
             </button>
-
-            {/* El nombre del agente ya aparece en la cabecera de la página y en
-                la columna de conversaciones: repetirlo aquí lo dejaba cuatro
-                veces en pantalla. Esta barra se queda solo con el hilo actual,
-                que es lo único que cambia. */}
-            <div className="flex-1 min-w-0 flex items-center gap-2.5">
-              <div
-                className="flex items-center justify-center rounded-lg flex-shrink-0"
-                style={{
-                  width: 26,
-                  height: 26,
-                  background: tint(0.12),
-                  border: `1px solid ${tint(0.22)}`,
-                }}
-              >
-                <agent.icon className="h-3.5 w-3.5" style={{ color: agentColor }} />
-              </div>
-              <h3
-                className="truncate"
-                style={{ fontSize: 13.5, fontWeight: 500, color: "var(--ink)", lineHeight: 1.3 }}
-              >
-                {activeChat ? activeChat.title : `Nueva conversación con ${agent.name}`}
-              </h3>
-            </div>
-
-            {/* Right actions */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {activeChatId && messages.length > 0 && (
-                <div className="relative">
-                  <button
-                    onClick={() => setShowExportMenu(!showExportMenu)}
-                    disabled={exporting}
-                    className="p-1.5 rounded-lg transition-colors disabled:opacity-40"
-                    style={{
-                      color: "var(--ink-3)",
-                      border: "1px solid var(--hifi-hairline)",
-                      background: "transparent",
-                    }}
-                    title="Exportar conversacion"
-                  >
-                    {exporting ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Download className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-                  {showExportMenu && (
-                    <div
-                      className="absolute right-0 top-full mt-1 py-1 min-w-[140px] z-50"
-                      style={{
-                        background: "var(--surface-3)",
-                        border: "1px solid rgb(var(--veil-rgb) / 0.1)",
-                        borderRadius: 12,
-                        boxShadow: "0 8px 32px rgba(0,0,0,0.40)",
-                      }}
-                    >
-                      <button
-                        onClick={() => exportChat("txt")}
-                        className="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors"
-                        style={{ fontSize: 12, color: "var(--ink-2)" }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.05)"}
-                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-                      >
-                        <FileText className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
-                        Exportar TXT
-                      </button>
-                      <button
-                        onClick={() => exportChat("pdf")}
-                        className="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors"
-                        style={{ fontSize: 12, color: "var(--ink-2)" }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.05)"}
-                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-                      >
-                        <FileText className="h-3.5 w-3.5" style={{ color: "var(--danger-text)" }} />
-                        Exportar PDF
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              className="k-btn k-sec k-40 asis-solo-movil"
+              aria-expanded={listaMovil}
+              aria-controls="asis-carril"
+              onClick={alternarLista}
+            >
+              Conversaciones
+              <Chevron dir="abajo" />
+            </button>
+            <h2 id="asis-conv-t" title={activeChat ? activeChat.title : undefined}>
+              {activeChat ? activeChat.title : `Nueva conversación con ${agent.name}`}
+            </h2>
+            {accionesConversacion.length > 0 && (
+              <MenuMas
+                etiqueta={exporting ? "Exportando…" : "Más"}
+                etiquetaAccesible={exporting ? "Exportando la conversación…" : "Más acciones de la conversación"}
+                items={accionesConversacion}
+              />
+            )}
           </div>
 
           {exportError && (
-            <div className="px-4 sm:px-6 lg:px-8 pt-2">
-              <p className="max-w-3xl mx-auto text-[12px] flex items-start gap-2" style={{ color: "var(--danger-text)" }}>
-                <span className="flex-1">{exportError}</span>
-                <button onClick={() => setExportError("")} className="cursor-pointer" style={{ color: "var(--ink-3)" }}>
-                  Cerrar
-                </button>
-              </p>
+            <div className="asis-aviso">
+              <Aviso enLinea tipo="error" titulo={exportError} alCerrar={() => setExportError("")} />
             </div>
           )}
 
-          {/* Messages area */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="asis-mensajes">
             {!activeChatId && messages.length === 0 ? (
               /* Pantalla de inicio. Antes era solo el nombre del agente y una
                  descripción: el usuario se quedaba ante un cursor sin saber qué
-                 pedir. Ahora arranca con preguntas concretas de su oficio, que
-                 de paso enseñan lo que el agente sabe hacer. */
-              <div className="h-full overflow-y-auto ui-scroll">
-                <div className="min-h-full flex flex-col items-center justify-center px-6 py-12">
-                  <div
-                    className="flex items-center justify-center rounded-3xl mb-6"
-                    style={{
-                      width: 60,
-                      height: 60,
-                      background: `linear-gradient(135deg, ${tint(0.2)}, ${tint(0.05)})`,
-                      border: `1px solid ${tint(0.25)}`,
-                      boxShadow: `0 8px 32px ${tint(0.13)}`,
-                    }}
-                  >
-                    <agent.icon className="h-7 w-7" style={{ color: agentColor }} />
-                  </div>
-
-                  <h2
-                    style={{
-                      fontWeight: 600,
-                      fontSize: 26,
-                      letterSpacing: "-0.02em",
-                      color: "var(--ink)",
-                      marginBottom: 6,
-                      textAlign: "center",
-                    }}
-                  >
-                    Hola, soy {agent.name}
-                  </h2>
-                  <p
-                    style={{
-                      fontSize: 14,
-                      color: "var(--ink-3)",
-                      maxWidth: 460,
-                      lineHeight: 1.6,
-                      textAlign: "center",
-                      marginBottom: 28,
-                    }}
-                  >
-                    {agent.description}
-                  </p>
-
-                  <div className="w-full" style={{ maxWidth: 680 }}>
-                    <p
-                      style={{
-                        fontFamily: "'Geist Mono', ui-monospace, monospace",
-                        fontSize: 9.5,
-                        letterSpacing: "0.16em",
-                        textTransform: "uppercase",
-                        color: "var(--ink-4)",
-                        marginBottom: 10,
-                        textAlign: "center",
-                      }}
+                 pedir. Arranca con preguntas concretas de su oficio, que de paso
+                 enseñan lo que el agente sabe hacer. */
+              <div className="asis-bienv">
+                <Sigilo agente={idKit} ancho={60} />
+                <h3>Pregúntale a {agent.name}</h3>
+                <p>{agent.description}</p>
+                <p className="asis-rot">Prueba con</p>
+                <div className="asis-sugs" role="group" aria-label="Preguntas sugeridas">
+                  {(SUGERENCIAS[agentId as AgentId] || []).map((sug) => (
+                    <button
+                      key={sug.titulo}
+                      type="button"
+                      className="asis-sug"
+                      onClick={() => enviarSugerencia(sug.prompt)}
                     >
-                      Prueba con
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {(SUGERENCIAS[agentId as AgentId] || []).map((sug) => (
-                        <button
-                          key={sug.titulo}
-                          onClick={() => enviarSugerencia(sug.prompt)}
-                          className="text-left rounded-2xl px-4 py-3.5 transition-all cursor-pointer group"
-                          style={{
-                            background: "rgb(var(--veil-rgb) / 0.04)",
-                            border: "1px solid rgb(var(--veil-rgb) / 0.10)",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "rgb(var(--accent-rgb) / 0.08)";
-                            e.currentTarget.style.borderColor = "rgb(var(--accent-rgb) / 0.32)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.04)";
-                            e.currentTarget.style.borderColor = "rgb(var(--veil-rgb) / 0.10)";
-                          }}
-                        >
-                          <span
-                            className="block"
-                            style={{ fontSize: 13.5, fontWeight: 500, color: "var(--ink)", marginBottom: 3 }}
-                          >
-                            {sug.titulo}
-                          </span>
-                          <span
-                            className="block"
-                            style={{
-                              fontSize: 11.5,
-                              color: "var(--ink-4)",
-                              lineHeight: 1.45,
-                              display: "-webkit-box",
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: "vertical",
-                              overflow: "hidden",
-                            }}
-                          >
-                            {sug.prompt}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                    <p
-                      className="text-center"
-                      style={{ fontSize: 11.5, color: "var(--ink-4)", marginTop: 18, lineHeight: 1.6 }}
-                    >
-                      También puedes adjuntar documentos o grabar una nota de voz, y pedirle que te
-                      entregue el resultado en Excel, Word o PDF.
-                    </p>
-                  </div>
+                      <b>{sug.titulo}</b>
+                      <span>{sug.prompt}</span>
+                    </button>
+                  ))}
                 </div>
+                <p className="asis-nota">
+                  También puedes adjuntar documentos o grabar una nota de voz, y pedirle que te entregue el
+                  resultado en Excel, Word o PDF.
+                </p>
               </div>
             ) : loadingMessages ? (
-              <div className="flex justify-center py-20">
-                <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--ink-4)" }} />
+              <div className="asis-hilo-conv">
+                <Esqueleto variante="bloque" etiquetaAccesible="Cargando la conversación…" />
               </div>
             ) : (
-              <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-5">
+              <div className="asis-hilo-conv">
                 {messages.map((msg) => {
-                  /* Locked add-on agent — render upsell card instead of a bubble */
+                  /* Agente complemento bloqueado: tarjeta de planes en vez de respuesta. */
                   if (msg.content === "__AGENT_LOCKED__") {
                     return (
-                      <div key={msg.id} className="flex justify-start">
-                        <div
-                          className="rounded-2xl w-full max-w-md"
-                          style={{
-                            background: "radial-gradient(120% 100% at 0% 0%, rgb(var(--accent-rgb) / 0.12), transparent 70%), var(--surface-2)",
-                            border: "1px solid rgb(var(--accent-rgb) / 0.4)",
-                            padding: 20,
-                          }}
-                        >
-                          <div className="flex items-center gap-3 mb-3">
-                            <div
-                              className="flex items-center justify-center rounded-xl flex-shrink-0"
-                              style={{
-                                width: 36,
-                                height: 36,
-                                background: "rgb(var(--accent-rgb) / 0.15)",
-                                border: "1px solid rgb(var(--accent-rgb) / 0.3)",
-                              }}
-                            >
-                              <Lock className="h-4 w-4" style={{ color: "var(--accent-text)" }} />
-                            </div>
-                            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
-                              {agent.name} es un agente complemento
-                            </p>
-                          </div>
-                          <p className="mb-4" style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.6 }}>
-                            Actívalo por $5 USD/mes y desbloquea {agent.title?.toLowerCase() ?? "sus capacidades"}.
+                      <RespuestaAgente key={msg.id} agente={idKit} hora={fechaMensaje(msg.createdAt)}>
+                        <div className="asis-bloq">
+                          <h3>{agent.name} es un agente complemento</h3>
+                          <p>
+                            Actívalo por USD&nbsp;5 al mes y desbloquea{" "}
+                            {agent.title?.toLowerCase() ?? "sus capacidades"}.
                           </p>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <button
-                              onClick={() => router.push("/dashboard/suscripcion")}
-                              className="rounded-full px-4 py-2 transition-all duration-150 hover:opacity-90 active:scale-[0.98] cursor-pointer"
-                              style={{
-                                background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
-                                boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.25)",
-                                fontSize: 12,
-                                fontWeight: 600,
-                                color: "var(--on-accent)",
-                              }}
-                            >
-                              Ver planes y add-ons
-                            </button>
-                            <button
-                              onClick={() => window.open(process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_URL || "https://wa.me/573001112233", "_blank")}
-                              className="rounded-full px-4 py-2 transition-all duration-150 hover:opacity-80 cursor-pointer"
-                              style={{
-                                background: "transparent",
-                                border: "1px solid rgb(var(--veil-rgb) / 0.1)",
-                                fontSize: 12,
-                                fontWeight: 500,
-                                color: "var(--ink-2)",
-                              }}
+                          <div className="k-btns">
+                            <Boton flecha="avanza" onClick={() => router.push("/dashboard/suscripcion")}>
+                              Ver planes y complementos
+                            </Boton>
+                            <Boton
+                              variante="secundario"
+                              onClick={() =>
+                                window.open(
+                                  process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_URL || "https://wa.me/573001112233",
+                                  "_blank"
+                                )
+                              }
                             >
                               Hablar con soporte
-                            </button>
+                            </Boton>
                           </div>
                         </div>
-                      </div>
+                      </RespuestaAgente>
                     );
                   }
 
+                  /* El mensaje del usuario va en su recuadro a la derecha; los
+                     archivos que SUBIÓ van antes del texto: acompañan a la pregunta. */
+                  if (msg.role === "user") {
+                    return (
+                      <MensajeUsuario key={msg.id} autor={nombreUsuario} hora={fechaMensaje(msg.createdAt)}>
+                        <>
+                          {fichas(msg, false)}
+                          {msg.content && <p className="asis-texto-u">{msg.content}</p>}
+                        </>
+                      </MensajeUsuario>
+                    );
+                  }
+
+                  /* Errores del envío (red, límite del plan…): aviso en línea con
+                     el texto que devuelve la API; si es un límite, «Ver planes». */
+                  if (msg.id.startsWith("err-")) {
+                    const limite = /l[ií]mite/i.test(msg.content);
+                    return (
+                      <Aviso
+                        key={msg.id}
+                        enLinea
+                        tipo="error"
+                        titulo={msg.content}
+                        accion={limite ? { etiqueta: "Ver planes", href: "/dashboard/suscripcion" } : undefined}
+                      />
+                    );
+                  }
+
+                  /* La respuesta del agente NO va en burbuja: es una sección de
+                     documento (patrón de ChatGPT, Claude y Gemini). Los archivos
+                     que GENERÓ van después de la respuesta —«aquí tienes tu
+                     archivo»—, que es donde el usuario los busca. */
                   return (
-                  <div
-                    key={msg.id}
-                    className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                  >
-                    {/* Agent avatar */}
-                    {msg.role === "assistant" && (
-                      <div
-                        className="flex items-center justify-center rounded-xl flex-shrink-0 mt-1"
-                        style={{
-                          width: 32,
-                          height: 32,
-                          background: tint(0.14),
-                          border: `1px solid ${tint(0.24)}`,
-                          fontFamily: "'Geist Mono', ui-monospace, monospace",
-                          fontSize: 10,
-                          fontWeight: 600,
-                          color: agentColor,
-                          letterSpacing: "0.04em",
-                        }}
-                      >
-                        {agentMonogram}
-                      </div>
-                    )}
-
-                    <div className={msg.role === "user" ? "max-w-[82%] sm:max-w-[78%] space-y-1.5" : "flex-1 min-w-0 space-y-1.5"}>
-                      {/* Los archivos que SUBIÓ el usuario van antes del
-                          texto: acompañan a la pregunta. Los que GENERÓ el
-                          agente van después de la respuesta, que es donde el
-                          usuario los busca —«aquí tienes tu archivo»— y no
-                          antes de haber leído nada. */}
-                      {fichas(msg, false)}
-
-                      {/* El mensaje del usuario va en burbuja; la respuesta del
-                          agente NO. Encerrar una respuesta larga —con listas,
-                          tablas o un artículo citado— en una burbuja estrecha
-                          es lo que hacía que el chat se viera apretado y
-                          costara leerlo. Es el patrón de ChatGPT, Claude y
-                          Gemini: el usuario en globo, el asistente sobre la
-                          página. */}
-                      {msg.role === "user" ? (
-                        <div
-                          className="px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
-                          style={{
-                            background: "var(--surface-3)",
-                            border: "1px solid rgb(var(--veil-rgb) / 0.1)",
-                            color: "var(--ink)",
-                            borderRadius: "16px 16px 4px 16px",
-                          }}
-                        >
-                          {msg.content}
-                        </div>
-                      ) : (
-                        <div className="group/msg">
-                          {msg.content ? (
-                            <RespuestaMarkdown>{msg.content}</RespuestaMarkdown>
-                          ) : null}
-                          {fichas(msg, true)}
-                          {msg.content && (
-                            <div className="flex items-center gap-1 mt-1 opacity-0 group-hover/msg:opacity-100 transition-opacity">
-                              <button
-                                onClick={() => copiarMensaje(msg.id, msg.content)}
-                                className="flex items-center gap-1.5 px-2 py-1 rounded-lg cursor-pointer transition-colors"
-                                style={{ color: "var(--ink-4)", fontSize: 11 }}
-                                onMouseEnter={(e) => (e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.06)")}
-                                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                                title="Copiar respuesta"
-                              >
-                                {copiadoId === msg.id ? (
-                                  <>
-                                    <Check className="h-3 w-3" style={{ color: "var(--ok-text)" }} />
-                                    <span style={{ color: "var(--ok-text)" }}>Copiado</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="h-3 w-3" />
-                                    <span>Copiar</span>
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* User avatar */}
-                    {msg.role === "user" && (
-                      <div
-                        className="flex items-center justify-center rounded-xl flex-shrink-0 mt-1"
-                        style={{
-                          width: 32,
-                          height: 32,
-                          background: "rgb(var(--accent-rgb) / 0.15)",
-                          border: "1px solid rgb(var(--accent-rgb) / 0.3)",
-                          fontFamily: "'Geist Mono', ui-monospace, monospace",
-                          fontSize: 10,
-                          fontWeight: 600,
-                          color: "var(--accent-text)",
-                          letterSpacing: "0.04em",
-                        }}
-                      >
-                        {userInitials}
-                      </div>
-                    )}
-                  </div>
+                    <RespuestaAgente
+                      key={msg.id}
+                      agente={idKit}
+                      hora={fechaMensaje(msg.createdAt)}
+                      acciones={
+                        msg.content ? (
+                          <Boton
+                            variante="secundario"
+                            tam={40}
+                            title="Copiar respuesta"
+                            onClick={() => copiarMensaje(msg.id, msg.content)}
+                          >
+                            {copiadoId === msg.id ? "Copiado" : "Copiar"}
+                          </Boton>
+                        ) : undefined
+                      }
+                    >
+                      {msg.content ? <RespuestaMarkdown>{msg.content}</RespuestaMarkdown> : null}
+                      {fichas(msg, true)}
+                    </RespuestaAgente>
                   );
                 })}
 
-                {/* Typing indicator */}
+                {/* Escribiendo… */}
                 {isLoading && (messages.length === 0 || messages[messages.length - 1]?.role === "user") && (
-                  <div className="flex gap-3 justify-start">
-                    <div
-                      className="flex items-center justify-center rounded-xl flex-shrink-0"
-                      style={{
-                        width: 32,
-                        height: 32,
-                        background: tint(0.14),
-                        border: `1px solid ${tint(0.24)}`,
-                        fontFamily: "'Geist Mono', ui-monospace, monospace",
-                        fontSize: 10,
-                        fontWeight: 600,
-                        color: agentColor,
-                      }}
-                    >
-                      {agentMonogram}
+                  <div className="k-msg-a asis-escribe">
+                    <div className="av" aria-hidden="true">
+                      <Sigilo agente={idKit} ancho={22} />
                     </div>
-                    <div
-                      className="flex items-center gap-1.5 px-4 py-3"
-                      style={{
-                        background: "var(--hifi-surface-1)",
-                        border: "1px solid var(--hifi-hairline)",
-                        borderRadius: "16px 16px 16px 4px",
-                      }}
-                    >
-                      <span className="hifi-typing-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: agentColor, display: "block", opacity: 0.4 }} />
-                      <span className="hifi-typing-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: agentColor, display: "block", opacity: 0.4 }} />
-                      <span className="hifi-typing-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: agentColor, display: "block", opacity: 0.4 }} />
+                    <div className="cuerpo">
+                      <Escribiendo agente={idKit} />
                       {/* Construir y subir un archivo tarda varios segundos: sin
-                          decirlo, los tres puntos parecen que se colgó. */}
-                      {herramientaEnCurso && (
-                        <span className="text-[12px] ml-1.5" style={{ color: "var(--ink-3)" }}>
-                          {herramientaEnCurso}
-                        </span>
-                      )}
+                          decirlo, parece que se colgó. */}
+                      {herramientaEnCurso && <p className="asis-herr">{herramientaEnCurso}</p>}
                     </div>
                   </div>
                 )}
@@ -1557,198 +1271,124 @@ export default function AgentPage() {
           </div>
 
           {attachError && (
-            <div className="px-4 sm:px-6 lg:px-8 pt-2">
-              <p className="max-w-3xl mx-auto text-[12px]" style={{ color: "var(--danger-text)" }}>
+            <div className="asis-adjerr">
+              <p className="k-err" role="alert">
                 {attachError}
               </p>
             </div>
           )}
 
-          {/* Attachment previews */}
+          {/* Adjuntos por enviar */}
           {attachments.length > 0 && (
-            <div className="px-4 sm:px-6 lg:px-8 pt-2">
-              <div className="max-w-3xl mx-auto flex flex-wrap gap-2">
-                {attachments.map((att, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
-                    style={{
-                      background: "var(--surface-3)",
-                      border: "1px solid var(--hifi-hairline)",
-                    }}
+            <ul className="asis-pend" aria-label="Archivos por enviar">
+              {attachments.map((att, i) => (
+                <li key={i} className="asis-ficha">
+                  {att.preview ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- vista previa local (blob:), no optimizable
+                    <img src={att.preview} alt="" />
+                  ) : (
+                    <TipoArchivo>{tipoDeArchivo(att.file.name)}</TipoArchivo>
+                  )}
+                  <span className="n">{att.file.name}</span>
+                  {formatoTamano(att.file.size) && <span className="p">{formatoTamano(att.file.size)}</span>}
+                  <BotonIcono
+                    etiquetaAccesible={`Quitar ${att.file.name}`}
+                    tam={40}
+                    sinBorde
+                    onClick={() => removeAttachment(i)}
                   >
-                    {att.preview ? (
-                      <img src={att.preview} alt="" className="w-7 h-7 rounded object-cover" />
-                    ) : (
-                      <Paperclip className="h-3.5 w-3.5" style={{ color: "var(--ink-4)" }} />
-                    )}
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color: "var(--ink-2)",
-                        maxWidth: 120,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {att.file.name}
-                    </span>
-                    <span
-                      style={{
-                        fontFamily: "'Geist Mono', ui-monospace, monospace",
-                        fontSize: 9,
-                        color: "var(--ink-4)",
-                      }}
-                    >
-                      {(att.file.size / 1024 / 1024).toFixed(1)}MB
-                    </span>
-                    <button
-                      onClick={() => removeAttachment(i)}
-                      className="p-0.5 rounded transition-colors hover:opacity-70"
-                      style={{ color: "var(--ink-4)" }}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+                    <Cruz />
+                  </BotonIcono>
+                </li>
+              ))}
+            </ul>
           )}
 
-          {/* ── Compose area ── */}
-          <div
-            className="px-4 sm:px-6 lg:px-8 pt-3 pb-5"
-            style={{ borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)" }}
-          >
-            <div className="max-w-3xl mx-auto">
-              {uploadStatus && (
-                <p
-                  className="mb-1"
-                  style={{ fontSize: 11, color: "var(--accent-text)", fontFamily: "'Geist Mono', ui-monospace, monospace" }}
-                >
-                  {uploadStatus}
-                </p>
-              )}
-
-              {/* Compose card */}
-              {/* El cuadro de escritura es lo que invita a empezar: se le da
-                  presencia con sombra y un borde que reacciona al foco, en vez
-                  de la caja plana anterior. */}
-              <div
-                className="rounded-3xl transition-all"
-                style={{
-                  background: "var(--hifi-surface-1)",
-                  border: `1px solid ${compositorEnfocado ? "rgb(var(--accent-rgb) / 0.45)" : "rgb(var(--veil-rgb) / 0.10)"}`,
-                  boxShadow: compositorEnfocado
-                    ? "0 6px 28px rgb(var(--accent-rgb) / 0.12)"
-                    : "0 4px 20px rgba(0,0,0,0.10)",
-                }}
-              >
-                {/* Textarea */}
-                <div className="px-4 pt-3 pb-1">
-                  <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => { setInput(e.target.value); autoResize(); }}
-                    onKeyDown={handleKeyDown}
-                    onFocus={() => setCompositorEnfocado(true)}
-                    onBlur={() => setCompositorEnfocado(false)}
-                    placeholder={`Escríbele a ${agent.name}… o pídele un Excel, un Word o un PDF`}
-                    rows={1}
-                    disabled={isLoading}
-                    maxLength={4000}
-                    className="w-full resize-none focus:outline-none"
-                    style={{
-                      background: "transparent",
-                      fontSize: 14,
-                      color: "var(--ink)",
-                      fontFamily: "'Geist', system-ui, sans-serif",
-                      lineHeight: 1.6,
-                      maxHeight: 160,
-                      overflow: "hidden",
-                    }}
-                  />
-                </div>
-
-                {/* Toolbar */}
-                <div className="flex items-center gap-2 px-3 pb-3 pt-1">
-                  {/* File input hidden */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    onChange={handleFileChange}
-                    className="hidden"
-                    accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.m4a,.webm"
-                  />
-
-                  {/* Attachment button */}
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center justify-center rounded-lg transition-colors flex-shrink-0"
-                    title="Adjuntar archivo"
-                    style={{
-                      width: 32,
-                      height: 32,
-                      background: "transparent",
-                      border: "1px solid rgb(var(--veil-rgb) / 0.09)",
-                      color: "var(--ink-3)",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "rgb(var(--accent-rgb) / 0.4)";
-                      e.currentTarget.style.color = "var(--accent-text)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "rgb(var(--veil-rgb) / 0.09)";
-                      e.currentTarget.style.color = "var(--ink-3)";
-                    }}
-                  >
-                    <Paperclip className="h-3.5 w-3.5" />
-                  </button>
-
-                  {/* Audio recorder */}
-                  <AudioRecorder onRecorded={handleAudioRecorded} disabled={isLoading} />
-
-                  {/* El contador solo aparece cuando de verdad importa. Verlo
-                      en «0/4000» desde el primer momento hacía parecer el
-                      cuadro un formulario con límite en vez de una conversación. */}
-                  <span
-                    className="flex-1"
-                    style={{
-                      fontFamily: "'Geist Mono', ui-monospace, monospace",
-                      fontSize: 9,
-                      letterSpacing: "0.08em",
-                      color: input.length > 3800 ? "var(--warn-text)" : "var(--ink-4)",
-                    }}
-                  >
-                    {input.length > 3400 ? `${input.length}/4000` : ""}
+          {/* ── Redactor (receta del kit: .k-redactor) ── */}
+          <div className="asis-redactar">
+            {uploadStatus && (
+              <p className="asis-subiendo" role="status">
+                {uploadStatus}
+              </p>
+            )}
+            <div className="k-redactor">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => { setInput(e.target.value); autoResize(); }}
+                onKeyDown={handleKeyDown}
+                placeholder={`Escríbele a ${agent.name}… o pídele un Excel, un Word o un PDF`}
+                aria-label={`Mensaje para ${agent.name}`}
+                rows={1}
+                disabled={isLoading}
+                maxLength={4000}
+              />
+              <div className="herr">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileChange}
+                  className="hidden"
+                  accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.m4a,.webm"
+                />
+                <button type="button" onClick={() => fileInputRef.current?.click()} title="Adjuntar archivo">
+                  <Flecha tipo="crea" />
+                  Adjuntar
+                </button>
+                <AudioRecorder onRecorded={handleAudioRecorded} disabled={isLoading} />
+                {/* El contador solo aparece cuando de verdad importa. Verlo en
+                    «0/4000» desde el primer momento hacía parecer el cuadro un
+                    formulario con límite en vez de una conversación. */}
+                {input.length > 3400 && (
+                  <span className="asis-conteo" data-alto={input.length > 3800 || undefined}>
+                    {input.length}/4000
                   </span>
-
-                  {/* Send */}
-                  <button
-                    onClick={() => void sendMessage()}
-                    disabled={isLoading || (!input.trim() && attachments.length === 0)}
-                    className="flex items-center justify-center rounded-xl transition-all duration-150 hover:opacity-90 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer flex-shrink-0"
-                    style={{
-                      width: 36,
-                      height: 36,
-                      background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
-                      boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.3)",
-                    }}
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-[var(--on-accent)]" />
-                    ) : (
-                      <ArrowUp className="h-4 w-4 text-[var(--on-accent)]" />
-                    )}
-                  </button>
-                </div>
+                )}
               </div>
+              <Boton
+                onClick={() => void sendMessage()}
+                disabled={isLoading || (!input.trim() && attachments.length === 0)}
+                cargando={isLoading}
+                textoCargando="Enviando…"
+                flecha="avanza"
+              >
+                Enviar
+              </Boton>
             </div>
+            <p className="k-aviso-ia">{agent.name} puede equivocarse: verifica lo importante con la norma citada.</p>
           </div>
-        </div>
+          {/* Copiar: el botón cambia a «Copiado»; esto lo anuncia a los lectores. */}
+          <span className="k-sr" role="status">
+            {copiadoId ? "Respuesta copiada." : ""}
+          </span>
+        </section>
       </div>
+
+      <Modal
+        abierto={porEliminar !== null}
+        alCerrar={() => setPorEliminar(null)}
+        titulo={`¿Eliminar la conversación «${porEliminar?.title ?? ""}»?`}
+        acciones={
+          <>
+            <Boton variante="secundario" onClick={() => setPorEliminar(null)}>
+              Cancelar
+            </Boton>
+            <Boton
+              variante="peligro"
+              lleno
+              onClick={() => {
+                if (porEliminar) void deleteChat(porEliminar.id);
+                setPorEliminar(null);
+              }}
+            >
+              Eliminar conversación
+            </Boton>
+          </>
+        }
+      >
+        <p>Se borran todos sus mensajes y no se puede deshacer.</p>
+      </Modal>
     </div>
   );
 }
