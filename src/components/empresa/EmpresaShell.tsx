@@ -1,224 +1,90 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
-import {
-  LayoutDashboard,
-  Building2,
-  Layers,
-  ArrowLeft,
-  LogOut,
-  Menu,
-  X,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { EliteSession } from "@/lib/elite-auth";
+import { Dock, Flecha, GrupoIndice, Indice, ItemIndice, RegionAvisos } from "@/components/kit";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Header } from "@/components/dashboard/Header";
+import { EstilosIndice, NAV_EMPRESA, esActiva, iniciales } from "@/components/dashboard/Sidebar";
 
-const NAV = [
-  { name: "Resumen", href: "/empresa", icon: LayoutDashboard, n: "00" },
-  { name: "Propiedades", href: "/empresa/propiedades", icon: Building2, n: "01" },
-  { name: "Generar en lote", href: "/empresa/generar", icon: Layers, n: "02" },
-];
-
-function BrandMark() {
-  return (
-    <div className="flex items-center gap-2.5">
-      <div
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white flex-shrink-0"
-        style={{
-          background: "linear-gradient(135deg, var(--accent), var(--accent-lo))",
-          boxShadow: "0 0 18px rgb(var(--accent-rgb) / 0.3)",
-        }}
-      >
-        S
-      </div>
-      <div className="flex flex-col leading-tight">
-        <span className="text-[15px] font-bold tracking-tight text-foreground">
-          SOPH<span className="text-muted-foreground/60 font-normal">.</span>
-          <span style={{ color: "var(--accent-text)" }}>IA</span>
-        </span>
-        <span
-          className="text-[9px] uppercase text-muted-foreground/70"
-          style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.18em" }}
-        >
-          Portafolio
-        </span>
-      </div>
-    </div>
-  );
-}
-
+/**
+ * Armazón de /empresa (consola Élite multipropiedad) con la dirección «Índice»:
+ * el mismo índice lateral, cabecera sticky y dock móvil que el dashboard.
+ * Índice propio: A Portafolio (01 Portafolio · 02 Generar en lote · 03 Propiedades)
+ * + «Volver a mi panel». Los datos de la cuenta salen de la sesión Élite.
+ */
 export function EmpresaShell({ elite, children }: { elite: EliteSession; children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const cerrar = () => setMobileOpen(false);
 
-  const NavItem = ({ item, isMobile = false }: { item: typeof NAV[0]; isMobile?: boolean }) => {
-    const isActive =
-      pathname === item.href ||
-      (item.href !== "/empresa" && pathname.startsWith(item.href));
-    return (
-      <Link
-        href={item.href}
-        onClick={isMobile ? () => setMobileOpen(false) : undefined}
-        className={cn(
-          "group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all duration-200",
-          isActive
-            ? "bg-[rgb(var(--accent-rgb) / 0.08)] border-[rgb(var(--accent-rgb) / 0.4)] text-foreground"
-            : "border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
-        )}
-        style={isActive ? { boxShadow: "inset 2px 0 0 var(--accent)" } : undefined}
-      >
-        <span
-          className="text-[9.5px] w-6"
-          style={{
-            fontFamily: "var(--font-mono)",
-            letterSpacing: "0.14em",
-            color: isActive ? "var(--accent-text)" : "var(--ink-4)",
-          }}
-        >
-          {item.n}
-        </span>
-        <item.icon
-          className={cn(
-            "h-[15px] w-[15px] flex-shrink-0",
-            isActive ? "text-[var(--accent)]" : "text-muted-foreground/80"
-          )}
-        />
-        <span className="flex-1 truncate text-[13px] font-medium">{item.name}</span>
-      </Link>
-    );
-  };
+  const actual = NAV_EMPRESA.find((item) => esActiva(pathname, item.href));
+  const nombre = elite.name || elite.email.split("@")[0];
+  const plan = elite.plan === "elite" ? "Plan Élite" : elite.plan === "beta" ? "Beta · acceso completo" : "Demo";
 
-  const BackLink = ({ isMobile = false }: { isMobile?: boolean }) => (
-    <Link
-      href="/dashboard"
-      onClick={isMobile ? () => setMobileOpen(false) : undefined}
-      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
-    >
-      <ArrowLeft className="h-[15px] w-[15px]" />
-      Volver a mi panel
-    </Link>
+  const pie = (
+    <>
+      <div className="k-yo" title={`${nombre} · ${elite.email}`}>
+        <div className="k-yo-a" aria-hidden="true">{iniciales(nombre)}</div>
+        <div style={{ minWidth: 0 }}>
+          <b>{nombre}</b>
+          <span>{elite.email}</span>
+          <span className="plan">{plan}</span>
+        </div>
+      </div>
+      <ThemeToggle />
+      <button type="button" className="k-salir" onClick={() => signOut({ callbackUrl: "/" })} aria-label="Cerrar sesión">
+        <span>Cerrar sesión</span>
+        <Flecha />
+      </button>
+    </>
   );
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col w-[260px] sticky top-0 h-screen border-r border-border bg-background">
-        <div className="flex items-center h-[72px] px-5 border-b border-border">
-          <BrandMark />
-        </div>
-
-        <div className="px-4 pt-4 pb-2">
-          <p
-            className="text-[9.5px] font-medium text-muted-foreground/70 uppercase"
-            style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.16em" }}
-          >
-            Gestión de portafolio
-          </p>
-        </div>
-
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
-          {NAV.map((item) => (
-            <NavItem key={item.href} item={item} />
-          ))}
-        </nav>
-
-        {/* Account */}
-        <div className="border-t border-border p-3 space-y-2">
-          <div
-            className="rounded-xl border border-border bg-card px-3 py-2.5"
-            style={{
-              background:
-                "radial-gradient(120% 100% at 0% 0%, rgb(var(--accent-rgb) / 0.08), transparent 70%), var(--card)",
-            }}
-          >
-            <p
-              className="text-[9px] uppercase text-muted-foreground/70"
-              style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.16em" }}
-            >
-              {elite.plan === "elite" ? "Plan Élite" : elite.plan === "beta" ? "Beta · acceso completo" : "Demo"}
-            </p>
-            <p className="text-[12.5px] font-medium text-foreground mt-1 truncate">
-              {elite.name || elite.email.split("@")[0]}
-            </p>
-            <p
-              className="text-[10px] text-muted-foreground/70 truncate"
-              style={{ fontFamily: "var(--font-mono)" }}
-            >
-              {elite.email}
-            </p>
+    <div data-shell="app" className="k-app">
+      <div className="k-col-indice">
+        <EstilosIndice />
+        <Indice abierto={mobileOpen} alCerrar={cerrar} pie={pie} hrefInicio="/empresa" idPrincipal="k-principal-empresa">
+          <div className="k-idx-tit">
+            <span aria-hidden="true">Índice</span>
           </div>
+          <GrupoIndice letra="A" titulo="Portafolio">
+            {NAV_EMPRESA.map((item) => (
+              <ItemIndice key={item.href} n={item.n} href={item.href} actual={esActiva(pathname, item.href)} alNavegar={cerrar}>
+                {item.name}
+              </ItemIndice>
+            ))}
+          </GrupoIndice>
+          <GrupoIndice letra="B" titulo="Mi panel">
+            <ItemIndice n="—" href="/dashboard" alNavegar={cerrar}>
+              Volver a mi panel
+            </ItemIndice>
+          </GrupoIndice>
+        </Indice>
+      </div>
 
-          <BackLink />
-          <button
-            onClick={() => signOut({ callbackUrl: "/" })}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 w-full transition-all duration-200"
-          >
-            <LogOut className="h-[15px] w-[15px]" />
-            Cerrar sesión
-          </button>
-        </div>
-      </aside>
-
-      {/* Mobile drawer */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 w-[280px] bg-background border-r border-border transform transition-transform duration-300 ease-in-out lg:hidden flex flex-col",
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <div className="flex items-center justify-between h-[72px] px-5 border-b border-border">
-          <BrandMark />
-          <button
-            onClick={() => setMobileOpen(false)}
-            className="p-2 rounded-lg hover:bg-secondary transition-colors"
-          >
-            <X className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {NAV.map((item) => (
-            <NavItem key={item.href} item={item} isMobile />
-          ))}
-        </nav>
-        <div className="border-t border-border p-3 space-y-2">
-          <BackLink isMobile />
-          <button
-            onClick={() => signOut({ callbackUrl: "/" })}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 w-full transition-all duration-200"
-          >
-            <LogOut className="h-[15px] w-[15px]" />
-            Cerrar sesión
-          </button>
-        </div>
-      </aside>
-
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 lg:hidden"
-          onClick={() => setMobileOpen(false)}
+      <div id="k-principal-empresa" className="k-principal flex flex-col">
+        {/* Dock de /empresa: sus rótulos («Propiedades», «Suscripción») no caben en
+            celdas de 78 px a 390: Archivo al 85 % de ancho y en dos líneas si hace falta. */}
+        <style href="k-dock-empresa" precedence="default">
+          {`#k-principal-empresa > .k-dock > * { font-stretch: 85%; font-size: 13px; line-height: 1.1; text-align: center; padding: 0 3px; }`}
+        </style>
+        <Header title={actual?.name ?? "Portafolio"} />
+        <main className="flex-1 min-w-0">{children}</main>
+        <Dock
+          alAbrirIndice={() => setMobileOpen(true)}
+          indiceAbierto={mobileOpen}
+          destinos={[
+            { href: "/empresa", etiqueta: "Portafolio", actual: esActiva(pathname, "/empresa") },
+            { href: "/empresa/generar", etiqueta: "Generar en lote", actual: esActiva(pathname, "/empresa/generar") },
+            { href: "/empresa/propiedades", etiqueta: "Propiedades", actual: esActiva(pathname, "/empresa/propiedades") },
+            { href: "/dashboard/suscripcion", etiqueta: "Suscripción" },
+          ]}
         />
-      )}
-
-      {/* Main */}
-      <main className="flex-1 min-w-0">
-        <div
-          className="lg:hidden sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/85 px-4 py-3 backdrop-blur-xl"
-          style={{ WebkitBackdropFilter: "blur(20px)" }}
-        >
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="p-2 rounded-lg hover:bg-secondary transition-colors"
-            aria-label="Abrir menú"
-          >
-            <Menu className="h-5 w-5 text-foreground" />
-          </button>
-          <BrandMark />
-        </div>
-        {children}
-      </main>
+      </div>
+      <RegionAvisos />
     </div>
   );
 }
