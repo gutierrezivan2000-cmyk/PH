@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/dashboard/Header";
+import { pedirJSON, URL_CALENDARIO, URL_GENERACIONES } from "@/components/dashboard/datosIndice";
+import { abrirSoporte, useSoporteDisponible } from "@/components/dashboard/soporte";
 import { AGENT_IDS, INCLUDED_AGENT_IDS, COMING_SOON_AGENT_IDS } from "@/lib/agents";
 import {
   Boton,
@@ -327,17 +329,12 @@ const CSS_INICIO = `
 .ini-sug > .p { margin-top: 6px; }
 .ini-sug > .acc { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-top: 12px; }
 .ini-sug > .n { margin-top: 8px; font-size: 13px; color: var(--ink-3); }
-.ini-sug > .k-fan { min-height: 36px; font-size: 14px; }
 .ini-inicio sup { font-size: 12px; line-height: 0; font-weight: 600; }
 
 .ini-listas { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); margin-top: 16px; align-items: start; }
 .ini-listas > .a { grid-column: 1 / 6; }
 .ini-listas > .b { grid-column: 6 / 10; }
 .ini-listas > .c { grid-column: 10 / 13; }
-.ini-listas .k-ob.sin-accion { position: relative; }
-.ini-listas .k-ob.sin-accion:hover { background: var(--hl); box-shadow: -6px 0 0 var(--hl), 6px 0 0 var(--hl); }
-.ini-ob-a { color: inherit; }
-.ini-ob-a::after { content: ""; position: absolute; inset: 0; }
 
 .ini-mes { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); align-items: end; margin-bottom: 22px; }
 .ini-mes-t { grid-column: 1 / 8; margin: 0; text-wrap: balance; }
@@ -370,6 +367,8 @@ const CSS_INICIO = `
 .ini-agentes > * { grid-column: span 6; }
 .ini-inicio .k-prep { margin-top: 16px; }
 .ini-vacio { margin-bottom: 56px; }
+.ini-inicio .k-colofon button { position: relative; padding: 0; font: inherit; color: var(--ink-2); background: none; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.ini-inicio .k-colofon button::after { content: ""; position: absolute; inset: -10px -4px; }
 
 @media (max-width: 1180px) {
   .ini-mes-t { grid-column: 1 / -1; font-size: 36px; }
@@ -395,7 +394,6 @@ const CSS_INICIO = `
   .ini-fecha { font-size: 14px; }
   .ini-sug { margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--line); }
   .ini-sug > .p, .ini-sug > .n { display: none; }
-  .ini-sug > .k-fan { min-height: 44px; }
   .ini-sug > .acc { margin-top: 6px; }
   .ini-sug > .acc .k-btn { flex: 1 1 100%; min-height: 48px; }
   .ini-listas { display: block; margin-top: 8px; }
@@ -413,6 +411,7 @@ const CSS_INICIO = `
   .ini-mpie { flex-direction: column; align-items: flex-start; gap: 12px; }
   .ini-agentes { display: block; }
   .ini-agentes > * + * { margin-top: 12px; }
+  .ini-inicio .k-colofon button { padding: 12px 0; }
 }
 `;
 
@@ -442,19 +441,18 @@ export default function DashboardPage() {
 
   const relojMs = useSyncExternalStore(suscribirReloj, leerReloj, relojServidor);
   const sugerenciaOculta = useSyncExternalStore(suscribirSugerencia, leerSugerenciaOculta, () => false);
+  const soporteDisponible = useSoporteDisponible();
 
+  // Los mismos GET de siempre, a través de la caché de 2 s que comparte el índice
+  // (datosIndice): al entrar a Inicio ya no se piden dos veces, y el índice y esta
+  // pantalla muestran siempre el mismo conteo. Un reintento pide sin caché.
   useEffect(() => {
     let vivo = true;
-    fetch("/api/generations")
-      .then((r) => r.json())
-      .then((data) => {
-        if (!vivo) return;
-        if (Array.isArray(data)) setGeneraciones(data);
-        else setErrorGeneraciones(true);
-      })
-      .catch(() => {
-        if (vivo) setErrorGeneraciones(true);
-      });
+    pedirJSON<unknown>(URL_GENERACIONES, { fresco: intentoGeneraciones > 0 }).then((data) => {
+      if (!vivo) return;
+      if (Array.isArray(data)) setGeneraciones(data as Generacion[]);
+      else setErrorGeneraciones(true);
+    });
     return () => {
       vivo = false;
     };
@@ -462,23 +460,19 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let vivo = true;
-    fetch("/api/calendar")
-      .then((r) => r.json())
+    pedirJSON<{ items?: unknown; properties?: unknown }>(URL_CALENDARIO, { fresco: intentoCalendario > 0 })
       .then((data) => {
         if (!vivo) return;
-        if (Array.isArray(data?.items)) {
+        if (data && Array.isArray(data.items)) {
           setCalendario({
-            items: data.items,
+            items: data.items as ItemCalendario[],
             propiedades: Array.isArray(data.properties)
-              ? data.properties.map((p: Copropiedad) => ({ id: p.id, name: p.name }))
+              ? (data.properties as Copropiedad[]).map((p) => ({ id: p.id, name: p.name }))
               : [],
           });
         } else {
           setErrorCalendario(true);
         }
-      })
-      .catch(() => {
-        if (vivo) setErrorCalendario(true);
       });
     return () => {
       vivo = false;
@@ -542,7 +536,7 @@ export default function DashboardPage() {
         <Pagina>
           <div className="ini-saludo">
             <div className="ini-saludo-t">
-              <Esqueleto variante="bloque" etiqueta="Cargando tu inicio…" />
+              <Esqueleto variante="bloque" etiquetaAccesible="Cargando tu inicio…" />
             </div>
           </div>
         </Pagina>
@@ -809,7 +803,7 @@ export default function DashboardPage() {
                   acciones={<Boton variante="secundario" onClick={reintentarCalendario}>Reintentar</Boton>}
                 />
               ) : cargandoCalendario || !hoy ? (
-                <Esqueleto variante="completo" filas={3} etiqueta="Cargando vencimientos…" />
+                <Esqueleto variante="completo" filas={3} etiquetaAccesible="Cargando vencimientos…" />
               ) : (
                 <>
                   <Urgencias>
@@ -833,7 +827,7 @@ export default function DashboardPage() {
                       className="a"
                       titulo="Vencidas"
                       conteo={vencidas.length}
-                      etiqueta={vencidas.length === 1 ? "1 obligación vencida" : `${vencidas.length} obligaciones vencidas`}
+                      etiquetaAccesible={vencidas.length === 1 ? "1 obligación vencida" : `${vencidas.length} obligaciones vencidas`}
                     >
                       {vencidas.slice(0, 3).map((x) => fila(x, "vencido"))}
                       {vencidas.length > 3 && (
@@ -845,7 +839,7 @@ export default function DashboardPage() {
                       className="b"
                       titulo="Esta semana"
                       conteo={semana.length}
-                      etiqueta={semana.length === 1 ? "1 obligación esta semana" : `${semana.length} obligaciones esta semana`}
+                      etiquetaAccesible={semana.length === 1 ? "1 obligación esta semana" : `${semana.length} obligaciones esta semana`}
                     >
                       <TiraSemanal comoItem dias={dias} />
                       {semana.slice(0, 3).map((x) => fila(x, "semana"))}
@@ -858,7 +852,7 @@ export default function DashboardPage() {
                       className="c"
                       titulo={`Próximos 30${NB}días`}
                       conteo={treinta.length}
-                      etiqueta={
+                      etiquetaAccesible={
                         treinta.length === 1
                           ? "1 obligación en los próximos 30 días"
                           : `${treinta.length} obligaciones en los próximos 30 días`
@@ -868,11 +862,8 @@ export default function DashboardPage() {
                         <FilaObligacion
                           key={`${it.propertyId}:${it.key}`}
                           tipo="sin"
-                          que={
-                            <Link className="ini-ob-a" href={BITACORA}>
-                              {tituloDe(it)}
-                            </Link>
-                          }
+                          que={tituloDe(it)}
+                          href={BITACORA}
                           cuando={cuandoTexto(d, aFecha(it.dueDate), hoy)}
                           donde={it.propertyName}
                         />
@@ -902,7 +893,7 @@ export default function DashboardPage() {
                   acciones={<Boton variante="secundario" onClick={reintentarCalendario}>Reintentar</Boton>}
                 />
               ) : cargandoCalendario || !hoy ? (
-                <Esqueleto variante="completo" filas={2} etiqueta="Cargando informes del mes…" />
+                <Esqueleto variante="completo" filas={2} etiquetaAccesible="Cargando informes del mes…" />
               ) : (
                 <>
                   <div className="ini-mes">
@@ -912,7 +903,9 @@ export default function DashboardPage() {
                     </p>
                     <p className="ini-mes-n">
                       Cada informe sale del asistente de 5 pasos: propiedad, periodo, documentos, archivos y notas.
-                      Al completarlo, la bitácora lo marca como hecho.
+                      {/* Solo es verdad fuera del demo: ahí /api/calendar marca «informe» como hecho
+                          al completar una generación del mes; el demo no cruza sus generaciones. */}
+                      {!IS_DEMO && " Al completarlo, la bitácora lo marca como hecho."}
                     </p>
                   </div>
 
@@ -931,12 +924,12 @@ export default function DashboardPage() {
                         </span>
                         <span className="i" role="cell">
                           <span className="lbl" aria-hidden="true">Informe de gestión</span>
-                          <Estado tipo={f.informe.tipo} tam={16} neutro>{f.informe.palabra}</Estado>
+                          <Estado tipo={f.informe.tipo} tamLetra={16} neutro>{f.informe.palabra}</Estado>
                           {f.informe.detalle && <small>{f.informe.detalle}</small>}
                         </span>
                         <span className="a" role="cell">
                           <span className="lbl" aria-hidden="true">Acta del consejo</span>
-                          <Estado tipo={f.acta.tipo} tam={16} neutro>{f.acta.palabra}</Estado>
+                          <Estado tipo={f.acta.tipo} tamLetra={16} neutro>{f.acta.palabra}</Estado>
                           {f.acta.detalle && <small>{f.acta.detalle}</small>}
                         </span>
                         <span className="x" role="cell">{f.accion}</span>
@@ -1005,7 +998,16 @@ export default function DashboardPage() {
           izquierda="SOPH.IA · propiedad horizontal · Ley 675 de 2001"
           derecha={
             <>
-              ¿Dudas? <Link href="/dashboard/configuracion">Centro de soporte</Link>
+              ¿Dudas?{" "}
+              {soporteDisponible && (
+                <>
+                  <button type="button" onClick={abrirSoporte} aria-controls="soporte-sophia">
+                    Chat de soporte
+                  </button>
+                  {" · "}
+                </>
+              )}
+              <Link href="/dashboard/configuracion">Centro de soporte</Link>
               {WHATSAPP_SOPORTE && (
                 <>
                   {" · "}

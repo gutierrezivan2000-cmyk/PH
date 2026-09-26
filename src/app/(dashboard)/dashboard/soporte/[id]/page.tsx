@@ -382,7 +382,7 @@ export default function SoporteTicketPage() {
                     className="h-9 px-4 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{
                       background: "var(--accent)",
-                      color: "white",
+                      color: "var(--on-accent)",
                       boxShadow: "0 4px 14px rgb(var(--accent-rgb) / 0.25)",
                     }}
                   >

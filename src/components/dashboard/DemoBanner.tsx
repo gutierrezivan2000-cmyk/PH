@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Zap } from "lucide-react";
 
+/**
+ * Banner de modo demo del armazón «Índice» (dashboard). Vive aquí y no en
+ * src/components/ui, que no se toca: esa carpeta la comparte /admin (IMPL §4).
+ * `data-demo-banner` lo usa el índice para compactarse cuando el banner le
+ * quita alto a la ventana.
+ */
 export function DemoBanner() {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -36,21 +41,37 @@ export function DemoBanner() {
 
   if (process.env.NEXT_PUBLIC_DEMO_MODE !== "true") return null;
 
+  // Aspecto «Índice»: una línea de cornisa, tinta sobre el lienzo y filete fino.
+  // Rótulo en MAYÚSCULAS a 125 % (1–2 palabras) y el resto en frase normal.
   return (
     <div
       ref={ref}
-      className="flex items-center justify-center gap-2 px-4 py-1.5 text-[11px] font-medium border-b"
+      role="note"
+      data-demo-banner=""
+      className="flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-center"
       style={{
-        background: "rgb(var(--legal-rgb) / 0.10)",
-        borderColor: "rgb(var(--legal-rgb) / 0.30)",
-        color: "var(--legal)",
-        fontFamily: "var(--font-mono)",
-        letterSpacing: "0.12em",
-        textTransform: "uppercase",
+        minHeight: 30,
+        padding: "5px var(--pad, 16px)",
+        background: "var(--surface-0)",
+        borderBottom: "1px solid var(--line)",
+        color: "var(--ink-2)",
+        fontSize: 13,
+        lineHeight: 1.3,
       }}
     >
-      <Zap className="h-3 w-3" />
-      <span>MODO DEMO · datos simulados · documentos reales descargables</span>
+      <b
+        style={{
+          color: "var(--ink)",
+          fontSize: 12,
+          fontWeight: 800,
+          fontStretch: "125%",
+          letterSpacing: ".06em",
+          textTransform: "uppercase",
+        }}
+      >
+        Modo demo
+      </b>
+      <span>Datos simulados · documentos reales descargables</span>
     </div>
   );
 }

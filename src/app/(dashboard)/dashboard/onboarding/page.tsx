@@ -246,7 +246,7 @@ export default function OnboardingPage() {
                 fontFamily: "'Geist', system-ui, sans-serif",
                 fontWeight: 700,
                 fontSize: 20,
-                color: "#fff",
+                color: "var(--on-accent)",
                 letterSpacing: "-0.03em",
               }}
             >
@@ -487,7 +487,7 @@ export default function OnboardingPage() {
                 boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.25)",
                 fontSize: 14,
                 fontWeight: 600,
-                color: "#fff",
+                color: "var(--on-accent)",
                 fontFamily: "'Geist', system-ui, sans-serif",
               }}
             >
@@ -780,7 +780,7 @@ export default function OnboardingPage() {
                   boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.25)",
                   fontSize: 14,
                   fontWeight: 600,
-                  color: "#fff",
+                  color: "var(--on-accent)",
                 }}
               >
                 Continuar
@@ -930,7 +930,7 @@ export default function OnboardingPage() {
                   boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.25)",
                   fontSize: 14,
                   fontWeight: 600,
-                  color: "#fff",
+                  color: "var(--on-accent)",
                 }}
               >
                 Entendido
@@ -960,7 +960,7 @@ export default function OnboardingPage() {
                 boxShadow: "0 0 40px rgb(var(--accent-rgb) / 0.3)",
               }}
             >
-              <Check className="h-8 w-8" style={{ color: "#fff" }} />
+              <Check className="h-8 w-8" style={{ color: "var(--on-accent)" }} />
             </div>
 
             <p
@@ -1092,7 +1092,7 @@ export default function OnboardingPage() {
                   boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.25)",
                   fontSize: 14,
                   fontWeight: 600,
-                  color: "#fff",
+                  color: "var(--on-accent)",
                 }}
               >
                 {loading ? (

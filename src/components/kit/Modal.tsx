@@ -17,7 +17,8 @@ const suscribirNada = () => () => {};
  *
  * Accesible: role="dialog" aria-modal, foco inicial al primer control (o al
  * elemento con data-autofocus), foco atrapado (el resto de <body> queda
- * `inert`), Escape y clic en el velo cancelan, el foco vuelve al disparador.
+ * `inert`, salvo la región de avisos), Escape y clic en el velo cancelan, el
+ * foco vuelve al disparador (desde un <MenuMas>, al botón «Más»).
  * Se monta en <body> con un portal: los tokens viven en :root, así que se ve
  * con el tema del dashboard.
  *
@@ -49,10 +50,11 @@ export function Modal({ abierto, alCerrar, titulo, children, acciones, ancho = 4
   useEffect(() => {
     if (!abierto || !enCliente) return;
     const previo = document.activeElement as HTMLElement | null;
-    // Fondo inerte: todo lo que cuelga de <body> salvo el propio modal.
+    // Fondo inerte: todo lo que cuelga de <body> salvo el propio modal y la región
+    // de avisos (un aviso que llegue con el modal abierto se tiene que poder leer y pulsar).
     const inertes: Element[] = [];
     for (const el of Array.from(document.body.children)) {
-      if (el === raiz.current || el.hasAttribute("inert")) continue;
+      if (el === raiz.current || el.hasAttribute("inert") || el.hasAttribute("data-k-avisos")) continue;
       el.setAttribute("inert", "");
       inertes.push(el);
     }

@@ -85,19 +85,22 @@ export function Seccion({ id, numero, titulo, nota, enlace, acciones, children, 
  * seleccionables o comparables (plan, ficha, zona de progreso).
  *
  *   <Panel titulo="Qué subir" nota="3 de 5 cubiertos">…</Panel>
+ *
+ * `nivel` = nivel del encabezado (3 por defecto: dentro de una pieza con <h1> y secciones <h2>).
  */
-export function Panel({ titulo, nota, titular, recuadro, children, className, as: Etiqueta = "section", id }: {
-  titulo?: ReactNode; nota?: ReactNode; titular?: boolean; recuadro?: boolean;
+export function Panel({ titulo, nota, titular, recuadro, nivel = 3, children, className, as: Etiqueta = "section", id }: {
+  titulo?: ReactNode; nota?: ReactNode; titular?: boolean; recuadro?: boolean; nivel?: 2 | 3 | 4;
   children: ReactNode; className?: string; as?: "section" | "div" | "aside" | "article"; id?: string;
 }) {
   const idTitulo = id ? `${id}-t` : undefined;
+  const H = nivel === 2 ? "h2" : nivel === 4 ? "h4" : "h3";
   return (
     <Etiqueta id={id} className={unir("k-panel", recuadro && "k-recuadro", className)} aria-labelledby={titulo && idTitulo ? idTitulo : undefined}>
       {titulo && (
-        <h3 id={idTitulo} className={unir("k-panel-h", titular && "k-titular")}>
+        <H id={idTitulo} className={unir("k-panel-h", titular && "k-titular")}>
           <span>{titulo}</span>
           {nota && <small>{nota}</small>}
-        </h3>
+        </H>
       )}
       {children}
     </Etiqueta>
@@ -108,6 +111,23 @@ export function Panel({ titulo, nota, titular, recuadro, children, className, as
 export function Reticula({ children, className, as: Etiqueta = "div" }:
   { children: ReactNode; className?: string; as?: "div" | "section" | "ul" | "ol" }) {
   return <Etiqueta className={unir("k-r12", className)}>{children}</Etiqueta>;
+}
+
+/**
+ * Resumen de lo elegido en dos columnas (SPEC §g 02, paso 5: Propiedad, Periodo,
+ * Documentos, Archivos). Es una lista de definiciones (<dl>).
+ *   <Resumen etiquetaAccesible="Resumen de la generación" filas={[{ etiqueta: "Propiedad", valor: prop.name }, …]} />
+ */
+export function Resumen({ filas, etiquetaAccesible, className }: {
+  filas: Array<{ etiqueta: ReactNode; valor: ReactNode }>; etiquetaAccesible?: string; className?: string;
+}) {
+  return (
+    <dl className={unir("k-resumen", className)} aria-label={etiquetaAccesible}>
+      {filas.map((f, i) => (
+        <div key={i}><dt>{f.etiqueta}</dt><dd>{f.valor}</dd></div>
+      ))}
+    </dl>
+  );
 }
 
 /** Colofón: filete de 2 px + dos líneas de pie (marca a la izquierda, ayuda a la derecha). */

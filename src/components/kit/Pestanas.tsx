@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { unir } from "./util";
 
+/** `etiqueta` = texto VISIBLE del segmento o pestaña. */
 export type ItemPestana = { id: string; etiqueta: ReactNode; conteo?: ReactNode; deshabilitado?: boolean; titulo?: string };
 
 /**
@@ -12,16 +13,18 @@ export type ItemPestana = { id: string; etiqueta: ReactNode; conteo?: ReactNode;
  * modo "pestanas" → role="tablist" + aria-selected (+ `panelId(id)` para aria-controls).
  * Hace scroll horizontal dentro de sí mismo si no cabe; nunca desborda la página.
  *
- *   <Segmentos etiqueta="Filtrar por estado" valor={f} alCambiar={setF}
+ *   <Segmentos etiquetaAccesible="Filtrar por estado" valor={f} alCambiar={setF}
  *     items={[{ id: "todas", etiqueta: "Todas", conteo: 48 }, { id: "sin", etiqueta: "Sin correo", conteo: 2 }]} />
  */
-export function Segmentos({ items, valor, alCambiar, etiqueta, modo = "filtro", grande, panelId, className }: {
-  items: ItemPestana[]; valor: string; alCambiar: (id: string) => void; etiqueta: string;
+export function Segmentos({ items, valor, alCambiar, etiquetaAccesible, modo = "filtro", grande, panelId, className }: {
+  items: ItemPestana[]; valor: string; alCambiar: (id: string) => void;
+  /** Nombre del grupo para lectores (aria-label). No se ve. */
+  etiquetaAccesible: string;
   modo?: "filtro" | "pestanas"; grande?: boolean; panelId?: (id: string) => string; className?: string;
 }) {
   const esTabs = modo === "pestanas";
   return (
-    <div className={unir("k-seg", grande && "k-48", className)} role={esTabs ? "tablist" : "group"} aria-label={etiqueta}>
+    <div className={unir("k-seg", grande && "k-48", className)} role={esTabs ? "tablist" : "group"} aria-label={etiquetaAccesible}>
       {items.map((it) => {
         const activo = it.id === valor;
         return (
@@ -47,15 +50,17 @@ export function Segmentos({ items, valor, alCambiar, etiqueta, modo = "filtro", 
  * añade un texto a la derecha («47 de 48 con enlace · 46 con correo»).
  * `vista` = versión de 1,5 px y 44 px para «Lista | Mes».
  *
- *   <PestanasUnidas etiqueta="Copropiedad" valor={id} alCambiar={setId}
+ *   <PestanasUnidas etiquetaAccesible="Copropiedad" valor={id} alCambiar={setId}
  *     items={props.map(p => ({ id: p.id, etiqueta: p.name, conteo: `${p.units} u.` }))} fin="47 de 48 con enlace" />
  */
-export function PestanasUnidas({ items, valor, alCambiar, etiqueta, fin, vista, className }: {
-  items: ItemPestana[]; valor: string; alCambiar: (id: string) => void; etiqueta: string;
+export function PestanasUnidas({ items, valor, alCambiar, etiquetaAccesible, fin, vista, className }: {
+  items: ItemPestana[]; valor: string; alCambiar: (id: string) => void;
+  /** Nombre del grupo para lectores (aria-label). No se ve. */
+  etiquetaAccesible: string;
   fin?: ReactNode; vista?: boolean; className?: string;
 }) {
   return (
-    <div className={unir("k-pest", vista && "k-vista", className)} role="group" aria-label={etiqueta}>
+    <div className={unir("k-pest", vista && "k-vista", className)} role="group" aria-label={etiquetaAccesible}>
       {items.map((it) => (
         <button key={it.id} type="button" aria-pressed={it.id === valor} disabled={it.deshabilitado}
           title={it.titulo} onClick={() => alCambiar(it.id)}>

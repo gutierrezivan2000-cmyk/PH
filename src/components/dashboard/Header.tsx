@@ -21,30 +21,34 @@ interface HeaderProps {
  * ¿La página ya tiene su propio título? (una <CabeceraPieza> del kit o
  * cualquier otro <h1> fuera de esta cabecera). Si lo tiene, el título de la
  * cabecera deja de ser <h1> —uno solo por pantalla— y en móvil cede el sitio
- * al logotipo. Se vigila el DOM porque muchas pantallas pintan su título solo
- * cuando terminan de cargar.
+ * al logotipo. Con <CabeceraPieza> además se calla el subtítulo: la pieza ya
+ * lo dice (si no, la misma pantalla se describía dos veces). Se vigila el DOM
+ * porque muchas pantallas pintan su título solo cuando terminan de cargar.
  */
-function usePaginaConTitulo(): boolean {
-  const [tiene, setTiene] = useState(false);
+function usePaginaConTitulo(): { titulo: boolean; pieza: boolean } {
+  const [estado, setEstado] = useState({ titulo: false, pieza: false });
   useEffect(() => {
     const raiz = document.querySelector("[data-shell='app'] main") ?? document.body;
-    const mirar = () =>
-      setTiene(
-        Boolean(raiz.querySelector(".k-pieza-h")) ||
-          Array.from(raiz.querySelectorAll("h1")).some((h) => !h.closest(".k-cab"))
-      );
+    const mirar = () => {
+      const pieza = Boolean(raiz.querySelector(".k-pieza-h"));
+      const titulo = pieza || Array.from(raiz.querySelectorAll("h1")).some((h) => !h.closest(".k-cab"));
+      setEstado((e) => (e.titulo === titulo && e.pieza === pieza ? e : { titulo, pieza }));
+    };
     mirar();
     const mo = new MutationObserver(mirar);
     mo.observe(raiz, { childList: true, subtree: true });
     return () => mo.disconnect();
   }, []);
-  return tiene;
+  return estado;
 }
 
-/* Estilos locales de la cabecera (el kit no trae subtítulo ni migas en .k-cab). */
+/* Estilos locales de la cabecera (el kit no trae subtítulo ni migas en .k-cab).
+   El subtítulo comparte la línea base del título: un puntal invisible de 26 px
+   (la letra del título) le da la misma caja, y el texto se alinea a su base. */
 const CSS_CABECERA = `
 .k-cab > .k-cab-sub { grid-column: 4 / 10; min-width: 0; margin: 0; font-size: 14px; line-height: 1.3; color: var(--ink-3);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k-cab > .k-cab-sub::before { content: "\\200b"; font: 800 26px/1 var(--f-sans); }
 .k-cab[data-migas] > .k-cab-ruta { grid-column: 1 / 7; }
 .k-cab[data-migas] > .k-cab-sub { grid-column: 7 / 10; }
 .k-cab-ruta .tit { margin: 0; min-width: 0; }
@@ -77,7 +81,7 @@ const CSS_CABECERA = `
 export function Header({ title, subtitle, breadcrumbs, accion }: HeaderProps) {
   const pathname = usePathname();
   const entrada = entradaIndice(pathname);
-  const conTitulo = usePaginaConTitulo();
+  const { titulo: conTitulo, pieza: conPieza } = usePaginaConTitulo();
   const enEmpresa = (pathname || "").startsWith("/empresa");
   const migas = (breadcrumbs ?? []).filter((c) => c.href);
 
@@ -130,9 +134,9 @@ export function Header({ title, subtitle, breadcrumbs, accion }: HeaderProps) {
           {title}
         </Titulo>
       </div>
-      {subtitle && (
+      {subtitle && !conPieza && (
         <p className="k-cab-sub" title={subtitle}>
-          {subtitle}
+          <span>{subtitle}</span>
         </p>
       )}
       {accionFinal && <div className="acc">{accionFinal}</div>}

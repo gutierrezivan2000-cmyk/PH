@@ -3,6 +3,9 @@ import type { CSSProperties } from "react";
 /**
  * Iconografía del kit: trazo 2, remates rectos (SPEC §f.2). Todos son
  * decorativos (aria-hidden): el texto del control dice qué hace.
+ * Flechas (→ ← ↑), chevrones (▾ ▴) y vistos (✓) van SIEMPRE en SVG: los
+ * subconjuntos autoalojados de Archivo y Plex no incluyen U+2192, U+25BE ni
+ * U+2713 y saldrían con la fuente del sistema. Tampoco «≈» (U+2248): escribe «aprox.».
  */
 type P = { className?: string; style?: CSSProperties };
 
@@ -34,6 +37,15 @@ export function Lupa({ className = "k-ar", style }: P) {
     <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" className={className} style={style}>
       <circle cx="7" cy="7" r="4.5" />
       <path d="M10.5 10.5L14 14" />
+    </svg>
+  );
+}
+
+/** Visto (✓) de trazo recto: «✓ Copiado», «✓ Los Pinos». Archivo y Plex no traen ✓ (U+2713): va en SVG. */
+export function Visto({ className = "k-ar", style }: P) {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" className={className} style={style}>
+      <path d="M2.5 8.5l3.5 3.5 7.5-8" />
     </svg>
   );
 }

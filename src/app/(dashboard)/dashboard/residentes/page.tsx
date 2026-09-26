@@ -395,7 +395,7 @@ export default function ResidentesPage() {
             </p>
             <Link
               href="/dashboard/suscripcion"
-              className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-6 py-3"
+              className="inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-6 py-3"
               style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
             >
               Ver planes
@@ -533,7 +533,7 @@ export default function ResidentesPage() {
                   <button
                     onClick={savePayConfig}
                     disabled={paySaving}
-                    className="ui-press inline-flex items-center gap-2 rounded-full text-white text-[12.5px] font-medium px-4 py-2 cursor-pointer"
+                    className="ui-press inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[12.5px] font-medium px-4 py-2 cursor-pointer"
                     style={{ background: "var(--info)" }}
                   >
                     {paySaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
@@ -549,7 +549,7 @@ export default function ResidentesPage() {
                 <button
                   onClick={generateAll}
                   disabled={busy}
-                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
+                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                   style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                 >
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}

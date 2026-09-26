@@ -14,7 +14,7 @@ import {
   CabeceraApp, CabeceraPieza, Campo, Casilla, Categoria, Colofon, Cornisa, Dock, Entrada, EnObra, ErrorCarga,
   Escribiendo, Esqueleto, Estado, FichaAgente, FilaArchivo, FilaObligacion, FranjaPreparacion, GrupoCampos,
   GrupoIndice, Indice, Insignia, Interruptor, ItemIndice, Kpi, Kpis, ListaArchivos, ListaObligaciones, MasEnLista, Medidor, MenuMas, Modal,
-  NavPasos, Opcion, Pagina, Paginacion, Panel, Pasos, PestanasUnidas, PieIndice, PieTabla, Pieza,
+  NavPasos, Opcion, OpcionFila, OpcionesFila, RejillaMeses, Resumen, Pagina, Paginacion, Panel, Pasos, PestanasUnidas, PieIndice, PieTabla, Pieza,
   ProgresoGeneracion, RegionAvisos, RotuloIA, Seccion, Segmentos, Selector, SinResultados, Tabla, TipoArchivo,
   TiraSemanal, Urgencia, Urgencias, Vacio, ZonaSubida, type ColumnaTabla,
   MensajeUsuario, RespuestaAgente, Redactor, TarjetaPlan, LeyendaGrafica, Flecha,
@@ -63,7 +63,7 @@ const CSS_MUESTRA = `
 .f-hover.k-btn { background: var(--accent-hi); border-color: var(--accent-hi); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
 .f-press.k-btn { background: var(--accent-lo); border-color: var(--accent-lo); box-shadow: inset 0 0 0 2px var(--on-accent); text-decoration: none; }
 .f-hover.k-btn.k-sec { background: var(--hl); text-decoration: none; } .f-press.k-btn.k-sec { background: var(--surface-3); box-shadow: none; }
-.f-hover.k-btn.k-fan { background: var(--hl); text-decoration: underline; } .f-press.k-btn.k-fan { background: var(--surface-3); box-shadow: none; text-decoration: underline; }
+.f-hover.k-btn.k-fan { background: var(--hl); border-color: transparent; text-decoration: underline; } .f-press.k-btn.k-fan { background: var(--surface-3); border-color: transparent; box-shadow: none; text-decoration: underline; }
 .f-hover.k-btn.k-pel { background: var(--danger); color: var(--on-danger); border-color: var(--danger); text-decoration: none; }
 .f-press.k-btn.k-pel { background: var(--danger); color: var(--on-danger); border-color: var(--danger); box-shadow: inset 0 0 0 2px var(--on-danger); }
 .f-foco { outline: 3px solid var(--focus); outline-offset: 2px; }
@@ -99,6 +99,8 @@ export default function KitMuestra() {
   const [indice, setIndice] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [texto, setTexto] = useState("");
+  const [propGen, setPropGen] = useState("lp");
+  const [mesGen, setMesGen] = useState<number | null>(9);
 
   const columnas: ColumnaTabla<Unidad>[] = [
     { id: "u", titulo: "Unidad", ancho: "minmax(0, 1fr)", principal: true, claseCelda: "k-c-id", celda: (u) => u.id },
@@ -142,7 +144,7 @@ export default function KitMuestra() {
       {/* Armazón: cabecera y cornisa */}
       <div id="muestra-cab">
         <CabeceraApp nn="—" titulo="Muestra del kit"
-          buscador={<Buscador etiqueta="Buscar obligación, unidad o documento…" atajo="/" />}
+          buscador={<Buscador etiquetaAccesible="Buscar obligación, unidad o documento…" atajo="/" />}
           alBuscar={() => {}}
           accion={<Boton flecha="avanza" href="/dashboard/generar">Generar informe</Boton>} />
       </div>
@@ -243,11 +245,11 @@ export default function KitMuestra() {
                 <Categoria>Mantenimiento</Categoria><Categoria>SG-SST</Categoria>
               </div>
               <div style={{ marginTop: 18 }}>
-                <Segmentos etiqueta="Pestañas de ejemplo" modo="pestanas" valor={pest} alCambiar={setPest}
+                <Segmentos etiquetaAccesible="Pestañas de ejemplo" modo="pestanas" valor={pest} alCambiar={setPest}
                   items={[{ id: "resumen", etiqueta: "Resumen" }, { id: "unidades", etiqueta: "Unidades", conteo: 48 }, { id: "docs", etiqueta: "Documentos" }]} />
               </div>
               <div style={{ marginTop: 18 }}>
-                <PestanasUnidas vista etiqueta="Vista" valor={vista} alCambiar={setVista}
+                <PestanasUnidas vista etiquetaAccesible="Vista" valor={vista} alCambiar={setVista}
                   items={[{ id: "lista", etiqueta: "Lista" }, { id: "mes", etiqueta: "Mes" }]} />
               </div>
             </Panel>
@@ -255,7 +257,7 @@ export default function KitMuestra() {
             <Panel className="w6a" titulo="Avisos" nota="abajo a la derecha; 6 s o hasta que se cierren">
               <div style={{ display: "grid", gap: 12 }}>
                 <Aviso tipo="ok" rol={null} titulo="Informe generado." texto="Los Pinos · septiembre 2026" accion={{ etiqueta: "Abrir", alElegir: () => {} }} />
-                <Aviso tipo="error" rol={null} titulo="No se pudo enviar el correo." texto="La unidad 202 no tiene correo registrado." accion={{ etiqueta: "Agregar correo", alElegir: () => {} }} />
+                <Aviso tipo="error" rol={null} titulo="No se pudo enviar el correo." texto="La unidad 202 no tiene correo registrado." accion={{ etiqueta: "Agregar correo", alElegir: () => {} }} alCerrar={() => {}} />
                 <Aviso rol={null} titulo="Enlace copiado." texto="Pégalo en WhatsApp o en un correo." alCerrar={() => {}} />
                 <Aviso enLinea rol={null} tipo="error" titulo="Tu plan venció el 1 de octubre." texto="Renueva para seguir generando." accion={{ etiqueta: "Ver planes", href: "/dashboard/suscripcion" }} />
                 <div className="k-btns">
@@ -334,7 +336,7 @@ export default function KitMuestra() {
                 <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
                   {[["Estados financieros del mes", true], ["Reporte de cartera y recaudos", true], ["Registros de mantenimiento", true], ["Fotos de obras, mejoras o daños", false], ["Novedades de seguridad o proveedores", false]].map(([t, ok]) => (
                     <li key={String(t)} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "11px 0", borderTop: "1px solid var(--line)", fontSize: 15 }}>
-                      <span>{t}</span>{ok ? <Estado tipo="ok" tam={14}>Subido</Estado> : <Estado tipo="pendiente" tam={14}>Falta</Estado>}
+                      <span>{t}</span>{ok ? <Estado tipo="ok" tamLetra={14}>Subido</Estado> : <Estado tipo="pendiente" tamLetra={14}>Falta</Estado>}
                     </li>
                   ))}
                 </ul>
@@ -350,16 +352,49 @@ export default function KitMuestra() {
           </div>
         </Pieza>
 
+        {/* Asistente Generar: recetas de los pasos 1, 2 y 5 */}
+        <Pieza>
+          <CabeceraPieza nn="02" titulo="Generar documentos · pasos 1, 2 y 5"
+            subtitulo="Fila seleccionable de 64 px, rejilla de meses y resumen de lo elegido" />
+          <div className="muestra-kit">
+            <div className="w7">
+              <OpcionesFila etiquetaAccesible="Copropiedad">
+                <OpcionFila name="m-prop" etiqueta="Conjunto Residencial Los Pinos" detalle="48 unidades" extra="último informe: agosto"
+                  checked={propGen === "lp"} onChange={() => setPropGen("lp")} />
+                <OpcionFila name="m-prop" etiqueta="Torres del Río" detalle="96 unidades" extra="último informe: agosto"
+                  checked={propGen === "tr"} onChange={() => setPropGen("tr")} />
+                <OpcionFila name="m-prop" etiqueta="Edificio Mirador 93" detalle="24 unidades"
+                  checked={propGen === "m93"} onChange={() => setPropGen("m93")} />
+              </OpcionesFila>
+              <div style={{ marginTop: 28 }}>
+                <RejillaMeses nombre="m-mes" etiquetaAccesible="Mes del informe · 2026" valor={mesGen} alCambiar={setMesGen}
+                  deshabilitado={(m) => m > 9} />
+              </div>
+            </div>
+            <div className="w5">
+              <Resumen etiquetaAccesible="Resumen de la generación" filas={[
+                { etiqueta: "Propiedad", valor: "Conjunto Residencial Los Pinos" },
+                { etiqueta: "Periodo", valor: "Septiembre 2026" },
+                { etiqueta: "Documentos", valor: "Informe de gestión y acta del consejo" },
+                { etiqueta: "Archivos", valor: "4 listos" },
+              ]} />
+              <div style={{ marginTop: 28 }}>
+                <Medidor filas={[{ etiqueta: "Este mes", usado: 12, total: 15 }, { etiqueta: "Hoy", usado: 1, total: 3 }]} libres={2} unidadLibres="libres hoy" />
+              </div>
+            </div>
+          </div>
+        </Pieza>
+
         {/* Tabla con selección, lote y menú */}
         <Pieza>
           <CabeceraPieza nn="07" titulo="Residentes" subtitulo="Portal por unidad, sin usuarios ni contraseñas"
             acciones={<><Boton variante="secundario">Importar Excel con IA</Boton><Boton flecha="crea">Agregar unidad</Boton></>} />
-          <PestanasUnidas etiqueta="Copropiedad" valor={prop} alCambiar={setProp} fin="47 de 48 con enlace · 46 con correo"
+          <PestanasUnidas etiquetaAccesible="Copropiedad" valor={prop} alCambiar={setProp} fin="47 de 48 con enlace · 46 con correo"
             items={[{ id: "lp", etiqueta: "Conjunto Residencial Los Pinos", conteo: "48 u." }, { id: "tr", etiqueta: "Torres del Río", conteo: "96 u." }, { id: "m93", etiqueta: "Edificio Mirador 93", conteo: "24 u." }]} />
           <div style={{ display: "flex", gap: 12, alignItems: "stretch", margin: "18px 0", flexWrap: "wrap" }}>
-            <Segmentos etiqueta="Filtrar por estado" valor={filtro} alCambiar={setFiltro}
+            <Segmentos etiquetaAccesible="Filtrar por estado" valor={filtro} alCambiar={setFiltro}
               items={[{ id: "todas", etiqueta: "Todas", conteo: 48 }, { id: "con", etiqueta: "Con enlace", conteo: 47 }, { id: "sin", etiqueta: "Sin enlace", conteo: 1 }, { id: "sc", etiqueta: "Sin correo", conteo: 2 }]} />
-            <Buscador etiqueta="Buscar unidad, residente o correo" style={{ minWidth: 0 }} />
+            <Buscador etiquetaAccesible="Buscar unidad, residente o correo" style={{ minWidth: 0 }} />
           </div>
           {sel.size > 0 && (
             <BarraLote n={sel.size} alQuitar={() => setSel(new Set())}>
@@ -368,17 +403,17 @@ export default function KitMuestra() {
               <BotonLote>Generar enlaces nuevos</BotonLote>
             </BarraLote>
           )}
-          <Tabla etiqueta="Unidades de Conjunto Residencial Los Pinos" filas={UNIDADES} claveFila={(u) => u.id} columnas={columnas}
+          <Tabla etiquetaAccesible="Unidades de Conjunto Residencial Los Pinos" filas={UNIDADES} claveFila={(u) => u.id} columnas={columnas}
             seleccion={{ ids: sel, alCambiar: setSel, etiquetaFila: (u) => `Seleccionar ${u.id}` }}
             agrupar={{ clave: (u) => u.piso, titulo: (k) => k, nota: "Piso", cabecera: "Piso" }} />
           <PieTabla texto="Mostrando 6 de 48 unidades · pisos 1 y 2"><Paginacion pagina={pagina} total={8} alCambiar={setPagina} /></PieTabla>
 
           <div style={{ marginTop: 48 }}>
-            <Tabla etiqueta="Documentos de 2026" filas={DOCS} claveFila={(d) => d.id} columnas={columnasDocs}
+            <Tabla etiquetaAccesible="Documentos de 2026" filas={DOCS} claveFila={(d) => d.id} columnas={columnasDocs}
               agrupar={{ clave: (d) => d.mes, titulo: (k) => k, estilo: "fila" }} filaConError={(d) => d.estado === "error"} />
           </div>
           <div style={{ marginTop: 32 }}>
-            <Tabla etiqueta="Tabla vacía" filas={[] as Doc[]} claveFila={(d) => d.id} columnas={columnasDocs}
+            <Tabla etiquetaAccesible="Tabla vacía" filas={[] as Doc[]} claveFila={(d) => d.id} columnas={columnasDocs}
               vacio={<Vacio nivel={3} titulo="Aún no has generado documentos este año." texto="Cada informe sale del asistente de 5 pasos." acciones={<Boton flecha="avanza" href="/dashboard/generar">Generar el primero</Boton>} />} />
           </div>
         </Pieza>
@@ -397,14 +432,14 @@ export default function KitMuestra() {
               <Urgencia nivel="c" n={0} titulo="Próximos 30 días" detalle="Nada en 30 días" />
             </Urgencias>
             <div className="muestra-kit" style={{ marginTop: 16, rowGap: 24 }}>
-              <ListaObligaciones className="w6a" titulo="Vencidas" conteo={3} etiqueta="3 obligaciones vencidas">
+              <ListaObligaciones className="w6a" titulo="Vencidas" conteo={3} etiquetaAccesible="3 obligaciones vencidas">
                 <FilaObligacion tipo="vencido" que="Asamblea ordinaria 2026" cuando="Hace 177 días · venció el 31 mar" donde="Conjunto Residencial Los Pinos"
                   accion={{ texto: "Convocar", href: "/dashboard/asistente/themis", etiquetaAccesible: "Convocar: Asamblea ordinaria 2026 · Los Pinos" }} />
                 <FilaObligacion tipo="vencido" que="Póliza todo riesgo · áreas comunes" cuando="Hace 6 días · venció el 18 sep" donde="Conjunto Residencial Los Pinos"
                   accion={{ texto: "Renovar", href: "/dashboard/calendario" }} />
                 <MasEnLista href="/dashboard/calendario">1 más en la bitácora</MasEnLista>
               </ListaObligaciones>
-              <ListaObligaciones className="w6b" titulo="Esta semana" conteo={1} etiqueta="1 obligación esta semana">
+              <ListaObligaciones className="w6b" titulo="Esta semana" conteo={1} etiquetaAccesible="1 obligación esta semana">
                 <TiraSemanal comoItem dias={[
                   { etiqueta: "L", dia: 21, estado: "pasado" }, { etiqueta: "M", dia: 22, estado: "pasado" }, { etiqueta: "M", dia: 23, estado: "pasado" },
                   { etiqueta: "Hoy", dia: 24, estado: "hoy" }, { etiqueta: "V", dia: 25, evento: "Extintores" }, { etiqueta: "S", dia: 26, evento: "Planta eléctrica" }, { etiqueta: "D", dia: 27 },
@@ -416,7 +451,7 @@ export default function KitMuestra() {
           <Seccion id="m-s12" numero="01.2" titulo="Indicadores" nota="KPI y medidor">
             <Kpis>
               <Kpi cifra="38" etiqueta="Documentos generados en 2026" variacion="4 este mes" />
-              <Kpi cifra="$ 12.480.000" tam={32} etiqueta="Recaudo del mes" variacion="+4 % frente a agosto" />
+              <Kpi cifra="$ 12.480.000" tamLetra={32} etiqueta="Recaudo del mes" variacion="+4 % frente a agosto" />
               <Kpi cifra="7" alerta etiqueta="Unidades en mora" variacion="2 más que en agosto" malo />
               <Kpi cifra="3" unidad="libres" etiqueta="Generaciones que quedan" />
             </Kpis>
@@ -464,13 +499,13 @@ export default function KitMuestra() {
             <p className="k-aviso-ia">Themis puede equivocarse: verifica lo importante con la norma citada.</p>
           </div>
           <div className="muestra-kit" style={{ marginTop: 48 }}>
-            <TarjetaPlan className="w4a" id="pl-pro" nombre="Pro" para="Para empezar · hasta 3 propiedades" precio="99.900" equivalencia="≈ USD 24 al mes"
+            <TarjetaPlan className="w4a" id="pl-pro" nombre="Pro" para="Para empezar · hasta 3 propiedades" precio="99.900" equivalencia="aprox. USD 24 al mes"
               beneficios={["Hasta 3 propiedades", "15 generaciones al mes (3 por día)", "Themis y Chronos incluidos"]} actual />
-            <TarjetaPlan className="w4b" id="pl-bus" nombre="Business" para="Para administradores en crecimiento" precio="299.900" equivalencia="≈ USD 73 al mes"
+            <TarjetaPlan className="w4b" id="pl-bus" nombre="Business" para="Para administradores en crecimiento" precio="299.900" equivalencia="aprox. USD 73 al mes"
               recomendado="Recomendado · de 4 a 10 propiedades"
               beneficios={["Hasta 10 propiedades", "40 generaciones al mes (5 por día)", "Generación en lote"]}
               accion={<Boton flecha="avanza">Cambiar a Business</Boton>} />
-            <TarjetaPlan className="w4c" id="pl-eli" nombre="Élite" para="Para grandes administradoras" precio="749.900" equivalencia="≈ USD 183 al mes"
+            <TarjetaPlan className="w4c" id="pl-eli" nombre="Élite" para="Para grandes administradoras" precio="749.900" equivalencia="aprox. USD 183 al mes"
               beneficios={["Propiedades ilimitadas", "100 generaciones al mes (10 por día)", "Consola multipropiedad"]}
               accion={<Boton variante="secundario" flecha="avanza">Cambiar a Élite</Boton>} />
             <div className="w12"><LeyendaGrafica series={[{ nombre: "Presupuestado", serie: "s1" }, { nombre: "Ejecutado", serie: "s2" }, { nombre: "Proyectado", serie: "s3" }, { nombre: "Año anterior", serie: "s4" }, { nombre: "Excedido", serie: "mal" }]} /></div>

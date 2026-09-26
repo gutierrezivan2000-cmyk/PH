@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as TeclaReact, type ReactNode } from "react";
 import { useTheme, type Theme } from "@/components/ThemeProvider";
 import { BotonIcono } from "./Boton";
 import { Cuadro } from "./Estado";
@@ -83,7 +83,8 @@ export function Indice({ children, pie, abierto = false, alCerrar, idPrincipal =
     <nav ref={nav} className="k-indice" aria-label="Índice" data-abierto={abierto || undefined}
       role={abierto ? "dialog" : undefined} aria-modal={abierto || undefined}>
       <div className="k-marca">
-        <Link href={hrefInicio} style={{ display: "flex", alignItems: "center", gap: 12 }} aria-label="SOPH.IA · Inicio"><Marca /></Link>
+        {/* El logotipo también cierra el diálogo móvil: navegar no basta para cerrarlo. */}
+        <Link href={hrefInicio} className="k-marca-a" aria-label="SOPH.IA · Inicio" onClick={alCerrar}><Marca /></Link>
         {alCerrar && (
           <button type="button" className="k-btn k-sec k-cerrar" onClick={alCerrar}>Cerrar <Cruz /></button>
         )}
@@ -148,15 +149,49 @@ export function PieIndice({ nombre, correo, alSalir }: { nombre: string; correo?
   );
 }
 
-/** Selector de tema segmentado Auto / Claro / Oscuro. Escribe la misma clave (`sophia-theme`) que el script del layout raíz. */
-export function SelectorTema({ grande }: { grande?: boolean }) {
+const OPCIONES_TEMA: Array<[Theme, string, string]> = [
+  ["auto", "Auto", "Seguir al dispositivo"],
+  ["light", "Claro", "Tema claro"],
+  ["dark", "Oscuro", "Tema oscuro"],
+];
+
+/**
+ * Selector de tema Auto / Claro / Oscuro (el único del sistema: ThemeToggle lo usa).
+ * Se muestran los tres a la vez, no un interruptor, para que «Auto» sea visible.
+ * Patrón de radios de WAI-ARIA: role="radiogroup" + role="radio" aria-checked,
+ * tabulador itinerante (solo el elegido entra en el orden de tabulación) y
+ * flechas ← → ↑ ↓ que eligen y mueven el foco. Escribe la misma clave
+ * (`sophia-theme`) que el script del layout raíz.
+ * `ciclo` (índice plegado, 76 px de ancho): un solo botón de 40 px que rota
+ * Auto → Claro → Oscuro, con el tema actual como rótulo.
+ */
+export function SelectorTema({ grande, ciclo, className }: { grande?: boolean; ciclo?: boolean; className?: string }) {
   const { theme, setTheme } = useTheme();
-  const opciones: Array<[Theme, string]> = [["auto", "Auto"], ["light", "Claro"], ["dark", "Oscuro"]];
+  const grupo = useRef<HTMLDivElement>(null);
+  if (ciclo) {
+    const i = Math.max(0, OPCIONES_TEMA.findIndex(([t]) => t === theme));
+    const [, actual] = OPCIONES_TEMA[i];
+    const [siguiente, rotuloSiguiente] = OPCIONES_TEMA[(i + 1) % OPCIONES_TEMA.length];
+    const etiqueta = `Tema: ${actual}. Cambiar a ${rotuloSiguiente.toLowerCase()}`;
+    return (
+      <button type="button" className={unir("k-tema-ciclo", className)} onClick={() => setTheme(siguiente)}
+        aria-label={etiqueta} title={etiqueta}>{actual}</button>
+    );
+  }
+  const teclado = (e: TeclaReact<HTMLButtonElement>) => {
+    const paso = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+    if (!paso) return;
+    e.preventDefault();
+    const i = OPCIONES_TEMA.findIndex(([t]) => t === theme);
+    const sig = (Math.max(0, i) + paso + OPCIONES_TEMA.length) % OPCIONES_TEMA.length;
+    setTheme(OPCIONES_TEMA[sig][0]);
+    grupo.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[sig]?.focus();
+  };
   return (
-    <div className="k-tema" role="group" aria-label="Tema" style={grande ? { maxWidth: 420 } : undefined}>
-      {opciones.map(([t, et]) => (
-        <button key={t} type="button" aria-pressed={theme === t} onClick={() => setTheme(t)}
-          style={grande ? { minHeight: 48, fontSize: 15 } : undefined}>{et}</button>
+    <div ref={grupo} className={unir("k-tema", grande && "k-48", className)} role="radiogroup" aria-label="Tema de la interfaz">
+      {OPCIONES_TEMA.map(([t, et, titulo]) => (
+        <button key={t} type="button" role="radio" aria-checked={theme === t} title={titulo}
+          tabIndex={theme === t ? 0 : -1} onKeyDown={teclado} onClick={() => setTheme(t)}>{et}</button>
       ))}
     </div>
   );
@@ -180,7 +215,7 @@ export function CabeceraApp({ nn, titulo, buscador, alBuscar, accion }: {
       <div className="k-cab-marca"><Marca compacta /></div>
       <div className="k-cab-ruta"><span className="num">{nn}</span><span className="tit">{titulo}</span></div>
       {buscador}
-      {buscador && alBuscar && <BotonIcono etiqueta="Buscar" onClick={alBuscar}><Lupa /></BotonIcono>}
+      {buscador && alBuscar && <BotonIcono etiquetaAccesible="Buscar" onClick={alBuscar}><Lupa /></BotonIcono>}
       {accion && <div className="acc">{accion}</div>}
     </header>
   );
@@ -192,7 +227,8 @@ export type CopropiedadCornisa = { id: string; nombre: string; vencidas: number 
  * Cornisa (SPEC §f.1): «running head» + selector de ALCANCE por copropiedad.
  * «Ver · Todas · 3 copropiedades | ■ Los Pinos 2 vencidas | ■ Mirador 93 al día».
  * Orden: más vencidas primero. Nombre corto con el completo en title/aria-label.
- * Entre 861 y 1300 px las «al día» se pliegan en «N al día ▾» (se despliegan al pulsar).
+ * Entre 861 y 1300 px las «al día» se pliegan en «N al día ▾»; el mismo botón las
+ * despliega y, abierto, pasa a «Plegar ▴» (aria-expanded).
  * Filtra en el cliente lo ya cargado (estado local): no hace llamadas.
  * Va en Inicio, Bitácora e Historial. En /empresa usa `info` (solo texto).
  */
@@ -207,6 +243,9 @@ export function Cornisa({ copropiedades, valor, alCambiar, info }: {
   const alDia = lista.filter((c) => c.vencidas === 0);
   const elegidaAlDia = alDia.some((c) => c.id === valor);
   const abierta = expandida || elegidaAlDia;
+  // El mismo botón pliega y despliega (el foco no se pierde). Si la elegida está
+  // «al día», el grupo queda abierto: plegarlo escondería la selección.
+  const plegable = alDia.length > 0 && !elegidaAlDia;
   return (
     <div className="k-cornisa" role="group" aria-label="Alcance: copropiedades" data-expandida={abierta ? "true" : "false"}>
       <span className="k" aria-hidden="true">Ver</span>
@@ -225,9 +264,9 @@ export function Cornisa({ copropiedades, valor, alCambiar, info }: {
           </span>
         </button>
       ))}
-      {alDia.length > 0 && (
-        <button type="button" className="plegado" aria-expanded={abierta} onClick={() => setExpandida(true)}>
-          <Cuadro tipo="ok" />{alDia.length} al día <Chevron dir="abajo" />
+      {plegable && (
+        <button type="button" className="plegado" aria-expanded={abierta} onClick={() => setExpandida(!abierta)}>
+          {abierta ? <>Plegar <Chevron dir="arriba" /></> : <><Cuadro tipo="ok" />{alDia.length} al día <Chevron dir="abajo" /></>}
         </button>
       )}
     </div>
@@ -236,6 +275,8 @@ export function Cornisa({ copropiedades, valor, alCambiar, info }: {
 
 export type DestinoDock = {
   href: string; etiqueta: string; actual?: boolean;
+  /** Nombre completo para lectores si el rótulo visible se acorta («Lote» → «Generar en lote»). Debe contener el rótulo. */
+  etiquetaAccesible?: string;
   /** Insignia: número + unidad para lectores («3» + «vencidas»). `alerta` = naranja. */
   insignia?: { n: number; unidad: string; alerta?: boolean };
 };
@@ -251,7 +292,7 @@ export function Dock({ destinos, alAbrirIndice, indiceAbierto }: {
   return (
     <nav className="k-dock" aria-label="Accesos rápidos">
       {destinos.slice(0, 4).map((d) => (
-        <Link key={d.href} href={d.href} aria-current={d.actual ? "page" : undefined}>
+        <Link key={d.href} href={d.href} aria-current={d.actual ? "page" : undefined} aria-label={d.etiquetaAccesible}>
           {d.etiqueta}
           {d.insignia && d.insignia.n > 0 && (
             <i className={unir("b", d.insignia.alerta && "alerta")}>

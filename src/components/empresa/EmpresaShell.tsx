@@ -17,8 +17,11 @@ import { EstilosIndice, NAV_EMPRESA, esActiva, iniciales } from "@/components/da
  */
 export function EmpresaShell({ elite, children }: { elite: EliteSession; children: React.ReactNode }) {
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const cerrar = () => setMobileOpen(false);
+  // Abierto solo en la ruta donde se abrió: cualquier navegación (entrada,
+  // logotipo, atrás/adelante) lo cierra sin sincronizar estado en un efecto.
+  const [abiertoEn, setAbiertoEn] = useState<string | null>(null);
+  const mobileOpen = abiertoEn !== null && abiertoEn === pathname;
+  const cerrar = () => setAbiertoEn(null);
 
   const actual = NAV_EMPRESA.find((item) => esActiva(pathname, item.href));
   const nombre = elite.name || elite.email.split("@")[0];
@@ -66,19 +69,26 @@ export function EmpresaShell({ elite, children }: { elite: EliteSession; childre
       </div>
 
       <div id="k-principal-empresa" className="k-principal flex flex-col">
-        {/* Dock de /empresa: sus rótulos («Propiedades», «Suscripción») no caben en
-            celdas de 78 px a 390: Archivo al 85 % de ancho y en dos líneas si hace falta. */}
+        {/* Dock de /empresa a 14 px como el del dashboard (SPEC §f.1). «Propiedades» y
+            «Suscripción» no caben en celdas de 78 px a 390 con Archivo al 100 %: al 85 % de
+            ancho sí, en una línea (y «Generar en lote» va como «Lote»). */}
         <style href="k-dock-empresa" precedence="default">
-          {`#k-principal-empresa > .k-dock > * { font-stretch: 85%; font-size: 13px; line-height: 1.1; text-align: center; padding: 0 3px; }`}
+          {`#k-principal-empresa > .k-dock > * { font-stretch: 85%; padding: 0 3px; }`}
         </style>
         <Header title={actual?.name ?? "Portafolio"} />
         <main className="flex-1 min-w-0">{children}</main>
         <Dock
-          alAbrirIndice={() => setMobileOpen(true)}
+          alAbrirIndice={() => setAbiertoEn(pathname)}
           indiceAbierto={mobileOpen}
           destinos={[
             { href: "/empresa", etiqueta: "Portafolio", actual: esActiva(pathname, "/empresa") },
-            { href: "/empresa/generar", etiqueta: "Generar en lote", actual: esActiva(pathname, "/empresa/generar") },
+            // «Lote» en el dock (celdas de 78 px a 390); el nombre completo, para lectores.
+            {
+              href: "/empresa/generar",
+              etiqueta: "Lote",
+              etiquetaAccesible: "Generar en lote",
+              actual: esActiva(pathname, "/empresa/generar"),
+            },
             { href: "/empresa/propiedades", etiqueta: "Propiedades", actual: esActiva(pathname, "/empresa/propiedades") },
             { href: "/dashboard/suscripcion", etiqueta: "Suscripción" },
           ]}

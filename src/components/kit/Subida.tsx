@@ -70,8 +70,8 @@ export function ZonaSubida({
 }
 
 /** Lista de archivos bajo la zona (filete de 2 px arriba). Pasa <FilaArchivo> como hijos. */
-export function ListaArchivos({ children, etiqueta = "Archivos subidos" }: { children: ReactNode; etiqueta?: string }) {
-  return <ul className="k-archivos" aria-label={etiqueta}>{children}</ul>;
+export function ListaArchivos({ children, etiquetaAccesible = "Archivos subidos" }: { children: ReactNode; etiquetaAccesible?: string }) {
+  return <ul className="k-archivos" aria-label={etiquetaAccesible}>{children}</ul>;
 }
 
 /**
@@ -108,7 +108,7 @@ export function FilaArchivo({
         <b>{nombre}</b>
         {estado === "error" && mensaje ? <span>{mensaje}</span> : detalle && <span>{detalle}</span>}
       </span>
-      <BarraProgreso valor={estado === "error" ? 0 : pct} etiqueta={`Progreso de ${nombre}`} decorativa={estado !== "subiendo"} />
+      <BarraProgreso valor={estado === "error" ? 0 : pct} etiquetaAccesible={`Progreso de ${nombre}`} decorativa={estado !== "subiendo"} />
       <span className={unir("est", estado === "listo" && "ok")} aria-live={estado === "subiendo" ? "polite" : undefined}>{est}</span>
       {alQuitar ? (
         <button type="button" className="x" onClick={alQuitar} aria-label={etiquetaQuitar ?? `Quitar ${nombre}`} title={etiquetaQuitar ?? `Quitar ${nombre}`}>

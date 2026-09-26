@@ -1,12 +1,15 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { COMING_SOON, type ComingSoonKey } from "@/lib/feature-flags";
-import { AGENT_IDS, isComingSoonAgent } from "@/lib/agents";
 import { Chevron, Flecha, GrupoIndice, Indice, ItemIndice } from "@/components/kit";
+import { AGENTES_ACTIVOS, type DatosIndice } from "@/components/dashboard/datosIndice";
+import { abrirSoporte, useSoporteAbierto, useSoporteDisponible } from "@/components/dashboard/soporte";
+
+// Los datos vivos del índice viven en ./datosIndice (caché compartida con las pantallas).
+export { useDatosIndice, type DatosIndice } from "@/components/dashboard/datosIndice";
 
 /* ════════════════════════════════════════════════════════════════════
    ÍNDICE lateral del dashboard (SPEC «Índice» §f.1).
@@ -93,77 +96,6 @@ export function entradaIndice(pathname: string | null): EntradaIndice | null {
   return todas.find((e) => esActiva(pathname, e.href)) ?? null;
 }
 
-/** Agentes lanzados (no «Próximamente»), de la configuración real de lib/agents. */
-const AGENTES_ACTIVOS = AGENT_IDS.filter((id) => !isComingSoonAgent(id)).length;
-
-/* ── datos vivos del índice ─────────────────────────────────────────── */
-
-export type DatosIndice = {
-  /** Bitácora: obligaciones pendientes con fecha ya pasada (GET /api/calendar, mismo criterio que Inicio). */
-  vencidas: number | null;
-  /** Generar: copropiedades cuyo «Informe de gestión» del mes sigue pendiente (GET /api/calendar, categoría «informe»). */
-  porGenerar: number | null;
-  /** Historial: generaciones completadas (GET /api/generations, que devuelve como máximo 100 → `tope`). */
-  documentos: { n: number; tope: boolean } | null;
-  /** Acceso a /empresa: plan Élite o beta (GET /api/usage). */
-  elite: boolean;
-};
-
-const SIN_DATOS: DatosIndice = { vencidas: null, porGenerar: null, documentos: null, elite: false };
-
-type ItemCalendario = { status?: string; dueDate?: string; category?: string };
-
-/** Días desde hoy hasta una fecha «AAAA-MM-DD» en hora local (negativo = ya pasó). */
-function diasHasta(fecha: string): number {
-  const [y, m, d] = fecha.split("-").map(Number);
-  const hoy = new Date();
-  const base = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  return Math.round((new Date(y, m - 1, d).getTime() - base.getTime()) / 86400000);
-}
-
-/**
- * Carga los datos vivos del índice y del dock desde rutas GET existentes.
- * Se pide al montar el armazón y, como mucho, cada 30 s al cambiar de pantalla
- * (así el conteo se refresca tras marcar una obligación o generar un informe).
- * Si una ruta falla, su dato queda en null y el índice no muestra nada.
- */
-export function useDatosIndice(pathname: string | null): DatosIndice {
-  const [datos, setDatos] = useState<DatosIndice>(SIN_DATOS);
-  const ultima = useRef(0);
-  const montado = useRef(true);
-
-  useEffect(() => {
-    montado.current = true;
-    return () => {
-      montado.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (Date.now() - ultima.current < 30_000) return;
-    ultima.current = Date.now();
-    const json = (url: string) =>
-      fetch(url)
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null);
-    Promise.all([json("/api/calendar"), json("/api/generations"), json("/api/usage")]).then(([cal, gens, uso]) => {
-      if (!montado.current) return;
-      const items: ItemCalendario[] | null = Array.isArray(cal?.items) ? cal.items : null;
-      const pendientes = items?.filter((it) => it.status === "pending" && typeof it.dueDate === "string") ?? null;
-      setDatos({
-        vencidas: pendientes ? pendientes.filter((it) => diasHasta(it.dueDate as string) < 0).length : null,
-        porGenerar: pendientes ? pendientes.filter((it) => it.category === "informe").length : null,
-        documentos: Array.isArray(gens)
-          ? { n: gens.filter((g: { status?: string }) => g.status === "completed").length, tope: gens.length >= 100 }
-          : null,
-        elite: Boolean(uso && (uso.planName === "elite" || uso.planStatus === "beta")),
-      });
-    });
-  }, [pathname]);
-
-  return datos;
-}
-
 /** Texto del dato vivo de cada entrada (con unidad), o nada si no hay dato real. */
 function datoDe(href: string, datos?: DatosIndice): { texto: string; tipo: "pend" | "alerta" | "tot" } | undefined {
   if (href === "/dashboard/asistente" && AGENTES_ACTIVOS > 0) {
@@ -184,33 +116,39 @@ function datoDe(href: string, datos?: DatosIndice): { texto: string; tipo: "pend
 
 /* ── estilos locales del armazón (no existen en el kit; ver pendientes) ── */
 /* Índice compacto por alto REAL. El kit compacta todo a ≤ 820 px de ventana,
-   pero el índice completo pide ~905 px y el banner de demo (30 px) y el grupo
-   Élite (~64 px) le restan sitio. Primero se pliega solo el pie a una línea
-   (avatar + tema + flecha, ~100 px menos); si aún no cabe, también las filas. */
+   pero el índice completo pide ~955 px (medido: marca 72 + lista 723 + pie 160,
+   con la entrada «Soporte») y el banner de demo (30 px) y el grupo Élite (~64 px)
+   le restan sitio. Primero se pliega solo el pie a una línea (avatar + tema +
+   flecha, 100 px menos); si aún no cabe (~855 px), también las filas. */
 const pieCompacto = (c: string) => `
   ${c} .k-indice-pie { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 14px 10px 22px; }
   ${c} .k-yo > div:not(.k-yo-a) { display: none; }
-  ${c} .k-tema button { min-height: 32px; }
+  ${c} .k-tema button { min-height: 36px; }
   ${c} .k-salir { width: 32px; justify-content: center; }
   ${c} .k-salir span { display: none; }`;
 const filasCompactas = (c: string) => `
-  ${c} .k-indice-lista { padding-top: 2px; }
+  ${c} .k-indice-lista { padding-top: 2px; padding-bottom: 6px; }
   ${c} .k-grupo-idx { margin-top: 4px; }
   ${c} .k-grupo-h { padding: 5px 10px 2px; }
-  ${c} .k-it { min-height: 28px; }`;
+  ${c} .k-it { min-height: 28px; }
+  ${c} .k-idx-ayuda { margin-top: 6px; padding-top: 2px; }
+  ${c} .k-idx-tit { padding-top: 4px; }`;
 // Solo el índice largo del dashboard (el de /empresa tiene 4 entradas y siempre cabe).
 const N = ".k-col-indice[data-largo]:not([data-plegado])";
 const E = ".k-col-indice[data-largo][data-elite]:not([data-plegado])";
 const DEMO = ":root:has([data-demo-banner]) ";
 const segunAlto = (max: number, css: string) => `@media (min-width: 861px) and (max-height: ${max}px) { ${css} }`;
 const CSS_COMPACTO = [
-  segunAlto(903, pieCompacto(N)),
-  segunAlto(933, pieCompacto(DEMO + N)),
-  segunAlto(967, pieCompacto(E)),
-  segunAlto(997, pieCompacto(DEMO + E)),
-  segunAlto(831, filasCompactas(DEMO + N)),
-  segunAlto(865, filasCompactas(E)),
-  segunAlto(895, filasCompactas(DEMO + E)),
+  segunAlto(954, pieCompacto(N)),
+  segunAlto(984, pieCompacto(DEMO + N)),
+  segunAlto(1018, pieCompacto(E)),
+  segunAlto(1048, pieCompacto(DEMO + E)),
+  segunAlto(854, filasCompactas(N)),
+  segunAlto(884, filasCompactas(DEMO + N)),
+  segunAlto(918, filasCompactas(E)),
+  segunAlto(948, filasCompactas(DEMO + E)),
+  // ≤ 820 px el kit ya compacta filas y pie; aquí solo el bloque «Soporte».
+  segunAlto(820, filasCompactas(".k-col-indice[data-largo]:not([data-plegado])")),
 ].join("\n");
 
 const CSS_INDICE = `
@@ -221,13 +159,9 @@ const CSS_INDICE = `
 .k-plegar::after { content: ""; position: absolute; inset: -6px 0; }
 .k-plegar:hover { background: var(--hl); color: var(--ink); }
 .k-plegar svg { width: 13px; height: 13px; }
-/* Sobre la fila activa (negativo) la caja naranja conserva su tinta: --on-accent en claro daría 3,2:1. */
-.k-it[aria-current="page"] .c.alerta { color: var(--on-danger); }
-/* Entrada «pronto» activa: sobre el negativo, la tinta apagada es --on-accent-2 (8,5:1), no --ink-3. */
-.k-it.pronto[aria-current="page"] .l { color: var(--on-accent); }
-.k-it.pronto[aria-current="page"] .c { color: var(--on-accent-2); }
-.k-it.pronto[aria-current="page"] .c i { background: none; box-shadow: inset 0 0 0 1.5px var(--on-accent-2); }
 .k-yo .plan { color: var(--ink-2); }
+/* «Soporte» (abre el chat de soporte) cierra la lista, separado de las entradas numeradas. */
+.k-idx-ayuda { margin-top: 12px; padding-top: 6px; border-top: 1px solid var(--line); }
 @media (min-width: 861px) {
   /* El índice arranca bajo el banner de demo: su alto no puede ser la ventana entera. */
   .k-col-indice > .k-indice { height: calc(100dvh - var(--demo-banner-h, 0px)); }
@@ -251,17 +185,11 @@ const CSS_INDICE = `
   .k-col-indice[data-plegado] .k-it.pronto .c i { width: 8px; height: 8px; }
   .k-col-indice[data-plegado] .k-indice-pie { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 8px; padding: 10px 8px 10px; }
   .k-col-indice[data-plegado] .k-yo > div:not(.k-yo-a) { display: none; }
-  .k-col-indice[data-plegado] .k-tema { grid-template-columns: minmax(0, 1fr); width: 100%; }
-  .k-col-indice[data-plegado] .k-tema button { min-height: 28px; font-size: 12px; }
-  .k-col-indice[data-plegado] .k-tema button + button { border-left: 0; border-top: 1.5px solid var(--rule); }
   .k-col-indice[data-plegado] .k-salir { width: 44px; justify-content: center; }
   .k-col-indice[data-plegado] .k-salir span { display: none; }
 }
 ${CSS_COMPACTO}
 @media (max-width: 860px) {
-  /* El índice es un diálogo fijo: su columna no debe ocupar una fila de la rejilla
-     (en páginas cortas la fila vacía se estiraba y empujaba la cabecera hacia abajo). */
-  .k-col-indice { display: contents; }
   .k-plegar { display: none; }
   .k-idx-tit { padding-top: 14px; }
 }
@@ -303,6 +231,9 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse, datos }: S
 
   // Plegado solo en escritorio: en ≤ 860 px el índice es un diálogo a pantalla completa.
   const plegado = collapsed && !open;
+  // «Soporte» abre el panel del chat de soporte (antes, un botón flotante que tapaba contenido).
+  const soporteDisponible = useSoporteDisponible();
+  const soporteAbierto = useSoporteAbierto();
 
   const entrada = (item: EntradaIndice) => {
     const pronto = Boolean(item.comingSoon && COMING_SOON[item.comingSoon]);
@@ -340,7 +271,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse, datos }: S
           </div>
         </div>
       )}
-      <ThemeToggle />
+      <ThemeToggle ciclo={plegado} />
       <button
         type="button"
         className="k-salir"
@@ -381,6 +312,27 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse, datos }: S
           <GrupoIndice letra="E" titulo="Élite">
             {entrada(PORTAFOLIO_ENTRY)}
           </GrupoIndice>
+        )}
+        {soporteDisponible && (
+          <div className="k-grupo-idx k-idx-ayuda">
+            <button
+              type="button"
+              className="k-it"
+              onClick={() => {
+                onClose();
+                abrirSoporte();
+              }}
+              aria-expanded={soporteAbierto}
+              aria-controls="soporte-sophia"
+              title={plegado ? "Soporte" : undefined}
+            >
+              <span className="n" aria-hidden="true">
+                —
+              </span>
+              <span className="l">Soporte</span>
+              <span className="dots" aria-hidden="true" />
+            </button>
+          </div>
         )}
       </Indice>
     </div>

@@ -122,7 +122,7 @@ export default async function EmpresaPropiedadesPage({
           action={
             <Link
               href="/empresa/generar"
-              className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold text-white transition-all hover:opacity-90"
+              className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold text-[var(--on-accent)] transition-all hover:opacity-90"
               style={{ background: "var(--accent)", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.35)" }}
             >
               <Layers className="h-4 w-4" />
@@ -176,7 +176,7 @@ export default async function EmpresaPropiedadesPage({
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3 min-w-[180px]">
                           <div
-                            className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-white"
+                            className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-[var(--on-accent)]"
                             style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-lo))" }}
                           >
                             {p.name[0]?.toUpperCase() ?? "?"}

@@ -111,7 +111,7 @@ export default async function EmpresaOverviewPage() {
           action={
             <Link
               href="/empresa/generar"
-              className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold text-white transition-all hover:opacity-90"
+              className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold text-[var(--on-accent)] transition-all hover:opacity-90"
               style={{ background: "var(--accent)", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.35)" }}
             >
               <Layers className="h-4 w-4" />

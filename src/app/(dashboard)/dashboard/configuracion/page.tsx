@@ -476,7 +476,7 @@ export default function ConfiguracionPage() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="w-full h-11 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-11 rounded-2xl text-sm font-semibold text-[var(--on-accent)] flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   background: saved ? "var(--ok)" : "var(--accent)",
                   boxShadow: saved
@@ -593,7 +593,7 @@ export default function ConfiguracionPage() {
                 className="h-9 px-4 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:opacity-90"
                 style={{
                   background: "var(--accent)",
-                  color: "white",
+                  color: "var(--on-accent)",
                   boxShadow: "0 4px 14px rgb(var(--accent-rgb) / 0.25)",
                 }}
               >
@@ -738,7 +738,7 @@ export default function ConfiguracionPage() {
                 className="w-full h-10 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
                   background: "var(--accent)",
-                  color: "white",
+                  color: "var(--on-accent)",
                   boxShadow: "0 4px 14px rgb(var(--accent-rgb) / 0.25)",
                 }}
               >

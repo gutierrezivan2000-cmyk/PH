@@ -74,8 +74,8 @@ export function FichaAgente({ agente, activo = true, href, firma, sugerencias, n
         <div className="top">
           <H>{a.nombre}</H>
           {activo
-            ? <Estado tipo="ok" tam={14}>{a.femenino ? "Activa" : "Activo"}</Estado>
-            : <Estado tipo="enObra" tam={14}>En preparación</Estado>}
+            ? <Estado tipo="ok" tamLetra={14}>{a.femenino ? "Activa" : "Activo"}</Estado>
+            : <Estado tipo="enObra" tamLetra={14}>En preparación</Estado>}
         </div>
         <p>{activo ? a.especialidad : a.oficio}</p>
         {firma && (

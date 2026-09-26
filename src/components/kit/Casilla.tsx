@@ -46,6 +46,35 @@ export function Opcion({
 }
 
 /**
+ * Fila seleccionable de 64 px (SPEC §g 02, paso 1 de Generar): radio + nombre
+ * 18/700 + apoyo 14 px (unidades) + dato a la derecha 14 px --ink-3 («último
+ * informe: agosto»). La elegida en --hl con recuadro de 2 px; toda la fila es
+ * el área de clic y lleva el anillo de foco. Agrúpalas en <OpcionesFila>.
+ *
+ *   <OpcionesFila etiquetaAccesible="Copropiedad">
+ *     {props.map(p => <OpcionFila key={p.id} name="prop" etiqueta={p.name} detalle={`${p.units} unidades`}
+ *       extra={ultimo ? `último informe: ${ultimo}` : undefined} checked={id === p.id} onChange={() => setId(p.id)} />)}
+ *   </OpcionesFila>
+ * Solo datos reales en `detalle` y `extra` (si la API no da unidades, no las pongas).
+ */
+export function OpcionFila({
+  etiqueta, detalle, extra, className, ...rest
+}: { etiqueta: ReactNode; detalle?: ReactNode; extra?: ReactNode } & Omit<ComponentProps<"input">, "type">) {
+  return (
+    <label className={unir("k-opfila", className)}>
+      <input type="radio" className="k-rad" {...rest} />
+      <span className="t"><b>{etiqueta}</b>{detalle && <small>{detalle}</small>}</span>
+      {extra && <span className="x">{extra}</span>}
+    </label>
+  );
+}
+
+/** Contenedor de <OpcionFila>: role="radiogroup" con filete de 2 px arriba. */
+export function OpcionesFila({ etiquetaAccesible, children, className }: { etiquetaAccesible: string; children: ReactNode; className?: string }) {
+  return <div role="radiogroup" aria-label={etiquetaAccesible} className={unir("k-opfilas", className)}>{children}</div>;
+}
+
+/**
  * Interruptor: <button role="switch" aria-checked> dentro de un <label> de 44 px
  * (pulsar el texto también lo cambia). Para ajustes que se aplican al momento.
  *

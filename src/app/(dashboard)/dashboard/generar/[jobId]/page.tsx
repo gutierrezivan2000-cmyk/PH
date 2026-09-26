@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/dashboard/Header";
+import { refrescarIndice } from "@/components/dashboard/datosIndice";
 import { Card, CardContent } from "@/components/ui/card";
 import { upload } from "@vercel/blob/client";
 import {
@@ -111,6 +112,8 @@ export default function JobResultPage() {
         setGeneration(data);
         if (data.status === "completed" || data.status === "failed") {
           clearInterval(interval);
+          // Un informe nuevo cambia «N por generar» y «N doc.» del índice.
+          if (data.status === "completed") refrescarIndice();
         }
       }
       if (!cancelled) setLoading(false);
@@ -294,7 +297,7 @@ export default function JobResultPage() {
         {isCompleted && generation.outputFiles && (
           <Card className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-xl dark:shadow-black/20 rounded-3xl overflow-hidden">
             <CardContent className="p-6 space-y-4">
-              <h3 className="font-bold text-gray-900 dark:text-white">Documentos Generados</h3>
+              <h3 className="font-bold text-[var(--ink)]">Documentos Generados</h3>
 
               {generation.outputFiles.informeHtml && (
                 <a
@@ -308,7 +311,7 @@ export default function JobResultPage() {
                       <FileText className="h-6 w-6 text-blue-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Informe de Gestion</p>
+                      <p className="font-semibold text-sm text-[var(--ink)]">Informe de Gestion</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Abrir e imprimir como PDF</p>
                     </div>
                   </div>
@@ -328,7 +331,7 @@ export default function JobResultPage() {
                       <FileText className="h-6 w-6 text-emerald-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Acta Legal</p>
+                      <p className="font-semibold text-sm text-[var(--ink)]">Acta Legal</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Abrir e imprimir como PDF</p>
                     </div>
                   </div>
@@ -347,7 +350,7 @@ export default function JobResultPage() {
                       <Presentation className="h-6 w-6 text-purple-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Presentacion PPTX</p>
+                      <p className="font-semibold text-sm text-[var(--ink)]">Presentacion PPTX</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">PowerPoint listo para presentar</p>
                     </div>
                   </div>
@@ -367,7 +370,7 @@ export default function JobResultPage() {
                       )}
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Presentacion PPTX</p>
+                      <p className="font-semibold text-sm text-[var(--ink)]">Presentacion PPTX</p>
                       {pptxLoading ? (
                         <p className="text-xs text-purple-600">Generando presentacion...</p>
                       ) : pptxError ? (
@@ -400,7 +403,7 @@ export default function JobResultPage() {
                       <Mic className="h-6 w-6 text-amber-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Transcripcion de Insumos</p>
+                      <p className="font-semibold text-sm text-[var(--ink)]">Transcripcion de Insumos</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Verifica la transcripcion de audios y analisis de fotos</p>
                     </div>
                   </div>
@@ -457,7 +460,7 @@ function ActaRequirementsChecklist({ requirements }: { requirements: ActaRequire
             <ClipboardList className={`h-5 w-5 ${allComplete ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`} />
           </div>
           <div className="flex-1">
-            <h3 className="font-bold text-gray-900 dark:text-white">Requisitos del Acta Legal</h3>
+            <h3 className="font-bold text-[var(--ink)]">Requisitos del Acta Legal</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">Verificacion segun la Ley 675 de 2001</p>
           </div>
           <div className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${allComplete ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300" : "bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300"}`}>
@@ -590,7 +593,7 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
             <MessageSquarePlus className="h-5 w-5 text-violet-600 dark:text-violet-400" />
           </div>
           <div>
-            <h3 className="font-bold text-gray-900 dark:text-white">Corregir o complementar documentos</h3>
+            <h3 className="font-bold text-[var(--ink)]">Corregir o complementar documentos</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Escribe instrucciones o sube archivos adicionales. Los cambios se aplican a {docLabel}
             </p>

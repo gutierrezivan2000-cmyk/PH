@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from "react";
+import { cloneElement, isValidElement, type ComponentProps, type ReactElement, type ReactNode } from "react";
 import { Chevron, Lupa } from "./Iconos";
 import { unir } from "./util";
 
@@ -10,11 +10,13 @@ import { unir } from "./util";
  *     <Entrada id="nit" value={nit} onChange={…} />
  *   </Campo>
  *   <Campo id="correo" etiqueta="Correo del consejo" error="Falta el dominio: por ejemplo, consejo@lospinos.com">
- *     <Entrada id="correo" invalido aria-describedby="correo-err" … />
+ *     <Entrada id="correo" … />
  *   </Campo>
  *
- * Para enlazar ayuda/error al control usa los ids `${id}-ayuda` y `${id}-err`
- * en su aria-describedby (el componente los genera con esos ids).
+ * Asocia solo la ayuda y el error: si el hijo es el control con el mismo `id`
+ * (Entrada, AreaTexto, Selector o un control nativo), le añade
+ * aria-describedby (`${id}-ayuda`, `${id}-err`, conservando el que ya traiga)
+ * y, con error, aria-invalid (borde de error de 2 px). No hace falta escribirlos.
  */
 export function Campo({
   id, etiqueta, opcional, ayuda, error, children, className, sinEtiqueta,
@@ -37,10 +39,20 @@ export function Campo({
       {opcional && <span className="opc"> (opcional)</span>}
     </>
   );
+  const describe = [ayuda ? `${id}-ayuda` : null, error ? `${id}-err` : null].filter(Boolean).join(" ");
+  let control = children;
+  if (isValidElement(children) && (children.props as { id?: string }).id === id && (describe || error)) {
+    const hijo = children as ReactElement<{ "aria-describedby"?: string; "aria-invalid"?: boolean | "true" | "false" }>;
+    const previo = hijo.props["aria-describedby"];
+    control = cloneElement(hijo, {
+      "aria-describedby": [...new Set(`${previo ?? ""} ${describe}`.split(/\s+/).filter(Boolean))].join(" ") || undefined,
+      ...(error ? { "aria-invalid": true } : {}),
+    });
+  }
   return (
     <div className={unir("k-fld", className)}>
       {sinEtiqueta ? <span className="lb" id={`${id}-lb`}>{et}</span> : <label htmlFor={id}>{et}</label>}
-      {children}
+      {control}
       {ayuda && <span className="k-ayuda" id={`${id}-ayuda`}>{ayuda}</span>}
       {error && <span className="k-err" id={`${id}-err`} role="alert">{error}</span>}
     </div>
@@ -71,16 +83,17 @@ export function Selector({ invalido, className, children, ...rest }: { invalido?
 }
 
 /**
- * Buscador de tabla o de cabecera (44 px, lupa). Sin etiqueta visible: `etiqueta`
- * es su aria-label y, por defecto, su placeholder. `atajo="/"` muestra la tecla.
+ * Buscador de tabla o de cabecera (44 px, lupa). Sin etiqueta visible:
+ * `etiquetaAccesible` es su aria-label y, por defecto, su placeholder.
+ * `atajo="/"` muestra la tecla.
  */
 export function Buscador({
-  etiqueta, placeholder, atajo, className, ...rest
-}: { etiqueta: string; atajo?: string } & Omit<ComponentProps<"input">, "aria-label" | "type">) {
+  etiquetaAccesible, placeholder, atajo, className, ...rest
+}: { etiquetaAccesible: string; atajo?: string } & Omit<ComponentProps<"input">, "aria-label" | "type">) {
   return (
     <label className={unir("k-campo", className)}>
       <Lupa />
-      <input type="search" aria-label={etiqueta} placeholder={placeholder ?? etiqueta} {...rest} />
+      <input type="search" aria-label={etiquetaAccesible} placeholder={placeholder ?? etiquetaAccesible} {...rest} />
       {atajo && <kbd aria-hidden="true">{atajo}</kbd>}
     </label>
   );

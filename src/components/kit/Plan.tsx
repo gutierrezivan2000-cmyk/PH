@@ -11,19 +11,22 @@ import { unir } from "./util";
  * `actual` → recuadro discontinuo + «Tu plan actual ■».
  *
  *   <TarjetaPlan nombre="Business" para="Para administradores en crecimiento" precio="299.900"
- *     equivalencia="≈ USD 73 al mes" beneficios={["Hasta 10 propiedades", "40 generaciones al mes"]}
+ *     equivalencia="aprox. USD 73 al mes" beneficios={["Hasta 10 propiedades", "40 generaciones al mes"]}
  *     recomendado="Recomendado · de 4 a 10 propiedades"
  *     accion={<Boton flecha="avanza" onClick={…}>Cambiar a Business</Boton>} />
  */
-export function TarjetaPlan({ nombre, para, precio, moneda = "COP", periodo = "al mes", equivalencia, beneficios, recomendado, actual, accion, className, id }: {
+export function TarjetaPlan({ nombre, para, precio, moneda = "COP", periodo = "al mes", equivalencia, beneficios, recomendado, actual, accion, nivel = 3, className, id }: {
   nombre: string; para?: ReactNode; precio: ReactNode; moneda?: string; periodo?: string; equivalencia?: ReactNode;
-  beneficios: ReactNode[]; recomendado?: string; actual?: boolean; accion?: ReactNode; className?: string; id?: string;
+  beneficios: ReactNode[]; recomendado?: string; actual?: boolean; accion?: ReactNode;
+  /** Nivel del encabezado del nombre (3 por defecto). */
+  nivel?: 2 | 3 | 4; className?: string; id?: string;
 }) {
   const idTitulo = id ? `${id}-t` : undefined;
+  const H = nivel === 2 ? "h2" : nivel === 4 ? "h4" : "h3";
   return (
     <article id={id} aria-labelledby={idTitulo} className={unir("k-plan", recomendado && "k-neg", actual && !recomendado && "es-actual", className)}>
       {recomendado && <span className="tag">{recomendado}</span>}
-      <h3 id={idTitulo}>{nombre}</h3>
+      <H id={idTitulo}>{nombre}</H>
       {para && <div className="para">{para}</div>}
       <div className="precio"><b>{precio}</b><span>{moneda}<br />{periodo}</span></div>
       {equivalencia && <div className="equiv">{equivalencia}</div>}

@@ -214,7 +214,7 @@ export function UnitImport({
             <button
               onClick={confirm}
               disabled={creating || preview.length === 0}
-              className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2 transition-all disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2 transition-all disabled:opacity-50 cursor-pointer"
               style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
             >
               {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}

@@ -931,7 +931,7 @@ export default function GenerarPage() {
             className="w-full h-14 rounded-xl flex items-center justify-center gap-2.5 text-base font-medium transition-all"
             style={{
               background: loading ? "rgb(var(--accent-rgb) / 0.4)" : "var(--accent)",
-              color: "#ffffff",
+              color: loading ? "var(--ink)" : "var(--on-accent)",
               cursor: loading ? "not-allowed" : "pointer",
               boxShadow: loading ? "none" : "0 4px 24px rgb(var(--accent-rgb) / 0.35)",
               border: "none",
@@ -953,7 +953,7 @@ export default function GenerarPage() {
               <>
                 <span
                   className="w-2.5 h-2.5 rounded-full animate-pulse"
-                  style={{ background: "#fff", opacity: 0.9 }}
+                  style={{ background: "currentColor", opacity: 0.9 }}
                 />
                 <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: "13px", letterSpacing: "0.08em" }}>
                   {uploadStatus || "Enviando..."}

@@ -896,7 +896,7 @@ export default function AgentPage() {
                     boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.25)",
                     fontSize: 13,
                     fontWeight: 600,
-                    color: "#fff",
+                    color: "var(--on-accent)",
                   }}
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -1378,7 +1378,7 @@ export default function AgentPage() {
                                 boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.25)",
                                 fontSize: 12,
                                 fontWeight: 600,
-                                color: "#fff",
+                                color: "var(--on-accent)",
                               }}
                             >
                               Ver planes y add-ons
@@ -1738,9 +1738,9 @@ export default function AgentPage() {
                     }}
                   >
                     {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-white" />
+                      <Loader2 className="h-4 w-4 animate-spin text-[var(--on-accent)]" />
                     ) : (
-                      <ArrowUp className="h-4 w-4 text-white" />
+                      <ArrowUp className="h-4 w-4 text-[var(--on-accent)]" />
                     )}
                   </button>
                 </div>

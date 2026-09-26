@@ -68,17 +68,21 @@ export function TiraSemanal({ dias, className, comoItem }: { dias: DiaTira[]; cl
  * Sin `accion`, la fila no lleva verbo (las de 30 días).
  * El verbo necesita un nombre accesible que contenga el texto visible:
  * accion.etiquetaAccesible = «Convocar: Asamblea ordinaria 2026 · Los Pinos».
- * Úsala dentro de <ol className="k-obs">.
+ * Sin verbo, `href` hace que TODA la fila enlace (las de 30 días → la bitácora):
+ * el título es el enlace y un ::after cubre la fila (hover y foco en la fila).
+ * Úsala dentro de <ListaObligaciones>.
  */
-export function FilaObligacion({ tipo, que, cuando, donde, accion }: {
+export function FilaObligacion({ tipo, que, cuando, donde, accion, href }: {
   tipo: Extract<TipoEstado, "vencido" | "semana" | "sin" | "ok" | "pendiente">;
   que: ReactNode; cuando: ReactNode; donde?: ReactNode;
   accion?: { texto: string; href: string; etiquetaAccesible?: string };
+  /** Solo sin `accion`: la fila entera enlaza aquí (ruta existente). */
+  href?: string;
 }) {
   return (
     <li className={unir("k-ob", !accion && "sin-accion")}>
       <Cuadro tipo={tipo} />
-      <span className="que">{que}</span>
+      <span className="que">{!accion && href ? <Link className="k-ob-a" href={href}>{que}</Link> : que}</span>
       <span className="cuando">{cuando}</span>
       {donde && <span className="donde">{donde}</span>}
       {accion && (
@@ -93,14 +97,16 @@ export function FilaObligacion({ tipo, que, cuando, donde, accion }: {
 /**
  * Lista del triaje (Inicio): <ol> con filete de 2 px y, SOLO en móvil, su
  * encabezado repetido («Vencidas 3») porque los numerales quedan arriba como
- * sumario. `etiqueta` es el nombre accesible («3 obligaciones vencidas»).
- * Hijos: <FilaObligacion>, <TiraSemanal> envuelta en <li> y un <li> con <MasEnLista>.
+ * sumario. `etiquetaAccesible` es el nombre de la lista («3 obligaciones vencidas»).
+ * Hijos: <FilaObligacion>, <TiraSemanal comoItem> y <MasEnLista>.
  */
-export function ListaObligaciones({ titulo, conteo, etiqueta, children, className }: {
-  titulo: string; conteo: number; etiqueta: string; children: ReactNode; className?: string;
+export function ListaObligaciones({ titulo, conteo, etiquetaAccesible, children, className }: {
+  titulo: string; conteo: number;
+  /** Nombre de la lista para lectores (aria-label). No se ve. */
+  etiquetaAccesible: string; children: ReactNode; className?: string;
 }) {
   return (
-    <ol className={unir("k-obs", className)} aria-label={etiqueta}>
+    <ol className={unir("k-obs", className)} aria-label={etiquetaAccesible}>
       <li className="k-lista-h" aria-hidden="true"><b>{titulo}</b><span>{conteo}</span></li>
       {children}
     </ol>

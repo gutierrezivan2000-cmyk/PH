@@ -26,7 +26,9 @@ export type Seleccion<T> = {
   alCambiar: (ids: Set<string>) => void;
   /** Nombre accesible de la casilla de cada fila: «Seleccionar 101». */
   etiquetaFila: (fila: T) => string;
-  /** Nombre de la casilla de cabecera. Por defecto «Seleccionar todas las filas visibles». */
+  /** Texto de «seleccionar todas»: nombre de la casilla de la cabecera y, en móvil (donde la
+   *  cabecera se oculta), rótulo visible de la casilla sobre las fichas, con el número de filas.
+   *  Por defecto «Seleccionar todas». */
   etiquetaTodas?: string;
 };
 
@@ -50,7 +52,7 @@ export type Agrupacion<T> = {
  * En ≤ 860 px cada fila pasa a FICHA: columna `principal` a la izquierda (76 px),
  * el resto apilado; la cabecera se oculta a la vista pero sigue para lectores.
  *
- *   <Tabla etiqueta="Unidades de Los Pinos" filas={unidades} claveFila={u => u.id}
+ *   <Tabla etiquetaAccesible="Unidades de Los Pinos" filas={unidades} claveFila={u => u.id}
  *     columnas={[
  *       { id: "u", titulo: "Unidad", ancho: "minmax(0, 1fr)", principal: true, claseCelda: "k-c-id", celda: u => u.label },
  *       { id: "r", titulo: "Residente", ancho: "minmax(0, 3fr)", claseCelda: "k-c-nom", celda: u => <>{u.nombre}<span>{u.rol}</span></> },
@@ -60,11 +62,18 @@ export type Agrupacion<T> = {
  *     agrupar={{ clave: u => piso(u), titulo: k => k, nota: "Piso", cabecera: "Piso" }} />
  *
  * `vacio` sustituye a la tabla entera cuando no hay filas (usa <Vacio> o <SinResultados>).
+ *
+ * Accesibilidad: cada fila tiene tantas celdas como cabeceras. Con `agrupar`
+ * estilo «numeral», la primera celda de cada fila repite el grupo («1») solo
+ * para lectores (la cifra grande es decorativa). Con selección, en móvil la
+ * casilla de la cabecera se oculta y aparece «Seleccionar todas (N)» visible
+ * sobre las fichas.
  */
 export function Tabla<T>({
-  etiqueta, columnas, filas, claveFila, seleccion, agrupar, filaConError, alta, vacio, className,
+  etiquetaAccesible, columnas, filas, claveFila, seleccion, agrupar, filaConError, alta, vacio, className,
 }: {
-  etiqueta: string;
+  /** Nombre de la tabla para lectores (aria-label): «Unidades de Los Pinos». */
+  etiquetaAccesible: string;
   columnas: ColumnaTabla<T>[];
   filas: T[];
   claveFila: (fila: T) => string;
@@ -100,12 +109,15 @@ export function Tabla<T>({
     seleccion.alCambiar(s);
   };
 
-  const fila = (f: T) => {
+  const fila = (f: T, grupo?: ReactNode) => {
     const k = claveFila(f);
     const sel = seleccion?.ids.has(k) ?? false;
     return (
       <div key={k} role="row" className={unir("k-tr", alta && "k-76")}
         data-sel={sel || undefined} data-error={filaConError?.(f) || undefined}>
+        {/* Celda del grupo (piso) para lectores: la columna «Piso» de la cabecera necesita su celda.
+            Fuera de flujo (k-sr es absoluta), no ocupa pista en la rejilla. */}
+        {conNumeral && <span role="cell" className="k-sr">{grupo}</span>}
         {seleccion && (
           <span role="cell" className="k-td-sel">
             <Casilla checked={sel} onChange={() => alternar(k)} aria-label={seleccion.etiquetaFila(f)} />
@@ -135,8 +147,18 @@ export function Tabla<T>({
   // Sin filas y con estado vacío: el vacío sustituye a la tabla entera (SPEC §f.12).
   if (filas.length === 0 && vacio) return <>{vacio}</>;
 
+  const textoTodas = seleccion?.etiquetaTodas ?? "Seleccionar todas";
+
   return (
-    <div role="table" aria-label={etiqueta} className={unir("k-tabla", className)}
+    <>
+    {seleccion && (
+      // Solo en ≤ 860 px (CSS): la cabecera se oculta y su casilla con ella.
+      <div className="k-sel-todas">
+        <Casilla etiqueta={`${textoTodas} (${visibles.length})`} checked={todas} indeterminada={nSel > 0 && !todas}
+          onChange={alternarTodas} disabled={filas.length === 0} />
+      </div>
+    )}
+    <div role="table" aria-label={etiquetaAccesible} className={unir("k-tabla", className)}
       style={{ gridTemplateColumns: pistas } as CSSProperties}>
       <div role="rowgroup" className="k-sub">
         <div role="row" className="k-tr th">
@@ -156,17 +178,20 @@ export function Tabla<T>({
       </div>
 
       {!agrupar ? (
-        <div role="rowgroup" className="k-sub">{filas.map(fila)}</div>
+        <div role="rowgroup" className="k-sub">{filas.map((f) => fila(f))}</div>
       ) : conNumeral ? (
-        grupos.map((g) => (
-          <div key={g.clave} role="rowgroup" className="k-grupo">
-            <div className="k-grupo-n" aria-hidden="true" style={{ gridRow: `1 / span ${g.filas.length}` }}>
-              {agrupar.titulo(g.clave, g.filas)}
-              {agrupar.nota && <small>{agrupar.nota}</small>}
+        grupos.map((g) => {
+          const titulo = agrupar.titulo(g.clave, g.filas);
+          return (
+            <div key={g.clave} role="rowgroup" className="k-grupo">
+              <div className="k-grupo-n" aria-hidden="true" style={{ gridRow: `1 / span ${g.filas.length}` }}>
+                {titulo}
+                {agrupar.nota && <small>{agrupar.nota}</small>}
+              </div>
+              {g.filas.map((f) => fila(f, titulo))}
             </div>
-            {g.filas.map(fila)}
-          </div>
-        ))
+          );
+        })
       ) : (
         grupos.map((g) => (
           <div key={g.clave} role="rowgroup" className="k-sub">
@@ -175,11 +200,12 @@ export function Tabla<T>({
                 {agrupar.titulo(g.clave, g.filas)}
               </span>
             </div>
-            {g.filas.map(fila)}
+            {g.filas.map((f) => fila(f))}
           </div>
         ))
       )}
     </div>
+    </>
   );
 }
 

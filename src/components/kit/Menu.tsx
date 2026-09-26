@@ -7,10 +7,13 @@ import { unir } from "./util";
 
 export type ItemMenu = {
   etiqueta: ReactNode;
-  /** Acción. Se llama después de cerrar el menú. */
+  /** Acción. Se llama después de cerrar el menú, con el foco ya devuelto a «Más»
+   *  (así un <Modal> que abra la acción devuelve el foco a «Más» al cerrarse). */
   alElegir?: () => void;
   /** O navegación a una ruta existente. */
   href?: string;
+  /** Con `href`: abre en otra pestaña (<a target="_blank" rel="noopener noreferrer">), p. ej. el portal /u/… o wa.me. */
+  nuevaPestana?: boolean;
   /** Destructivo: va al final, tras filete de 2 px, en --danger-text. Debe abrir un modal de confirmación. */
   peligro?: boolean;
   /** Nota de 13 px a la derecha («pide confirmación»). */
@@ -92,6 +95,14 @@ export function MenuMas({ items, etiqueta = "Más", etiquetaAccesible, className
             const cls = it.peligro ? "peligro" : undefined;
             const cont = <>{it.etiqueta}{it.nota && <small>{it.nota}</small>}</>;
             if (it.href && !it.deshabilitado) {
+              if (it.nuevaPestana) {
+                return (
+                  <a key={n} href={it.href} target="_blank" rel="noopener noreferrer" role="menuitem" tabIndex={-1}
+                    className={cls} onClick={() => cerrar()}>
+                    {cont}
+                  </a>
+                );
+              }
               return (
                 <Link key={n} href={it.href} role="menuitem" tabIndex={-1} className={cls} onClick={() => setAbierto(false)}>
                   {cont}
@@ -101,7 +112,13 @@ export function MenuMas({ items, etiqueta = "Más", etiquetaAccesible, className
             return (
               <button key={n} type="button" role="menuitem" tabIndex={-1} className={cls}
                 aria-disabled={it.deshabilitado || undefined}
-                onClick={() => { if (it.deshabilitado) return; cerrar(false); it.alElegir?.(); }}>
+                onClick={() => {
+                  if (it.deshabilitado) return;
+                  // El foco vuelve a «Más» ANTES de la acción: el ítem se desmonta al cerrar y,
+                  // si la acción abre un modal, el modal guarda «Más» como disparador.
+                  cerrar(true);
+                  it.alElegir?.();
+                }}>
                 {cont}
               </button>
             );

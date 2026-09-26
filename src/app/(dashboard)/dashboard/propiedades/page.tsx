@@ -273,7 +273,7 @@ export default function PropiedadesPage() {
             className="flex items-center gap-2 px-4 h-9 rounded-xl text-sm font-medium transition-all"
             style={{
               background: showForm ? "rgb(var(--veil-rgb) / 0.06)" : "var(--accent)",
-              color: "#ffffff",
+              color: showForm ? "var(--ink)" : "var(--on-accent)",
               border: showForm ? "1px solid rgb(var(--veil-rgb) / 0.12)" : "none",
               boxShadow: showForm ? "none" : "0 2px 12px rgb(var(--accent-rgb) / 0.35)",
             }}
@@ -403,7 +403,7 @@ export default function PropiedadesPage() {
                   className="w-full h-10 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2"
                   style={{
                     background: loading ? "rgb(var(--accent-rgb) / 0.4)" : "var(--accent)",
-                    color: "#ffffff",
+                    color: loading ? "var(--ink)" : "var(--on-accent)",
                     boxShadow: loading ? "none" : "0 2px 12px rgb(var(--accent-rgb) / 0.3)",
                     cursor: loading ? "not-allowed" : "pointer",
                     border: "none",
@@ -462,7 +462,7 @@ export default function PropiedadesPage() {
               className="mt-6 flex items-center gap-2 px-5 h-10 rounded-xl text-sm font-medium transition-all"
               style={{
                 background: "var(--accent)",
-                color: "#ffffff",
+                color: "var(--on-accent)",
                 boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.35)",
                 border: "none",
               }}
@@ -605,7 +605,7 @@ export default function PropiedadesPage() {
                         className="flex-1 h-10 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all"
                         style={{
                           background: "var(--accent)",
-                          color: "#ffffff",
+                          color: "var(--on-accent)",
                           boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.3)",
                           border: "none",
                           cursor: editLoading ? "not-allowed" : "pointer",

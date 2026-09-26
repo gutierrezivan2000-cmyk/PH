@@ -247,7 +247,7 @@ export default function HistorialPage() {
                   className="mt-6 flex items-center gap-2 px-5 h-10 rounded-xl text-sm font-medium transition-all"
                   style={{
                     background: "var(--accent)",
-                    color: "#ffffff",
+                    color: "var(--on-accent)",
                     boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.35)",
                     border: "none",
                   }}

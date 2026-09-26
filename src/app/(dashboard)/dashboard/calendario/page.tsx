@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
+import { publicarJSON } from "@/components/dashboard/datosIndice";
 import { AssetImport } from "@/components/dashboard/AssetImport";
 import { ASSET_KIND_LABELS, recurrenceLabel, type AssetKind } from "@/lib/common-assets";
 import {
@@ -281,7 +282,7 @@ function AssetForm({
       <button
         type="submit"
         disabled={busy}
-        className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
+        className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2.5 cursor-pointer"
         style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
       >
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
@@ -307,7 +308,8 @@ function AssetRow({
   deleteAsset: (a: CommonAsset) => void;
 }) {
   const d = daysUntil(asset.dueDate.slice(0, 10));
-  const urgencyColor = d < 0 ? "var(--danger)" : d <= 7 ? "var(--warn)" : "var(--ink-3)";
+  // Es color de TEXTO: --danger-text / --warn-text (el relleno naranja no se lee como letra en claro).
+  const urgencyColor = d < 0 ? "var(--danger-text)" : d <= 7 ? "var(--warn-text)" : "var(--ink-3)";
   const propName = properties.find((p) => p.id === asset.propertyId)?.name;
   const busy = assetBusy === asset.id;
 
@@ -449,7 +451,7 @@ function RegistroTab({
           className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
           style={{
             background: showAssetForm ? "rgb(var(--veil-rgb) / 0.06)" : "var(--accent)",
-            color: showAssetForm ? "var(--ink-2)" : "#fff",
+            color: showAssetForm ? "var(--ink-2)" : "var(--on-accent)",
           }}
         >
           {showAssetForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
@@ -602,6 +604,9 @@ export default function CalendarioPage() {
       if (res.ok) {
         setItems(data.items || []);
         setProperties(data.properties || []);
+        // El índice y el dock cuentan las vencidas de esta misma respuesta: tras marcar
+        // una obligación, su «N vencidas» cambia en la misma pantalla.
+        publicarJSON("/api/calendar", data);
       }
     } catch {
       // keep whatever we had
@@ -776,9 +781,9 @@ export default function CalendarioPage() {
     const urgencyColor = isDone
       ? "rgb(var(--ink-rgb) / 0.35)"
       : d < 0
-        ? "var(--danger)"
+        ? "var(--danger-text)"
         : d <= 7
-          ? "var(--warn)"
+          ? "var(--warn-text)"
           : "var(--ink-3)";
 
     return (
@@ -985,7 +990,7 @@ export default function CalendarioPage() {
           <button
             onClick={save}
             disabled={saving}
-            className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
+            className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2.5 cursor-pointer"
             style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
           >
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
@@ -1021,7 +1026,7 @@ export default function CalendarioPage() {
                 className="ui-chip inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer"
                 style={{
                   background: on ? "var(--hifi-accent)" : "transparent",
-                  color: on ? "#fff" : "var(--ink-2)",
+                  color: on ? "var(--on-accent)" : "var(--ink-2)",
                 }}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -1071,7 +1076,7 @@ export default function CalendarioPage() {
             className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
             style={{
               background: showAdd ? "rgb(var(--veil-rgb) / 0.06)" : "var(--accent)",
-              color: showAdd ? "var(--ink-2)" : "#fff",
+              color: showAdd ? "var(--ink-2)" : "var(--on-accent)",
             }}
           >
             {showAdd ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
@@ -1083,7 +1088,7 @@ export default function CalendarioPage() {
         {propertyFilter !== "all" && !profileFor && (
           <button
             onClick={() => setProfileFor(propertyFilter)}
-            className="inline-flex items-center gap-2 text-[12px] cursor-pointer transition-colors hover:text-white"
+            className="inline-flex items-center gap-2 text-[12px] cursor-pointer transition-colors hover:text-[var(--ink)]"
             style={{ ...monoMini, color: "var(--ink-3)" }}
           >
             <Settings2 className="h-3.5 w-3.5" />
@@ -1106,7 +1111,7 @@ export default function CalendarioPage() {
             <button
               onClick={() => setProfileFor(unconfigured[0].id)}
               className="rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
-              style={{ background: "var(--accent)", color: "#fff" }}
+              style={{ background: "var(--accent)", color: "var(--on-accent)" }}
             >
               Configurar
             </button>
@@ -1189,7 +1194,7 @@ export default function CalendarioPage() {
             <button
               type="submit"
               disabled={addBusy}
-              className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
+              className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2.5 cursor-pointer"
               style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
             >
               {addBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}

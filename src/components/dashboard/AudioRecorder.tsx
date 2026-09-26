@@ -247,7 +247,7 @@ export function AudioRecorder({ onRecorded, disabled, maxSeconds = 300 }: AudioR
         </div>
         <button
           onClick={stopRecording}
-          className="p-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white transition-colors flex-shrink-0 shadow-md"
+          className="p-2.5 rounded-xl bg-[var(--danger)] hover:opacity-90 text-[var(--on-danger)] transition-colors flex-shrink-0 shadow-md"
           title="Enviar"
           type="button"
         >
@@ -269,7 +269,7 @@ export function AudioRecorder({ onRecorded, disabled, maxSeconds = 300 }: AudioR
         <Mic className="h-4 w-4 text-gray-500" />
       </button>
       {error && (
-        <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-red-500 text-white text-[10px] rounded whitespace-nowrap">
+        <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-[var(--danger)] text-[var(--on-danger)] text-[10px] rounded whitespace-nowrap">
           {error}
         </div>
       )}

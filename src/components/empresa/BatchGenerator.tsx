@@ -193,7 +193,7 @@ export function BatchGenerator() {
               Reintentar fallidas
             </button>
           )}
-          <Link href="/empresa/propiedades" className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-medium text-white transition-all hover:opacity-90" style={{ background: "var(--accent)" }}>
+          <Link href="/empresa/propiedades" className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-medium text-[var(--on-accent)] transition-all hover:opacity-90" style={{ background: "var(--accent)" }}>
             Ver propiedades <ArrowRight className="h-4 w-4" />
           </Link>
           <button onClick={() => { setBatchId(null); setProgress(null); }} className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-medium border border-border text-foreground hover:bg-secondary transition-colors">
@@ -321,7 +321,7 @@ export function BatchGenerator() {
         <button
           onClick={launch}
           disabled={launching || selected.size === 0}
-          className="inline-flex items-center gap-2 rounded-xl px-5 h-11 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 rounded-xl px-5 h-11 text-sm font-semibold text-[var(--on-accent)] transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ background: "var(--accent)", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.35)" }}
         >
           {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}

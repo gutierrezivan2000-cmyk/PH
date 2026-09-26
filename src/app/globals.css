@@ -973,6 +973,22 @@ select.ui-input:focus-visible {
 /* El foco global de arriba redondea (border-radius: 4px): en el Índice todo es recto. */
 :root:has([data-shell="app"]) :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 0; }
 :root:has([data-shell="app"]) .k-rad:focus-visible { border-radius: 50%; }
+/* Foco del kit. Va FUERA de @layer components a propósito: la regla de arriba no
+   tiene capa y, por la cascada de capas, ganaba a cualquier ajuste de foco del kit
+   aunque fuera más específico (outline-offset negativo, outline: 0 en campos
+   compuestos). Donde el contenedor recorta (overflow) el anillo va hacia dentro. */
+:root:has([data-shell="app"]) :is(.k-seg > *, .k-cornisa > button, .k-menu > *):focus-visible { outline-offset: -3px; }
+:root:has([data-shell="app"]) :is(.k-pest > *, .k-tema > button):focus-visible { outline-offset: -5px; }
+/* Hacia dentro, sobre el relleno --accent de lo elegido, el anillo sería del mismo color: se invierte. */
+:root:has([data-shell="app"]) :is(.k-pest > *, .k-tema > button):is([aria-pressed="true"], [aria-checked="true"], [aria-selected="true"], [aria-current="page"]):focus-visible { outline-color: var(--on-accent); }
+/* Controles compuestos: el anillo lo pinta el contenedor con :focus-within, no el campo de dentro. */
+:root:has([data-shell="app"]) :is(.k-campo input, .k-redactor textarea):focus-visible { outline: 0; }
+/* Filas y celdas que son enteras el control: el anillo abarca la fila, no el radio ni el título. */
+:root:has([data-shell="app"]) :is(.k-paso > a, .k-paso > button, .k-ob-a, .k-opfila > input, .k-mes > input):focus-visible { outline: 0; }
+:root:has([data-shell="app"]) :is(.k-paso:has(> :is(a, button):focus-visible), .k-ob:has(> .que > .k-ob-a:focus-visible)) { outline: 3px solid var(--focus); outline-offset: -3px; }
+/* La fila elegida ya lleva un recuadro de 2 px: el foco va por fuera para no confundirse con él. */
+:root:has([data-shell="app"]) .k-opfila:has(> input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; position: relative; z-index: 1; }
+:root:has([data-shell="app"]) .k-mes:has(> :focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
 [data-shell="app"] :is(h1, h2, h3) { text-wrap: balance; }
 [data-shell="app"] p { text-wrap: pretty; }
 
@@ -985,6 +1001,8 @@ select.ui-input:focus-visible {
    Documentación: design/final/KIT.md.
    ════════════════════════════════════════════════════════════════════ */
 @layer components {
+  /* OJO: los ajustes de :focus-visible del kit NO van aquí (perderían contra el foco
+     global, que no tiene capa): están arriba, justo antes de esta capa. */
   /* ── utilidades ─────────────────────────────────────────────────── */
   .k-sr { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .k-ar { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: square; stroke-linejoin: miter; }
@@ -1035,10 +1053,21 @@ select.ui-input:focus-visible {
     --accent: var(--on-neg-area); --accent-hi: var(--on-neg-area-2); --accent-lo: var(--on-neg-area-2);
     --on-accent: var(--neg-area); --hl: color-mix(in srgb, var(--on-neg-area) 14%, var(--neg-area));
     --line: color-mix(in srgb, var(--on-neg-area) 24%, transparent);
+    --line-strong: color-mix(in srgb, var(--on-neg-area) 50%, transparent);
+    --hatch: repeating-linear-gradient(135deg, color-mix(in srgb, var(--on-neg-area) 22%, transparent) 0 1px, transparent 1px 7px);
+    --tick: var(--on-neg-area-2);
     --surface-0: var(--neg-area); --surface-3: color-mix(in srgb, var(--on-neg-area) 22%, var(--neg-area));
   }
   .k-neg { border: 2px solid var(--neg-area-edge); border-top-width: 6px; }
-  :root[data-theme="light"] :is(.k-neg, .k-lote, .k-paso[aria-current="step"]) { --ok: var(--on-neg-area); --ok-text: var(--on-neg-area); }
+  /* En claro el área negativa es tinta (#111110): las tintas de estado del tema claro no se leerían
+     (--danger-text 2,8:1, --warn-text 3,2:1, --ai 3,0:1). Dentro se usan las del tema oscuro (≥ 5,8:1)
+     y los velos toman el canal del papel. El cuadro «hecho» va en --on-neg-area (SPEC §c.1). */
+  :root[data-theme="light"] :is(.k-neg, .k-lote, .k-paso[aria-current="step"]) {
+    --ok: var(--on-neg-area); --ok-text: var(--on-neg-area);
+    --danger-text: #FF7A45; --warn: #E8B84A; --warn-text: #E8B84A; --info: #9DB7E8; --info-text: #9DB7E8;
+    --ai: #A48CFF; --signal: #FF5A1F;
+    --veil-rgb: 239 237 231; --ink-rgb: 239 237 231; --accent-rgb: 239 237 231;
+  }
   /* Achurado de plano: la trama va en ::before; el texto, siempre sobre una placa sólida. */
   .k-achurado { position: relative; isolation: isolate; border: 1.5px solid var(--line-strong); }
   .k-achurado::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--hatch); pointer-events: none; }
@@ -1076,19 +1105,21 @@ select.ui-input:focus-visible {
   .k-btn { position: relative; display: inline-flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 44px; padding: 0 16px;
     font: 700 15px/1 var(--f-sans); white-space: nowrap; text-decoration: none; background: var(--accent); color: var(--on-accent); border: 1.5px solid var(--accent); border-radius: 0; cursor: pointer; user-select: none; }
   .k-btn svg { width: 16px; height: 16px; }
-  .k-btn:hover { background: var(--accent-hi); border-color: var(--accent-hi); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
-  .k-btn:active { background: var(--accent-lo); border-color: var(--accent-lo); box-shadow: inset 0 0 0 2px var(--on-accent); text-decoration: none; }
-  .k-btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  /* :hover y :active solo en botones activos: `:where(…)` no suma especificidad, así un
+     deshabilitado o en carga no se rellena al pasar el cursor (ni el peligro lleno). */
+  .k-btn:where(:not(:disabled, [aria-disabled="true"])):hover { background: var(--accent-hi); border-color: var(--accent-hi); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+  .k-btn:where(:not(:disabled, [aria-disabled="true"])):active { background: var(--accent-lo); border-color: var(--accent-lo); box-shadow: inset 0 0 0 2px var(--on-accent); text-decoration: none; }
   .k-btn.k-sec { background: transparent; color: var(--ink); border-color: var(--rule); }
-  .k-btn.k-sec:hover { background: var(--hl); text-decoration: none; }
-  .k-btn.k-sec:active { background: var(--surface-3); box-shadow: none; }
+  .k-btn.k-sec:where(:not(:disabled, [aria-disabled="true"])):hover { background: var(--hl); text-decoration: none; }
+  .k-btn.k-sec:where(:not(:disabled, [aria-disabled="true"])):active { background: var(--surface-3); box-shadow: none; }
   .k-btn.k-fan { background: transparent; color: var(--ink); border-color: transparent; padding: 0 8px; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
-  .k-btn.k-fan:hover { background: var(--hl); }
-  .k-btn.k-fan:active { background: var(--surface-3); box-shadow: none; }
+  .k-btn.k-fan:where(:not(:disabled, [aria-disabled="true"])):hover { background: var(--hl); }
+  .k-btn.k-fan:where(:not(:disabled, [aria-disabled="true"])):active { background: var(--surface-3); box-shadow: none; }
   .k-btn.k-pel { background: transparent; color: var(--danger-text); border-color: var(--danger); }
-  .k-btn.k-pel:hover, .k-btn.k-pel.k-lleno { background: var(--danger); color: var(--on-danger); border-color: var(--danger); text-decoration: none; }
-  .k-btn.k-pel:active { background: var(--danger); color: var(--on-danger); box-shadow: inset 0 0 0 2px var(--on-danger); }
-  .k-btn:disabled, .k-btn[aria-disabled="true"] { background: transparent; color: var(--ink-3); border: 1.5px dashed var(--line-strong); text-decoration: none; box-shadow: none; cursor: not-allowed; }
+  .k-btn.k-pel:where(:not(:disabled, [aria-disabled="true"])):hover, .k-btn.k-pel.k-lleno { background: var(--danger); color: var(--on-danger); border-color: var(--danger); text-decoration: none; }
+  .k-btn.k-pel:where(:not(:disabled, [aria-disabled="true"])):active { background: var(--danger); color: var(--on-danger); box-shadow: inset 0 0 0 2px var(--on-danger); }
+  /* Deshabilitado o en carga (aria-disabled): borde discontinuo SIEMPRE, también el peligro lleno (SPEC §f.2). */
+  .k-btn:is(:disabled, [aria-disabled="true"]), .k-btn.k-pel.k-lleno:is(:disabled, [aria-disabled="true"]) { background: transparent; color: var(--ink-3); border: 1.5px dashed var(--line-strong); text-decoration: none; box-shadow: none; cursor: not-allowed; }
   .k-btn.k-40 { min-height: 40px; font-size: 14px; padding: 0 12px; gap: 12px; }
   .k-btn.k-56 { min-height: 56px; font-size: 18px; padding: 0 20px; gap: 48px; }
   .k-btn.k-ancho { width: 100%; }
@@ -1114,7 +1145,6 @@ select.ui-input:focus-visible {
   .k-fld > label .opc, .k-fld > .lb .opc { font-weight: 400; color: var(--ink-3); }
   .k-in { min-height: 48px; padding: 0 14px; border: 1.5px solid var(--rule); background: var(--surface-0); font: 400 16px/1.3 var(--f-sans); color: var(--ink); border-radius: 0; width: 100%; min-width: 0; }
   .k-in::placeholder { color: var(--ink-3); opacity: 1; }
-  .k-in:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .k-in[aria-invalid="true"] { border: 2px solid var(--danger); }
   .k-in:disabled, .k-in[readonly] { background: var(--surface-2); border-style: dashed; border-color: var(--line-strong); color: var(--ink-3); cursor: not-allowed; }
   .k-in[readonly] { cursor: default; }
@@ -1131,7 +1161,6 @@ select.ui-input:focus-visible {
   .k-campo > svg { width: 16px; height: 16px; flex: none; color: var(--ink-2); }
   .k-campo input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: 400 15px/1.3 var(--f-sans); color: var(--ink); text-overflow: ellipsis; }
   .k-campo input::placeholder { color: var(--ink-3); opacity: 1; }
-  .k-campo input:focus-visible { outline: 0; }
   .k-campo:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   .k-campo kbd { font: 500 12px/1 var(--f-mono); border: 1px solid var(--line); padding: 3px 6px; color: var(--ink-3); flex: none; }
   /* Grupo de un formulario largo: filete 2 px + título 22 px. */
@@ -1189,7 +1218,6 @@ select.ui-input:focus-visible {
   .k-seg > :is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"]) b { color: var(--ink); }
   .k-seg > :is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"])::after { content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 6px; background: var(--ink); }
   .k-seg > :hover { background: var(--hl); }
-  .k-seg > :focus-visible { outline-offset: -3px; }
   .k-seg > :disabled { color: var(--ink-3); cursor: not-allowed; }
   .k-seg.k-48 > * { min-height: 48px; padding: 0 20px; }
   .k-pest { display: flex; border: 2px solid var(--rule); max-width: 100%; overflow-x: auto; scrollbar-width: thin; }
@@ -1199,7 +1227,6 @@ select.ui-input:focus-visible {
   .k-pest > :hover { background: var(--hl); }
   .k-pest > :is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"]) { background: var(--accent); color: var(--on-accent); }
   .k-pest > :is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"]) small { color: var(--on-accent-2); }
-  .k-pest > :focus-visible { outline-offset: -5px; }
   .k-pest .fin { flex: none; margin-left: auto; border-left: 2px solid var(--rule); padding: 0 18px; font-size: 14px; color: var(--ink-2); align-self: center; white-space: nowrap; }
   .k-pest.k-vista { border-width: 1.5px; }
   .k-pest.k-vista > * { min-height: 44px; padding: 0 16px; }
@@ -1207,8 +1234,10 @@ select.ui-input:focus-visible {
 
   /* ── paso del asistente (§f.10) ─────────────────────────────────── */
   .k-pasos { list-style: none; margin: 0 0 34px; padding: 0; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); }
-  .k-paso { border-top: 2px solid var(--rule); padding: 12px 0 0; display: flex; align-items: flex-start; gap: 10px; min-height: 64px; min-width: 0; color: var(--ink); }
+  .k-paso { position: relative; border-top: 2px solid var(--rule); padding: 12px 0 0; display: flex; align-items: flex-start; gap: 10px; min-height: 64px; min-width: 0; color: var(--ink); }
   .k-paso > :is(a, button) { display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  /* El área de clic de un paso hecho es la celda entera (64 px en escritorio, la fila en móvil). */
+  .k-paso > :is(a, button)::after { content: ""; position: absolute; inset: 0; }
   .k-paso > :is(a, button):hover > span { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
   .k-paso b { font: 800 32px/.85 var(--f-sans); font-stretch: 62%; letter-spacing: -.02em; flex: none; }
   .k-paso span { font-size: 15px; font-weight: 700; line-height: 1.15; min-width: 0; }
@@ -1298,6 +1327,11 @@ select.ui-input:focus-visible {
   .k-ob > .acc svg { width: 14px; height: 14px; }
   .k-ob > .acc::after { content: ""; position: absolute; inset: -10px -8px; }
   .k-ob.sin-accion { grid-template-columns: 20px minmax(0, 1fr); }
+  /* Con `href` y sin verbo, toda la fila enlaza (título con ::after que la cubre). */
+  .k-ob:has(> .que > .k-ob-a) { position: relative; }
+  .k-ob-a { color: inherit; }
+  .k-ob-a::after { content: ""; position: absolute; inset: 0; }
+  .k-ob:has(> .que > .k-ob-a):hover { background: var(--hl); box-shadow: calc(var(--g) / -2) 0 0 var(--hl), calc(var(--g) / 2) 0 0 var(--hl); }
   .k-ob.sin-accion > .que { font-size: 16px; grid-column: 2; }
   .k-ob.sin-accion > .cuando { grid-column: 2; }
   .k-lista-h { display: none; justify-content: space-between; align-items: baseline; padding: 12px 0 8px; border-bottom: 1px solid var(--line); }
@@ -1322,6 +1356,35 @@ select.ui-input:focus-visible {
   .k-celdas { display: grid; gap: 4px; height: 22px; }
   .k-celdas > i { background: var(--ink); }
   .k-celdas > i.v { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+  /* Medidor con la cifra «N libres» de 48 px a la derecha (SPEC §f.6). */
+  .k-medidor-c { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 28px; align-items: end; min-width: 0; }
+  .k-libres { margin: 0; display: flex; align-items: flex-end; gap: 8px; white-space: nowrap; }
+  .k-libres > b { font-size: 48px; font-weight: 800; font-stretch: 62%; letter-spacing: -.03em; line-height: .8; font-feature-settings: "tnum" 0, "lnum" 1; }
+  .k-libres > span { font-size: 15px; line-height: 1.2; color: var(--ink-2); }
+
+  /* ── recetas del asistente Generar (§g 02) ──────────────────────── */
+  /* Paso 1 · fila seleccionable de 64 px (radio + nombre 18/700 + apoyo); la elegida en --hl con recuadro de 2 px. */
+  .k-opfilas { border-top: 2px solid var(--rule); min-width: 0; }
+  .k-opfila { position: relative; display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; column-gap: 14px; min-height: 64px; padding: 10px 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .k-opfila > .t { min-width: 0; }
+  .k-opfila > .t b { display: block; font-size: 18px; font-weight: 700; line-height: 1.2; letter-spacing: -.005em; }
+  .k-opfila > .t small { display: block; margin-top: 3px; font-size: 14px; line-height: 1.3; color: var(--ink-2); }
+  .k-opfila > .x { font-size: 14px; line-height: 1.3; color: var(--ink-3); text-align: right; }
+  .k-opfila:hover { background: var(--hl); }
+  .k-opfila:has(> :checked) { background: var(--hl); box-shadow: inset 0 0 0 2px var(--rule); }
+  .k-opfila:has(> :disabled) { color: var(--ink-3); cursor: not-allowed; background: transparent; }
+  /* Paso 2 · rejilla de 12 meses (4 × 3) de 56 px; el elegido en negativo, los futuros discontinuos. */
+  .k-meses { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; min-width: 0; }
+  .k-mes { position: relative; display: grid; place-items: center; min-height: 56px; padding: 0 6px; border: 1.5px solid var(--rule); font-size: 15px; font-weight: 700; line-height: 1.1; text-align: center; cursor: pointer; }
+  .k-mes .c { display: none; }
+  .k-mes:hover { background: var(--hl); }
+  .k-mes:has(> :checked) { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .k-mes:has(> :disabled) { border-style: dashed; border-color: var(--line-strong); color: var(--ink-3); background: transparent; cursor: not-allowed; }
+  /* Paso 5 · resumen de lo elegido en dos columnas. */
+  .k-resumen { margin: 0; border-top: 2px solid var(--rule); min-width: 0; }
+  .k-resumen > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); column-gap: var(--g); padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .k-resumen dt { font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--ink-2); }
+  .k-resumen dd { margin: 0; min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
 
   /* ── tabla, selección, barra de lote, paginación (§f.7) ─────────── */
   .k-tabla { display: grid; column-gap: var(--g); min-width: 0; }
@@ -1349,7 +1412,9 @@ select.ui-input:focus-visible {
   .k-c-nom { font-size: 15px; font-weight: 600; line-height: 1.2; }
   .k-c-nom > span { display: block; font-size: 14px; font-weight: 400; color: var(--ink-3); }
   .k-c-correo { font: 400 14px/1.3 var(--f-mono); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .k-c-correo .k-estado { font-family: var(--f-sans); }   /* «□ Sin correo» es un estado, no un dato en mono */
   .k-acciones { display: flex; align-items: center; justify-content: flex-end; }
+  .k-sel-todas { display: none; }
   .k-lote { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 58px; padding: 6px 10px 6px 16px; margin-bottom: 14px; border: 2px solid var(--neg-area-edge); border-top-width: 6px; }
   .k-lote > b { font-size: 16px; font-weight: 800; margin-right: 10px; }
   .k-lote .bl { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 1.5px solid var(--on-neg-area); color: var(--on-neg-area); background: transparent; font: 700 14px/1 var(--f-sans); white-space: nowrap; cursor: pointer; }
@@ -1370,7 +1435,6 @@ select.ui-input:focus-visible {
   .k-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; width: 300px; max-width: calc(100vw - 32px); background: var(--surface-0); border: 2px solid var(--rule); box-shadow: var(--shadow-pop); display: flex; flex-direction: column; padding: 4px 0; }
   .k-menu > :is(button, a) { display: flex; flex-wrap: wrap; row-gap: 2px; justify-content: space-between; align-items: center; column-gap: 12px; min-height: 40px; padding: 0 14px; font-size: 15px; font-weight: 500; text-align: left; color: var(--ink); background: transparent; cursor: pointer; }
   .k-menu > :is(button, a):hover, .k-menu > :is(button, a):focus-visible { background: var(--hl); }
-  .k-menu > :focus-visible { outline-offset: -3px; }
   .k-menu > :disabled { color: var(--ink-3); cursor: not-allowed; }
   .k-menu > .peligro { border-top: 2px solid var(--rule); margin-top: 4px; font-weight: 700; color: var(--danger-text); }
   .k-menu > .peligro small { font-size: 13px; font-weight: 400; color: var(--ink-3); }
@@ -1444,7 +1508,7 @@ select.ui-input:focus-visible {
   .k-agente .txt > p.firma { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 16px; color: var(--ink); }
   .k-agente .txt > p.fuente { margin-top: 4px; font-size: 13px; color: var(--ink-3); }
   .k-agente .txt > .sugs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-  .k-agente .ir { margin-top: auto; padding-top: 12px; display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; min-height: 32px; font-size: 15px; font-weight: 700; color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+  .k-agente .ir { margin-top: auto; padding-top: 12px; display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; min-height: 40px; font-size: 15px; font-weight: 700; color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
   .k-agente .ir svg { width: 14px; height: 14px; }
   .k-agente .ir::after { content: ""; position: absolute; inset: 0; }
   .k-agente:has(.ir):hover { box-shadow: 0 0 0 2px var(--rule); }
@@ -1509,7 +1573,6 @@ select.ui-input:focus-visible {
   .k-redactor:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   .k-redactor textarea { grid-column: 1 / 3; resize: none; border: 0; outline: 0; background: transparent; padding: 16px 16px 8px; min-height: 76px; font: 400 17px/1.4 var(--f-sans); color: var(--ink); }
   .k-redactor textarea::placeholder { color: var(--ink-3); opacity: 1; }
-  .k-redactor textarea:focus-visible { outline: 0; }
   .k-redactor .herr { display: flex; gap: 16px; align-items: center; padding: 0 16px 10px; font-size: 14px; color: var(--ink-2); flex-wrap: wrap; min-width: 0; }
   .k-redactor .herr button { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; font-weight: 700; color: var(--ink); background: transparent; cursor: pointer; }
   .k-redactor .herr svg { width: 14px; height: 14px; }
@@ -1553,6 +1616,7 @@ select.ui-input:focus-visible {
   .k-marca-w { font: 800 19px/1 var(--f-sans); font-stretch: 125%; letter-spacing: -.01em; white-space: nowrap; }
   .k-marca-w span { color: var(--ink-3); }
   .k-marca .k-cerrar { display: none; margin-left: auto; }
+  .k-marca-a { display: flex; align-items: center; gap: 12px; align-self: stretch; min-width: 0; }
   .k-indice-lista { flex: 1 0 auto; padding: 4px 12px 14px; }
   .k-grupo-idx { margin-top: 10px; }
   .k-grupo-h { display: flex; gap: 8px; align-items: baseline; padding: 6px 10px 4px; font: 600 13px/1.2 var(--f-sans); color: var(--ink-3); }
@@ -1574,18 +1638,32 @@ select.ui-input:focus-visible {
   .k-it.pronto .c { color: var(--ink-3); font-weight: 400; display: inline-flex; align-items: center; gap: 6px; }
   .k-it.pronto .c i { width: 12px; height: 12px; background: var(--hatch); box-shadow: inset 0 0 0 1px var(--line-strong); display: inline-block; }
   .k-it.pronto .dots { border-color: rgb(var(--veil-rgb) / .16); }
+  /* Fila activa (negativo): la caja naranja conserva su tinta (--on-accent daría 3,2:1 en claro)
+     y una entrada «pronto» activa usa --on-accent-2 (8,5:1), no --ink-3. */
+  .k-it[aria-current="page"] .c.alerta { color: var(--on-danger); }
+  .k-it.pronto[aria-current="page"] .l { color: var(--on-accent); }
+  .k-it.pronto[aria-current="page"] .c { color: var(--on-accent-2); }
+  .k-it.pronto[aria-current="page"] .c i { background: none; box-shadow: inset 0 0 0 1.5px var(--on-accent-2); }
+  /* Entrada del índice que es un botón (p. ej. «Soporte», que abre un panel). */
+  button.k-it { width: 100%; background: transparent; text-align: left; cursor: pointer; }
   .k-indice-pie { flex: none; border-top: 2px solid var(--rule); padding: 14px 22px 16px; display: grid; gap: 12px; }
   .k-yo { display: flex; gap: 12px; align-items: center; min-width: 0; }
   .k-yo-a { width: 34px; height: 34px; flex: none; display: grid; place-items: center; background: var(--surface-3); font: 700 13px/1 var(--f-sans); font-stretch: 125%; }
   .k-yo b { display: block; font-size: 14px; font-weight: 600; line-height: 1.2; }
   .k-yo span { display: block; font-size: 13px; line-height: 1.3; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; }
   .k-tema { display: grid; grid-template-columns: repeat(3, 1fr); border: 1.5px solid var(--rule); }
-  .k-tema button { font: 600 13px/1 var(--f-sans); min-height: 36px; color: var(--ink-2); background: transparent; cursor: pointer; }
+  .k-tema button { position: relative; font: 600 13px/1 var(--f-sans); min-height: 36px; color: var(--ink-2); background: transparent; cursor: pointer; }
+  /* 36 px visibles (SPEC §f.1) con área de clic de 42 px (regla 12). */
+  .k-tema button::after { content: ""; position: absolute; inset: -3px 0; }
   .k-tema button + button { border-left: 1.5px solid var(--rule); }
   .k-tema button:hover { background: var(--hl); }
-  .k-tema button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
-  .k-tema button:focus-visible { outline-offset: -5px; }
-  .k-salir { display: flex; justify-content: space-between; align-items: center; min-height: 32px; font-size: 14px; color: var(--ink-2); background: transparent; cursor: pointer; }
+  .k-tema button:is([aria-pressed="true"], [aria-checked="true"]) { background: var(--accent); color: var(--on-accent); }
+  .k-tema.k-48 button { min-height: 48px; font-size: 15px; }
+  /* Índice plegado: un solo botón que rota Auto → Claro → Oscuro. */
+  .k-tema-ciclo { width: 100%; min-height: 40px; padding: 0 4px; border: 1.5px solid var(--rule); font: 600 14px/1 var(--f-sans); color: var(--ink); background: transparent; cursor: pointer; }
+  .k-tema-ciclo:hover { background: var(--hl); }
+  .k-salir { position: relative; display: flex; justify-content: space-between; align-items: center; min-height: 32px; font-size: 14px; color: var(--ink-2); background: transparent; cursor: pointer; }
+  .k-salir::after { content: ""; position: absolute; inset: -4px; }
   .k-salir:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
   .k-salir svg { width: 14px; height: 14px; }
   .k-principal { position: relative; min-width: 0; }
@@ -1608,7 +1686,6 @@ select.ui-input:focus-visible {
   .k-cornisa > button .e.v { font-weight: 700; color: var(--ink); }
   .k-cornisa > button svg { width: 13px; height: 13px; }
   .k-cornisa > button:hover { background: var(--hl); }
-  .k-cornisa > button:focus-visible { outline-offset: -3px; }
   .k-cornisa > button[aria-pressed="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: var(--ink); }
   .k-cornisa > .plegado { display: none; }
   .k-dock { display: none; }
@@ -1616,7 +1693,7 @@ select.ui-input:focus-visible {
   /* ── responsive ─────────────────────────────────────────────────── */
   @media (max-width: 1300px) and (min-width: 861px) {
     .k-cornisa[data-expandida="false"] > .aldia { display: none; }
-    .k-cornisa[data-expandida="false"] > .plegado { display: inline-flex; }
+    .k-cornisa > .plegado { display: inline-flex; }
   }
   @media (max-width: 1180px) {
     .k-pieza-h .tt, .k-pieza-h .acc { grid-column: 2 / -1; }
@@ -1665,7 +1742,7 @@ select.ui-input:focus-visible {
     .k-it { min-height: 28px; }
     .k-indice-pie { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 14px 10px 22px; }
     .k-yo > div:not(.k-yo-a) { display: none; }
-    .k-tema button { min-height: 32px; }
+    .k-tema button { min-height: 36px; }
     .k-salir span { display: none; }
     .k-salir { width: 32px; justify-content: center; }
     .k-cornisa { min-height: 42px; }
@@ -1699,6 +1776,7 @@ select.ui-input:focus-visible {
     .k-colofon > * { grid-column: 1 / -1 !important; justify-self: start !important; }
     .k-colofon a { display: inline-block; padding: 12px 0; }
     .k-btn.k-movil-ancho { width: 100%; }
+    .k-btn.k-40 { min-height: 44px; }
     .k-ver { min-height: 44px; }
     .k-bt { min-height: 44px; }
     .k-urgencias { grid-template-columns: 1.3fr 1fr .8fr; column-gap: 12px; }
@@ -1727,10 +1805,19 @@ select.ui-input:focus-visible {
     .k-seg { flex: none; }
     .k-pest .fin { display: none; }
     .k-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; }
+    .k-medidor-c { grid-template-columns: minmax(0, 1fr); row-gap: 16px; }
+    .k-opfila { grid-template-columns: 20px minmax(0, 1fr); }
+    .k-opfila > .x { grid-column: 2; text-align: left; }
+    .k-mes .l { display: none; }
+    .k-mes .c { display: inline; }
+    .k-resumen > div { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
     .k-medidor { grid-template-columns: 76px minmax(0, 1fr); }
     /* Tabla → fichas: identificador a la izquierda, datos apilados, acción debajo. */
     .k-tabla, .k-tabla [role="rowgroup"], .k-tabla > .k-grupo { display: block; }
     .k-tabla .k-tr.th { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; padding: 0; border: 0; }
+    .k-tabla .k-tr.th .k-chk { display: none; }
+    .k-sel-todas { display: flex; align-items: center; border-top: 2px solid var(--rule); border-bottom: 1px solid var(--line); }
+    .k-sel-todas .k-ctl { flex: 1; min-height: 48px; font-weight: 600; }
     .k-tr > .k-grupo-n.k-22 { grid-column: 1 / -1 !important; }
     .k-tr, .k-grupo > .k-tr { display: grid !important; grid-template-columns: 76px minmax(0, 1fr); row-gap: 6px; column-gap: 12px; padding: 14px 0; align-items: start; }
     .k-tr > * { grid-column: 2 !important; grid-row: auto !important; justify-self: start !important; text-align: left !important; }
@@ -1747,6 +1834,7 @@ select.ui-input:focus-visible {
     .k-grupo-n small { display: inline; margin: 0; }
     .k-mas { display: contents; }
     .k-menu { position: static; order: 5; flex-basis: 100%; width: 100%; max-width: none; margin-top: 8px; box-shadow: none; }
+    .k-tr > .k-td-acc .k-menu { flex-basis: calc(100% + 76px + 12px); width: auto; margin-left: calc(-76px - 12px); }
     .k-menu > :is(button, a) { min-height: 44px; }
     .k-lote { padding: 8px 10px; }
     .k-lote > b { flex-basis: 100%; }
@@ -1778,7 +1866,9 @@ select.ui-input:focus-visible {
     .k-obra > .pl > h2 { font-size: 34px; }
     /* Armazón móvil: el índice se abre como diálogo desde el dock. */
     .k-app { grid-template-columns: minmax(0, 1fr); }
-    .k-col-indice { border-right: 0; }
+    /* El índice es un diálogo fijo: su columna no ocupa fila en la rejilla (en páginas
+       cortas la fila vacía se estiraba y empujaba la cabecera hacia abajo). */
+    .k-col-indice { display: contents; }
     .k-indice { position: fixed; inset: 0; z-index: 40; height: auto; width: 100%; transform: translateX(-100%); visibility: hidden; }
     .k-indice[data-abierto="true"] { transform: none; visibility: visible; }
     .k-marca { padding: 0 16px; }

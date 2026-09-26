@@ -7,8 +7,10 @@ import { unir } from "./util";
  * `excede` pinta el relleno en --danger (presupuesto > 100 %).
  * `decorativa` la oculta a lectores cuando el porcentaje ya está en texto al lado.
  */
-export function BarraProgreso({ valor, alto = 8, excede, etiqueta, decorativa, className }: {
-  valor: number; alto?: 8 | 10; excede?: boolean; etiqueta?: string; decorativa?: boolean; className?: string;
+export function BarraProgreso({ valor, alto = 8, excede, etiquetaAccesible, decorativa, className }: {
+  valor: number; alto?: 8 | 10; excede?: boolean;
+  /** Nombre de la barra para lectores (aria-label). No se ve. */
+  etiquetaAccesible?: string; decorativa?: boolean; className?: string;
 }) {
   const pct = Math.max(0, Math.min(100, valor));
   return (
@@ -16,7 +18,7 @@ export function BarraProgreso({ valor, alto = 8, excede, etiqueta, decorativa, c
       className={unir("k-barra", alto === 10 && "k-10", excede && "excede", className)}
       role={decorativa ? undefined : "progressbar"}
       aria-hidden={decorativa || undefined}
-      aria-label={decorativa ? undefined : etiqueta}
+      aria-label={decorativa ? undefined : etiquetaAccesible}
       aria-valuemin={decorativa ? undefined : 0}
       aria-valuemax={decorativa ? undefined : 100}
       aria-valuenow={decorativa ? undefined : Math.round(pct)}

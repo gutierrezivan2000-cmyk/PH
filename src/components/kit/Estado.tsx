@@ -27,12 +27,12 @@ export function Cuadro({ tipo, className }: { tipo: TipoEstado; className?: stri
  * Estado = cuadro + palabra (15 px/600).
  *   <Estado tipo="ok">Activo</Estado>  <Estado tipo="falta">Sin correo</Estado>  <Estado tipo="vencido">Error</Estado>
  * `neutro`: la palabra en --ink (matrices densas); el cuadro conserva su color.
- * `tam={14}` para celdas y listas compactas.
+ * `tamLetra={14}` para celdas y listas compactas (tamaño de letra; por defecto 15).
  */
-export function Estado({ tipo, children, neutro, tam, className }:
-  { tipo: TipoEstado; children: ReactNode; neutro?: boolean; tam?: 14 | 15 | 16; className?: string }) {
+export function Estado({ tipo, children, neutro, tamLetra, className }:
+  { tipo: TipoEstado; children: ReactNode; neutro?: boolean; tamLetra?: 14 | 15 | 16; className?: string }) {
   return (
-    <span className={unir("k-estado", className)} style={{ color: neutro ? "var(--ink)" : TINTA[tipo], fontSize: tam }}>
+    <span className={unir("k-estado", className)} style={{ color: neutro ? "var(--ink)" : TINTA[tipo], fontSize: tamLetra }}>
       <Cuadro tipo={tipo} />
       {children}
     </span>

@@ -27,14 +27,16 @@ export type PasoAsistente = {
  *     { nombre: "Notas", valor: "Opcional" },
  *   ]} />
  */
-export function Pasos({ pasos, actual, etiqueta = "Pasos del asistente", className }: {
-  pasos: PasoAsistente[]; /** 1-based */ actual: number; etiqueta?: string; className?: string;
+export function Pasos({ pasos, actual, etiquetaAccesible = "Pasos del asistente", className }: {
+  pasos: PasoAsistente[]; /** 1-based */ actual: number;
+  /** Nombre de la lista para lectores (aria-label). No se ve. */
+  etiquetaAccesible?: string; className?: string;
 }) {
   const n = pasos.length;
   const anchoActual = Math.max(2, 12 - 2 * (n - 1));
   const movil = pasos.map((_, i) => (i + 1 === actual ? "2.6fr" : "1fr")).join(" ");
   return (
-    <ol className={unir("k-pasos", className)} aria-label={etiqueta} style={{ "--k-pasos-movil": movil } as CSSProperties}>
+    <ol className={unir("k-pasos", className)} aria-label={etiquetaAccesible} style={{ "--k-pasos-movil": movil } as CSSProperties}>
       {pasos.map((p, i) => {
         const num = i + 1;
         const estado = num < actual ? "hecho" : num === actual ? "actual" : "futuro";

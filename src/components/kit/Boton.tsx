@@ -12,7 +12,7 @@ type PropsBoton = {
   tam?: 40 | 44 | 56;
   /** Solo con variante="peligro": relleno naranja (el botón que confirma dentro de un modal). */
   lleno?: boolean;
-  /** Si llega, se pinta un <Link> de Next. */
+  /** Si llega, se pinta un <Link> de Next (se reenvían onClick, style, data-* y aria-*). */
   href?: string;
   /** Flecha al final («avanza», «crea» = +) o al principio («vuelve» = ← Atrás). */
   flecha?: "avanza" | "crea" | "vuelve";
@@ -62,13 +62,16 @@ export function Boton({
   );
 
   if (href) {
+    // Con href se reenvía todo lo que sirve en un enlace (onClick, style, data-*, aria-*…);
+    // lo exclusivo de <button> se descarta.
+    const enlace = propsDeEnlace(rest);
     if (inactivo) {
       // Un enlace deshabilitado no navega: se pinta como texto con aria-disabled.
-      return <span className={cls} aria-disabled="true" role="link" aria-busy={cargando || undefined}>{contenido}</span>;
+      return <span {...(enlace as ComponentProps<"span">)} className={cls} aria-disabled="true" role="link" aria-busy={cargando || undefined}>{contenido}</span>;
     }
     if (descargar || nuevaPestana) {
       return (
-        <a href={href} className={cls} id={rest.id} title={rest.title} aria-label={rest["aria-label"]}
+        <a {...enlace} href={href} className={cls} onClick={onClick as ComponentProps<"a">["onClick"]}
           download={descargar === true ? "" : descargar || undefined}
           target={nuevaPestana ? "_blank" : undefined} rel={nuevaPestana ? "noopener noreferrer" : undefined}>
           {contenido}
@@ -76,8 +79,7 @@ export function Boton({
       );
     }
     return (
-      <Link href={href} className={cls} id={rest.id} title={rest.title}
-        aria-label={rest["aria-label"]} aria-describedby={rest["aria-describedby"]}>
+      <Link {...enlace} href={href} className={cls} onClick={onClick as ComponentProps<"a">["onClick"]}>
         {contenido}
       </Link>
     );
@@ -103,16 +105,23 @@ export function Boton({
   );
 }
 
+/** Props de <button> que no tienen sentido en un enlace. */
+function propsDeEnlace(rest: Omit<ComponentProps<"button">, "children">): ComponentProps<"a"> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { form, formAction, formEncType, formMethod, formNoValidate, formTarget, name, value, ...resto } = rest;
+  return resto as unknown as ComponentProps<"a">;
+}
+
 /**
- * Botón-icono cuadrado de 44 px (40 con tam={40}). SIEMPRE con `etiqueta`:
- * es su nombre accesible. Úsalo solo donde el SPEC lo prevé (buscar en ≤ 1180,
- * cerrar ×, flechas de mes, quitar archivo). Acciones con verbo → <Boton>.
+ * Botón-icono cuadrado de 44 px (40 con tam={40}). SIEMPRE con `etiquetaAccesible`:
+ * es su nombre accesible (y su title). Úsalo solo donde el SPEC lo prevé (buscar en
+ * ≤ 1180, flechas de mes, quitar archivo). Acciones con verbo → <Boton>.
  */
 export function BotonIcono({
-  etiqueta, children, tam = 44, sinBorde, className, type = "button", ...rest
-}: { etiqueta: string; children: ReactNode; tam?: 40 | 44; sinBorde?: boolean } & Omit<ComponentProps<"button">, "children" | "aria-label">) {
+  etiquetaAccesible, children, tam = 44, sinBorde, className, type = "button", ...rest
+}: { etiquetaAccesible: string; children: ReactNode; tam?: 40 | 44; sinBorde?: boolean } & Omit<ComponentProps<"button">, "children" | "aria-label">) {
   return (
-    <button type={type} aria-label={etiqueta} title={etiqueta}
+    <button type={type} aria-label={etiquetaAccesible} title={etiquetaAccesible}
       className={unir("k-ic", tam === 40 && "k-40", sinBorde && "k-sin-borde", className)} {...rest}>
       {children}
     </button>
@@ -123,11 +132,20 @@ export function BotonIcono({
  * Acción de fila de tabla (40 px, 44 en móvil): UNA acción principal con texto
  * + <MenuMas>. Botones contiguos se solapan 1,5 px.
  *   <BotonFila onClick={copiar}>Copiar enlace</BotonFila>
+ *   <BotonFila href={`/u/${token}`} nuevaPestana>Abrir el portal</BotonFila>
+ * Con `href` pinta un enlace (<Link>; con `nuevaPestana`, <a target="_blank">
+ * con rel="noopener noreferrer", también para enlaces externos como wa.me).
  */
 export function BotonFila({
-  children, href, className, type = "button", ...rest
-}: { children: ReactNode; href?: string } & Omit<ComponentProps<"button">, "children">) {
-  if (href) return <Link href={href} className={unir("k-bt", className)}>{children}</Link>;
+  children, href, nuevaPestana, className, type = "button", ...rest
+}: { children: ReactNode; href?: string; nuevaPestana?: boolean } & Omit<ComponentProps<"button">, "children">) {
+  if (href) {
+    const enlace = propsDeEnlace(rest);
+    if (nuevaPestana) {
+      return <a {...enlace} href={href} target="_blank" rel="noopener noreferrer" className={unir("k-bt", className)}>{children}</a>;
+    }
+    return <Link {...enlace} href={href} className={unir("k-bt", className)}>{children}</Link>;
+  }
   return <button type={type} className={unir("k-bt", className)} {...rest}>{children}</button>;
 }
 

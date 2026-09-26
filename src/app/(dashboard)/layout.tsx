@@ -3,8 +3,9 @@
 import "@/components/kit/fuentes";
 import dynamic from "next/dynamic";
 import { SessionProvider } from "next-auth/react";
-import { Sidebar, esActiva, useDatosIndice } from "@/components/dashboard/Sidebar";
-import { DemoBanner } from "@/components/ui/demo-banner";
+import { Sidebar, esActiva } from "@/components/dashboard/Sidebar";
+import { useDatosIndice } from "@/components/dashboard/datosIndice";
+import { DemoBanner } from "@/components/dashboard/DemoBanner";
 import { RenewalBanner } from "@/components/dashboard/RenewalBanner";
 import { Dock, RegionAvisos } from "@/components/kit";
 import { useState, useEffect, useRef } from "react";
@@ -49,7 +50,13 @@ export default function DashboardLayout({
     };
   }, [pathname]);
   const enChatDeAgente = /^\/dashboard\/asistente\/[^/]+$/.test(pathname || "");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // El índice móvil queda abierto solo en la ruta donde se abrió: cualquier
+  // navegación (una entrada, el logotipo, atrás/adelante del navegador) lo cierra
+  // sin un efecto que sincronice estado.
+  const [indiceAbiertoEn, setIndiceAbiertoEn] = useState<string | null>(null);
+  const sidebarOpen = indiceAbiertoEn !== null && indiceAbiertoEn === pathname;
+  const abrirIndice = () => setIndiceAbiertoEn(pathname);
+  const cerrarIndice = () => setIndiceAbiertoEn(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const datos = useDatosIndice(pathname);
 
@@ -65,7 +72,7 @@ export default function DashboardLayout({
         <div className="k-app" style={{ minHeight: "calc(100dvh - var(--demo-banner-h, 0px))" }}>
           <Sidebar
             open={sidebarOpen}
-            onClose={() => setSidebarOpen(false)}
+            onClose={cerrarIndice}
             collapsed={sidebarCollapsed}
             onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
             datos={datos}
@@ -77,7 +84,7 @@ export default function DashboardLayout({
             <main className="flex-1 min-w-0 overflow-x-clip">{children}</main>
             {/* Dock móvil (≤ 860 px): sustituye al menú hamburguesa; «Índice» abre el índice como diálogo. */}
             <Dock
-              alAbrirIndice={() => setSidebarOpen(true)}
+              alAbrirIndice={abrirIndice}
               indiceAbierto={sidebarOpen}
               destinos={[
                 { href: "/dashboard", etiqueta: "Inicio", actual: esActiva(pathname, "/dashboard") },
@@ -98,9 +105,10 @@ export default function DashboardLayout({
                 { href: "/dashboard/asistente", etiqueta: "Asistente", actual: esActiva(pathname, "/dashboard/asistente") },
               ]}
             />
-            {/* Dos chats a la vez confunden, y el botón flotante caía justo
-                encima del botón de enviar del agente. Va dentro de la columna
-                principal para quedar inerte mientras el índice móvil está abierto. */}
+            {/* Panel del chat de soporte: se abre desde «Soporte» en el índice (sin
+                botón flotante). En el chat de un agente no se monta: dos chats a la
+                vez confunden. Va dentro de la columna principal para quedar inerte
+                mientras el índice móvil está abierto. */}
             {!enChatDeAgente && <ChatBot />}
           </div>
         </div>

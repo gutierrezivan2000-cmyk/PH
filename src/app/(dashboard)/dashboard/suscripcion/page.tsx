@@ -337,7 +337,7 @@ export default function SuscripcionPage() {
                     className="w-full h-11 rounded-xl text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     style={
                       plan.featured
-                        ? { background: "var(--accent)", color: "#fff", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.45)" }
+                        ? { background: "var(--accent)", color: "var(--on-accent)", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.45)" }
                         : { border: "1px solid var(--border)", color: "var(--foreground)", background: "transparent" }
                     }
                   >
@@ -365,7 +365,7 @@ export default function SuscripcionPage() {
             {COMING_SOON_AGENTS.map((a) => (
               <div key={a.id} className="flex items-center gap-2.5">
                 <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold text-[var(--on-accent)] flex-shrink-0"
                   style={{ background: a.color }}
                 >
                   {a.name[0]}

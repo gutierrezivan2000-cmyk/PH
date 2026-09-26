@@ -11,8 +11,10 @@ import { unir } from "./util";
  *
  *   {cargando ? <Esqueleto variante="tabla" filas={6} /> : <Tabla … />}
  */
-export function Esqueleto({ variante = "completo", filas = 3, etiqueta = "Cargando…", className }: {
-  variante?: "bloque" | "tabla" | "completo"; filas?: number; etiqueta?: string; className?: string;
+export function Esqueleto({ variante = "completo", filas = 3, etiquetaAccesible = "Cargando…", className }: {
+  variante?: "bloque" | "tabla" | "completo"; filas?: number;
+  /** Texto para lectores («Cargando vencimientos…»). No se ve. */
+  etiquetaAccesible?: string; className?: string;
 }) {
   return (
     <div role="status" className={className}>
@@ -22,7 +24,7 @@ export function Esqueleto({ variante = "completo", filas = 3, etiqueta = "Cargan
           <div className="fila" key={n}><i /><i /><i /></div>
         ))}
       </div>
-      <span className="k-sr">{etiqueta}</span>
+      <span className="k-sr">{etiquetaAccesible}</span>
     </div>
   );
 }
