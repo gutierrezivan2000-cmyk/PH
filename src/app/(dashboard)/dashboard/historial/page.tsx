@@ -140,14 +140,23 @@ const CSS = `
   .hist-doc .t { font-size: 16px; font-weight: 650; line-height: 1.25; color: var(--ink); overflow-wrap: anywhere; }
   .hist-prop { font-size: 15px; font-weight: 500; line-height: 1.3; color: var(--ink); overflow-wrap: anywhere; }
   .hist-per { font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--ink-2); }
+  .hist-per .rot { display: none; }
   .hist-grupo { display: flex; align-items: baseline; gap: 10px; }
   .hist-grupo small { font-size: 15px; font-weight: 600; font-stretch: 100%; letter-spacing: 0; color: var(--ink-3); }
   .hist-nota { margin: 10px 0 0; font-size: 14px; color: var(--ink-3); }
+  /* 861–1180 px: la acción de fila baja bajo el documento para que las columnas respiren (SPEC §e.1). */
+  @media (min-width: 861px) and (max-width: 1180px) {
+    .hist-tabla { grid-template-columns: 96px minmax(0, 3fr) minmax(0, 2fr) minmax(0, 1.2fr) minmax(max-content, 1.3fr) !important; }
+    .hist-tabla .k-tr > .k-td-acc { grid-column: 2 / -1; grid-row: 2; justify-self: start; padding: 0 0 12px; }
+    .hist-tabla .k-td-acc .k-menu { right: auto; left: 0; }   /* la acción queda a la izquierda: el menú abre hacia el contenido */
+  }
   @media (max-width: 860px) {
     .hist-filtros > .k-seg { flex: 1 1 100%; }
     .hist-filtros > .k-select, .hist-filtros > .k-campo { flex: 1 1 100%; }
     .hist-doc { padding: 0; }
     .hist-fecha .dia { display: block; }
+    /* En ficha no hay cabecera de columna: el periodo lleva su rótulo para no confundirse con la fecha. */
+    .hist-per .rot { display: inline; font-weight: 400; color: var(--ink-3); }
   }
 `;
 
@@ -248,6 +257,8 @@ export default function HistorialPage() {
   // Mismo conteo que Inicio: generaciones completadas este año (la API devuelve como mucho 100).
   const delAnio = generations.filter((g) => g.status === "completed" && new Date(g.createdAt).getFullYear() === anio);
   const tope = generations.length >= 100;
+  // Con una copropiedad elegida en la cornisa, el subtítulo cuenta solo las suyas (mismo criterio).
+  const delAnioAlcance = delAnio.filter(enAlcance);
 
   const hayFiltros = typeFilter !== "all" || statusFilter !== "all" || q !== "";
   const quitarFiltros = () => {
@@ -299,12 +310,18 @@ export default function HistorialPage() {
       id: "per",
       titulo: "Periodo",
       ancho: "minmax(0, 1.2fr)",
-      celda: (g) => <span className="hist-per">{periodoDe(g)}</span>,
+      celda: (g) => (
+        <span className="hist-per">
+          <span className="rot">Periodo </span>
+          {periodoDe(g)}
+        </span>
+      ),
     },
     {
       id: "estado",
       titulo: "Estado",
-      ancho: "minmax(0, 1.3fr)",
+      // Nunca más estrecha que su palabra («Procesando»): si no, se monta sobre la acción.
+      ancho: "minmax(max-content, 1.3fr)",
       celda: (g) => {
         const cfg = STATUS_CONFIG[g.status];
         return (
@@ -413,7 +430,7 @@ export default function HistorialPage() {
   const subtitulo =
     loading || errorCarga || generations.length === 0
       ? "Todos los documentos que has generado"
-      : `${delAnio.length}${tope ? "+" : ""} ${delAnio.length === 1 ? "documento generado" : "documentos generados"} en ${anio}`;
+      : `${delAnioAlcance.length}${tope ? "+" : ""} ${delAnioAlcance.length === 1 ? "documento generado" : "documentos generados"} en ${anio}${elegida ? ` · ${nombreCorto(elegida.name)}` : ""}`;
 
   return (
     <div>
@@ -465,6 +482,7 @@ export default function HistorialPage() {
                   </Selector>
                   <Buscador
                     etiquetaAccesible="Buscar copropiedad, documento o periodo"
+                    placeholder="Copropiedad, documento o periodo"
                     value={consulta}
                     onChange={(e) => setConsulta(e.target.value)}
                   />
@@ -472,6 +490,7 @@ export default function HistorialPage() {
               )}
 
               <Tabla
+                className="hist-tabla"
                 etiquetaAccesible={nombreAlcance ? `Documentos generados de ${elegida?.name}` : "Documentos generados"}
                 filas={filtered}
                 claveFila={(g) => g.id}

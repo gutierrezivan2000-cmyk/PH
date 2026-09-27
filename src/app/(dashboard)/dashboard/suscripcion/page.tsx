@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, type ReactNode } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { UsageCard, estadoDelPlan, type UsageData } from "@/components/dashboard/UsageCard";
+import { UsageCard, estadoDelPlan, suscripcionNoVigente, type UsageData } from "@/components/dashboard/UsageCard";
 import { COMING_SOON_AGENT_IDS } from "@/lib/agents";
 import {
   Aviso,
@@ -101,21 +101,28 @@ const NOMBRE_PLAN: Record<PlanId, string> = { pro: "Pro", business: "Business", 
 // Agentes «Próximamente», de la configuración real (lib/agents).
 const AGENTES_PROXIMAMENTE = COMING_SOON_AGENT_IDS as AgenteId[];
 
-/**
- * Estados de /api/usage que significan «sin plan pagado». En la fase de pruebas
- * abierta (OPEN_TESTING, lib/plan.ts) todo el mundo tiene las funciones Pro
- * —es lo que dice la tarjeta Pro: «Gratis en pruebas»—; la API no expone el
- * interruptor al cliente, así que se reconoce por el estado: "testing", "none",
- * "unknown" o ninguno (la demo no lo envía).
- */
-const SIN_PLAN_PAGADO = new Set<string | undefined>([undefined, "testing", "none", "unknown"]);
-
-/* Rejilla de planes: 3 × 4 columnas; en móvil (k-r12 pasa a una columna) se apilan. */
+/* Rejilla de planes: 3 × 4 columnas; en móvil (k-r12 pasa a una columna) se apilan.
+   En escritorio, las filas de las tres tarjetas se alinean con subgrid (etiqueta,
+   nombre, para quién, precio, equivalencia, beneficios, acción): así el precio y
+   la lista empiezan a la misma altura aunque «para quién» o la etiqueta de
+   «Recomendado» partan en dos líneas (p. ej. a 1024 px). */
 const CSS_SUSCRIPCION = `
 .k-susc-sub { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
 .k-planes { row-gap: 16px; margin-top: 26px; }
 .k-planes > div { grid-column: span 4; display: flex; min-width: 0; }
 .k-planes > div > .k-plan { flex: 1 1 auto; }
+@media (min-width: 861px) {
+  .k-planes { row-gap: 0; }
+  .k-planes > div { display: grid; grid-row: span 7; grid-template-rows: subgrid; }
+  .k-planes > div > .k-plan { display: grid; grid-row: span 7; grid-template-rows: subgrid; row-gap: 0; }
+  .k-planes .k-plan > .tag { grid-row: 1; justify-self: start; }
+  .k-planes .k-plan > h3 { grid-row: 2; }
+  .k-planes .k-plan > .para { grid-row: 3; }
+  .k-planes .k-plan > .precio { grid-row: 4; }
+  .k-planes .k-plan > .equiv { grid-row: 5; }
+  .k-planes .k-plan > ul { grid-row: 6; }
+  .k-planes .k-plan > .pie { grid-row: 7; align-self: end; }
+}
 .k-plan .k-pie-actual { display: grid; gap: 10px; }
 .k-susc-nota { margin: 14px 0 0; font-size: 14px; line-height: 1.4; color: var(--ink-2); max-width: 78ch; }
 .k-susc-prep { margin-top: 32px; }
@@ -130,7 +137,7 @@ export default function SuscripcionPage() {
   const [epaycoReady, setEpaycoReady] = useState(false);
   const [error, setError] = useState("");
   // Uso y estado del plan: la misma respuesta de /api/usage que pinta UsageCard.
-  const [uso, setUso] = useState<{ datos: UsageData; leidoEn: number } | null>(null);
+  const [datos, setDatos] = useState<UsageData | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.ePayco) setEpaycoReady(true);
@@ -178,13 +185,18 @@ export default function SuscripcionPage() {
 
   /* ── Plan actual (de /api/usage) ──────────────────────────────────────
      · plan pagado y vigente (planStatus "active" + planName) → ese plan;
-     · sin plan pagado, en la fase de pruebas → Pro (ver SIN_PLAN_PAGADO);
-     · beta, prueba, gracia, vencido… → ninguno: su estado va en la cabecera. */
-  const datos = uso?.datos;
+     · beta (cuentas antiguas) → acceso sin restricciones, sin plan marcado;
+     · todo lo demás → fase de pruebas abierta: funciones Pro para todos (es
+       lo que dice la tarjeta Pro, «Gratis en pruebas»). /api/usage no expone
+       OPEN_TESTING y calcula el estado con la fila de suscripción, así que
+       una prueba antigua ("trialing", "trial_expired") o un plan pagado vencido
+       ("grace", "expired", "past_due", "canceled") no bloquea hoy: se muestra
+       como fase de pruebas y, si había un plan pagado, su estado en tono neutro. */
   const pagado = datos?.planStatus === "active" && datos.planName ? datos.planName : null;
-  const enPruebas = Boolean(datos) && !pagado && SIN_PLAN_PAGADO.has(datos?.planStatus);
+  const estado = datos ? estadoDelPlan(datos) : null;
+  const enPruebas = Boolean(datos) && !pagado && datos?.planStatus !== "beta" && datos?.planStatus !== "active";
   const planActual: PlanId | null = pagado ?? (enPruebas ? "pro" : null);
-  const estado = uso ? estadoDelPlan(uso.datos, uso.leidoEn) : null;
+  const noVigente = datos && datos.planName ? suscripcionNoVigente(datos) : null;
 
   let subtitulo: ReactNode = "Gestiona tu plan y uso";
   if (pagado) {
@@ -198,20 +210,18 @@ export default function SuscripcionPage() {
         <span>Plan Pro</span>
         <span className="k-sr"> · </span>
         <Estado tipo="ok">Fase de pruebas · funciones Pro</Estado>
+        {noVigente && datos?.planName && (
+          <>
+            <span className="k-sr"> · </span>
+            <Estado tipo="sin">
+              Suscripción {NOMBRE_PLAN[datos.planName]} {noVigente}
+            </Estado>
+          </>
+        )}
       </span>
     );
   } else if (estado) {
-    subtitulo = (
-      <span className="k-susc-sub">
-        {datos?.planName && (
-          <>
-            <span>Plan {NOMBRE_PLAN[datos.planName]}</span>
-            <span className="k-sr"> · </span>
-          </>
-        )}
-        <Estado tipo={estado.tipo}>{estado.texto}</Estado>
-      </span>
-    );
+    subtitulo = <Estado tipo={estado.tipo}>{estado.texto}</Estado>;
   }
 
   return (
@@ -246,7 +256,7 @@ export default function SuscripcionPage() {
             </div>
           )}
 
-          <UsageCard alCargar={(datos) => setUso({ datos, leidoEn: Date.now() })} />
+          <UsageCard alCargar={setDatos} />
 
           <h2 className="k-sr">Planes</h2>
 
@@ -275,8 +285,10 @@ export default function SuscripcionPage() {
               );
               const gratis =
                 plan.id === "pro" ? <Estado tipo="ok" tamLetra={14}>Gratis en pruebas</Estado> : null;
-              // En la fase de pruebas Pro es el plan actual, pero se conserva su acción
-              // «Empezar gratis» (fuera de la demo): marca de plan actual + el botón.
+              // En la fase de pruebas Pro es el plan actual y es gratis: bajo «Tu plan
+              // actual» no se ofrece su compra («Empezar gratis» abre un cobro de
+              // ePayco del mismo plan). Decisión de producto escalada: la compra de
+              // Pro vuelve a mostrarse cuando no es el plan actual.
               const pie =
                 esActual && !pagado ? (
                   <div className="k-pie-actual">
@@ -285,7 +297,6 @@ export default function SuscripcionPage() {
                       <span>Tu plan actual</span>
                       <Cuadro tipo="ok" />
                     </div>
-                    {!IS_DEMO && boton}
                   </div>
                 ) : gratis ? (
                   <div className="k-pie-actual">

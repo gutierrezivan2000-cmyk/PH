@@ -137,8 +137,11 @@ const CSS_TICKET = `
 .tk-texto { margin: 0; font-size: 17px; line-height: 1.5; max-width: 68ch; white-space: pre-wrap; overflow-wrap: anywhere; text-wrap: pretty; }
 .k-msg-u > .tk-texto { line-height: 1.4; }
 .tk-adjuntos { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.tk-adjuntos a { max-width: 100%; }
-.tk-adjuntos a .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.tk-adjuntos li { min-width: 0; max-width: 100%; }
+/* El nombre del archivo se parte, no se trunca (SPEC §f.11): la ficha crece en alto. */
+.tk-adjuntos a { max-width: 100%; padding-top: 8px; padding-bottom: 8px; white-space: normal; line-height: 1.3; text-align: left; }
+.tk-adjuntos a .k-tipo, .tk-adjuntos a .p { flex: none; white-space: nowrap; }
+.tk-adjuntos a .n { min-width: 0; overflow-wrap: anywhere; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
 .tk-adjuntos a .p { font-weight: 400; color: var(--ink-3); }
 .tk-adjuntos a:hover { background: var(--hl); }
 .tk-respuesta { margin-top: 8px; }
@@ -151,8 +154,12 @@ const CSS_TICKET = `
 .tk-aside .tk-ayuda { margin: 12px 0 0; font-size: 14px; line-height: 1.4; color: var(--ink-3); }
 .tk-aside .k-btns { margin-top: 12px; }
 @media (min-width: 861px) {
-  .tk-respuesta { position: sticky; bottom: 16px; z-index: 1; background: var(--surface-0); box-shadow: 0 -16px 0 var(--surface-0); }
+  /* Pegado al pie mientras se lee el hilo: fondo opaco arriba (16 px) y abajo
+     (padding), para que el texto que pasa por detrás no asome. */
+  .tk-respuesta { position: sticky; bottom: 0; z-index: 1; padding-bottom: 16px; background: var(--surface-0); box-shadow: 0 -16px 0 var(--surface-0); }
 }
+/* El atajo Ctrl + Enter no existe en pantallas táctiles sin teclado. */
+@media (pointer: coarse) { .tk-respuesta .herr .tk-atajo { display: none; } }
 @media (max-width: 860px) {
   .tk-aside { margin-top: 40px; }
   .tk-respuesta .k-redactor > .k-btn { grid-column: 1 / -1; margin: 0 12px 12px; justify-content: space-between; }
@@ -256,7 +263,8 @@ export default function SoporteTicketPage() {
             <Esqueleto variante="completo" filas={3} etiquetaAccesible="Cargando el ticket…" />
           ) : error ? (
             <>
-              <CabeceraPieza nn="15" titulo="Ticket de soporte" acciones={volver} />
+              {/* Sin «Volver a tus tickets» arriba: el error ya lleva su «Volver». */}
+              <CabeceraPieza nn="15" titulo="Ticket de soporte" />
               <ErrorCarga
                 titulo="No pudimos abrir este ticket."
                 texto={error}
@@ -278,9 +286,9 @@ export default function SoporteTicketPage() {
                     <Estado tipo={STATUS_TIPO[ticket.status] ?? "sin"}>
                       {STATUS_LABELS[ticket.status] ?? ticket.status}
                     </Estado>
-                    <span>{NOMBRE_CATEGORIA[ticket.category] ?? ticket.category}</span>
                     <span>
-                      Ticket <span className="k-mono">#{ticket.id.slice(-8)}</span> · abierto el{" "}
+                      {NOMBRE_CATEGORIA[ticket.category] ?? ticket.category} · Ticket{" "}
+                      <span className="k-mono">#{ticket.id.slice(-8)}</span> · abierto el{" "}
                       {fechaCorta(ticket.createdAt)}
                     </span>
                   </span>
@@ -386,7 +394,7 @@ export default function SoporteTicketPage() {
                           enviarConEnter={false}
                           filas={3}
                           herramientas={
-                            <span>
+                            <span className="tk-atajo">
                               <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para enviar
                             </span>
                           }

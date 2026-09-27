@@ -291,6 +291,14 @@ const CSS_BITACORA = `
 .bit-fila > .k-cat { padding-top: 2px; white-space: normal; }
 .bit-fila > .acc { margin-top: -10px; display: flex; justify-content: flex-end; }
 .bit-fila.hecha > .d, .bit-fila.hecha > .t b { color: var(--ink-3); }
+/* En la lista la descripción legal se recorta a una línea (se repite igual en
+   las filas gemelas); completa en el panel del día abierto y en el title. */
+.bit-grupo .bit-fila > .t p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
+@media (min-width: 861px) and (max-width: 1180px) {
+  /* SPEC §e.1: verbos de fila bajo el texto en este rango. */
+  .bit-fila { grid-template-columns: 20px 104px minmax(0, 1fr) 128px; }
+  .bit-fila > .acc { grid-column: 3 / -1; margin-top: 8px; justify-content: flex-start; }
+}
 .bit-plegable { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 0; border: 0; border-top: 2px solid var(--rule); background: transparent; color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
 .bit-plegable:hover { background: var(--hl); }
 .bit-plegable b { font-size: 22px; font-weight: 800; font-stretch: 75%; letter-spacing: -.01em; line-height: 1.05; }
@@ -365,7 +373,8 @@ const CSS_BITACORA = `
   .bit-tabs > .fin { margin-left: 0; flex-basis: 100%; padding-bottom: 8px; }
   .bit-urg { margin-bottom: 28px; }
   .bit-gh b { font-size: 28px; }
-  .bit-fila { grid-template-columns: 20px 72px minmax(0, 1fr); row-gap: 6px; column-gap: 10px; }
+  .bit-fila { grid-template-columns: 20px 84px minmax(0, 1fr); row-gap: 6px; column-gap: 10px; }
+  .bit-grupo .bit-fila > .t p { -webkit-line-clamp: 2; }
   .bit-fila:hover { box-shadow: -8px 0 0 var(--hl), 8px 0 0 var(--hl); }
   .bit-fila > .k-cat { grid-column: 3; grid-row: 2; padding: 0; }
   .bit-fila > .acc { grid-column: 3; margin: 4px 0 0; justify-content: flex-start; }
@@ -441,7 +450,7 @@ function FilaEvento({
           {mostrarProp && <>{item.propertyName} · </>}
           {hecha ? "Hecha" : <span className={d < 0 ? "v" : undefined}>{relativeLabel(d)}</span>}
         </small>
-        {item.description && !hecha && <p>{item.description}</p>}
+        {item.description && !hecha && <p title={item.description}>{item.description}</p>}
       </div>
       <Categoria>{CATEGORIA[item.category] ?? CATEGORIA.custom}</Categoria>
       <div className="acc">
@@ -480,7 +489,8 @@ function claseEvento(ev: CalendarItem, hoyIso: string): string | undefined {
  * número 22 px/62 % (en --day-mark si hay obligaciones), hoy con recuadro
  * --signal, eventos como barras con filete izquierdo de 4 px (máx. 2 + «+N más»).
  * Cada día es un botón que abre su lista debajo; flechas del teclado para moverse.
- * En móvil, una raya de 4 px por evento (el nombre del botón lleva el detalle).
+ * En móvil, una raya de 4 px por evento; el nombre accesible del botón lleva
+ * el detalle (títulos, copropiedad y estado), en escritorio y en móvil.
  */
 function VistaMes({
   anio,
@@ -577,7 +587,17 @@ function VistaMes({
               ? "sin obligaciones"
               : `${evs.length} ${evs.length === 1 ? "obligación" : "obligaciones"}` +
                 (vencidas ? `, ${vencidas} ${vencidas === 1 ? "vencida" : "vencidas"}` : "") +
-                (hechas ? `, ${hechas} ${hechas === 1 ? "hecha" : "hechas"}` : "");
+                (hechas ? `, ${hechas} ${hechas === 1 ? "hecha" : "hechas"}` : "") +
+                // El aria-label sustituye al contenido: lleva también cada título
+                // (con la copropiedad si hay varias en alcance) y su estado.
+                `: ${evs
+                  .map((ev) => {
+                    const c = claseEvento(ev, hoyIso);
+                    return [tituloDe(ev), siglas ? nombreCorto(ev.propertyName) : "", c === "venc" ? "vencida" : c === "hecha" ? "hecha" : ""]
+                      .filter(Boolean)
+                      .join(", ");
+                  })
+                  .join("; ")}`;
           return (
             <button
               key={iso}
@@ -735,7 +755,7 @@ function AssetForm({
               maxLength={150}
             />
           </Campo>
-          <Campo id="ac-prop" etiqueta="Copropiedad">
+          <Campo id="ac-prop" etiqueta="Copropiedad" className="ancho">
             <Selector id="ac-prop" value={propertyId} onChange={(e) => setPropertyId(e.target.value)}>
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -907,7 +927,7 @@ function RegistroTab({
     propertyFilter === "all"
       ? properties.length === 1
         ? properties[0].name
-        : `tus ${properties.length} copropiedades`
+        : `tus${NB}${properties.length}${NB}copropiedades`
       : nombreProp(propertyFilter) ?? "";
 
   const columnas: ColumnaTabla<CommonAsset>[] = [
@@ -1428,7 +1448,7 @@ export default function CalendarioPage() {
       ? properties.length === 1
         ? properties[0].name
         : properties.length > 1
-          ? `tus ${properties.length} copropiedades`
+          ? `tus${NB}${properties.length}${NB}copropiedades`
           : ""
       : properties.find((p) => p.id === alcanceId)?.name ?? "";
 
@@ -1907,7 +1927,7 @@ export default function CalendarioPage() {
                 maxLength={200}
               />
             </Campo>
-            <Campo id="rec-prop" etiqueta="Copropiedad">
+            <Campo id="rec-prop" etiqueta="Copropiedad" className="ancho">
               <Selector id="rec-prop" value={addProperty} onChange={(e) => setAddProperty(e.target.value)}>
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>

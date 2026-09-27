@@ -43,44 +43,32 @@ export function pedirUso(fresco?: boolean): Promise<UsageData | null> {
 }
 
 /**
- * Estado del plan en palabras: los mismos casos y textos que tenía el chip de
- * estado (ahora en caja normal, con forma + color + palabra). `ahora` es el
- * momento de la lectura (Date.now fuera del render).
+ * Estado del plan en palabras (forma + color + palabra) para la cabecera de
+ * Suscripción. Fase de pruebas abierta (OPEN_TESTING, lib/plan.ts): hoy todos
+ * tienen las funciones Pro —checkSubscriptionAccess devuelve "testing" antes de
+ * mirar la base—, pero /api/usage calcula `planStatus` con la fila de
+ * suscripción (hasActiveAccess) sin mirar ese interruptor. Así, una fila de
+ * prueba antigua o un plan pagado que venció llegan como "trialing",
+ * "trial_expired", "grace", "expired"… y nada de eso bloquea hoy: no se pinta
+ * cuenta atrás de prueba ni «renovar» en naranja (sería falso).
+ * Devuelve null con un plan pagado vigente ("active"): la cabecera dice cuál.
  */
-export function estadoDelPlan(
-  usage: UsageData,
-  ahora: number
-): { texto: string; tipo: TipoEstado } | null {
+export function estadoDelPlan(usage: UsageData): { texto: string; tipo: TipoEstado } | null {
   const status = usage.planStatus;
-  if (!status) return null;
-
-  // Fase de pruebas abierta: sin cuenta atrás ni aviso de vencimiento, porque
-  // no hay nada que venza. Se dice qué tiene abierto y por qué.
-  if (status === "testing") return { texto: "Fase de pruebas · funciones Pro", tipo: "ok" };
-
-  if (status === "trialing" && usage.trialEndsAt) {
-    const daysLeft = Math.max(0, Math.ceil((new Date(usage.trialEndsAt).getTime() - ahora) / 86400000));
-    const urgent = daysLeft <= 2;
-    return {
-      texto: `Prueba gratis · ${daysLeft === 0 ? "termina hoy" : `${daysLeft} día${daysLeft === 1 ? "" : "s"}`}`,
-      tipo: urgent ? "falta" : "pendiente",
-    };
-  }
-
-  if (status === "grace") return { texto: "Plan vencido · renovar (período de gracia)", tipo: "vencido" };
-
-  if (status === "trial_expired" || status === "past_due" || status === "canceled" || status === "expired") {
-    const texto =
-      status === "trial_expired"
-        ? "Prueba finalizada · elige un plan"
-        : status === "expired"
-        ? "Plan vencido · renovar"
-        : "Plan inactivo · reactivar";
-    return { texto, tipo: "vencido" };
-  }
-
+  if (status === "active") return null;
   if (status === "beta") return { texto: "Acceso sin restricciones", tipo: "ok" };
+  return { texto: "Fase de pruebas · funciones Pro", tipo: "ok" };
+}
 
+/**
+ * Suscripción pagada que ya no está vigente, dicha en tono neutro (es un hecho
+ * de la cuenta, no un bloqueo mientras dure la fase de pruebas):
+ * "grace"/"expired" → «vencida»; "past_due"/"canceled" → «inactiva».
+ */
+export function suscripcionNoVigente(usage: UsageData): "vencida" | "inactiva" | null {
+  const status = usage.planStatus;
+  if (status === "grace" || status === "expired") return "vencida";
+  if (status === "past_due" || status === "canceled") return "inactiva";
   return null;
 }
 
@@ -211,6 +199,11 @@ export function UsageCard({ alCargar }: { alCargar?: (usage: UsageData) => void 
 
   const monthlyRemaining = usage.limits.generationsPerMonth - usage.monthlyGenerations;
   const dailyRemaining = Math.max(0, usage.limits.generationsPerDay - usage.dailyGenerations);
+  // El medidor del kit recorta lo usado al tope (también en su cifra): si se
+  // generó por encima del tope (p. ej. topes de una fila de prueba antigua, o
+  // tras bajar de plan), la cifra real se dice aquí para no ocultarla.
+  const excesoMes = usage.monthlyGenerations > usage.limits.generationsPerMonth;
+  const excesoHoy = usage.dailyGenerations > usage.limits.generationsPerDay;
 
   return (
     <Marco>
@@ -224,9 +217,18 @@ export function UsageCard({ alCargar }: { alCargar?: (usage: UsageData) => void 
               {dailyRemaining} hoy.
             </>
           ) : (
-            <Estado tipo="vencido" tamLetra={14}>Límite alcanzado</Estado>
+            <Estado tipo="vencido" tamLetra={14}>
+              {excesoMes
+                ? `Límite alcanzado · ${usage.monthlyGenerations} de ${usage.limits.generationsPerMonth} este mes`
+                : "Límite alcanzado"}
+            </Estado>
           )}
         </p>
+        {excesoHoy && (
+          <p>
+            Hoy: {usage.dailyGenerations} de {usage.limits.generationsPerDay}, por encima del tope diario.
+          </p>
+        )}
       </div>
       <div className="m">
         <Medidor
