@@ -6,6 +6,7 @@ import {
   createContext,
   isValidElement,
   useContext,
+  useId,
   type ComponentProps,
   type ReactElement,
   type ReactNode,
@@ -46,7 +47,7 @@ const CSS_RESPUESTA = `
 .k-md sup a { font-weight: 600; text-decoration: none; }
 .k-md sup a:hover { text-decoration: underline; }
 .k-md .footnotes { position: relative; margin: 16px 0 14px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.5; color: var(--ink-2); }
-.k-md .footnotes > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.k-md .footnotes > h4 { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .k-md .footnotes ol { margin: 0; padding-left: 20px; }
 .k-md .footnotes li { margin: 2px 0; }
 .k-md .footnotes p { margin: 0; display: inline; }
@@ -68,6 +69,15 @@ const CSS_RESPUESTA = `
 
 /** Nombres de las columnas de la tabla que se está pintando (para las fichas móviles). */
 const Columnas = createContext<string[]>([]);
+
+/**
+ * Prefijo de los id de ESTA respuesta. Cada respuesta numera sus notas desde 1 y
+ * remark-gfm les pone siempre los mismos id («user-content-fn-1», «footnote-label»):
+ * con dos respuestas con notas en la misma conversación los id se repetían y la
+ * llamada de la segunda saltaba a la nota de la primera.
+ */
+const Prefijo = createContext("");
+const ID_ROTULO_NOTAS = "footnote-label";
 
 function texto(n: ElementContent): string {
   if (n.type === "text") return n.value;
@@ -106,7 +116,11 @@ function FilaTabla(props: ComponentProps<"tr"> & ExtraProps) {
 
 function Enlace(props: ComponentProps<"a"> & ExtraProps) {
   const { children, href, ...p } = sinNodo(props);
+  const prefijo = useContext(Prefijo);
   const interno = typeof href === "string" && href.startsWith("#");
+  // Las llamadas a nota se describen con el rótulo «Notas» de su propia respuesta
+  // (el id fijo de remark-gfm apuntaba siempre al de la primera).
+  if (p["aria-describedby"] === ID_ROTULO_NOTAS) p["aria-describedby"] = prefijo + ID_ROTULO_NOTAS;
   // Vuelta de una nota al pie: el carácter «↩» no está en las fuentes del
   // armazón; se dibuja con el chevrón del kit y conserva su nombre accesible.
   if ("data-footnote-backref" in p) {
@@ -130,12 +144,19 @@ function sinNodo<P extends ExtraProps>(p: P): Omit<P, "node"> {
   return resto;
 }
 
+/** <h4> de la respuesta; también el rótulo (solo para lectores) de las notas, con su id propio. */
+function Titulo4(props: ComponentProps<"h4"> & ExtraProps) {
+  const { id, ...p } = sinNodo(props);
+  const prefijo = useContext(Prefijo);
+  return <h4 id={id === ID_ROTULO_NOTAS ? prefijo + ID_ROTULO_NOTAS : id} {...p} />;
+}
+
 const COMPONENTES: Components = {
   // Dentro de la respuesta no puede haber un <h1>: el de la pantalla es el del agente.
   h1: (p) => <h3 {...sinNodo(p)} />,
   h2: (p) => <h3 {...sinNodo(p)} />,
   h3: (p) => <h4 {...sinNodo(p)} />,
-  h4: (p) => <h4 {...sinNodo(p)} />,
+  h4: Titulo4,
   h5: (p) => <h4 {...sinNodo(p)} />,
   h6: (p) => <h4 {...sinNodo(p)} />,
   a: Enlace,
@@ -144,21 +165,30 @@ const COMPONENTES: Components = {
 };
 
 export function RespuestaMarkdown({ children }: { children: string }): ReactNode {
+  // useId es estable entre servidor y cliente; se limpia por si trae caracteres
+  // que no convienen en un fragmento de URL («#…»).
+  const prefijo = `r${useId().replace(/[^\w-]/g, "")}-`;
   return (
     <div className="k-md">
       <style href="k-respuesta-md" precedence="default">
         {CSS_RESPUESTA}
       </style>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        remarkRehypeOptions={{
-          footnoteLabel: "Notas",
-          footnoteBackLabel: (i: number) => `Volver a la llamada ${i + 1}`,
-        }}
-        components={COMPONENTES}
-      >
-        {children}
-      </ReactMarkdown>
+      <Prefijo.Provider value={prefijo}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          remarkRehypeOptions={{
+            clobberPrefix: prefijo,
+            footnoteLabel: "Notas",
+            // Por defecto es un <h2>: dentro de la respuesta quedaba al nivel del
+            // título de la conversación en el índice de encabezados.
+            footnoteLabelTagName: "h4",
+            footnoteBackLabel: (i: number) => `Volver a la llamada ${i + 1}`,
+          }}
+          components={COMPONENTES}
+        >
+          {children}
+        </ReactMarkdown>
+      </Prefijo.Provider>
     </div>
   );
 }

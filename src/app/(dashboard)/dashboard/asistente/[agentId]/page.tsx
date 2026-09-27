@@ -62,15 +62,30 @@ interface PendingAttachment {
   persistedId?: string;
 }
 
+/** Controles que pueden recibir el foco (capa de conversaciones en móvil). */
+const ENFOCABLES =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Grupo de una conversación en la lista, por DÍA DE CALENDARIO. Antes se medían
+ * ventanas de 24 horas: a las 9 de la mañana, un hilo de anoche caía en «Hoy»
+ * con la fecha de ayer al lado, y «Esta semana» incluía días de la semana
+ * pasada. Los hilos más viejos se agrupan por mes (el día ya va en cada fila).
+ */
 function formatRelativeDate(iso: string): string {
   const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffDays === 0) return "Hoy";
-  if (diffDays === 1) return "Ayer";
-  if (diffDays < 7) return "Esta semana";
-  return fechaCorta(d);
+  if (Number.isNaN(d.getTime())) return "";
+  const hoy = new Date();
+  const dias = Math.round(
+    (new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime() -
+      new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) /
+      86400000
+  );
+  if (dias <= 0) return "Hoy";
+  if (dias === 1) return "Ayer";
+  if (dias < 7) return "Últimos 7 días";
+  const mes = MESES_LARGOS[d.getMonth()];
+  return d.getFullYear() === hoy.getFullYear() ? mes : `${mes} de ${d.getFullYear()}`;
 }
 
 function groupChatsByDate(chats: Chat[]): { label: string; items: Chat[] }[] {
@@ -87,6 +102,10 @@ function groupChatsByDate(chats: Chat[]): { label: string; items: Chat[] }[] {
 /* Fechas con el formato del SPEC («18 sep», «3:42 p. m.»). Salen de los
    createdAt/updatedAt reales que devuelve la API del chat. */
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const MESES_LARGOS = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
 
 function mismoDia(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -113,6 +132,11 @@ function fechaHilo(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return mismoDia(d, new Date()) ? horaDe(d) : fechaCorta(d);
+}
+
+/** Peso de un archivo como se escribe en español: coma decimal y espacio fijo («8,7&nbsp;KB»). */
+function peso(bytes: number): string {
+  return formatoTamano(bytes).replace(".", ",").replace(" ", " ");
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -221,8 +245,16 @@ a.asis-ficha:hover { background: var(--hl); }
 .asis-subiendo { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
 .asis-conteo { font: 500 13px/1 var(--f-mono); color: var(--ink-3); }
 .asis-conteo[data-alto] { color: var(--warn-text); }
-.asis-pend { list-style: none; margin: 0; padding: 12px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.asis-pend .asis-ficha { padding-right: 0; }
+/* Adjuntos por enviar (hasta 5). En un teléfono bajo, cinco fichas con nombres de
+   dos líneas empujaban el redactor bajo el dock y la conversación desaparecía: la
+   lista tiene un alto máximo y hace scroll por dentro, y cada nombre va en una
+   línea (completo en el title y en «Quitar …»). */
+.asis-pend { list-style: none; margin: 0; padding: 12px 0 4px; display: flex; flex-wrap: wrap; gap: 8px;
+  max-height: min(30vh, 220px); overflow-y: auto; overscroll-behavior: contain; }
+.asis-pend .asis-ficha { padding: 0 0 0 8px; }
+.asis-pend .asis-ficha .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* La lista recorta (overflow): el anillo de foco de «Quitar» va hacia dentro. */
+:root:has([data-shell="app"]) .asis-pend .k-ic:focus-visible { outline-offset: -3px; }
 .asis-adjerr { padding-top: 12px; }
 
 @media (max-width: 1180px) {
@@ -265,7 +297,10 @@ a.asis-ficha:hover { background: var(--hl); }
   .asis-redactar .k-redactor > .k-btn { margin: 0 8px 8px 0; }
   /* «Enviando…» es más largo que «Enviar»: sin la flecha no empuja las herramientas a otra línea. */
   .asis-redactar .k-redactor > .k-btn[aria-busy="true"] svg { display: none; }
-  .asis-redactar .k-aviso-ia { margin-top: 6px; font-size: 12px; }
+  /* 13 px como en escritorio (SPEC: 12 px solo para cabeceras mono y notas al pie). */
+  .asis-redactar .k-aviso-ia { margin-top: 6px; }
+  /* Objetivo táctil de 44 px para «Quitar» (el kit deja el BotonIcono de 40 en 40). */
+  .asis-pend .k-ic { width: 44px; height: 44px; }
 }
 `;
 
@@ -318,6 +353,8 @@ export default function AgentPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const carrilRef = useRef<HTMLDivElement>(null);
+  const botonListaRef = useRef<HTMLButtonElement>(null);
 
   const isValid = isValidAgentId(agentId);
 
@@ -338,12 +375,34 @@ export default function AgentPage() {
   // Si la pregunta llega escrita desde la lista de agentes, el cuadro se ajusta a ella.
   useEffect(() => { autoResize(); }, [autoResize, hasAccess]);
 
-  // La capa de conversaciones (móvil) se cierra con Escape, como el índice.
+  // La capa de conversaciones (< 1024 px) es un diálogo: tapa el chat, así que el
+  // foco entra en ella al abrirse (antes se quedaba en «Conversaciones», debajo de
+  // la capa, y Tab seguía recorriendo el chat tapado), Tab no se sale de ella,
+  // Escape la cierra —como el índice— y al cerrarse el foco vuelve al botón.
   useEffect(() => {
     if (!listaMovil) return;
-    const alTeclear = (e: KeyboardEvent) => { if (e.key === "Escape") setListaMovil(false); };
+    const carril = carrilRef.current;
+    const disparador = botonListaRef.current;
+    const enfocables = () =>
+      Array.from(carril?.querySelectorAll<HTMLElement>(ENFOCABLES) ?? []).filter((el) => el.getClientRects().length > 0);
+    enfocables()[0]?.focus();
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setListaMovil(false); return; }
+      if (e.key !== "Tab" || !carril) return;
+      const lista = enfocables();
+      if (lista.length === 0) return;
+      const primero = lista[0];
+      const ultimo = lista[lista.length - 1];
+      const dentro = carril.contains(document.activeElement);
+      if (e.shiftKey && (!dentro || document.activeElement === primero)) { e.preventDefault(); ultimo.focus(); }
+      else if (!e.shiftKey && (!dentro || document.activeElement === ultimo)) { e.preventDefault(); primero.focus(); }
+    };
     document.addEventListener("keydown", alTeclear);
-    return () => document.removeEventListener("keydown", alTeclear);
+    return () => {
+      document.removeEventListener("keydown", alTeclear);
+      const activo = document.activeElement;
+      if (!activo || activo === document.body || carril?.contains(activo)) disparador?.focus();
+    };
   }, [listaMovil]);
 
   // Resolve agent access (included agents + active add-ons)
@@ -564,7 +623,7 @@ export default function AgentPage() {
     });
   };
 
-  /** Envía una sugerencia de la pantalla de inicio sin pasar por el cuadro de texto. */
+  /** Copia una respuesta al portapapeles; el botón dice «Copiado» un momento. */
   const copiarMensaje = async (id: string, texto: string) => {
     try {
       await navigator.clipboard.writeText(texto);
@@ -575,6 +634,7 @@ export default function AgentPage() {
     }
   };
 
+  /** Envía una sugerencia de la pantalla de inicio sin pasar por el cuadro de texto. */
   const enviarSugerencia = (prompt: string) => {
     if (isLoading) return;
     setInput("");
@@ -842,17 +902,26 @@ export default function AgentPage() {
     }
   };
 
+  // El aviso de exportación habla de la conversación abierta: al cambiar de
+  // conversación se retira (antes seguía a la vista sobre la siguiente).
   const startNewChat = () => {
     setActiveChatId(null);
     setMessages([]);
     setListaMovil(false);
+    setExportError("");
+  };
+
+  const abrirConversacion = (chatId: string) => {
+    setActiveChatId(chatId);
+    setListaMovil(false);
+    if (chatId !== activeChatId) setExportError("");
   };
 
   const deleteChat = async (chatId: string) => {
     try {
       await fetch(`/api/agents/${agentId}/chats?chatId=${chatId}`, { method: "DELETE" });
       setChats((prev) => prev.filter((c) => c.id !== chatId));
-      if (activeChatId === chatId) { setActiveChatId(null); setMessages([]); }
+      if (activeChatId === chatId) { setActiveChatId(null); setMessages([]); setExportError(""); }
     } catch { /* ignore */ }
   };
 
@@ -930,7 +999,7 @@ export default function AgentPage() {
     return (
       <ul className="asis-fichas" aria-label={generados ? "Archivos generados" : "Archivos adjuntos"}>
         {lista.map((att, i) => {
-          const tam = formatoTamano(att.size);
+          const tam = peso(att.size);
           const contenido = (
             <>
               <TipoArchivo>{tipoDeArchivo(att.name)}</TipoArchivo>
@@ -974,9 +1043,13 @@ export default function AgentPage() {
           <>
             {listaMovil && <div className="asis-velo" aria-hidden="true" onClick={() => setListaMovil(false)} />}
 
-            <aside
+            {/* Columna complementaria en escritorio; capa modal (diálogo) en < 1024 px. */}
+            <div
+              ref={carrilRef}
               id="asis-carril"
               className="asis-carril"
+              role={listaMovil ? "dialog" : "complementary"}
+              aria-modal={listaMovil || undefined}
               data-movil={listaMovil || undefined}
               aria-label={`Conversaciones con ${agent.name}`}
             >
@@ -1041,10 +1114,7 @@ export default function AgentPage() {
                                 type="button"
                                 className="asis-hilo"
                                 aria-current={isActive ? "true" : undefined}
-                                onClick={() => {
-                                  setActiveChatId(chat.id);
-                                  setListaMovil(false);
-                                }}
+                                onClick={() => abrirConversacion(chat.id)}
                               >
                                 {chat.title}
                                 <small>
@@ -1093,12 +1163,13 @@ export default function AgentPage() {
                   </div>
                 )}
               </div>
-            </aside>
+            </div>
           </>
         )}
 
         {/* ─────────────  CONVERSACIÓN  ───────────── */}
-        <section className="asis-conv" aria-labelledby="asis-conv-t">
+        {/* Con la capa de conversaciones abierta, el chat de debajo queda inerte. */}
+        <section className="asis-conv" aria-labelledby="asis-conv-t" inert={listaMovil || undefined}>
           <div className="asis-barra" data-nueva={activeChat ? undefined : true}>
             {/* Mismo botón y mismo criterio que antes (ancho < 1024 → capa); uno por
                 tamaño para que aria-expanded diga el estado que de verdad se ve. */}
@@ -1112,8 +1183,10 @@ export default function AgentPage() {
               Conversaciones
             </button>
             <button
+              ref={botonListaRef}
               type="button"
               className="k-btn k-sec k-40 asis-solo-movil"
+              aria-haspopup="dialog"
               aria-expanded={listaMovil}
               aria-controls="asis-carril"
               onClick={alternarLista}
@@ -1301,8 +1374,10 @@ export default function AgentPage() {
                   ) : (
                     <TipoArchivo>{tipoDeArchivo(att.file.name)}</TipoArchivo>
                   )}
-                  <span className="n">{att.file.name}</span>
-                  {formatoTamano(att.file.size) && <span className="p">{formatoTamano(att.file.size)}</span>}
+                  <span className="n" title={att.file.name}>
+                    {att.file.name}
+                  </span>
+                  {peso(att.file.size) && <span className="p">{peso(att.file.size)}</span>}
                   <BotonIcono
                     etiquetaAccesible={`Quitar ${att.file.name}`}
                     tam={40}
