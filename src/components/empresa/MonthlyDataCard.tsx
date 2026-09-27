@@ -10,14 +10,18 @@ import {
   MAX_AUDIO_MB,
 } from "@/lib/upload-limits";
 import {
-  CalendarDays,
-  Upload,
-  FileText,
-  X,
-  Loader2,
-  CheckCircle2,
-  StickyNote,
-} from "lucide-react";
+  AreaTexto,
+  Aviso,
+  Campo,
+  Esqueleto,
+  Estado,
+  FilaArchivo,
+  ListaArchivos,
+  Panel,
+  Selector,
+  ZonaSubida,
+  pesoLegible,
+} from "@/components/kit";
 
 type FileRef = { name: string; url: string; type: string; size: number };
 
@@ -36,7 +40,6 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
   const [uploading, setUploading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const years = [now.getFullYear(), now.getFullYear() - 1];
@@ -83,7 +86,7 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
     [propertyId, month, year]
   );
 
-  const handleFiles = async (list: FileList | null) => {
+  const handleFiles = async (list: FileList | File[] | null) => {
     if (!list || list.length === 0) return;
     setUploading(true);
     setError("");
@@ -98,7 +101,6 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
       if (grande) {
         setError(mensajeDeTamano(grande));
         setUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
 
@@ -126,8 +128,8 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
         `No se pudo subir el archivo. Revisa que sea un formato admitido y que la grabación no supere ${MAX_AUDIO_MB} MB.`
       );
     } finally {
+      // La zona de subida del kit limpia su propio <input type="file">.
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -143,111 +145,104 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
     noteTimer.current = setTimeout(() => persist(files, v), 700);
   };
 
-  const selectBase =
-    "rounded-lg border border-border bg-card text-sm text-foreground px-3 h-9 focus-visible:outline-none focus-visible:border-[var(--accent)] transition-all cursor-pointer";
+  const lleno = files.length >= 20;
 
   return (
-    <section className="rounded-2xl border border-border bg-card overflow-hidden mb-6">
-      <div className="px-5 py-4 border-b border-border flex items-center gap-2 flex-wrap">
-        <CalendarDays className="h-4 w-4 text-muted-foreground" />
-        <p className="text-sm font-semibold text-foreground">Datos del mes</p>
-        <span className="text-[11px] text-muted-foreground">para la generación en lote</span>
-        <div className="flex items-center gap-2 ml-auto">
-          {saved && (
-            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: "var(--ok-text)" }}>
-              <CheckCircle2 className="h-3.5 w-3.5" /> Guardado
-            </span>
-          )}
-          <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className={selectBase}>
+    <Panel titulo="Datos del mes" nota="para la generación en lote" className="emp-mes">
+      <style href="k-empresa-mes" precedence="default">{CSS_MES}</style>
+      <div className="emp-mes-per">
+        <Campo id={`mes-${propertyId}`} etiqueta="Mes">
+          <Selector id={`mes-${propertyId}`} value={month} onChange={(e) => setMonth(Number(e.target.value))}>
             {MONTHS.map((m, i) => (
               <option key={i} value={i + 1}>{m}</option>
             ))}
-          </select>
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={selectBase}>
+          </Selector>
+        </Campo>
+        <Campo id={`anio-${propertyId}`} etiqueta="Año">
+          <Selector id={`anio-${propertyId}`} value={year} onChange={(e) => setYear(Number(e.target.value))}>
             {years.map((y) => (
               <option key={y} value={y}>{y}</option>
             ))}
-          </select>
-        </div>
+          </Selector>
+        </Campo>
+        <span className="emp-mes-ok" role="status">
+          {saved && <Estado tipo="ok" tamLetra={14}>Guardado</Estado>}
+        </span>
       </div>
 
-      <div className="p-5">
-        <p className="text-[13px] text-muted-foreground mb-4">
-          Sube aquí los archivos de <strong className="text-foreground">{MONTHS[month - 1]} {year}</strong> de
-          esta copropiedad (cartera, estados financieros, PQRS, actas previas…). Se usarán cuando generes en lote.
-        </p>
+      <p className="emp-mes-txt">
+        Sube aquí los archivos de <strong>{MONTHS[month - 1].toLowerCase()} {year}</strong> de esta copropiedad
+        (cartera, estados financieros, PQRS, actas previas…). Se usarán cuando generes en lote.
+      </p>
 
-        {error && (
-          <div className="mb-4 rounded-xl px-4 py-2.5 text-[13px]" style={{ background: "rgb(var(--danger-rgb) / 0.1)", border: "1px solid rgb(var(--danger-rgb) / 0.25)", color: "var(--danger-text)" }}>
-            {error}
-          </div>
-        )}
+      {error && <Aviso enLinea tipo="error" titulo={error} className="emp-mes-err" />}
 
-        {loading ? (
-          <div className="flex items-center gap-2 text-[13px] text-muted-foreground py-6 justify-center">
-            <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
-          </div>
-        ) : (
-          <>
-            {/* File list */}
-            {files.length > 0 && (
-              <ul className="space-y-2 mb-4">
-                {files.map((f, i) => (
-                  <li key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ background: "var(--surface-3)", border: "1px solid var(--hifi-hairline)" }}>
-                    <FileText className="h-4 w-4 text-muted-foreground/70 flex-shrink-0" />
-                    <span className="flex-1 min-w-0 truncate text-[13px] text-foreground">{f.name}</span>
-                    <span className="text-[11px] text-muted-foreground/60" style={{ fontFamily: "var(--font-mono)" }}>
-                      {(f.size / 1024 / 1024).toFixed(1)} MB
-                    </span>
-                    <button onClick={() => removeFile(i)} className="text-muted-foreground/60 hover:text-[var(--danger)] transition-colors" aria-label="Quitar">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+      {loading ? (
+        <Esqueleto variante="bloque" etiquetaAccesible="Cargando los datos del mes…" />
+      ) : (
+        <>
+          <ZonaSubida
+            compacta
+            multiple
+            accept={ACCEPT_ARCHIVOS}
+            deshabilitado={uploading || lleno}
+            alElegir={(lista) => handleFiles(lista)}
+            titulo={uploading ? "Subiendo…" : lleno ? "Máximo 20 archivos" : "Suelta aquí los archivos del mes"}
+            texto={uploading || lleno ? undefined : "o haz clic para elegirlos."}
+            formatos="PDF, Excel, Word, imágenes y audio · hasta 20 archivos"
+            etiquetaAccesible={`Subir archivos de ${MONTHS[month - 1].toLowerCase()} ${year}`}
+          />
 
-            {/* Upload dropzone */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading || files.length >= 20}
-              className="w-full flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-6 transition-colors hover:border-[var(--accent)]/50 disabled:opacity-50"
-              style={{ borderColor: "rgb(var(--veil-rgb) / 0.14)", background: "rgb(var(--veil-rgb) / 0.02)" }}
-            >
-              {uploading ? (
-                <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--accent-text)" }} />
-              ) : (
-                <Upload className="h-5 w-5 text-muted-foreground" />
-              )}
-              <span className="text-[13px] text-muted-foreground">
-                {uploading ? "Subiendo…" : files.length >= 20 ? "Máximo 20 archivos" : "Subir archivos (PDF, Excel, Word, imágenes)"}
-              </span>
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept={ACCEPT_ARCHIVOS}
-              className="hidden"
-              onChange={(e) => handleFiles(e.target.files)}
+          {files.length > 0 && (
+            <ListaArchivos etiquetaAccesible={`Archivos de ${MONTHS[month - 1].toLowerCase()} ${year}`}>
+              {files.map((f, i) => (
+                <FilaArchivo
+                  key={i}
+                  nombre={f.name}
+                  detalle={pesoLegible(f.size)}
+                  estado="listo"
+                  alQuitar={() => removeFile(i)}
+                  etiquetaQuitar={`Quitar ${f.name}`}
+                />
+              ))}
+            </ListaArchivos>
+          )}
+
+          <Campo
+            id={`notas-${propertyId}`}
+            etiqueta="Notas del mes"
+            opcional
+            ayuda="Se guardan solas mientras escribes."
+            className="emp-mes-notas"
+          >
+            <AreaTexto
+              id={`notas-${propertyId}`}
+              value={additionalText}
+              onChange={(e) => onNoteChange(e.target.value)}
+              rows={3}
+              placeholder="Ej.: aprobada cuota extraordinaria de $X; pendiente cambio de bomba…"
             />
-
-            {/* Notes */}
-            <div className="mt-4">
-              <label className="flex items-center gap-1.5 text-[11px] uppercase text-muted-foreground/70 mb-2" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }}>
-                <StickyNote className="h-3 w-3" /> Notas del mes (opcional)
-              </label>
-              <textarea
-                value={additionalText}
-                onChange={(e) => onNoteChange(e.target.value)}
-                rows={3}
-                placeholder="Ej. Aprobada cuota extraordinaria de $X; pendiente cambio de bomba…"
-                className="w-full rounded-xl border border-border bg-card text-sm text-foreground px-3 py-2.5 placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:border-[var(--accent)] transition-all resize-y"
-              />
-            </div>
-          </>
-        )}
-      </div>
-    </section>
+          </Campo>
+        </>
+      )}
+    </Panel>
   );
 }
+
+const CSS_MES = `
+.emp-mes-per { display: flex; align-items: flex-end; gap: 0 12px; flex-wrap: wrap; }
+.emp-mes-per > .k-fld { width: 180px; margin-bottom: 0; }
+.emp-mes-per > .k-fld:nth-child(2) { width: 120px; }
+.emp-mes-ok { align-self: center; min-height: 1.3em; margin-left: auto; }
+.emp-mes-txt { margin: 18px 0; font-size: 15px; line-height: 1.45; color: var(--ink-2); max-width: 62ch; }
+.emp-mes-txt strong { color: var(--ink); font-weight: 700; }
+.emp-mes-err { margin-bottom: 16px; }
+.emp-mes-notas { margin: 24px 0 0; }
+@media (max-width: 860px) {
+  .emp-mes-per { gap: 12px; }
+  .emp-mes-per > .k-fld { flex: 1 1 120px; width: auto; }
+  .emp-mes-per > .k-fld:nth-child(2) { width: auto; }
+  .emp-mes-ok { flex: 1 1 100%; margin-left: 0; }
+  .emp-mes-ok:empty { display: none; }
+}
+`;

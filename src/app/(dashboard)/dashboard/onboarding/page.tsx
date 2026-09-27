@@ -1,35 +1,111 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Building2,
-  User,
-  Building,
-  ArrowRight,
-  ArrowLeft,
-  Check,
-  Sparkles,
-  FileText,
-  Upload,
-  Wand2,
-  Download,
-  ClipboardList,
-  MessageSquare,
-  GraduationCap,
-  X,
-  Loader2,
-  BookOpen,
-  Shield,
-  AlertCircle,
-  AlertTriangle,
-} from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
 import { upload as blobUpload } from "@vercel/blob/client";
-import { tinte } from "@/lib/tinte";
+import {
+  AGENTES,
+  Aviso,
+  Boton,
+  Campo,
+  Colofon,
+  Entrada,
+  Estado,
+  FilaArchivo,
+  GrupoCampos,
+  ListaArchivos,
+  Marca,
+  NavPasos,
+  Pagina,
+  Panel,
+  Pasos,
+  Resumen,
+  Selector,
+  Sigilo,
+  ZonaSubida,
+  nombreCorto,
+  pesoLegible,
+} from "@/components/kit";
+import { AGENTS, COMING_SOON_AGENT_IDS, INCLUDED_AGENT_IDS } from "@/lib/agents";
+
+/* ════════════════════════════════════════════════════════════════════
+   Estilos locales del primer uso (SPEC §g «Onboarding»).
+   - Sin índice lateral ni dock: el armazón del dashboard los pinta en todas
+     las rutas, así que aquí se ocultan SOLO mientras esta pantalla está
+     montada (`:root:has([data-onb])`, el mismo patrón acotado de los tokens).
+     Pendiente del kit: que el layout no los monte en /dashboard/onboarding.
+   - Retícula 7 + 5: formulario a la izquierda, ayuda a la derecha.
+   ════════════════════════════════════════════════════════════════════ */
+const CSS_ONB = `
+:root:has([data-onb]) .k-app { grid-template-columns: minmax(0, 1fr); }
+:root:has([data-onb]) .k-col-indice,
+:root:has([data-onb]) .k-principal > .k-dock { display: none; }
+
+.onb-cab { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: var(--cab-h); padding: 0 var(--pad); border-bottom: 2px solid var(--rule); }
+.onb-cab .marca { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.onb-cab .der { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.onb-cab .der > span { font-size: 14px; color: var(--ink-3); white-space: nowrap; }
+
+.onb .k-pieza { padding-top: 40px; }
+.onb .k-pasos { margin-bottom: 52px; }
+.onb-hero { grid-column: 1 / 10; min-width: 0; margin-bottom: 40px; }
+.onb-kicker { margin: 0; font-size: 15px; font-weight: 500; line-height: 1.35; color: var(--ink-2); }
+.onb-kicker b { color: var(--ink); font-weight: 700; }
+.onb-hero .k-h1 { margin-top: 12px; text-wrap: balance; }
+/* El titular recibe el foco por programa al cambiar de paso (lo anuncia el lector);
+   no es un control, así que sin anillo. Más específico que el foco global del armazón. */
+:root:has([data-shell="app"]) .onb-hero h1[tabindex="-1"]:focus-visible { outline: 0; }
+.onb-lead { margin: 18px 0 0; max-width: 58ch; font-size: 17px; line-height: 1.5; color: var(--ink-2); text-wrap: pretty; }
+
+.onb-form { grid-column: 1 / 8; min-width: 0; }
+.onb-ayuda { grid-column: 8 / 13; min-width: 0; }
+.onb-ayuda .k-panel + .k-panel { margin-top: 32px; }
+.onb-ayuda p { margin: 0 0 12px; font-size: 15px; line-height: 1.45; color: var(--ink-2); text-wrap: pretty; }
+.onb-ayuda p b { color: var(--ink); font-weight: 700; }
+.onb-ayuda .correo { font-family: var(--f-mono); font-size: 14px; color: var(--ink); overflow-wrap: anywhere; }
+.onb-lista { list-style: none; margin: 0; padding: 0; }
+.onb-lista li { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--line); font-size: 15px; }
+
+.onb-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--g); }
+.onb-nota { margin: 0; align-self: center; max-width: 34ch; font-size: 14px; line-height: 1.35; color: var(--ink-3); }
+.onb-omitir { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 18px 0 0; font-size: 14px; color: var(--ink-3); }
+.onb-doc + .onb-doc { margin-top: 8px; }
+.onb-doc .k-archivos { margin-top: 0; }
+.onb-avisos { display: grid; gap: 12px; margin-top: 28px; }
+
+.onb-filas { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--rule); }
+.onb-fila { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; padding: 18px 0 20px; border-bottom: 1px solid var(--line); }
+.onb-fila .ref { padding-top: 9px; font: 400 13px/1 var(--f-mono); color: var(--ink-3); }
+.onb-fila .cab { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.onb-fila h2 { margin: 0; font-size: 28px; font-weight: 800; font-stretch: 85%; letter-spacing: -.02em; line-height: 1; white-space: nowrap; }
+.onb-fila .dots { flex: 1; min-width: 16px; border-bottom: 2px dotted rgb(var(--veil-rgb) / .28); transform: translateY(-4px); }
+.onb-fila .dato { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.onb-fila p { grid-column: 2; margin: 10px 0 0; max-width: 62ch; font-size: 16px; line-height: 1.45; color: var(--ink-2); text-wrap: pretty; }
+.onb-fila p b { color: var(--ink); font-weight: 700; }
+
+@media (max-width: 860px) {
+  .onb-cab .der > span { display: none; }
+  .onb .k-pieza { padding-top: 24px; }
+  .onb .k-pasos { margin-bottom: 32px; }
+  .onb-hero { margin-bottom: 28px; }
+  .onb-lead { font-size: 16px; }
+  .onb-ayuda { margin-top: 40px; }
+  .onb-nota { max-width: none; }
+  .onb-fila { grid-template-columns: 28px minmax(0, 1fr); column-gap: 8px; }
+  .onb-fila h2 { font-size: 24px; }
+  .onb-fila p { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .onb-2 { grid-template-columns: minmax(0, 1fr); }
+  .onb-fila .dots { display: none; }
+  .onb-fila .cab { flex-wrap: wrap; row-gap: 6px; }
+  .onb-fila .dato { flex-basis: 100%; }
+}
+`;
+
+/** Nombres de los pasos (SPEC §g «Onboarding»): 1 Tu perfil · 2 Primera propiedad · 3 Documentos · 4 Cómo funciona. */
+const NOMBRES_PASOS = ["Tu perfil", "Primera propiedad", "Documentos", "Cómo funciona"];
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -50,7 +126,7 @@ export default function OnboardingPage() {
   const [propCity, setPropCity] = useState("");
   const [propUnits, setPropUnits] = useState("");
 
-  // Step 2.5: Property documents
+  // Step 3: Property documents
   const [manualFile, setManualFile] = useState<File | null>(null);
   const [reglamentoFile, setReglamentoFile] = useState<File | null>(null);
   const [uploadingDocs, setUploadingDocs] = useState(false);
@@ -150,978 +226,534 @@ export default function OnboardingPage() {
 
       window.location.href = "/dashboard";
     } catch {
-      setError("Error de conexion. Intenta de nuevo.");
+      setError("Error de conexión. Intenta de nuevo.");
       setLoading(false);
     }
   };
 
-  const cargos = [
-    "Administrador(a) de P.H.",
-    "Gerente de Administracion",
-    "Contador(a)",
-    "Revisor(a) Fiscal",
-    "Asistente Administrativo",
-    "Otro",
+  // [valor que se guarda, etiqueta visible]: los valores guardados no cambian
+  // (los usa Configuración); solo la etiqueta lleva tildes.
+  const cargos: Array<[string, string]> = [
+    ["Administrador(a) de P.H.", "Administrador(a) de P.H."],
+    ["Gerente de Administracion", "Gerente de administración"],
+    ["Contador(a)", "Contador(a)"],
+    ["Revisor(a) Fiscal", "Revisor(a) fiscal"],
+    ["Asistente Administrativo", "Asistente administrativo"],
+    ["Otro", "Otro"],
+  ];
+  const etiquetaCargo = cargos.find(([v]) => v === cargo)?.[1] ?? cargo;
+
+  /* ── foco al titular al cambiar de paso (lectores de pantalla y teclado) ── */
+  const titularRef = useRef<HTMLHeadingElement>(null);
+  const pasoPrevio = useRef(step);
+  useEffect(() => {
+    if (pasoPrevio.current === step) return;
+    pasoPrevio.current = step;
+    window.scrollTo({ top: 0 });
+    titularRef.current?.focus({ preventScroll: true });
+  }, [step]);
+
+  /* ── derivados de lo que ya hay en el estado (nada inventado) ── */
+  const perfilListo = Boolean(name.trim() && cargo);
+  const propiedad = propName.trim();
+  const docsElegidos = [manualFile, reglamentoFile].filter((f): f is File => Boolean(f));
+  const nDocs = docsElegidos.length;
+  const textoDocs = nDocs === 0 ? "Ninguno" : nDocs === 1 ? "1 archivo" : `${nDocs} archivos`;
+  // Omitir la copropiedad salta el paso 3 (no hay a qué asociar los documentos).
+  const irAtrasDesdeCuatro = () => setStep(skipped ? 2 : 3);
+
+  // Hechos: el valor elegido. Actual: qué se pide en él. Futuros: nada, o «Opcional».
+  const pasos = [
+    {
+      nombre: NOMBRES_PASOS[0],
+      valor: step > 1 ? name.trim() : "Nombre y cargo",
+      alVolver: () => setStep(1),
+    },
+    {
+      nombre: NOMBRES_PASOS[1],
+      valor: step > 2
+        ? (skipped || !propiedad ? "Omitida" : nombreCorto(propiedad))
+        : step === 2 ? "Nombre, dirección y unidades" : undefined,
+      alVolver: () => setStep(2),
+    },
+    {
+      nombre: NOMBRES_PASOS[2],
+      valor: step > 3 ? (skipped ? "Omitido" : textoDocs) : step === 3 ? "Manual y reglamento · opcional" : "Opcional",
+      alVolver: skipped ? undefined : () => setStep(3),
+    },
+    { nombre: NOMBRES_PASOS[3], valor: step === 4 ? "Resumen y entrada" : undefined },
   ];
 
-  /* ── shared input style ── */
-  const inputBase: React.CSSProperties = {
-    background: "var(--surface-3)",
-    border: "1px solid var(--hifi-hairline)",
-    color: "var(--ink)",
-    fontFamily: "'Geist', system-ui, sans-serif",
-    borderRadius: 10,
-    fontSize: 14,
-    padding: "10px 14px",
-    width: "100%",
-    outline: "none",
-    transition: "border 0.15s, box-shadow 0.15s",
-  };
-
-  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    e.currentTarget.style.border = "1px solid rgb(var(--accent-rgb) / 0.5)";
-    e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.12)";
-  };
-  const handleInputBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-    e.currentTarget.style.boxShadow = "none";
-  };
-
-  const stepLabels = [
-    "Tu perfil",
-    "Primera propiedad",
-    "Como funciona",
-    "Listo",
+  const titulares = [
+    "Cuéntanos quién eres.",
+    "Tu primera copropiedad.",
+    "Sube el manual y el reglamento.",
+    "Así trabaja SOPH.IA.",
   ];
+
+  const entradas = [
+    { titulo: <>Te damos la bienvenida a SOPH.IA.</>, resto: <>Configura tu cuenta en {TOTAL_STEPS} pasos.</> },
+    { titulo: <>Paso 2 de {TOTAL_STEPS}.</>, resto: <>Tu perfil está completo.</> },
+    { titulo: <>Paso 3 de {TOTAL_STEPS}.</>, resto: <>{propiedad ? nombreCorto(propiedad) : "Tu copropiedad"} · documentos opcionales</> },
+    { titulo: <>Paso 4 de {TOTAL_STEPS}.</>, resto: <>Revisa y entra.</> },
+  ][step - 1];
+
+  const leads = [
+    "Personaliza tu experiencia en SOPH.IA con tu información profesional.",
+    "Agrega el conjunto o edificio que administras. Podrás agregar más después, desde Propiedades.",
+    `Sube el manual de convivencia y el reglamento interno${propiedad ? ` de ${propiedad}` : ""}. La IA los usará como contexto para generar informes más precisos.`,
+    "Al pulsar «Ir al inicio» guardamos tu cuenta. Estas son las tres entradas del índice que más vas a usar.",
+  ];
+
+  // docWarning llega como una frase compuesta: la primera oración va en negrita (SPEC §f.14).
+  const partirAviso = (t: string) => {
+    const i = t.indexOf(". ");
+    return i === -1 ? { titulo: t, texto: undefined } : { titulo: t.slice(0, i + 1), texto: t.slice(i + 2) };
+  };
+
+  // Agentes activos y en preparación, de la misma lista que usa la app (src/lib/agents.ts).
+  const activos = INCLUDED_AGENT_IDS;
+  const enPreparacion = COMING_SOON_AGENT_IDS.length;
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
-      style={{ background: "var(--surface-0)" }}
-    >
-      {/* Background orbs */}
-      <div
-        className="hifi-orb-drift pointer-events-none absolute"
-        style={{
-          width: 560,
-          height: 560,
-          top: "-20%",
-          left: "-10%",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgb(var(--accent-rgb) / 0.12) 0%, transparent 70%)",
-          filter: "blur(60px)",
-        }}
-      />
-      <div
-        className="hifi-orb-drift pointer-events-none absolute"
-        style={{
-          width: 400,
-          height: 400,
-          bottom: "-15%",
-          right: "-8%",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgb(var(--info-rgb) / 0.08) 0%, transparent 70%)",
-          filter: "blur(60px)",
-          animationDelay: "-9s",
-        }}
-      />
+    <div className="onb" data-onb="">
+      <style href="k-onboarding-local" precedence="default">
+        {CSS_ONB}
+      </style>
 
-      <div className="relative z-10 w-full max-w-[600px] space-y-6">
-
-        {/* Top: logo + step indicator */}
-        <div className="flex flex-col items-center gap-3">
-          {/* Logo glyph */}
-          <div
-            className="flex items-center justify-center rounded-2xl"
-            style={{
-              width: 44,
-              height: 44,
-              background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
-              boxShadow: "0 0 28px rgb(var(--accent-rgb) / 0.3)",
-              flexShrink: 0,
-            }}
-          >
-            <span
-              style={{
-                fontFamily: "'Geist', system-ui, sans-serif",
-                fontWeight: 700,
-                fontSize: 20,
-                color: "var(--on-accent)",
-                letterSpacing: "-0.03em",
-              }}
-            >
-              S
-            </span>
-          </div>
-
-          {/* Brand */}
-          <span
-            style={{
-              fontFamily: "'Geist', system-ui, sans-serif",
-              fontWeight: 500,
-              fontSize: 18,
-              letterSpacing: "-0.02em",
-              color: "var(--ink)",
-            }}
-          >
-            SOPH
-            <span style={{ color: "var(--ink-4)" }}>.</span>
-            <span style={{ color: "var(--accent-text)" }}>IA</span>
-          </span>
-
-          {/* Step indicator */}
-          <p
-            style={{
-              fontFamily: "'Geist Mono', ui-monospace, monospace",
-              fontSize: 10,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--ink-3)",
-            }}
-          >
-            Paso {step} de {TOTAL_STEPS} &mdash; {stepLabels[step - 1]}
-          </p>
+      {/* Barra superior propia: sin índice lateral, la marca arriba a la izquierda. */}
+      <header className="onb-cab">
+        <span className="marca">
+          <Marca />
+        </span>
+        <div className="der">
+          <span>Configuración inicial</span>
+          <Boton variante="fantasma" tam={40} onClick={() => signOut({ callbackUrl: "/" })}>
+            Cerrar sesión
+          </Boton>
         </div>
+      </header>
 
-        {/* Progress bar */}
-        <div
-          style={{
-            height: 2,
-            borderRadius: 2,
-            background: "rgb(var(--veil-rgb) / 0.07)",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              borderRadius: 2,
-              background: "linear-gradient(90deg, var(--accent), var(--accent-hi))",
-              width: `${(step / TOTAL_STEPS) * 100}%`,
-              transition: "width 0.4s cubic-bezier(0.16,1,0.3,1)",
-            }}
-          />
-        </div>
+      <div>
+        <Pagina>
+          <section className="k-pieza" aria-labelledby="onb-titular">
+            <Pasos actual={step} pasos={pasos} etiquetaAccesible="Pasos de la configuración inicial" />
 
-        {/* ── STEP 1: Profile ── */}
-        {step === 1 && (
-          <div
-            className="rounded-2xl p-8 hifi-ring-glow"
-            style={{
-              background: "linear-gradient(145deg, var(--surface-2) 0%, var(--surface-2) 100%)",
-              border: "1px solid var(--hifi-hairline)",
-              boxShadow: "0 0 60px rgb(var(--accent-rgb) / 0.06), inset 0 1px 0 rgb(var(--veil-rgb) / 0.05)",
-            }}
-          >
-            {/* Eyebrow */}
-            <p
-              className="mb-2"
-              style={{
-                fontFamily: "'Geist Mono', ui-monospace, monospace",
-                fontSize: 10,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: "var(--ink-3)",
-              }}
-            >
-              Bienvenido
-            </p>
-
-            {/* Heading */}
-            <h1
-              className="mb-1"
-              style={{
-                fontFamily: "'Geist', system-ui, sans-serif",
-                fontWeight: 500,
-                fontSize: 32,
-                letterSpacing: "-0.025em",
-                color: "var(--ink)",
-                lineHeight: 1.1,
-              }}
-            >
-              Cuentanos sobre ti.
-            </h1>
-            <p
-              className="mb-8"
-              style={{ fontSize: 14, color: "var(--ink-2)", lineHeight: 1.6 }}
-            >
-              Personaliza tu experiencia en SOPH.IA con tu informacion profesional.
-            </p>
-
-            <div className="space-y-4">
-              {/* Name */}
-              <div>
-                <label
-                  className="block mb-1.5"
-                  style={{
-                    fontFamily: "'Geist Mono', ui-monospace, monospace",
-                    fontSize: 10,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    color: "var(--ink-3)",
-                  }}
-                >
-                  Nombre completo *
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Tu nombre"
-                  style={inputBase}
-                  onFocus={handleInputFocus}
-                  onBlur={handleInputBlur}
-                />
-              </div>
-
-              {/* Cargo */}
-              <div>
-                <label
-                  className="block mb-1.5"
-                  style={{
-                    fontFamily: "'Geist Mono', ui-monospace, monospace",
-                    fontSize: 10,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    color: "var(--ink-3)",
-                  }}
-                >
-                  Cargo *
-                </label>
-                <select
-                  value={cargo}
-                  onChange={(e) => setCargo(e.target.value)}
-                  style={{ ...inputBase, paddingRight: 36 }}
-                  onFocus={handleInputFocus}
-                  onBlur={handleInputBlur}
-                >
-                  <option value="">Selecciona tu cargo</option>
-                  {cargos.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Company */}
-              <div>
-                <label
-                  className="block mb-1.5"
-                  style={{
-                    fontFamily: "'Geist Mono', ui-monospace, monospace",
-                    fontSize: 10,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    color: "var(--ink-3)",
-                  }}
-                >
-                  Empresa / Razon Social
-                </label>
-                <input
-                  type="text"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  placeholder="Nombre de tu empresa"
-                  style={inputBase}
-                  onFocus={handleInputFocus}
-                  onBlur={handleInputBlur}
-                />
-              </div>
-
-              {/* Phone + City row */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className="block mb-1.5"
-                    style={{
-                      fontFamily: "'Geist Mono', ui-monospace, monospace",
-                      fontSize: 10,
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
-                      color: "var(--ink-3)",
-                    }}
-                  >
-                    Telefono
-                  </label>
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+57 300 123 4567"
-                    style={inputBase}
-                    onFocus={handleInputFocus}
-                    onBlur={handleInputBlur}
-                  />
-                </div>
-                <div>
-                  <label
-                    className="block mb-1.5"
-                    style={{
-                      fontFamily: "'Geist Mono', ui-monospace, monospace",
-                      fontSize: 10,
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
-                      color: "var(--ink-3)",
-                    }}
-                  >
-                    Ciudad
-                  </label>
-                  <input
-                    type="text"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="Bogota"
-                    style={inputBase}
-                    onFocus={handleInputFocus}
-                    onBlur={handleInputBlur}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setStep(2)}
-              disabled={!name.trim() || !cargo}
-              className="w-full mt-8 flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-              style={{
-                background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
-                boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.25)",
-                fontSize: 14,
-                fontWeight: 600,
-                color: "var(--on-accent)",
-                fontFamily: "'Geist', system-ui, sans-serif",
-              }}
-            >
-              Continuar
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
-        {/* ── STEP 2: First Property ── */}
-        {step === 2 && (
-          <div
-            className="rounded-2xl p-8 hifi-ring-glow"
-            style={{
-              background: "linear-gradient(145deg, var(--surface-2) 0%, var(--surface-2) 100%)",
-              border: "1px solid var(--hifi-hairline)",
-              boxShadow: "0 0 60px rgb(var(--accent-rgb) / 0.06), inset 0 1px 0 rgb(var(--veil-rgb) / 0.05)",
-            }}
-          >
-            <p
-              className="mb-2"
-              style={{
-                fontFamily: "'Geist Mono', ui-monospace, monospace",
-                fontSize: 10,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: "var(--ink-3)",
-              }}
-            >
-              Bienvenido
-            </p>
-            <h1
-              className="mb-1"
-              style={{
-                fontFamily: "'Geist', system-ui, sans-serif",
-                fontWeight: 500,
-                fontSize: 32,
-                letterSpacing: "-0.025em",
-                color: "var(--ink)",
-                lineHeight: 1.1,
-              }}
-            >
-              Tu primera propiedad.
-            </h1>
-            <p
-              className="mb-8"
-              style={{ fontSize: 14, color: "var(--ink-2)", lineHeight: 1.6 }}
-            >
-              Agrega el conjunto o edificio que administras. Podras agregar mas desde el panel.
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <label
-                  className="block mb-1.5"
-                  style={{
-                    fontFamily: "'Geist Mono', ui-monospace, monospace",
-                    fontSize: 10,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    color: "var(--ink-3)",
-                  }}
-                >
-                  Nombre del conjunto / edificio *
-                </label>
-                <input
-                  type="text"
-                  value={propName}
-                  onChange={(e) => setPropName(e.target.value)}
-                  placeholder="Ej: Conjunto Residencial Los Pinos"
-                  style={inputBase}
-                  onFocus={handleInputFocus}
-                  onBlur={handleInputBlur}
-                />
-              </div>
-
-              <div>
-                <label
-                  className="block mb-1.5"
-                  style={{
-                    fontFamily: "'Geist Mono', ui-monospace, monospace",
-                    fontSize: 10,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    color: "var(--ink-3)",
-                  }}
-                >
-                  Direccion
-                </label>
-                <input
-                  type="text"
-                  value={propAddress}
-                  onChange={(e) => setPropAddress(e.target.value)}
-                  placeholder="Ej: Carrera 45 #23-67"
-                  style={inputBase}
-                  onFocus={handleInputFocus}
-                  onBlur={handleInputBlur}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className="block mb-1.5"
-                    style={{
-                      fontFamily: "'Geist Mono', ui-monospace, monospace",
-                      fontSize: 10,
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
-                      color: "var(--ink-3)",
-                    }}
-                  >
-                    Ciudad
-                  </label>
-                  <input
-                    type="text"
-                    value={propCity}
-                    onChange={(e) => setPropCity(e.target.value)}
-                    placeholder="Bogota"
-                    style={inputBase}
-                    onFocus={handleInputFocus}
-                    onBlur={handleInputBlur}
-                  />
-                </div>
-                <div>
-                  <label
-                    className="block mb-1.5"
-                    style={{
-                      fontFamily: "'Geist Mono', ui-monospace, monospace",
-                      fontSize: 10,
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
-                      color: "var(--ink-3)",
-                    }}
-                  >
-                    Num. unidades
-                  </label>
-                  <input
-                    type="number"
-                    value={propUnits}
-                    onChange={(e) => setPropUnits(e.target.value)}
-                    placeholder="120"
-                    style={inputBase}
-                    onFocus={handleInputFocus}
-                    onBlur={handleInputBlur}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Property Documents */}
-            {propName.trim() && (
-              <div
-                className="mt-6 pt-5 space-y-3"
-                style={{ borderTop: "1px solid rgb(var(--veil-rgb) / 0.07)" }}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <BookOpen className="h-4 w-4" style={{ color: "var(--accent-text)" }} />
-                  <span
-                    style={{
-                      fontFamily: "'Geist Mono', ui-monospace, monospace",
-                      fontSize: 10,
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
-                      color: "var(--ink-3)",
-                    }}
-                  >
-                    Documentos de la propiedad
-                  </span>
-                </div>
-                <p style={{ fontSize: 12, color: "var(--ink-3)", lineHeight: 1.6 }}>
-                  Sube el manual de convivencia y reglamento interno. La IA los usara como contexto para generar informes mas precisos.
+            <div className="k-r12">
+              <div className="onb-hero">
+                <p className="onb-kicker">
+                  <b>{entradas.titulo}</b> {entradas.resto}
                 </p>
-
-                <div className="space-y-2">
-                  {/* Manual */}
-                  <label
-                    className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-150"
-                    style={{
-                      border: "1px dashed rgb(var(--veil-rgb) / 0.1)",
-                      background: "transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "rgb(var(--accent-rgb) / 0.3)";
-                      e.currentTarget.style.background = "rgb(var(--accent-rgb) / 0.05)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "rgb(var(--veil-rgb) / 0.1)";
-                      e.currentTarget.style.background = "transparent";
-                    }}
-                  >
-                    <Shield className="h-5 w-5 flex-shrink-0" style={{ color: "var(--accent-text)" }} />
-                    <div className="flex-1 min-w-0">
-                      {manualFile ? (
-                        <div className="flex items-center gap-2">
-                          <span style={{ fontSize: 13, color: "var(--accent-text)" }} className="truncate">{manualFile.name}</span>
-                          <button
-                            onClick={(e) => { e.preventDefault(); setManualFile(null); }}
-                            className="p-0.5 rounded hover:opacity-70 transition-opacity"
-                          >
-                            <X className="h-3 w-3" style={{ color: "var(--ink-3)" }} />
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <span style={{ fontSize: 13, color: "var(--ink-2)", fontWeight: 500 }}>Manual de Convivencia</span>
-                          <span className="block" style={{ fontSize: 11, color: "var(--ink-4)" }}>PDF o Word</span>
-                        </>
-                      )}
-                    </div>
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.docx,.doc"
-                      onChange={(e) => { if (e.target.files?.[0]) setManualFile(e.target.files[0]); }}
-                    />
-                  </label>
-
-                  {/* Reglamento */}
-                  <label
-                    className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-150"
-                    style={{
-                      border: "1px dashed rgb(var(--veil-rgb) / 0.1)",
-                      background: "transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "rgb(var(--ok-rgb) / 0.3)";
-                      e.currentTarget.style.background = "rgb(var(--ok-rgb) / 0.05)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "rgb(var(--veil-rgb) / 0.1)";
-                      e.currentTarget.style.background = "transparent";
-                    }}
-                  >
-                    <FileText className="h-5 w-5 flex-shrink-0" style={{ color: "var(--ok-text)" }} />
-                    <div className="flex-1 min-w-0">
-                      {reglamentoFile ? (
-                        <div className="flex items-center gap-2">
-                          <span style={{ fontSize: 13, color: "var(--ok-text)" }} className="truncate">{reglamentoFile.name}</span>
-                          <button
-                            onClick={(e) => { e.preventDefault(); setReglamentoFile(null); }}
-                            className="p-0.5 rounded hover:opacity-70 transition-opacity"
-                          >
-                            <X className="h-3 w-3" style={{ color: "var(--ink-3)" }} />
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <span style={{ fontSize: 13, color: "var(--ink-2)", fontWeight: 500 }}>Reglamento Interno</span>
-                          <span className="block" style={{ fontSize: 11, color: "var(--ink-4)" }}>PDF o Word</span>
-                        </>
-                      )}
-                    </div>
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.docx,.doc"
-                      onChange={(e) => { if (e.target.files?.[0]) setReglamentoFile(e.target.files[0]); }}
-                    />
-                  </label>
-                </div>
-
-                <p style={{ fontSize: 11, color: "var(--ink-4)", fontStyle: "italic" }}>
-                  Opcional &mdash; puedes subirlos despues desde Propiedades.
-                </p>
+                <h1 id="onb-titular" className="k-h1" ref={titularRef} tabIndex={-1}>
+                  {titulares[step - 1]}
+                </h1>
+                <p className="onb-lead">{leads[step - 1]}</p>
               </div>
-            )}
 
-            <div className="flex gap-3 mt-8">
-              <button
-                onClick={() => setStep(1)}
-                className="flex items-center gap-2 rounded-xl px-5 py-3 transition-all duration-150 hover:opacity-80 active:scale-[0.98] cursor-pointer"
-                style={{
-                  background: "transparent",
-                  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "var(--ink-2)",
-                }}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Atras
-              </button>
-              <button
-                onClick={() => { setSkipped(false); setStep(3); }}
-                disabled={!propName.trim()}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                style={{
-                  background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
-                  boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.25)",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: "var(--on-accent)",
-                }}
-              >
-                Continuar
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
+              {/* ── PASO 1: perfil ─────────────────────────────────────── */}
+              {step === 1 && (
+                <>
+                  <div className="onb-form">
+                    <GrupoCampos titulo="Tus datos">
+                      <Campo id="onb-nombre" etiqueta="Nombre completo">
+                        <Entrada
+                          id="onb-nombre"
+                          type="text"
+                          autoComplete="name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder="Tu nombre"
+                        />
+                      </Campo>
+                      <Campo id="onb-cargo" etiqueta="Cargo">
+                        <Selector id="onb-cargo" value={cargo} onChange={(e) => setCargo(e.target.value)}>
+                          <option value="">Selecciona tu cargo</option>
+                          {cargos.map(([valor, etiqueta]) => (
+                            <option key={valor} value={valor}>{etiqueta}</option>
+                          ))}
+                        </Selector>
+                      </Campo>
+                    </GrupoCampos>
 
-            <button
-              onClick={() => {
-                setSkipped(true);
-                setPropName("");
-                setPropAddress("");
-                setPropCity("");
-                setPropUnits("");
-                setManualFile(null);
-                setReglamentoFile(null);
-                setStep(3);
-              }}
-              className="w-full mt-3 text-center transition-colors"
-              style={{ fontSize: 12, color: "var(--ink-4)" }}
-            >
-              Omitir por ahora
-            </button>
-          </div>
-        )}
+                    <GrupoCampos titulo="Tu empresa y contacto" nota="Opcional: puedes completarlo después.">
+                      <Campo id="onb-empresa" etiqueta="Empresa o razón social" opcional>
+                        <Entrada
+                          id="onb-empresa"
+                          type="text"
+                          autoComplete="organization"
+                          value={company}
+                          onChange={(e) => setCompany(e.target.value)}
+                          placeholder="Nombre de tu empresa"
+                        />
+                      </Campo>
+                      <div className="onb-2">
+                        <Campo id="onb-telefono" etiqueta="Teléfono" opcional>
+                          <Entrada
+                            id="onb-telefono"
+                            type="text"
+                            inputMode="tel"
+                            autoComplete="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="+57 300 123 4567"
+                          />
+                        </Campo>
+                        <Campo id="onb-ciudad" etiqueta="Ciudad" opcional>
+                          <Entrada
+                            id="onb-ciudad"
+                            type="text"
+                            autoComplete="address-level2"
+                            value={city}
+                            onChange={(e) => setCity(e.target.value)}
+                            placeholder="Bogotá"
+                          />
+                        </Campo>
+                      </div>
+                    </GrupoCampos>
 
-        {/* ── STEP 3: Tutorial ── */}
-        {step === 3 && (
-          <div
-            className="rounded-2xl p-8 hifi-ring-glow"
-            style={{
-              background: "linear-gradient(145deg, var(--surface-2) 0%, var(--surface-2) 100%)",
-              border: "1px solid var(--hifi-hairline)",
-              boxShadow: "0 0 60px rgb(var(--accent-rgb) / 0.06), inset 0 1px 0 rgb(var(--veil-rgb) / 0.05)",
-            }}
-          >
-            <p
-              className="mb-2"
-              style={{
-                fontFamily: "'Geist Mono', ui-monospace, monospace",
-                fontSize: 10,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: "var(--ink-3)",
-              }}
-            >
-              Bienvenido
-            </p>
-            <h1
-              className="mb-1"
-              style={{
-                fontFamily: "'Geist', system-ui, sans-serif",
-                fontWeight: 500,
-                fontSize: 32,
-                letterSpacing: "-0.025em",
-                color: "var(--ink)",
-                lineHeight: 1.1,
-              }}
-            >
-              Como usar SOPH.IA.
-            </h1>
-            <p
-              className="mb-8"
-              style={{ fontSize: 14, color: "var(--ink-2)", lineHeight: 1.6 }}
-            >
-              Genera documentos profesionales en minutos con el poder de la IA.
-            </p>
-
-            <div className="space-y-4">
-              {[
-                {
-                  icon: Upload,
-                  color: "var(--info-text)",
-                  bg: "rgb(var(--info-rgb) / 0.1)",
-                  title: "1. Sube tus insumos",
-                  desc: "Carga actas, estados financieros, grabaciones de juntas, fotos y cualquier documento relevante. La IA extrae la informacion automaticamente.",
-                },
-                {
-                  icon: ClipboardList,
-                  color: "var(--accent-text)",
-                  bg: "rgb(var(--accent-rgb) / 0.1)",
-                  title: "2. Selecciona que generar",
-                  desc: "Elige los documentos que necesitas: Informe de Gestion, Acta Legal y/o Presentacion PPTX. Todos son opcionales.",
-                },
-                {
-                  icon: Wand2,
-                  color: "var(--accent-text)",
-                  bg: "rgba(154,127,255,0.10)",
-                  title: "3. La IA genera tus documentos",
-                  desc: "SOPH.IA analiza los insumos y genera documentos profesionales con estructura legal colombiana (Ley 675).",
-                },
-                {
-                  icon: MessageSquare,
-                  color: "var(--ok-text)",
-                  bg: "rgb(var(--ok-rgb) / 0.1)",
-                  title: "4. Revisa y corrige con IA",
-                  desc: "Revisa el resultado, solicita correcciones en lenguaje natural y sube archivos adicionales si falta informacion.",
-                },
-                {
-                  icon: Download,
-                  color: "var(--warn-text)",
-                  bg: "rgb(var(--warn-rgb) / 0.1)",
-                  title: "5. Descarga y comparte",
-                  desc: "Descarga tus documentos en PDF y PPTX, listos para presentar en la asamblea o entregar al consejo.",
-                },
-              ].map((item, i) => (
-                <div key={i} className="flex gap-4 items-start">
-                  <div
-                    className="flex items-center justify-center rounded-xl flex-shrink-0"
-                    style={{
-                      width: 36,
-                      height: 36,
-                      background: item.bg,
-                      border: `1px solid ${tinte(item.color, 0.19)}`,
-                    }}
-                  >
-                    <item.icon className="h-4 w-4" style={{ color: item.color }} />
+                    <NavPasos>
+                      <p className="onb-nota" id="onb-falta-perfil">
+                        {perfilListo ? "Tus datos quedan guardados al terminar el paso 4." : "Escribe tu nombre y elige tu cargo para continuar."}
+                      </p>
+                      <Boton
+                        tam={56}
+                        flecha="avanza"
+                        onClick={() => setStep(2)}
+                        disabled={!name.trim() || !cargo}
+                        aria-describedby="onb-falta-perfil"
+                      >
+                        Continuar a {NOMBRES_PASOS[1].toLowerCase()}
+                      </Boton>
+                    </NavPasos>
                   </div>
-                  <div className="min-w-0">
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{item.title}</p>
-                    <p style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 3, lineHeight: 1.6 }}>{item.desc}</p>
+
+                  <aside className="onb-ayuda" aria-label="Ayuda del paso 1">
+                    <Panel titulo="Para qué sirve" nivel={2}>
+                      <p>
+                        El nombre de tu empresa encabeza los informes y actas que generes, y firma los correos que
+                        SOPH.IA envía a tus residentes. Si lo dejas vacío, los correos llevan tu nombre.
+                      </p>
+                      <p>Puedes cambiar tu perfil cuando quieras desde Configuración.</p>
+                    </Panel>
+                    {session?.user?.email && (
+                      <Panel titulo="Tu cuenta" nivel={2}>
+                        <p>
+                          Entraste como <span className="correo">{session.user.email}</span>
+                        </p>
+                      </Panel>
+                    )}
+                  </aside>
+                </>
+              )}
+
+              {/* ── PASO 2: primera copropiedad ────────────────────────── */}
+              {step === 2 && (
+                <>
+                  <div className="onb-form">
+                    <GrupoCampos titulo="Datos de la copropiedad">
+                      <Campo id="onb-prop-nombre" etiqueta="Nombre del conjunto o edificio">
+                        <Entrada
+                          id="onb-prop-nombre"
+                          type="text"
+                          value={propName}
+                          onChange={(e) => setPropName(e.target.value)}
+                          placeholder="Ej.: Conjunto Residencial Los Pinos"
+                        />
+                      </Campo>
+                      <Campo id="onb-prop-direccion" etiqueta="Dirección" opcional>
+                        <Entrada
+                          id="onb-prop-direccion"
+                          type="text"
+                          autoComplete="street-address"
+                          value={propAddress}
+                          onChange={(e) => setPropAddress(e.target.value)}
+                          placeholder="Ej.: Carrera 45 # 23-67"
+                        />
+                      </Campo>
+                      <div className="onb-2">
+                        <Campo id="onb-prop-ciudad" etiqueta="Ciudad" opcional>
+                          <Entrada
+                            id="onb-prop-ciudad"
+                            type="text"
+                            value={propCity}
+                            onChange={(e) => setPropCity(e.target.value)}
+                            placeholder="Bogotá"
+                          />
+                        </Campo>
+                        <Campo id="onb-prop-unidades" etiqueta="Número de unidades" opcional>
+                          <Entrada
+                            id="onb-prop-unidades"
+                            type="number"
+                            inputMode="numeric"
+                            value={propUnits}
+                            onChange={(e) => setPropUnits(e.target.value)}
+                            placeholder="120"
+                          />
+                        </Campo>
+                      </div>
+                    </GrupoCampos>
+
+                    <NavPasos>
+                      <Boton variante="secundario" flecha="vuelve" onClick={() => setStep(1)}>
+                        {NOMBRES_PASOS[0]}
+                      </Boton>
+                      <Boton
+                        tam={56}
+                        flecha="avanza"
+                        onClick={() => { setSkipped(false); setStep(3); }}
+                        disabled={!propName.trim()}
+                        aria-describedby={!propName.trim() ? "onb-falta-prop" : undefined}
+                      >
+                        Continuar a documentos
+                      </Boton>
+                    </NavPasos>
+
+                    <p className="onb-omitir">
+                      <span id="onb-falta-prop">
+                        {propName.trim()
+                          ? "¿Prefieres hacerlo más tarde?"
+                          : "Escribe el nombre de la copropiedad para continuar, o hazlo más tarde."}
+                      </span>
+                      <Boton
+                        variante="fantasma"
+                        onClick={() => {
+                          setSkipped(true);
+                          setPropName("");
+                          setPropAddress("");
+                          setPropCity("");
+                          setPropUnits("");
+                          setManualFile(null);
+                          setReglamentoFile(null);
+                          setStep(4);
+                        }}
+                      >
+                        Omitir por ahora
+                      </Boton>
+                    </p>
                   </div>
-                </div>
-              ))}
-            </div>
 
-            <div className="flex gap-3 mt-8">
-              <button
-                onClick={() => setStep(2)}
-                className="flex items-center gap-2 rounded-xl px-5 py-3 transition-all duration-150 hover:opacity-80 active:scale-[0.98] cursor-pointer"
-                style={{
-                  background: "transparent",
-                  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "var(--ink-2)",
-                }}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Atras
-              </button>
-              <button
-                onClick={() => setStep(4)}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] cursor-pointer"
-                style={{
-                  background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
-                  boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.25)",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: "var(--on-accent)",
-                }}
-              >
-                Entendido
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+                  <aside className="onb-ayuda" aria-label="Ayuda del paso 2">
+                    <Panel titulo="Por qué la pedimos" nivel={2}>
+                      <p>
+                        Con tu copropiedad, SOPH.IA arma los informes de cada mes, y Themis y Chronos responden con su
+                        contexto: nombre, dirección, ciudad y número de unidades.
+                      </p>
+                      <p>¿Administras varias? Agrega aquí una; las demás, después desde Propiedades.</p>
+                    </Panel>
+                  </aside>
+                </>
+              )}
 
-        {/* ── STEP 4: Ready ── */}
-        {step === 4 && (
-          <div
-            className="rounded-2xl p-8 hifi-ring-glow"
-            style={{
-              background: "linear-gradient(145deg, var(--surface-2) 0%, var(--surface-2) 100%)",
-              border: "1px solid var(--hifi-hairline)",
-              boxShadow: "0 0 60px rgb(var(--accent-rgb) / 0.06), inset 0 1px 0 rgb(var(--veil-rgb) / 0.05)",
-            }}
-          >
-            {/* Icon */}
-            <div
-              className="flex items-center justify-center rounded-2xl mx-auto mb-6"
-              style={{
-                width: 64,
-                height: 64,
-                background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
-                boxShadow: "0 0 40px rgb(var(--accent-rgb) / 0.3)",
-              }}
-            >
-              <Check className="h-8 w-8" style={{ color: "var(--on-accent)" }} />
-            </div>
+              {/* ── PASO 3: documentos de la copropiedad ───────────────── */}
+              {step === 3 && (
+                <>
+                  <div className="onb-form">
+                    <GrupoCampos titulo="Manual de convivencia" nota="PDF o Word">
+                      <div className="onb-doc">
+                        {manualFile ? (
+                          <ListaArchivos etiquetaAccesible="Manual de convivencia elegido">
+                            <FilaArchivo
+                              nombre={manualFile.name}
+                              detalle={<>{pesoLegible(manualFile.size)} · se sube al terminar</>}
+                              estado="espera"
+                              alQuitar={() => setManualFile(null)}
+                              etiquetaQuitar={`Quitar ${manualFile.name}`}
+                            />
+                          </ListaArchivos>
+                        ) : (
+                          <ZonaSubida
+                            compacta
+                            titulo="Suelta aquí el manual"
+                            texto="o haz clic para elegirlo."
+                            accept=".pdf,.docx,.doc"
+                            etiquetaAccesible="Elegir el manual de convivencia (PDF o Word)"
+                            alElegir={(archivos) => { if (archivos[0]) setManualFile(archivos[0]); }}
+                          />
+                        )}
+                      </div>
+                    </GrupoCampos>
 
-            <p
-              className="text-center mb-2"
-              style={{
-                fontFamily: "'Geist Mono', ui-monospace, monospace",
-                fontSize: 10,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: "var(--ink-3)",
-              }}
-            >
-              Configuracion completa
-            </p>
+                    <GrupoCampos titulo="Reglamento interno" nota="PDF o Word">
+                      <div className="onb-doc">
+                        {reglamentoFile ? (
+                          <ListaArchivos etiquetaAccesible="Reglamento interno elegido">
+                            <FilaArchivo
+                              nombre={reglamentoFile.name}
+                              detalle={<>{pesoLegible(reglamentoFile.size)} · se sube al terminar</>}
+                              estado="espera"
+                              alQuitar={() => setReglamentoFile(null)}
+                              etiquetaQuitar={`Quitar ${reglamentoFile.name}`}
+                            />
+                          </ListaArchivos>
+                        ) : (
+                          <ZonaSubida
+                            compacta
+                            titulo="Suelta aquí el reglamento"
+                            texto="o haz clic para elegirlo."
+                            accept=".pdf,.docx,.doc"
+                            etiquetaAccesible="Elegir el reglamento interno (PDF o Word)"
+                            alElegir={(archivos) => { if (archivos[0]) setReglamentoFile(archivos[0]); }}
+                          />
+                        )}
+                      </div>
+                    </GrupoCampos>
 
-            <h1
-              className="text-center mb-2"
-              style={{
-                fontFamily: "'Geist', system-ui, sans-serif",
-                fontWeight: 500,
-                fontSize: 32,
-                letterSpacing: "-0.025em",
-                color: "var(--ink)",
-              }}
-            >
-              Todo listo.
-            </h1>
-            <p
-              className="text-center mb-8"
-              style={{ fontSize: 14, color: "var(--ink-2)", lineHeight: 1.6, maxWidth: 360, margin: "0 auto 32px" }}
-            >
-              Tu cuenta esta configurada. Ya puedes empezar a generar informes de gestion,
-              actas legales y presentaciones con inteligencia artificial.
-            </p>
-
-            {/* Summary card */}
-            <div
-              className="rounded-xl p-5 mb-6 space-y-3"
-              style={{
-                background: "var(--surface-3)",
-                border: "1px solid var(--hifi-hairline)",
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="flex items-center justify-center rounded-lg flex-shrink-0"
-                  style={{
-                    width: 32,
-                    height: 32,
-                    background: "rgb(var(--accent-rgb) / 0.1)",
-                    border: "1px solid rgb(var(--accent-rgb) / 0.2)",
-                  }}
-                >
-                  <User className="h-4 w-4" style={{ color: "var(--accent-text)" }} />
-                </div>
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{name}</p>
-                  <p style={{ fontSize: 11, color: "var(--ink-3)" }}>{cargo}</p>
-                </div>
-              </div>
-              {propName && (
-                <div className="flex items-center gap-3">
-                  <div
-                    className="flex items-center justify-center rounded-lg flex-shrink-0"
-                    style={{
-                      width: 32,
-                      height: 32,
-                      background: "rgb(var(--ok-rgb) / 0.1)",
-                      border: "1px solid rgb(var(--ok-rgb) / 0.2)",
-                    }}
-                  >
-                    <Building className="h-4 w-4" style={{ color: "var(--ok-text)" }} />
+                    <NavPasos>
+                      <Boton variante="secundario" flecha="vuelve" onClick={() => setStep(2)}>
+                        {NOMBRES_PASOS[1]}
+                      </Boton>
+                      <Boton tam={56} flecha="avanza" onClick={() => setStep(4)}>
+                        {nDocs === 0 ? "Continuar sin documentos" : "Continuar a cómo funciona"}
+                      </Boton>
+                    </NavPasos>
                   </div>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{propName}</p>
-                    <p style={{ fontSize: 11, color: "var(--ink-3)" }}>{propCity || "Sin ciudad"} &mdash; {propUnits || "?"} unidades</p>
+
+                  <aside className="onb-ayuda" aria-label="Ayuda del paso 3">
+                    <Panel titulo="Qué subir" nota={`${nDocs} de 2 elegidos`} nivel={2}>
+                      <ul className="onb-lista">
+                        <li>
+                          Manual de convivencia
+                          {manualFile ? <Estado tipo="ok" tamLetra={14}>Elegido</Estado> : <Estado tipo="sin" tamLetra={14}>Sin archivo</Estado>}
+                        </li>
+                        <li>
+                          Reglamento interno
+                          {reglamentoFile ? <Estado tipo="ok" tamLetra={14}>Elegido</Estado> : <Estado tipo="sin" tamLetra={14}>Sin archivo</Estado>}
+                        </li>
+                      </ul>
+                    </Panel>
+                    <Panel titulo="Para qué sirven" nivel={2}>
+                      <p>
+                        Con ellos, el portal de residentes activa el asistente del reglamento, que responde las dudas de
+                        tus residentes.
+                      </p>
+                      <p><b>Son opcionales:</b> puedes subirlos después desde Propiedades.</p>
+                    </Panel>
+                  </aside>
+                </>
+              )}
+
+              {/* ── PASO 4: cómo funciona + resumen + terminar ─────────── */}
+              {step === 4 && (
+                <>
+                  <div className="onb-form">
+                    <ol className="onb-filas" aria-label="Las entradas del índice que más vas a usar">
+                      <li className="onb-fila">
+                        <span className="ref" aria-hidden="true">02</span>
+                        <div className="cab">
+                          <h2>Generar</h2>
+                          <span className="dots" aria-hidden="true" />
+                          <span className="dato">Informes y actas</span>
+                        </div>
+                        <p>
+                          Sube los insumos del mes —actas, estados financieros, grabaciones de juntas, fotos— y la IA
+                          redacta el <b>informe de gestión</b>, el <b>acta</b> y la <b>presentación</b> con estructura
+                          legal colombiana (Ley 675). Pides correcciones en lenguaje natural y descargas en PDF y PPTX.
+                        </p>
+                      </li>
+                      <li className="onb-fila">
+                        <span className="ref" aria-hidden="true">03</span>
+                        <div className="cab">
+                          <h2>Bitácora</h2>
+                          <span className="dots" aria-hidden="true" />
+                          <span className="dato">Vencimientos</span>
+                        </div>
+                        <p>
+                          Asambleas, pólizas, mantenimientos y obligaciones de SG-SST de cada copropiedad, con su fecha
+                          de vencimiento: lo vencido, primero.
+                        </p>
+                      </li>
+                      <li className="onb-fila">
+                        <span className="ref" aria-hidden="true">04</span>
+                        <div className="cab">
+                          <h2>Asistente IA</h2>
+                          <span className="dots" aria-hidden="true" />
+                          <span className="dato">
+                            {activos.map((id) => (
+                              <Sigilo key={id} agente={id} ancho={14} />
+                            ))}
+                            {activos.length} {activos.length === 1 ? "agente activo" : "agentes activos"}
+                          </span>
+                        </div>
+                        <p>
+                          {activos.map((id, i) => (
+                            <span key={id}>
+                              {i > 0 && (i === activos.length - 1 ? " y " : ", ")}
+                              <b>{AGENTS[id].name}</b> ({AGENTES[id].oficio.toLowerCase()})
+                            </span>
+                          ))}{" "}
+                          {activos.length === 1 ? "responde" : "responden"} tus dudas en un chat.
+                          {enPreparacion > 0 && <> Hay {enPreparacion} agentes más en preparación.</>}
+                        </p>
+                      </li>
+                    </ol>
+
+                    {(error || docWarning) && (
+                      <div className="onb-avisos">
+                        {error && <Aviso tipo="error" enLinea {...partirAviso(error)} />}
+                        {docWarning && (
+                          <Aviso tipo="error" enLinea {...partirAviso(docWarning)} />
+                        )}
+                      </div>
+                    )}
+
+                    <NavPasos>
+                      <Boton variante="secundario" flecha="vuelve" onClick={irAtrasDesdeCuatro}>
+                        {skipped ? NOMBRES_PASOS[1] : NOMBRES_PASOS[2]}
+                      </Boton>
+                      <Boton
+                        tam={56}
+                        flecha="avanza"
+                        onClick={handleFinish}
+                        cargando={loading}
+                        textoCargando="Guardando…"
+                      >
+                        Ir al inicio
+                      </Boton>
+                    </NavPasos>
                   </div>
-                </div>
+
+                  <aside className="onb-ayuda" aria-label="Resumen de tu configuración">
+                    <Panel titulo="Resumen" nota="lo que guardaremos" nivel={2}>
+                      <Resumen
+                        etiquetaAccesible="Lo que guardaremos"
+                        filas={[
+                          { etiqueta: "Tu perfil", valor: <>{name.trim()}{etiquetaCargo && <> · {etiquetaCargo}</>}</> },
+                          ...(company.trim() ? [{ etiqueta: "Empresa", valor: company.trim() }] : []),
+                          ...(phone.trim() || city.trim()
+                            ? [{ etiqueta: "Contacto", valor: [phone.trim(), city.trim()].filter(Boolean).join(" · ") }]
+                            : []),
+                          {
+                            etiqueta: "Copropiedad",
+                            valor: skipped || !propiedad
+                              ? <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>Omitida por ahora</span>
+                              : (
+                                <>
+                                  {propiedad}
+                                  {(propCity.trim() || propUnits.trim()) && (
+                                    <span style={{ display: "block", fontWeight: 400, fontSize: 14, color: "var(--ink-3)" }}>
+                                      {[propCity.trim(), propUnits.trim() && `${propUnits.trim()} unidades`].filter(Boolean).join(" · ")}
+                                    </span>
+                                  )}
+                                </>
+                              ),
+                          },
+                          {
+                            etiqueta: "Documentos",
+                            valor: skipped || nDocs === 0
+                              ? <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>Ninguno por ahora</span>
+                              : docsElegidos.map((f) => <span key={f.name} style={{ display: "block" }}>{f.name}</span>),
+                          },
+                        ]}
+                      />
+                    </Panel>
+                  </aside>
+                </>
               )}
             </div>
+          </section>
 
-            {error && (
-              <div
-                className="rounded-xl px-4 py-3 mb-4 flex items-start gap-2.5"
-                style={{
-                  background: "rgb(var(--danger-rgb) / 0.08)",
-                  border: "1px solid rgb(var(--danger-rgb) / 0.3)",
-                }}
-              >
-                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "var(--danger-text)" }} />
-                <p style={{ fontSize: 13, color: "var(--danger-text)", lineHeight: 1.5 }}>{error}</p>
-              </div>
-            )}
-
-            {docWarning && (
-              <div
-                className="rounded-xl px-4 py-3 mb-4 flex items-start gap-2.5"
-                style={{
-                  background: "rgb(var(--warn-rgb) / 0.08)",
-                  border: "1px solid rgb(var(--warn-rgb) / 0.3)",
-                }}
-              >
-                <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "var(--warn-text)" }} />
-                <p style={{ fontSize: 13, color: "var(--warn-text)", lineHeight: 1.5 }}>{docWarning}</p>
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setStep(3)}
-                className="flex items-center gap-2 rounded-xl px-5 py-3 transition-all duration-150 hover:opacity-80 active:scale-[0.98] cursor-pointer"
-                style={{
-                  background: "transparent",
-                  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "var(--ink-2)",
-                }}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Atras
-              </button>
-              <button
-                onClick={handleFinish}
-                disabled={loading}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                style={{
-                  background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",
-                  boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.25)",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: "var(--on-accent)",
-                }}
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    Ir al Dashboard
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Footer */}
-        <p
-          className="text-center"
-          style={{
-            fontFamily: "'Geist Mono', ui-monospace, monospace",
-            fontSize: 9,
-            letterSpacing: "0.20em",
-            textTransform: "uppercase",
-            color: "var(--ink-4)",
-            userSelect: "none",
-          }}
-        >
-          SOPH.IA &middot; Propiedad Horizontal
-        </p>
+          <Colofon izquierda="SOPH.IA · propiedad horizontal · Ley 675 de 2001" />
+        </Pagina>
       </div>
     </div>
   );

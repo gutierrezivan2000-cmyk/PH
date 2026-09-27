@@ -1,13 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
 import { eliteGate } from "@/components/empresa/EmpresaGate";
 import { EmpresaShell } from "@/components/empresa/EmpresaShell";
-import { PageHeader } from "@/components/admin/PageHeader";
-import { Badge } from "@/components/ui/badge";
+import { Boton, CabeceraPieza, Pagina, PieTabla, Pieza, SinResultados, Vacio } from "@/components/kit";
 import { db } from "@/lib/db";
-import { Building2, ArrowUpRight, ChevronLeft, ChevronRight, Layers } from "lucide-react";
-import { PropertyFilters } from "./PropertyFilters";
+import { PropertyFilters, TablaPropiedades, type FilaPropiedad } from "./PropertyFilters";
 import type { Prisma } from "@/generated/prisma/client";
 
 const PAGE_SIZE = 50;
@@ -110,152 +107,83 @@ export default async function EmpresaPropiedadesPage({
     return `/empresa/propiedades${params.toString() ? `?${params}` : ""}`;
   }
 
-  const headers = ["Propiedad", "Ciudad", "Grupo", "Unidades", "Últ. informe", "Docs", "Gen.", ""];
+  // Filas planas para la tabla (componente de cliente): solo lo que se pinta.
+  const filas: FilaPropiedad[] = rows.map((p) => ({
+    id: p.id,
+    name: p.name,
+    city: p.city,
+    groupLabel: p.groupLabel,
+    units: p.units,
+    lastGenAt: p.lastGenAt,
+    documentos: p._count.documents,
+    generaciones: p._count.generations,
+  }));
+
+  // ¿Vacío porque no hay copropiedades o porque los filtros no encuentran nada?
+  const conFiltros = Boolean(q.trim()) || group !== "all" || reporte !== "all";
+  const consulta = [q.trim() && `«${q.trim()}»`, group !== "all" && group, reporte === "con" ? "con informe en 30 días" : reporte === "sin" ? "sin informe en 30 días" : ""]
+    .filter(Boolean)
+    .join(" · ");
+
+  const vacio = conFiltros ? (
+    <SinResultados
+      consulta={consulta}
+      titulo="No hay propiedades que coincidan."
+      texto="Prueba con otro nombre o ciudad, o quita los filtros."
+      acciones={
+        <>
+          <Boton href="/dashboard/propiedades" flecha="crea">Agregar una propiedad</Boton>
+          <Boton variante="fantasma" href="/empresa/propiedades">Quitar filtros</Boton>
+        </>
+      }
+    />
+  ) : (
+    <Vacio
+      titulo="Aún no tienes copropiedades."
+      texto="Agrega la primera desde tu panel y aparecerá aquí, lista para generar en lote."
+      acciones={<Boton href="/dashboard/propiedades" flecha="avanza">Agregar la primera</Boton>}
+    />
+  );
+
+  const cuenta = `${total.toLocaleString("es-CO")} ${total === 1 ? "copropiedad" : "copropiedades"}`;
 
   return (
     <EmpresaShell elite={elite}>
-      <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-7xl">
-        <PageHeader
-          section="Portafolio · Propiedades"
-          title="Propiedades"
-          description={`${total.toLocaleString("es-CO")} copropiedades en tu portafolio.`}
-          action={
-            <Link
-              href="/empresa/generar"
-              className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold text-[var(--on-accent)] transition-all hover:opacity-90"
-              style={{ background: "var(--accent)", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.35)" }}
-            >
-              <Layers className="h-4 w-4" />
-              Generar en lote
-            </Link>
-          }
-        />
+      <Pagina>
+        <Pieza>
+          <CabeceraPieza
+            nn="03"
+            titulo="Propiedades"
+            subtitulo={`${cuenta} en tu portafolio.`}
+            acciones={<Boton href="/empresa/generar" flecha="avanza">Generar en lote</Boton>}
+          />
 
-        <PropertyFilters
-          defaultQ={q}
-          defaultGroup={group}
-          defaultReporte={reporte}
-          defaultSort={sort}
-          groups={groups}
-        />
+          <PropertyFilters
+            defaultQ={q}
+            defaultGroup={group}
+            defaultReporte={reporte}
+            defaultSort={sort}
+            groups={groups}
+          />
 
-        <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          {rows.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-20">
-              <Building2 className="h-8 w-8 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">No hay propiedades que coincidan.</p>
-              <Link href="/dashboard/propiedades" className="text-[12px] text-[var(--accent-hi)] hover:underline">
-                Agregar una propiedad
-              </Link>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border" style={{ background: "rgb(var(--veil-rgb) / 0.02)" }}>
-                    {headers.map((h, i) => (
-                      <th
-                        key={i}
-                        className="px-4 py-3 text-left whitespace-nowrap"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          fontSize: "10px",
-                          letterSpacing: "0.14em",
-                          textTransform: "uppercase",
-                          color: "var(--ink-3)",
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {rows.map((p) => (
-                    <tr key={p.id} className="hover:bg-secondary/50 transition-colors group">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3 min-w-[180px]">
-                          <div
-                            className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-[var(--on-accent)]"
-                            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-lo))" }}
-                          >
-                            {p.name[0]?.toUpperCase() ?? "?"}
-                          </div>
-                          <span className="font-medium text-foreground truncate max-w-[200px]">{p.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground text-[12px] whitespace-nowrap">
-                        {p.city || <span className="text-muted-foreground/30">—</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        {p.groupLabel ? (
-                          <Badge variant="secondary" className="text-[10px]">{p.groupLabel}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground/30 text-[12px]">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center text-[12px] text-muted-foreground" style={{ fontFamily: "var(--font-mono)" }}>
-                        {p.units ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-[12px]" style={{ fontFamily: "var(--font-mono)" }}>
-                        {p.lastGenAt ? (
-                          <span className="text-muted-foreground">
-                            {new Date(p.lastGenAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "2-digit" })}
-                          </span>
-                        ) : (
-                          <span style={{ color: "var(--warn-text)" }}>Nunca</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center text-[12px] text-muted-foreground" style={{ fontFamily: "var(--font-mono)" }}>
-                        {p._count.documents}
-                      </td>
-                      <td className="px-4 py-3 text-center text-[12px] text-muted-foreground" style={{ fontFamily: "var(--font-mono)" }}>
-                        {p._count.generations}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/empresa/propiedades/${p.id}`}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-                        >
-                          <ArrowUpRight className="h-3.5 w-3.5" />
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <TablaPropiedades filas={filas} vacio={vacio} />
+
+          {rows.length > 0 && (
+            <PieTabla texto={`Página ${page} de ${Math.max(1, totalPages)} · ${cuenta}`}>
+              {totalPages > 1 && (
+                <nav className="k-btns" aria-label="Páginas">
+                  <Boton variante="secundario" tam={40} flecha="vuelve" href={buildUrl({ page: String(page - 1) })} disabled={page <= 1}>
+                    Anterior
+                  </Boton>
+                  <Boton variante="secundario" tam={40} flecha="avanza" href={buildUrl({ page: String(page + 1) })} disabled={page >= totalPages}>
+                    Siguiente
+                  </Boton>
+                </nav>
+              )}
+            </PieTabla>
           )}
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-5 py-3.5 border-t border-border" style={{ background: "rgb(var(--veil-rgb) / 0.01)" }}>
-              <span className="text-[11px] text-muted-foreground/60" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
-                Página {page} de {totalPages} · {total.toLocaleString("es-CO")} resultados
-              </span>
-              <div className="flex items-center gap-2">
-                {page > 1 ? (
-                  <Link href={buildUrl({ page: String(page - 1) })} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-all">
-                    <ChevronLeft className="h-3.5 w-3.5" /> Anterior
-                  </Link>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[12px] font-medium text-muted-foreground/30 cursor-not-allowed">
-                    <ChevronLeft className="h-3.5 w-3.5" /> Anterior
-                  </span>
-                )}
-                {page < totalPages ? (
-                  <Link href={buildUrl({ page: String(page + 1) })} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-all">
-                    Siguiente <ChevronRight className="h-3.5 w-3.5" />
-                  </Link>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[12px] font-medium text-muted-foreground/30 cursor-not-allowed">
-                    Siguiente <ChevronRight className="h-3.5 w-3.5" />
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+        </Pieza>
+      </Pagina>
     </EmpresaShell>
   );
 }

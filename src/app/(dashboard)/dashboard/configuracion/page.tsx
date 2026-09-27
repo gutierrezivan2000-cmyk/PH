@@ -4,28 +4,37 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { upload as blobUpload } from "@vercel/blob/client";
 import { Header } from "@/components/dashboard/Header";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { iniciales } from "@/components/dashboard/Sidebar";
+import { abrirSoporte, useSoporteDisponible } from "@/components/dashboard/soporte";
 import {
-  User,
-  Building2,
-  Phone,
-  MapPin,
-  Briefcase,
-  Save,
-  Check,
-  Loader2,
-  MessageCircle,
-  Moon,
-  LifeBuoy,
-  Plus,
-  X,
-  ChevronRight,
-  Send,
-} from "lucide-react";
-import Link from "next/link";
+  Aviso,
+  AreaTexto,
+  Boton,
+  BotonFila,
+  CabeceraPieza,
+  Campo,
+  Categoria,
+  Entrada,
+  Esqueleto,
+  Estado,
+  GrupoCampos,
+  Pagina,
+  Panel,
+  Pieza,
+  Seccion,
+  Segmentos,
+  Selector,
+  SelectorTema,
+  Tabla,
+  Vacio,
+  ZonaSubida,
+  avisar,
+  type TipoEstado,
+} from "@/components/kit";
 
-const WHATSAPP_LINK = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_URL || "https://wa.me/message/PLACEHOLDER";
+// Solo si está configurado: sin la variable no hay un número real al que escribir
+// (antes caía a «wa.me/message/PLACEHOLDER»). Mismo criterio que el colofón de Inicio.
+const WHATSAPP_LINK = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_URL;
 
 interface Profile {
   name: string;
@@ -35,6 +44,10 @@ interface Profile {
   phone: string;
   company: string;
   city: string;
+  logoUrl?: string;
+  brandColor?: string;
+  /** GET /api/profile responde { error: true, … } con 500 si falla la base de datos. */
+  error?: boolean;
 }
 
 interface Ticket {
@@ -47,31 +60,6 @@ interface Ticket {
   _count?: { messages: number };
 }
 
-// Mono label style
-const monoLabel = {
-  fontFamily: "'Geist Mono', monospace",
-  fontSize: 10,
-  letterSpacing: "0.16em",
-  textTransform: "uppercase",
-};
-
-// Shared hi-fi card style
-const hiCard = {
-  background: "var(--card)",
-  border: "1px solid var(--border)",
-  borderRadius: "1rem",
-  padding: "28px",
-};
-
-// Input style override
-const hiInput = {
-  background: "var(--secondary)",
-  border: "1px solid var(--border)",
-  borderRadius: "0.75rem",
-  color: "var(--foreground)",
-  fontSize: 14,
-};
-
 const STATUS_LABELS: Record<string, string> = {
   open: "Abierto",
   pending: "Pendiente",
@@ -79,29 +67,127 @@ const STATUS_LABELS: Record<string, string> = {
   closed: "Cerrado",
 };
 
-function statusStyle(status: string): React.CSSProperties {
-  switch (status) {
-    case "open":
-      return { background: "rgb(var(--danger-rgb) / 0.1)", color: "var(--danger-text)", border: "1px solid rgb(var(--danger-rgb) / 0.25)" };
-    case "pending":
-      return { background: "rgb(var(--warn-rgb) / 0.1)", color: "var(--warn-text)", border: "1px solid rgb(var(--warn-rgb) / 0.25)" };
-    case "resolved":
-      return { background: "rgb(var(--ok-rgb) / 0.1)", color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.25)" };
-    default:
-      return { background: "rgb(var(--veil-rgb) / 0.05)", color: "var(--ink-3)", border: "1px solid rgb(var(--veil-rgb) / 0.1)" };
-  }
-}
+/*
+ * Estado = forma + palabra (SPEC §f.8). Significado real, de las rutas de la API:
+ * «open» espera al equipo (ticket nuevo o el usuario respondió), «pending» = el
+ * equipo respondió y espera al usuario (api/admin/tickets/[id]/messages),
+ * «resolved» y «closed» ya no admiten respuestas (api/tickets/[id]/messages).
+ */
+const STATUS_TIPO: Record<string, TipoEstado> = {
+  open: "pendiente",
+  pending: "falta",
+  resolved: "ok",
+  closed: "sin",
+};
+
+const STATUS_AYUDA: Array<[string, string]> = [
+  ["open", "Lo recibimos y espera respuesta del equipo."],
+  ["pending", "El equipo respondió: te toca contestar."],
+  ["resolved", "Solucionado. Ya no admite respuestas."],
+  ["closed", "Cerrado. Ya no admite respuestas."],
+];
+
+// Valores que admite POST /api/tickets (validCategories / validPriorities).
+const CATEGORIAS: Array<{ id: string; etiqueta: string }> = [
+  { id: "general", etiqueta: "General" },
+  { id: "billing", etiqueta: "Facturación" },
+  { id: "technical", etiqueta: "Técnico" },
+  { id: "feature", etiqueta: "Función" },
+  { id: "bug", etiqueta: "Error" },
+];
+const PRIORIDADES: Array<{ id: string; etiqueta: string }> = [
+  { id: "low", etiqueta: "Baja" },
+  { id: "normal", etiqueta: "Normal" },
+  { id: "high", etiqueta: "Alta" },
+];
+const NOMBRE_CATEGORIA = Object.fromEntries(CATEGORIAS.map((c) => [c.id, c.etiqueta]));
+const NOMBRE_PRIORIDAD = Object.fromEntries(PRIORIDADES.map((p) => [p.id, p.etiqueta.toLowerCase()]));
+
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const NB = " ";
 
 function relativeTime(date: string): string {
   const diff = Date.now() - new Date(date).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "ahora";
-  if (mins < 60) return `hace ${mins}m`;
+  if (mins < 1) return "Ahora";
+  if (mins < 60) return `Hace ${mins}${NB}min`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `hace ${hrs}h`;
+  if (hrs < 24) return `Hace ${hrs}${NB}h`;
   const days = Math.floor(hrs / 24);
-  return `hace ${days}d`;
+  return days === 1 ? `Hace 1${NB}día` : `Hace ${days}${NB}días`;
 }
+
+/** «18 sep» (con el año si no es el actual). */
+function fechaCorta(date: string): string {
+  const d = new Date(date);
+  const base = `${d.getDate()}${NB}${MESES[d.getMonth()]}`;
+  return d.getFullYear() === new Date().getFullYear() ? base : `${base} ${d.getFullYear()}`;
+}
+
+const HEX = /^#[0-9a-fA-F]{6}$/;
+const TIPOS_LOGO = ["image/png", "image/jpeg", "image/webp"];
+
+/* Estilos locales de la pantalla (prefijo cfg-). Solo tokens; los tamaños siguen el SPEC. */
+const CSS_CONFIGURACION = `
+.cfg-aviso { margin: 0 0 32px; }
+.cfg-dos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--g); }
+.cfg-cuenta { display: flex; gap: 16px; align-items: center; min-width: 0; }
+.cfg-cuenta > .a { width: 56px; height: 56px; flex: none; display: grid; place-items: center; background: var(--surface-3);
+  font: 700 20px/1 var(--f-sans); font-stretch: 125%; }
+.cfg-cuenta > div { min-width: 0; }
+.cfg-cuenta b { display: block; font-size: 18px; font-weight: 650; line-height: 1.2; overflow-wrap: anywhere; }
+.cfg-cuenta .k-mono { display: block; margin-top: 4px; font-size: 14px; line-height: 1.3; color: var(--ink-2); overflow-wrap: anywhere; }
+.cfg-nota { margin: 14px 0 0; font-size: 14px; line-height: 1.4; color: var(--ink-3); max-width: 46ch; }
+.cfg-lista { list-style: none; margin: 0; padding: 0; }
+.cfg-lista > li { display: grid; gap: 4px; padding: 11px 0; border-top: 1px solid var(--line); }
+.cfg-lista > li:first-child { border-top: 0; padding-top: 0; }
+.cfg-lista .k-apoyo { margin: 0; }
+
+.cfg-logo-acc { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 12px; }
+.cfg-logo-acc .k-err, .cfg-logo-acc .k-estado { margin: 0; }
+.cfg-color { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.cfg-color input[type="color"] { width: 48px; height: 48px; flex: none; padding: 4px; border: 1.5px solid var(--rule);
+  border-radius: 0; background: var(--surface-0); cursor: pointer; }
+.cfg-color input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.cfg-color input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 0; }
+.cfg-color input[type="color"]::-moz-color-swatch { border: 0; border-radius: 0; }
+.cfg-color .k-in { flex: none; width: 10em; font-family: var(--f-mono); }
+
+.cfg-prev { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cfg-lam { margin: 0; min-width: 0; }
+.cfg-lam > div { position: relative; display: grid; place-items: center; min-height: 128px; padding: 24px 14px 18px;
+  border: 2px solid var(--rule); overflow: hidden; }
+.cfg-lam.papel > div { background: var(--on-neg-area); color: var(--neg-area); }
+.cfg-lam.tinta > div { background: var(--neg-area); color: var(--on-neg-area); }
+.cfg-lam > div > i { position: absolute; left: 0; right: 0; top: 0; height: 6px; }
+.cfg-lam img { display: block; max-width: 80%; max-height: 56px; object-fit: contain; }
+.cfg-lam .emp { font-size: 16px; font-weight: 700; line-height: 1.2; text-align: center; text-wrap: balance; overflow-wrap: break-word; hyphens: auto; }
+.cfg-lam .nada { width: 64%; height: 32px; border: 1.5px dashed currentColor; }
+.cfg-lam figcaption { margin-top: 8px; font-size: 14px; line-height: 1.3; color: var(--ink-3); }
+
+.cfg-guardar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 8px; padding-top: 16px;
+  border-top: 2px solid var(--rule); }
+.cfg-guardar > p { margin: 0; }
+.cfg-guardar > .k-err { flex-basis: 100%; }
+
+.cfg-tema { max-width: 480px; }
+.cfg-ticket { margin-bottom: 32px; }
+.cfg-ticket .k-btns { margin-top: 4px; }
+.cfg-ticket .k-aviso { margin-bottom: 16px; }
+.cfg-tickets .cfg-fecha > span { display: block; }
+.cfg-canales { margin-top: 32px; }
+.cfg-canales .k-btns { margin-top: 12px; }
+
+@media (max-width: 860px) {
+  .cfg-dos { grid-template-columns: minmax(0, 1fr); }
+  .cfg-aside { margin-top: 16px; }
+  /* Fichas de tickets sin columna de identificador: el asunto ocupa todo el ancho. */
+  .cfg-tickets .k-tr { grid-template-columns: 0 minmax(0, 1fr); column-gap: 0; }
+  .cfg-tickets .cfg-fecha > span { display: inline; }
+  .cfg-tickets .cfg-fecha > span + span::before { content: " · "; }
+  .cfg-color .k-in { flex: 1 1 8em; width: auto; }
+}
+`;
 
 export default function ConfiguracionPage() {
   const { data: session } = useSession();
@@ -134,6 +220,15 @@ export default function ConfiguracionPage() {
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
   const [ticketError, setTicketError] = useState<string | null>(null);
   const [ticketSuccess, setTicketSuccess] = useState(false);
+
+  // Solo presentación: dónde mostrar `saveError` (lo activan tanto guardar como subir
+  // el logo), nombre del logo que se está subiendo, formato rechazado al soltar y
+  // si el campo de color ya perdió el foco (para no marcar error mientras se escribe).
+  const [errorEn, setErrorEn] = useState<"guardar" | "logo">("guardar");
+  const [logoNombre, setLogoNombre] = useState("");
+  const [logoFormato, setLogoFormato] = useState(false);
+  const [colorTocado, setColorTocado] = useState(false);
+  const soporteDisponible = useSoporteDisponible();
 
   useEffect(() => {
     fetch("/api/profile")
@@ -240,572 +335,498 @@ export default function ConfiguracionPage() {
     }
   };
 
-  const cargos = [
-    "Administrador(a) de P.H.",
-    "Gerente de Administracion",
-    "Contador(a)",
-    "Revisor(a) Fiscal",
-    "Asistente Administrativo",
-    "Otro",
+  // Resultado de una acción → aviso (KIT §5.4). Los estados `saved` y `ticketSuccess`
+  // siguen siendo los de siempre; aquí solo se anuncian.
+  useEffect(() => {
+    if (saved) avisar({ tipo: "ok", titulo: "Cambios guardados." });
+  }, [saved]);
+  useEffect(() => {
+    if (ticketSuccess) avisar({ tipo: "ok", titulo: "Ticket creado.", texto: "Nuestro equipo te responderá pronto." });
+  }, [ticketSuccess]);
+
+  const guardar = () => {
+    setErrorEn("guardar");
+    void handleSave();
+  };
+
+  // La zona acepta arrastrar y soltar: se filtra por los mismos tipos que el `accept`
+  // del selector de archivos (el servidor admite más, p. ej. PDF, que no sirven de logo).
+  const elegirLogo = (archivos: File[]) => {
+    const f = archivos[0];
+    if (!f) return;
+    if (!TIPOS_LOGO.includes(f.type)) {
+      setLogoFormato(true);
+      return;
+    }
+    setLogoFormato(false);
+    setErrorEn("logo");
+    setSaveError(false);
+    setLogoNombre(f.name);
+    void handleLogoUpload(f);
+  };
+
+  const cerrarFormulario = () => {
+    setShowTicketForm(false);
+    setTicketError(null);
+  };
+
+  // Valores guardados con el texto de antes (sin tildes) se conservan: solo cambia la etiqueta.
+  const cargos: Array<[string, string]> = [
+    ["Administrador(a) de P.H.", "Administrador(a) de P.H."],
+    ["Gerente de Administracion", "Gerente de administración"],
+    ["Contador(a)", "Contador(a)"],
+    ["Revisor(a) Fiscal", "Revisor(a) fiscal"],
+    ["Asistente Administrativo", "Asistente administrativo"],
+    ["Otro", "Otro"],
   ];
+  // Un cargo guardado que no está en la lista (p. ej. el del demo) se muestra tal cual.
+  const cargoFuera = cargo && !cargos.some(([v]) => v === cargo) ? cargo : null;
+
+  const nombreVisible = profile?.name || session?.user?.name || "";
+  const correoVisible = profile?.email || session?.user?.email || "";
+  const errorPerfil = !loading && (profile === null || profile.error === true);
+
+  const colorValido = HEX.test(brandColor.trim());
+  const colorInvalido = colorTocado && brandColor.trim() !== "" && !colorValido;
+  const empresa = company.trim();
+
+  const ticketValido = Boolean(ticketSubject.trim() && ticketContent.trim());
+  const hayTickets = tickets.length > 0;
+
+  const lamina = (tipo: "papel" | "tinta", pie: string) => (
+    <figure className={`cfg-lam ${tipo}`}>
+      <div>
+        {colorValido && <i aria-hidden="true" style={{ background: brandColor.trim() }} />}
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoUrl} alt={empresa ? `Logo de ${empresa}` : "Tu logo"} />
+        ) : empresa ? (
+          <span className="emp">{empresa}</span>
+        ) : (
+          <span className="nada" aria-hidden="true" />
+        )}
+      </div>
+      <figcaption>{pie}</figcaption>
+    </figure>
+  );
 
   return (
     <div>
-      <Header title="Configuracion" />
-      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-2xl space-y-5">
+      <style href="k-configuracion-local" precedence="default">
+        {CSS_CONFIGURACION}
+      </style>
+      <Header title="Configuración" />
+      <Pagina>
+        <Pieza>
+          <CabeceraPieza
+            nn="15"
+            titulo="Configuración"
+            subtitulo="Tu perfil, la marca de tus documentos, el tema de la interfaz y el soporte."
+          />
 
-        {/* ── Información Personal ────────────────────────────────────── */}
-        <div style={hiCard}>
-          {/* Section header */}
-          <div className="flex items-center gap-3 mb-6">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgb(var(--accent-rgb) / 0.12)" }}
-            >
-              <User className="h-4.5 w-4.5" style={{ color: "var(--accent-text)" }} />
-            </div>
-            <div>
-              <p style={{ ...monoLabel, color: "var(--muted-foreground)" }}>Perfil</p>
-              <h2 className="text-base font-medium text-foreground leading-snug">
-                Información Personal
-              </h2>
-            </div>
-          </div>
+          {errorPerfil && (
+            <Aviso
+              className="cfg-aviso"
+              enLinea
+              tipo="error"
+              titulo="No pudimos cargar todos tus datos."
+              texto="Si guardas ahora, los campos que aparecen vacíos reemplazarán lo que tenías. Recarga la página antes de hacer cambios."
+              accion={{ etiqueta: "Recargar", alElegir: () => window.location.reload() }}
+            />
+          )}
 
-          {loading ? (
-            <div className="flex items-center justify-center py-10">
-              <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--muted-foreground)" }} />
-            </div>
-          ) : (
-            <div className="space-y-5">
-              {/* Avatar + email */}
-              <div
-                className="flex items-center gap-4 pb-5"
-                style={{ borderBottom: "1px solid var(--border)" }}
-              >
-                {session?.user?.image ? (
-                  <img
-                    src={session.user.image}
-                    alt=""
-                    className="h-16 w-16 rounded-2xl flex-shrink-0"
-                    style={{ border: "2px solid var(--border)" }}
-                  />
-                ) : (
-                  <div
-                    className="h-16 w-16 rounded-2xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: "rgb(var(--accent-rgb) / 0.1)", border: "1px solid rgb(var(--accent-rgb) / 0.2)" }}
-                  >
-                    <User className="h-8 w-8" style={{ color: "var(--accent-text)" }} />
-                  </div>
-                )}
-                <div>
-                  <p className="font-semibold text-foreground">{profile?.name || session?.user?.name}</p>
-                  <p className="text-sm mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                    {profile?.email || session?.user?.email}
-                  </p>
-                  <span
-                    className="inline-block mt-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold"
-                    style={{
-                      fontFamily: "'Geist Mono', monospace",
-                      letterSpacing: "0.10em",
-                      background: "rgb(var(--veil-rgb) / 0.05)",
-                      color: "var(--muted-foreground)",
-                      border: "1px solid var(--border)",
-                    }}
-                  >
-                    Google Account
-                  </span>
-                </div>
-              </div>
-
-              {/* Name */}
-              <div>
-                <label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
-                  <User className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-                  Nombre completo
-                </label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  style={hiInput}
-                  className="rounded-xl focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)]"
-                />
-              </div>
-
-              {/* Cargo */}
-              <div>
-                <label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
-                  <Briefcase className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-                  Cargo
-                </label>
-                <select
-                  value={cargo}
-                  onChange={(e) => setCargo(e.target.value)}
-                  style={{
-                    ...hiInput,
-                    width: "100%",
-                    height: 40,
-                    paddingLeft: 12,
-                    paddingRight: 12,
-                    appearance: "none",
-                    cursor: "pointer",
-                    outline: "none",
-                  }}
-                  className="focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)] transition-all"
-                >
-                  <option value="">Selecciona tu cargo</option>
-                  {cargos.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Company */}
-              <div>
-                <label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
-                  <Building2 className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-                  Empresa / Razón Social
-                </label>
-                <Input
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  placeholder="Nombre de tu empresa"
-                  style={hiInput}
-                  className="rounded-xl focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)]"
-                />
-              </div>
-
-              {/* Phone + city */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
-                    <Phone className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-                    Teléfono
-                  </label>
-                  <Input
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+57 300 123 4567"
-                    style={hiInput}
-                    className="rounded-xl focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)]"
-                  />
-                </div>
-                <div>
-                  <label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
-                    <MapPin className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-                    Ciudad
-                  </label>
-                  <Input
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="Bogotá"
-                    style={hiInput}
-                    className="rounded-xl focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)]"
-                  />
-                </div>
-              </div>
-
-              {/* Document branding */}
-              <div className="pt-2 border-t border-border">
-                <p className="text-sm font-semibold text-foreground mb-1">Marca de tus documentos</p>
-                <p className="text-[12px] text-muted-foreground mb-4">
-                  Tu logo, nombre y color aparecerán en los informes y actas que generes.
-                </p>
-                <div className="flex items-start gap-4 flex-wrap">
-                  {/* Logo */}
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-16 h-16 rounded-xl border border-border flex items-center justify-center overflow-hidden flex-shrink-0"
-                      style={{ background: "var(--secondary)" }}
+          {/* ── 15.1 PERFIL ─────────────────────────────────────────── */}
+          <Seccion id="cfg-perfil" numero="15.1" titulo="Perfil" nota="tus datos de contacto">
+            {loading ? (
+              <Esqueleto variante="bloque" etiquetaAccesible="Cargando tu perfil…" />
+            ) : (
+              <div className="k-r12">
+                <div style={{ gridColumn: "1 / 8" }}>
+                  <GrupoCampos titulo="Tus datos">
+                    <Campo id="cfg-nombre" etiqueta="Nombre completo">
+                      <Entrada id="cfg-nombre" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+                    </Campo>
+                    <Campo id="cfg-cargo" etiqueta="Cargo">
+                      <Selector id="cfg-cargo" value={cargo} onChange={(e) => setCargo(e.target.value)}>
+                        <option value="">Selecciona tu cargo</option>
+                        {cargoFuera && <option value={cargoFuera}>{cargoFuera}</option>}
+                        {cargos.map(([valor, etiqueta]) => (
+                          <option key={valor} value={valor}>{etiqueta}</option>
+                        ))}
+                      </Selector>
+                    </Campo>
+                    <Campo
+                      id="cfg-empresa"
+                      etiqueta="Empresa o razón social"
+                      ayuda="Aparece en el encabezado de tus informes y actas, y en el portal de tus residentes."
                     >
-                      {logoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground/60 text-center px-1">Sin logo</span>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-foreground hover:bg-secondary cursor-pointer transition-colors">
-                        {uploadingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                        {uploadingLogo ? "Subiendo…" : logoUrl ? "Cambiar logo" : "Subir logo"}
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp"
-                          className="hidden"
-                          onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])}
+                      <Entrada
+                        id="cfg-empresa"
+                        value={company}
+                        onChange={(e) => setCompany(e.target.value)}
+                        placeholder="Nombre de tu empresa"
+                        autoComplete="organization"
+                      />
+                    </Campo>
+                    <div className="cfg-dos">
+                      <Campo id="cfg-telefono" etiqueta="Teléfono">
+                        <Entrada
+                          id="cfg-telefono"
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="+57 300 123 4567"
+                          autoComplete="tel"
                         />
-                      </label>
-                      {logoUrl && (
-                        <button onClick={() => setLogoUrl("")} className="text-[11px] text-muted-foreground hover:text-[var(--danger)] text-left">
-                          Quitar
-                        </button>
-                      )}
+                      </Campo>
+                      <Campo id="cfg-ciudad" etiqueta="Ciudad">
+                        <Entrada
+                          id="cfg-ciudad"
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          placeholder="Bogotá"
+                          autoComplete="address-level2"
+                        />
+                      </Campo>
                     </div>
-                  </div>
-
-                  {/* Brand color */}
-                  <div>
-                    <label className="block text-[11px] uppercase text-muted-foreground/70 mb-2" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }}>
-                      Color de marca
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={brandColor || "#4338ca"}
-                        onChange={(e) => setBrandColor(e.target.value)}
-                        className="w-10 h-10 rounded-lg border border-border bg-transparent cursor-pointer p-0.5"
-                      />
-                      <Input
-                        value={brandColor}
-                        onChange={(e) => setBrandColor(e.target.value)}
-                        placeholder="#4338ca"
-                        className="w-28 rounded-lg font-mono text-[13px]"
-                      />
-                      {brandColor && (
-                        <button onClick={() => setBrandColor("")} className="text-[11px] text-muted-foreground hover:text-foreground">
-                          Predeterminado
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  </GrupoCampos>
                 </div>
+
+                <aside className="cfg-aside" style={{ gridColumn: "9 / 13" }}>
+                  <Panel titulo="Tu cuenta">
+                    <div className="cfg-cuenta">
+                      <div className="a" aria-hidden="true">{iniciales(nombreVisible)}</div>
+                      <div>
+                        <b>{nombreVisible}</b>
+                        <span className="k-mono">{correoVisible}</span>
+                      </div>
+                    </div>
+                    <p className="cfg-nota">Es tu correo de acceso a SOPH.IA.</p>
+                  </Panel>
+                </aside>
               </div>
-
-              {/* Save button */}
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full h-11 rounded-2xl text-sm font-semibold text-[var(--on-accent)] flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  background: saved ? "var(--ok)" : "var(--accent)",
-                  boxShadow: saved
-                    ? "0 4px 16px rgb(var(--ok-rgb) / 0.3)"
-                    : "0 4px 16px rgb(var(--accent-rgb) / 0.3)",
-                  transition: "background 0.3s, box-shadow 0.3s",
-                }}
-              >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : saved ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                {saving ? "Guardando..." : saved ? "Guardado!" : "Guardar Cambios"}
-              </button>
-              {saveError && (
-                <p className="mt-3 text-sm text-center" style={{ color: "var(--danger-text)" }}>
-                  No pudimos guardar tus cambios. Revisa tu conexión e intenta de nuevo.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ── Apariencia ──────────────────────────────────────────────── */}
-        <div style={hiCard}>
-          <div className="flex items-center gap-3 mb-6">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgb(var(--accent-rgb) / 0.12)" }}
-            >
-              <Moon className="h-4.5 w-4.5" style={{ color: "var(--accent-text)" }} />
-            </div>
-            <div>
-              <p style={{ ...monoLabel, color: "var(--muted-foreground)" }}>Tema</p>
-              <h2 className="text-base font-medium text-foreground leading-snug">Apariencia</h2>
-            </div>
-          </div>
-
-          <div
-            className="flex items-center gap-3 p-4 rounded-2xl"
-            style={{
-              background: "rgb(var(--accent-rgb) / 0.08)",
-              border: "1px solid rgb(var(--accent-rgb) / 0.3)",
-            }}
-          >
-            <Moon className="h-5 w-5 flex-shrink-0" style={{ color: "var(--accent-text)" }} />
-            <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-              SOPH.IA usa un tema oscuro editorial optimizado para largas jornadas de
-              trabajo. El modo claro llegará en una próxima versión.
-            </p>
-          </div>
-        </div>
-
-        {/* ── WhatsApp Soporte ─────────────────────────────────────────── */}
-        <div style={hiCard}>
-          <div className="flex items-center gap-3 mb-6">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgb(var(--ok-rgb) / 0.12)" }}
-            >
-              <MessageCircle className="h-4.5 w-4.5" style={{ color: "var(--ok-text)" }} />
-            </div>
-            <div>
-              <p style={{ ...monoLabel, color: "var(--muted-foreground)" }}>Ayuda</p>
-              <h2 className="text-base font-medium text-foreground leading-snug">Soporte</h2>
-            </div>
-          </div>
-
-          <p className="text-sm mb-5" style={{ color: "var(--muted-foreground)" }}>
-            ¿Necesitas ayuda? Contacta a nuestro equipo de soporte por WhatsApp.
-          </p>
-
-          <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="block">
-            <button
-              className="w-full h-11 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:opacity-90"
-              style={{
-                background: "rgb(var(--ok-rgb) / 0.1)",
-                border: "1px solid rgb(var(--ok-rgb) / 0.25)",
-                color: "var(--ok-text)",
-              }}
-            >
-              <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-              </svg>
-              Contactar por WhatsApp
-            </button>
-          </a>
-        </div>
-
-        {/* ── Tickets de soporte ──────────────────────────────────────── */}
-        <div style={hiCard}>
-          <div className="flex items-center justify-between gap-3 mb-6">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgb(var(--accent-rgb) / 0.12)" }}
-              >
-                <LifeBuoy className="h-4.5 w-4.5" style={{ color: "var(--accent-text)" }} />
-              </div>
-              <div>
-                <p style={{ ...monoLabel, color: "var(--muted-foreground)" }}>04 · Tickets</p>
-                <h2 className="text-base font-medium text-foreground leading-snug">
-                  Centro de soporte
-                </h2>
-              </div>
-            </div>
-
-            {!showTicketForm && (
-              <button
-                onClick={() => setShowTicketForm(true)}
-                className="h-9 px-4 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:opacity-90"
-                style={{
-                  background: "var(--accent)",
-                  color: "var(--on-accent)",
-                  boxShadow: "0 4px 14px rgb(var(--accent-rgb) / 0.25)",
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                Crear ticket
-              </button>
             )}
-          </div>
+          </Seccion>
 
-          {/* Success banner */}
-          {ticketSuccess && (
-            <div
-              className="flex items-center gap-2 px-4 py-3 rounded-xl mb-4"
-              style={{
-                background: "rgb(var(--ok-rgb) / 0.08)",
-                border: "1px solid rgb(var(--ok-rgb) / 0.2)",
-              }}
-            >
-              <Check className="h-4 w-4 flex-shrink-0" style={{ color: "var(--ok-text)" }} />
-              <p className="text-sm" style={{ color: "var(--ok-text)" }}>
-                Ticket creado exitosamente. Nuestro equipo te responderá pronto.
-              </p>
-            </div>
-          )}
+          {/* ── 15.2 MARCA DE TUS DOCUMENTOS (se guarda junto con el perfil) ── */}
+          <Seccion id="cfg-marca" numero="15.2" titulo="Marca de tus documentos" nota="informes, actas y portal de residentes">
+            {loading ? (
+              <Esqueleto variante="bloque" etiquetaAccesible="Cargando la marca de tus documentos…" />
+            ) : (
+              <>
+                <div className="k-r12">
+                  <div style={{ gridColumn: "1 / 8" }}>
+                    <GrupoCampos titulo="Logo" nota="Encabeza tus informes y actas, y aparece en el portal de tus residentes.">
+                      <ZonaSubida
+                        compacta
+                        titulo={uploadingLogo ? "Subiendo el logo…" : logoUrl ? "Cambiar logo" : "Sube tu logo"}
+                        texto="Suéltalo aquí o haz clic para elegirlo."
+                        formatos="PNG, JPG o WebP"
+                        accept="image/png,image/jpeg,image/webp"
+                        etiquetaAccesible={logoUrl ? "Cambiar logo" : "Subir logo"}
+                        deshabilitado={uploadingLogo}
+                        alElegir={elegirLogo}
+                      />
+                      {(uploadingLogo || logoFormato || (saveError && errorEn === "logo") || logoUrl) && (
+                        <div className="cfg-logo-acc">
+                          {uploadingLogo ? (
+                            <span role="status">
+                              <Estado tipo="enCurso" tamLetra={14}>Subiendo {logoNombre || "el logo"}…</Estado>
+                            </span>
+                          ) : logoFormato ? (
+                            <p className="k-err" role="alert">Formato no admitido: sube el logo en PNG, JPG o WebP.</p>
+                          ) : saveError && errorEn === "logo" ? (
+                            <p className="k-err" role="alert">
+                              No pudimos subir el logo. Revisa tu conexión e inténtalo de nuevo.
+                            </p>
+                          ) : null}
+                          {logoUrl && !uploadingLogo && (
+                            <Boton variante="fantasma" tam={40} onClick={() => setLogoUrl("")}>Quitar logo</Boton>
+                          )}
+                        </div>
+                      )}
+                    </GrupoCampos>
 
-          {/* Create ticket form */}
-          {showTicketForm && (
-            <div
-              className="rounded-xl p-4 mb-5 space-y-4"
-              style={{
-                background: "rgb(var(--accent-rgb) / 0.05)",
-                border: "1px solid rgb(var(--accent-rgb) / 0.15)",
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-foreground">Nuevo ticket</p>
-                <button
-                  onClick={() => {
-                    setShowTicketForm(false);
-                    setTicketError(null);
-                  }}
-                  className="p-1 rounded-lg transition-colors hover:bg-white/5"
-                >
-                  <X className="h-4 w-4" style={{ color: "var(--ink-3)" }} />
-                </button>
-              </div>
-
-              {/* Subject */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                  Asunto *
-                </label>
-                <Input
-                  value={ticketSubject}
-                  onChange={(e) => setTicketSubject(e.target.value)}
-                  placeholder="Describe brevemente tu problema"
-                  style={hiInput}
-                  className="rounded-xl focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)]"
-                />
-              </div>
-
-              {/* Category + Priority */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                    Categoría
-                  </label>
-                  <select
-                    value={ticketCategory}
-                    onChange={(e) => setTicketCategory(e.target.value)}
-                    style={{
-                      ...hiInput,
-                      width: "100%",
-                      height: 40,
-                      paddingLeft: 12,
-                      paddingRight: 12,
-                      appearance: "none",
-                      cursor: "pointer",
-                      outline: "none",
-                    }}
-                  >
-                    <option value="general">General</option>
-                    <option value="billing">Facturación</option>
-                    <option value="technical">Técnico</option>
-                    <option value="feature">Función</option>
-                    <option value="bug">Bug</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                    Prioridad
-                  </label>
-                  <select
-                    value={ticketPriority}
-                    onChange={(e) => setTicketPriority(e.target.value)}
-                    style={{
-                      ...hiInput,
-                      width: "100%",
-                      height: 40,
-                      paddingLeft: 12,
-                      paddingRight: 12,
-                      appearance: "none",
-                      cursor: "pointer",
-                      outline: "none",
-                    }}
-                  >
-                    <option value="low">Baja</option>
-                    <option value="normal">Normal</option>
-                    <option value="high">Alta</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                  Descripción *
-                </label>
-                <textarea
-                  value={ticketContent}
-                  onChange={(e) => setTicketContent(e.target.value)}
-                  placeholder="Describe tu problema con el mayor detalle posible..."
-                  rows={4}
-                  className="w-full px-3 py-2.5 text-sm resize-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)] placeholder:text-muted-foreground/40"
-                  style={{
-                    background: "var(--secondary)",
-                    border: "1px solid var(--border)",
-                    color: "var(--foreground)",
-                  }}
-                />
-              </div>
-
-              {ticketError && (
-                <p className="text-xs" style={{ color: "var(--danger-text)", fontFamily: "var(--font-mono)" }}>
-                  {ticketError}
-                </p>
-              )}
-
-              <button
-                onClick={handleTicketSubmit}
-                disabled={ticketSubmitting || !ticketSubject.trim() || !ticketContent.trim()}
-                className="w-full h-10 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{
-                  background: "var(--accent)",
-                  color: "var(--on-accent)",
-                  boxShadow: "0 4px 14px rgb(var(--accent-rgb) / 0.25)",
-                }}
-              >
-                {ticketSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                {ticketSubmitting ? "Enviando..." : "Enviar ticket"}
-              </button>
-            </div>
-          )}
-
-          {/* Ticket list */}
-          {ticketsLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--ink-4)" }} />
-            </div>
-          ) : tickets.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-8">
-              <LifeBuoy className="h-7 w-7" style={{ color: "var(--ink-4)" }} />
-              <p className="text-sm text-center" style={{ color: "var(--ink-4)" }}>
-                No tienes tickets de soporte aún.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {tickets.map((ticket) => (
-                <Link
-                  key={ticket.id}
-                  href={`/dashboard/soporte/${ticket.id}`}
-                  className="group flex items-center gap-3 px-3 py-3 rounded-xl transition-colors hover:bg-white/[0.03]"
-                  style={{ border: "1px solid var(--border)" }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-foreground truncate">
-                      {ticket.subject}
-                    </p>
-                    <p
-                      className="text-[11px] mt-0.5"
-                      style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink-4)" }}
-                    >
-                      {relativeTime(ticket.updatedAt)}
-                    </p>
+                    <GrupoCampos titulo="Color de marca">
+                      <Campo
+                        id="cfg-color"
+                        etiqueta="Color en formato hexadecimal"
+                        ayuda="Seis cifras después de #. Sin color propio, cada documento usa su color predeterminado."
+                        error={colorInvalido ? "Escribe el color con seis cifras después de #, por ejemplo #4338CA." : undefined}
+                      >
+                        <div className="cfg-color">
+                          <input
+                            type="color"
+                            value={colorValido ? brandColor.trim() : "#4338ca"}
+                            onChange={(e) => setBrandColor(e.target.value)}
+                            aria-label="Elegir el color de marca en la paleta"
+                          />
+                          <Entrada
+                            id="cfg-color"
+                            value={brandColor}
+                            onChange={(e) => setBrandColor(e.target.value)}
+                            onBlur={() => setColorTocado(true)}
+                            placeholder="#4338ca"
+                            spellCheck={false}
+                            invalido={colorInvalido}
+                            aria-describedby={colorInvalido ? "cfg-color-ayuda cfg-color-err" : "cfg-color-ayuda"}
+                          />
+                          {brandColor && (
+                            <Boton variante="fantasma" tam={40} onClick={() => setBrandColor("")}>
+                              Usar el predeterminado
+                            </Boton>
+                          )}
+                        </div>
+                      </Campo>
+                    </GrupoCampos>
                   </div>
-                  <span
-                    className="flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-medium"
-                    style={{
-                      fontFamily: "'Geist Mono', monospace",
-                      letterSpacing: "0.10em",
-                      textTransform: "uppercase",
-                      ...statusStyle(ticket.status),
-                    }}
-                  >
-                    {STATUS_LABELS[ticket.status] ?? ticket.status}
-                  </span>
-                  <ChevronRight
-                    className="h-4 w-4 flex-shrink-0 opacity-0 group-hover:opacity-50 transition-opacity"
-                    style={{ color: "var(--ink-3)" }}
-                  />
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
 
-      </div>
+                  <aside className="cfg-aside" style={{ gridColumn: "9 / 13" }}>
+                    <Panel titulo="Vista previa" nota="así se ve tu marca">
+                      <div className="cfg-prev">
+                        {lamina("papel", "Sobre papel")}
+                        {lamina("tinta", "Sobre fondo oscuro")}
+                      </div>
+                      <p className="cfg-nota">
+                        {logoUrl
+                          ? "Revisa que tu logo se lea bien sobre los dos fondos."
+                          : empresa
+                            ? `Sin logo: tus documentos llevarán el nombre de la empresa, «${empresa}».`
+                            : "Sin logo: escribe el nombre de tu empresa en 15.1 para que tus documentos lo lleven."}
+                      </p>
+                    </Panel>
+                  </aside>
+                </div>
+
+                <div className="cfg-guardar">
+                  <Boton onClick={guardar} cargando={saving} textoCargando="Guardando…" ancho="movil">
+                    Guardar cambios
+                  </Boton>
+                  <p className="k-apoyo">Guarda tu perfil (15.1) y la marca de tus documentos (15.2).</p>
+                  {saveError && errorEn === "guardar" && (
+                    <p className="k-err" role="alert">
+                      No pudimos guardar tus cambios. Revisa tu conexión e inténtalo de nuevo.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+          </Seccion>
+
+          {/* ── 15.3 APARIENCIA ─────────────────────────────────────── */}
+          <Seccion id="cfg-apariencia" numero="15.3" titulo="Apariencia" nota="tema de la interfaz">
+            <div className="k-r12">
+              <div className="k-fld" style={{ gridColumn: "1 / 8" }}>
+                <span className="lb" id="cfg-tema-lb">Tema</span>
+                <SelectorTema grande className="cfg-tema" />
+                <span className="k-ayuda">
+                  Auto sigue a tu dispositivo: claro si lo pide, oscuro en cualquier otro caso. El cambio se aplica al
+                  momento, este navegador lo recuerda y también puedes hacerlo al pie del índice.
+                </span>
+              </div>
+            </div>
+          </Seccion>
+
+          {/* ── 15.4 SOPORTE ────────────────────────────────────────── */}
+          <Seccion
+            id="cfg-soporte"
+            numero="15.4"
+            titulo="Soporte"
+            nota="tus tickets"
+            acciones={
+              !showTicketForm && (ticketsLoading || hayTickets) ? (
+                <Boton tam={40} flecha="crea" onClick={() => setShowTicketForm(true)}>Nuevo ticket</Boton>
+              ) : undefined
+            }
+          >
+            <div className="k-r12">
+              <div style={{ gridColumn: "1 / 9" }}>
+                {showTicketForm && (
+                  <GrupoCampos className="cfg-ticket" titulo="Nuevo ticket" nota="Te respondemos dentro del mismo ticket.">
+                    <Campo id="cfg-tk-asunto" etiqueta="Asunto">
+                      <Entrada
+                        id="cfg-tk-asunto"
+                        value={ticketSubject}
+                        onChange={(e) => setTicketSubject(e.target.value)}
+                        placeholder="Describe brevemente tu problema"
+                      />
+                    </Campo>
+                    <Campo id="cfg-tk-cat" etiqueta="Categoría" sinEtiqueta>
+                      <Segmentos
+                        etiquetaAccesible="Categoría"
+                        valor={ticketCategory}
+                        alCambiar={setTicketCategory}
+                        items={CATEGORIAS}
+                      />
+                    </Campo>
+                    <Campo id="cfg-tk-pri" etiqueta="Prioridad" sinEtiqueta>
+                      <Segmentos
+                        etiquetaAccesible="Prioridad"
+                        valor={ticketPriority}
+                        alCambiar={setTicketPriority}
+                        items={PRIORIDADES}
+                      />
+                    </Campo>
+                    <Campo
+                      id="cfg-tk-desc"
+                      etiqueta="Descripción"
+                      ayuda="Describe tu problema con el mayor detalle posible: qué hacías, qué esperabas y qué pasó."
+                    >
+                      <AreaTexto
+                        id="cfg-tk-desc"
+                        value={ticketContent}
+                        onChange={(e) => setTicketContent(e.target.value)}
+                        rows={4}
+                      />
+                    </Campo>
+
+                    {ticketError && (
+                      <Aviso enLinea tipo="error" titulo="No se pudo crear el ticket." texto={ticketError} />
+                    )}
+
+                    <div className="k-btns">
+                      <Boton
+                        onClick={handleTicketSubmit}
+                        disabled={!ticketValido}
+                        cargando={ticketSubmitting}
+                        textoCargando="Enviando…"
+                        flecha="avanza"
+                        ancho="movil"
+                      >
+                        Enviar ticket
+                      </Boton>
+                      <Boton variante="secundario" onClick={cerrarFormulario} ancho="movil">Cancelar</Boton>
+                    </div>
+                    {!ticketValido && (
+                      <p className="k-ayuda" style={{ margin: "10px 0 0" }}>
+                        Escribe el asunto y la descripción para enviarlo.
+                      </p>
+                    )}
+                  </GrupoCampos>
+                )}
+
+                {ticketsLoading ? (
+                  <Esqueleto variante="tabla" filas={2} etiquetaAccesible="Cargando tus tickets…" />
+                ) : !hayTickets && showTicketForm ? null : (
+                  <Tabla
+                    className="cfg-tickets"
+                    alta
+                    etiquetaAccesible="Tus tickets de soporte"
+                    filas={tickets}
+                    claveFila={(t) => t.id}
+                    columnas={[
+                      {
+                        id: "asunto",
+                        titulo: "Asunto",
+                        ancho: "minmax(0, 3fr)",
+                        claseCelda: "k-c-nom",
+                        celda: (t) => {
+                          const n = t._count?.messages;
+                          const prioridad = NOMBRE_PRIORIDAD[t.priority];
+                          const detalle = [
+                            prioridad ? `Prioridad ${prioridad}` : null,
+                            n !== undefined ? (n === 1 ? "1 mensaje" : `${n} mensajes`) : null,
+                          ].filter(Boolean).join(" · ");
+                          return (
+                            <>
+                              {t.subject}
+                              {detalle && <span>{detalle}</span>}
+                            </>
+                          );
+                        },
+                      },
+                      {
+                        id: "categoria",
+                        titulo: "Categoría",
+                        ancho: "minmax(0, 1.2fr)",
+                        celda: (t) => <Categoria>{NOMBRE_CATEGORIA[t.category] ?? t.category}</Categoria>,
+                      },
+                      {
+                        id: "estado",
+                        titulo: "Estado",
+                        ancho: "minmax(0, 1.3fr)",
+                        celda: (t) => (
+                          <Estado tipo={STATUS_TIPO[t.status] ?? "sin"} tamLetra={14}>
+                            {STATUS_LABELS[t.status] ?? t.status}
+                          </Estado>
+                        ),
+                      },
+                      {
+                        id: "fecha",
+                        titulo: "Actualizado",
+                        ancho: "minmax(0, 1.3fr)",
+                        claseCelda: "cfg-fecha",
+                        celda: (t) => (
+                          <>
+                            <span className="k-fecha">{relativeTime(t.updatedAt)}</span>
+                            <span className="k-meta">{fechaCorta(t.updatedAt)}</span>
+                          </>
+                        ),
+                      },
+                      {
+                        id: "accion",
+                        titulo: "Acción",
+                        tituloOculto: true,
+                        alinear: "fin",
+                        ancho: "auto",
+                        claseCelda: "k-td-acc",
+                        celda: (t) => (
+                          <BotonFila href={`/dashboard/soporte/${t.id}`} aria-label={`Abrir el ticket: ${t.subject}`}>
+                            Abrir
+                          </BotonFila>
+                        ),
+                      },
+                    ]}
+                    vacio={
+                      <Vacio
+                        nivel={3}
+                        titulo="Aún no tienes tickets de soporte."
+                        texto="Si algo no funciona o tienes una duda, crea un ticket y te respondemos dentro de él."
+                        acciones={
+                          <Boton flecha="crea" onClick={() => setShowTicketForm(true)}>Nuevo ticket</Boton>
+                        }
+                      />
+                    }
+                  />
+                )}
+              </div>
+
+              <aside className="cfg-aside" style={{ gridColumn: "9 / 13" }}>
+                <Panel titulo="Estados de un ticket">
+                  <ul className="cfg-lista">
+                    {STATUS_AYUDA.map(([clave, texto]) => (
+                      <li key={clave}>
+                        <Estado tipo={STATUS_TIPO[clave]} tamLetra={14}>{STATUS_LABELS[clave]}</Estado>
+                        <p className="k-apoyo">{texto}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </Panel>
+
+                {(WHATSAPP_LINK || soporteDisponible) && (
+                  <Panel className="cfg-canales" titulo="Otros canales">
+                    <p className="k-apoyo" style={{ margin: 0 }}>
+                      ¿Necesitas ayuda ya? Escríbele a nuestro equipo de soporte.
+                    </p>
+                    <div className="k-btns">
+                      {WHATSAPP_LINK && (
+                        <Boton variante="secundario" tam={40} href={WHATSAPP_LINK} nuevaPestana flecha="avanza">
+                          Soporte por WhatsApp
+                        </Boton>
+                      )}
+                      {soporteDisponible && (
+                        <Boton variante="secundario" tam={40} onClick={abrirSoporte} aria-controls="soporte-sophia">
+                          Chat de soporte
+                        </Boton>
+                      )}
+                    </div>
+                  </Panel>
+                )}
+              </aside>
+            </div>
+          </Seccion>
+        </Pieza>
+      </Pagina>
     </div>
   );
 }

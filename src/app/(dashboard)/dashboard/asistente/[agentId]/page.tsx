@@ -143,15 +143,21 @@ const CSS_CHAT = `
   margin: 4px calc(var(--g) / -2 - 6px) 0; padding: 0 calc(var(--g) / 2 + 6px) 16px; }
 .asis-hilos-t { margin: 16px 0 4px; font-size: 13px; font-weight: 600; color: var(--ink-3); }
 .asis-hilos ul { list-style: none; margin: 0; padding: 0; }
-.asis-hilo { display: block; width: 100%; padding: 11px 0; border-bottom: 1px solid var(--line); text-align: left;
-  font-size: 15px; font-weight: 500; line-height: 1.3; color: var(--ink); background: transparent; cursor: pointer; overflow-wrap: anywhere; }
+/* Lo resaltado (hover, hilo activo) sangra medio medianil a cada lado: la fila
+   se sale con márgenes negativos y el filete entre filas (::after) se queda en la
+   columna. El activo lleva además la marca de 4 px en el margen. */
+.asis-hilo { position: relative; display: block; width: calc(100% + var(--g)); margin: 0 calc(var(--g) / -2);
+  padding: 11px calc(var(--g) / 2); text-align: left; font-size: 15px; font-weight: 500; line-height: 1.3;
+  color: var(--ink); background: transparent; cursor: pointer; overflow-wrap: anywhere; }
+.asis-hilo::after { content: ""; position: absolute; left: calc(var(--g) / 2); right: calc(var(--g) / 2); bottom: 0; height: 1px; background: var(--line); }
 .asis-hilo small { display: block; margin-top: 3px; font-size: 13px; font-weight: 400; color: var(--ink-3); }
-.asis-hilo:hover { background: var(--hl); box-shadow: calc(var(--g) / -2) 0 0 var(--hl), calc(var(--g) / 2) 0 0 var(--hl); }
-.asis-hilo[aria-current="true"] { background: var(--neg-area); color: var(--on-neg-area); font-weight: 600;
-  box-shadow: calc(var(--g) / -2) 0 0 var(--neg-area), calc(var(--g) / 2) 0 0 var(--neg-area), calc(var(--g) / -2 - 4px) 0 0 var(--neg-area-edge); }
+.asis-hilo:hover { background: var(--hl); }
+.asis-hilo[aria-current="true"] { background: var(--neg-area); color: var(--on-neg-area); font-weight: 600; box-shadow: -4px 0 0 var(--neg-area-edge); }
+.asis-hilo[aria-current="true"]::after { background: transparent; }
 .asis-hilo[aria-current="true"] small { color: var(--on-neg-area-2); }
 :root .asis-hilo:focus-visible { outline-offset: -3px; }
-:root .asis-hilo[aria-current="true"]:focus-visible { outline-color: var(--on-neg-area); }
+/* Sobre el área negativa el anillo va en papel y más adentro: a -3 px se fundía con el lienzo. */
+:root .asis-hilo[aria-current="true"]:focus-visible { outline-color: var(--on-neg-area); outline-offset: -6px; }
 .asis-hilos-vacio { margin: 16px 0 0; font-size: 14px; line-height: 1.45; color: var(--ink-3); }
 .asis-hilos-vacio + .k-btn { margin-top: 8px; }
 .asis-hilos .k-esq { margin-top: 16px; }
@@ -236,23 +242,29 @@ a.asis-ficha:hover { background: var(--hl); }
   .asis-cerrar { display: inline-flex; margin-left: auto; align-self: flex-start; }
   .asis-solo-movil { display: inline-flex; }
   .asis-solo-escritorio { display: none; }
-  .asis-hilos { margin: 4px -16px 0; padding: 0 16px 16px; }
-  .asis-hilo:hover { box-shadow: -8px 0 0 var(--hl), 8px 0 0 var(--hl); }
-  .asis-hilo[aria-current="true"] { box-shadow: -8px 0 0 var(--neg-area), 8px 0 0 var(--neg-area), -12px 0 0 var(--neg-area-edge); }
+  .asis-carril > .asis-hilos { margin: 4px -16px 0; padding: 0 16px 16px; }
 }
 @media (max-width: 860px) {
   .asis-barra { flex-wrap: wrap; gap: 8px; min-height: 0; padding: 8px 0 10px; }
   .asis-barra h2 { order: 3; flex-basis: 100%; font-size: 16px; }
   .asis-barra .k-btn, .asis-barra .k-bt { min-height: 44px; }
   .asis-barra .k-mas > .k-bt { margin-left: auto; }
-  .asis-bienv { padding-top: 24px; }
-  .asis-bienv h3 { font-size: 32px; }
+  /* En una conversación nueva el titular «Pregúntale a …» ya lo dice: el título
+     de la barra queda solo para lectores y la bienvenida se compacta. */
+  .asis-barra[data-nueva] h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .asis-bienv { padding-top: 16px; }
+  .asis-bienv > svg { width: 40px; height: 54px; }
+  .asis-bienv h3 { margin-top: 12px; font-size: 30px; }
+  .asis-bienv > p { font-size: 15px; }
+  .asis-bienv > p.asis-rot { margin-top: 18px; }
   .asis-sugs { grid-template-columns: minmax(0, 1fr); }
   .asis-hilo-conv { padding-top: 16px; }
   .asis-redactar { padding: 10px 0 12px; }
   .asis-redactar .k-redactor textarea { min-height: 52px; padding: 12px 12px 4px; font-size: 16px; }
   .asis-redactar .k-redactor .herr { gap: 16px; padding: 0 12px 4px; }
   .asis-redactar .k-redactor > .k-btn { margin: 0 8px 8px 0; }
+  /* «Enviando…» es más largo que «Enviar»: sin la flecha no empuja las herramientas a otra línea. */
+  .asis-redactar .k-redactor > .k-btn[aria-busy="true"] svg { display: none; }
   .asis-redactar .k-aviso-ia { margin-top: 6px; font-size: 12px; }
 }
 `;
@@ -1087,7 +1099,7 @@ export default function AgentPage() {
 
         {/* ─────────────  CONVERSACIÓN  ───────────── */}
         <section className="asis-conv" aria-labelledby="asis-conv-t">
-          <div className="asis-barra">
+          <div className="asis-barra" data-nueva={activeChat ? undefined : true}>
             {/* Mismo botón y mismo criterio que antes (ancho < 1024 → capa); uno por
                 tamaño para que aria-expanded diga el estado que de verdad se ve. */}
             <button

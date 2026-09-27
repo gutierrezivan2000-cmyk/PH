@@ -24,8 +24,8 @@ interface AgentUsage {
    - contador de uso con cifras de 34 px/62 % (como `.stat` de la maqueta);
    - fichas activas en 6 + 6 columnas; las 4 en preparación en 3 columnas cada
      una, en vertical (celda del sigilo achurada arriba), porque a 3 columnas la
-     ficha horizontal del kit no deja sitio al nombre. En ≤ 860 px vuelven a la
-     ficha horizontal del kit, una por fila. */
+     ficha horizontal del kit no deja sitio al nombre. En ≤ 1180 px vuelven a la
+     ficha horizontal del kit: dos por fila y, en ≤ 860 px, una. */
 const CSS_ASISTENTE = `
 .asis-uso { margin: 0; display: grid; gap: 4px; justify-items: end; text-align: right; }
 .asis-uso > span { font-size: 13px; color: var(--ink-3); }
@@ -39,7 +39,7 @@ const CSS_ASISTENTE = `
 .asis-como ul { list-style: none; margin: 0; padding: 0; }
 .asis-como li { padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 15px; line-height: 1.45; color: var(--ink-2); }
 .asis-como li b { color: var(--ink); font-weight: 700; }
-@media (min-width: 861px) {
+@media (min-width: 1181px) {
   .asis-prep .k-agente { grid-template-columns: minmax(0, 1fr); grid-template-rows: 132px minmax(0, 1fr); }
   .asis-prep .k-agente > .sig { min-height: 0; border-right: 0; border-bottom: 1.5px solid var(--line-strong); }
   .asis-prep .k-agente .top { flex-direction: column; align-items: flex-start; gap: 6px; }
@@ -47,6 +47,8 @@ const CSS_ASISTENTE = `
 }
 @media (max-width: 1180px) {
   .asis-prep { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .asis-uso { justify-items: start; text-align: left; }
+  .asis-uso > p { justify-content: flex-start; }
 }
 @media (max-width: 860px) {
   .asis-uso { justify-items: start; text-align: left; }
