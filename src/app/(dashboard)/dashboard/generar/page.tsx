@@ -526,8 +526,12 @@ export default function GenerarPage() {
   const porMes = lim?.generationsPerMonth ?? 0;
   const libresHoy = uso ? Math.max(0, Math.min(porDia - uso.dailyGenerations, porMes - uso.monthlyGenerations)) : 0;
 
-  const estadoArchivo = (i: number): { estado: "listo" | "subiendo" | "espera"; progreso?: number } => {
-    if (!loading || !subida || i < subida.i) return { estado: "listo" };
+  // Nada se sube hasta pulsar «Generar documentos»: antes de eso los archivos
+  // están «Por subir». Solo durante la subida hay «Listo» (los ya enviados),
+  // «Subiendo» (el actual) y «En espera» (los que faltan).
+  const estadoArchivo = (i: number): { estado: "anadido" | "listo" | "subiendo" | "espera"; progreso?: number } => {
+    if (!loading) return { estado: "anadido" };
+    if (!subida || i < subida.i) return { estado: "listo" };
     if (i === subida.i) return { estado: "subiendo", progreso: subida.pct };
     return { estado: "espera" };
   };
@@ -726,6 +730,7 @@ export default function GenerarPage() {
                     multiple
                     accept={ACCEPT_ARCHIVOS}
                     alElegir={elegirArchivos}
+                    deshabilitado={loading}
                   />
                   {errorEn === "archivos" && avisoError}
                   {files.length > 0 && (
@@ -739,7 +744,7 @@ export default function GenerarPage() {
                             detalle={pesoLegible(file.size)}
                             estado={est.estado}
                             progreso={est.progreso}
-                            alQuitar={() => removeFile(i)}
+                            alQuitar={loading ? undefined : () => removeFile(i)}
                           />
                         );
                       })}

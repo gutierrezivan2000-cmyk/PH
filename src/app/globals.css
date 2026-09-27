@@ -985,7 +985,9 @@ select.ui-input:focus-visible {
 :root:has([data-shell="app"]) :is(.k-campo input, .k-redactor textarea):focus-visible { outline: 0; }
 /* Filas y celdas que son enteras el control: el anillo abarca la fila, no el radio ni el título. */
 :root:has([data-shell="app"]) :is(.k-paso > a, .k-paso > button, .k-ob-a, .k-opfila > input, .k-mes > input):focus-visible { outline: 0; }
-:root:has([data-shell="app"]) :is(.k-paso:has(> :is(a, button):focus-visible), .k-ob:has(> .que > .k-ob-a:focus-visible)) { outline: 3px solid var(--focus); outline-offset: -3px; }
+:root:has([data-shell="app"]) .k-ob:has(> .que > .k-ob-a:focus-visible) { outline: 3px solid var(--focus); outline-offset: -3px; }
+/* El paso no tiene relleno lateral: con desplazamiento negativo el anillo tapaba medio numeral. */
+:root:has([data-shell="app"]) .k-paso:has(> :is(a, button):focus-visible) { outline: 3px solid var(--focus); outline-offset: 4px; }
 /* La fila elegida ya lleva un recuadro de 2 px: el foco va por fuera para no confundirse con él. */
 :root:has([data-shell="app"]) .k-opfila:has(> input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; position: relative; z-index: 1; }
 :root:has([data-shell="app"]) .k-mes:has(> :focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
@@ -1243,6 +1245,8 @@ select.ui-input:focus-visible {
   .k-paso span { font-size: 15px; font-weight: 700; line-height: 1.15; min-width: 0; }
   .k-paso small { display: block; margin-top: 3px; font-size: 14px; font-weight: 400; color: var(--ink-2); overflow-wrap: anywhere; }
   .k-paso.hecho b { color: var(--ink-3); }
+  .k-paso.omitido small { color: var(--ink-3); }
+  .k-paso.omitido small::before { content: none; }
   .k-paso.hecho small::before { content: ""; display: inline-block; width: 9px; height: 5px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg) translateY(-3px); margin-right: 7px; }
   .k-paso[aria-current="step"] { border: 2px solid var(--neg-area-edge); border-top-width: 6px; padding: 10px 14px 12px; margin: 0 calc(var(--g) / -2); }
   .k-paso.futuro b { color: transparent; -webkit-text-stroke: 1.5px var(--ink-3); }

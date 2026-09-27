@@ -34,6 +34,8 @@ export async function GET() {
         costUsd: true,
         createdAt: true,
         outputFiles: true,
+        // Lo usa Generar para mostrar «último informe» de cada copropiedad.
+        propertyId: true,
         property: { select: { name: true } },
       },
       orderBy: { createdAt: "desc" },

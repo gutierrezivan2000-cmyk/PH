@@ -56,13 +56,16 @@ export function Medidor({ filas, libres, unidadLibres = "libres", className }: {
     <div className={unir("k-medidor", libres === undefined && className)}>
       {filas.map((f) => {
         const total = Math.max(0, f.total);
-        const usado = Math.min(Math.max(0, f.usado), total);
+        // Las celdas se llenan hasta el tope, pero la cifra es la REAL: si se usó
+        // por encima del límite, «17/15» es la verdad y «15/15» la escondería.
+        const real = Math.max(0, f.usado);
+        const usado = Math.min(real, total);
         const celdas = Math.min(total, 40);
         const llenas = total > 0 ? Math.round((usado / total) * celdas) : 0;
         return (
           <div key={f.etiqueta} style={{ display: "contents" }}>
-            <span className="lb">{f.etiqueta} <b>{usado}/{total}</b></span>
-            <div className="k-celdas" role="img" aria-label={`${f.etiqueta}: ${usado} de ${total} usadas`}
+            <span className="lb">{f.etiqueta} <b>{real}/{total}</b></span>
+            <div className="k-celdas" role="img" aria-label={`${f.etiqueta}: ${real} de ${total} usadas`}
               style={{ gridTemplateColumns: `repeat(${Math.max(celdas, 1)}, minmax(0, 1fr))` }}>
               {Array.from({ length: celdas }, (_, i) => <i key={i} className={i < llenas ? undefined : "v"} />)}
             </div>

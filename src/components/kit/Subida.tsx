@@ -88,7 +88,12 @@ export function FilaArchivo({
   nombre, tipo, detalle, estado, progreso, mensaje, alQuitar, etiquetaQuitar,
 }: {
   nombre: string; tipo?: string; detalle?: ReactNode;
-  estado: "listo" | "subiendo" | "espera" | "error";
+  /**
+   * "anadido": el archivo está elegido pero todavía NO se ha subido (se sube al
+   * enviar el formulario). No usar "listo" para eso: «Listo» con la barra llena
+   * afirmaría una subida que aún no ocurrió.
+   */
+  estado: "anadido" | "listo" | "subiendo" | "espera" | "error";
   /** 0–100, solo con estado "subiendo". */
   progreso?: number;
   mensaje?: ReactNode;
@@ -100,6 +105,7 @@ export function FilaArchivo({
     estado === "listo" ? <><i className="k-cuadro ok" aria-hidden="true" />Listo</>
     : estado === "error" ? <><i className="k-cuadro venc" aria-hidden="true" />Error</>
     : estado === "espera" ? <><i className="k-cuadro pend" aria-hidden="true" />En espera</>
+    : estado === "anadido" ? <><i className="k-cuadro pend" aria-hidden="true" />Por subir</>
     : <>Subiendo · {pct}&nbsp;%</>;
   return (
     <li className={unir("k-arch", estado === "error" && "error")}>
@@ -108,7 +114,7 @@ export function FilaArchivo({
         <b>{nombre}</b>
         {estado === "error" && mensaje ? <span>{mensaje}</span> : detalle && <span>{detalle}</span>}
       </span>
-      <BarraProgreso valor={estado === "error" ? 0 : pct} etiquetaAccesible={`Progreso de ${nombre}`} decorativa={estado !== "subiendo"} />
+      <BarraProgreso valor={estado === "error" || estado === "anadido" ? 0 : pct} etiquetaAccesible={`Progreso de ${nombre}`} decorativa={estado !== "subiendo"} />
       <span className={unir("est", estado === "listo" && "ok")} aria-live={estado === "subiendo" ? "polite" : undefined}>{est}</span>
       {alQuitar ? (
         <button type="button" className="x" onClick={alQuitar} aria-label={etiquetaQuitar ?? `Quitar ${nombre}`} title={etiquetaQuitar ?? `Quitar ${nombre}`}>

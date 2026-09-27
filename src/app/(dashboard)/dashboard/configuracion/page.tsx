@@ -152,13 +152,20 @@ const CSS_CONFIGURACION = `
 .cfg-color input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 0; }
 .cfg-color input[type="color"]::-moz-color-swatch { border: 0; border-radius: 0; }
 .cfg-color .k-in { flex: none; width: 10em; font-family: var(--f-mono); }
+/* Sin color válido la muestra va achurada: no aparenta un color ya elegido. */
+.cfg-muestra { position: relative; display: inline-flex; flex: none; }
+.cfg-muestra.vacia::after { content: ""; position: absolute; inset: 4px; pointer-events: none;
+  background: repeating-linear-gradient(45deg, var(--ink-4) 0 1.5px, var(--surface-1) 1.5px 7px); }
 
 .cfg-prev { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .cfg-lam { margin: 0; min-width: 0; }
 .cfg-lam > div { position: relative; display: grid; place-items: center; min-height: 128px; padding: 24px 14px 18px;
   border: 2px solid var(--rule); overflow: hidden; }
-.cfg-lam.papel > div { background: var(--on-neg-area); color: var(--neg-area); }
-.cfg-lam.tinta > div { background: var(--neg-area); color: var(--on-neg-area); }
+/* Superficies reales, fijas en ambos temas: el PDF es papel blanco y el portal
+   pinta la cabecera con el color de marca y texto blanco. */
+.cfg-lam.papel > div { background: #fff; color: #4b5563; }
+.cfg-lam.portal > div { color: #fff; }
+.cfg-lam .emp.pdf { font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .cfg-lam > div > i { position: absolute; left: 0; right: 0; top: 0; height: 6px; }
 .cfg-lam img { display: block; max-width: 80%; max-height: 56px; object-fit: contain; }
 .cfg-lam .emp { font-size: 16px; font-weight: 700; line-height: 1.2; text-align: center; text-wrap: balance; overflow-wrap: break-word; hyphens: auto; }
@@ -211,7 +218,9 @@ export default function ConfiguracionPage() {
 
   // Tickets section
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [ticketsLoading, setTicketsLoading] = useState(false);
+  // Empieza en true: la carga arranca al montar, y hasta que responde no se
+  // puede afirmar que no hay tickets.
+  const [ticketsLoading, setTicketsLoading] = useState(true);
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [ticketSubject, setTicketSubject] = useState("");
   const [ticketCategory, setTicketCategory] = useState("general");
@@ -224,7 +233,8 @@ export default function ConfiguracionPage() {
   // Solo presentación: dónde mostrar `saveError` (lo activan tanto guardar como subir
   // el logo), nombre del logo que se está subiendo, formato rechazado al soltar y
   // si el campo de color ya perdió el foco (para no marcar error mientras se escribe).
-  const [errorEn, setErrorEn] = useState<"guardar" | "logo">("guardar");
+  // Dónde se pinta el error de guardado: junto al botón que se pulsó (15.1 o 15.2) o al logo.
+  const [errorEn, setErrorEn] = useState<"guardar" | "guardar-perfil" | "logo">("guardar");
   const [logoNombre, setLogoNombre] = useState("");
   const [logoFormato, setLogoFormato] = useState(false);
   const [colorTocado, setColorTocado] = useState(false);
@@ -325,6 +335,7 @@ export default function ConfiguracionPage() {
       setTicketPriority("normal");
       setTicketContent("");
       setShowTicketForm(false);
+      volverFocoANuevoTicket();
       setTicketSuccess(true);
       setTimeout(() => setTicketSuccess(false), 4000);
       loadTickets();
@@ -344,8 +355,15 @@ export default function ConfiguracionPage() {
     if (ticketSuccess) avisar({ tipo: "ok", titulo: "Ticket creado.", texto: "Nuestro equipo te responderá pronto." });
   }, [ticketSuccess]);
 
-  const guardar = () => {
-    setErrorEn("guardar");
+  const guardar = (origen: "guardar" | "guardar-perfil" = "guardar") => {
+    // PUT /api/profile descarta en silencio un color inválido: si se enviara,
+    // la pantalla diría «Cambios guardados» sin haberlo guardado.
+    if (brandColor.trim() && !HEX.test(brandColor.trim())) {
+      setColorTocado(true);
+      document.getElementById("cfg-color")?.focus();
+      return;
+    }
+    setErrorEn(origen);
     void handleSave();
   };
 
@@ -365,9 +383,13 @@ export default function ConfiguracionPage() {
     void handleLogoUpload(f);
   };
 
+  // Al desmontarse el formulario el foco caía en <body>: se devuelve a «Nuevo ticket».
+  const volverFocoANuevoTicket = () =>
+    requestAnimationFrame(() => document.querySelector<HTMLElement>("[data-nuevo-ticket]")?.focus());
   const cerrarFormulario = () => {
     setShowTicketForm(false);
     setTicketError(null);
+    volverFocoANuevoTicket();
   };
 
   // Valores guardados con el texto de antes (sin tildes) se conservan: solo cambia la etiqueta.
@@ -393,20 +415,36 @@ export default function ConfiguracionPage() {
   const ticketValido = Boolean(ticketSubject.trim() && ticketContent.trim());
   const hayTickets = tickets.length > 0;
 
-  const lamina = (tipo: "papel" | "tinta", pie: string) => (
-    <figure className={`cfg-lam ${tipo}`}>
-      <div>
-        {colorValido && <i aria-hidden="true" style={{ background: brandColor.trim() }} />}
-        {logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt={empresa ? `Logo de ${empresa}` : "Tu logo"} />
-        ) : empresa ? (
-          <span className="emp">{empresa}</span>
+  // Vista previa de las DOS superficies reales donde sale la marca. Sus colores
+  // por defecto son los de esas superficies, no tokens del tema: el encabezado
+  // del PDF (src/lib/documents/pdf-generator.ts: #4338ca en informes, verde en
+  // actas) y la cabecera del portal del residente (src/app/u/[token]/page.tsx: #7c3aed).
+  const colorPdf = colorValido ? brandColor.trim() : "#4338ca";
+  const colorPortal = colorValido ? brandColor.trim() : "#7c3aed";
+  const logo = logoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={logoUrl} alt={empresa ? `Logo de ${empresa}` : "Tu logo"} />
+  ) : null;
+  const laminaPapel = (
+    <figure className="cfg-lam papel">
+      <div style={{ borderBottom: `3px solid ${colorPdf}` }}>
+        {logo}
+        {empresa ? (
+          <span className="emp pdf" style={{ color: colorPdf }}>{empresa}</span>
         ) : (
-          <span className="nada" aria-hidden="true" />
+          !logo && <span className="nada" aria-hidden="true" />
         )}
       </div>
-      <figcaption>{pie}</figcaption>
+      <figcaption>{colorValido ? "Informes y actas (PDF)" : "Informes en PDF (las actas usan verde)"}</figcaption>
+    </figure>
+  );
+  const laminaPortal = (
+    <figure className="cfg-lam portal">
+      <div style={{ background: colorPortal }}>
+        {/* Mismo respaldo que el portal: empresa, si no el nombre, si no «Administración». */}
+        {logo ?? <span className="emp">{empresa || nombreVisible || "Administración"}</span>}
+      </div>
+      <figcaption>Portal de residentes</figcaption>
     </figure>
   );
 
@@ -440,6 +478,7 @@ export default function ConfiguracionPage() {
             {loading ? (
               <Esqueleto variante="bloque" etiquetaAccesible="Cargando tu perfil…" />
             ) : (
+              <>
               <div className="k-r12">
                 <div style={{ gridColumn: "1 / 8" }}>
                   <GrupoCampos titulo="Tus datos">
@@ -503,8 +542,27 @@ export default function ConfiguracionPage() {
                     </div>
                     <p className="cfg-nota">Es tu correo de acceso a SOPH.IA.</p>
                   </Panel>
+                  {/* Flujo real de cambio de clave: /forgot-password envía el enlace. */}
+                  <Panel titulo="Seguridad">
+                    <p className="cfg-nota">Si entras con correo y clave, te enviamos un enlace para cambiarla.</p>
+                    <Boton variante="secundario" tam={40} flecha="avanza" href="/forgot-password">
+                      Cambiar mi clave
+                    </Boton>
+                  </Panel>
                 </aside>
               </div>
+              <div className="cfg-guardar cfg-guardar-perfil">
+                <Boton variante="secundario" onClick={() => guardar("guardar-perfil")} cargando={saving} textoCargando="Guardando…" ancho="movil">
+                  Guardar cambios
+                </Boton>
+                <p className="k-apoyo">Guarda 15.1 y 15.2 a la vez.</p>
+                {saveError && errorEn === "guardar-perfil" && (
+                  <p className="k-err" role="alert">
+                    No pudimos guardar tus cambios. Revisa tu conexión e inténtalo de nuevo.
+                  </p>
+                )}
+              </div>
+              </>
             )}
           </Seccion>
 
@@ -555,18 +613,20 @@ export default function ConfiguracionPage() {
                         error={colorInvalido ? "Escribe el color con seis cifras después de #, por ejemplo #4338CA." : undefined}
                       >
                         <div className="cfg-color">
-                          <input
-                            type="color"
-                            value={colorValido ? brandColor.trim() : "#4338ca"}
-                            onChange={(e) => setBrandColor(e.target.value)}
-                            aria-label="Elegir el color de marca en la paleta"
-                          />
+                          <span className={colorValido ? "cfg-muestra" : "cfg-muestra vacia"}>
+                            <input
+                              type="color"
+                              value={colorValido ? brandColor.trim() : "#4338ca"}
+                              onChange={(e) => setBrandColor(e.target.value)}
+                              aria-label="Elegir el color de marca en la paleta"
+                            />
+                          </span>
                           <Entrada
                             id="cfg-color"
                             value={brandColor}
                             onChange={(e) => setBrandColor(e.target.value)}
                             onBlur={() => setColorTocado(true)}
-                            placeholder="#4338ca"
+                            placeholder="Por ejemplo, #1F6F4A"
                             spellCheck={false}
                             invalido={colorInvalido}
                             aria-describedby={colorInvalido ? "cfg-color-ayuda cfg-color-err" : "cfg-color-ayuda"}
@@ -584,12 +644,12 @@ export default function ConfiguracionPage() {
                   <aside className="cfg-aside" style={{ gridColumn: "9 / 13" }}>
                     <Panel titulo="Vista previa" nota="así se ve tu marca">
                       <div className="cfg-prev">
-                        {lamina("papel", "Sobre papel")}
-                        {lamina("tinta", "Sobre fondo oscuro")}
+                        {laminaPapel}
+                        {laminaPortal}
                       </div>
                       <p className="cfg-nota">
                         {logoUrl
-                          ? "Revisa que tu logo se lea bien sobre los dos fondos."
+                          ? "Revisa que tu logo se lea bien sobre el papel y sobre el color del portal."
                           : empresa
                             ? `Sin logo: tus documentos llevarán el nombre de la empresa, «${empresa}».`
                             : "Sin logo: escribe el nombre de tu empresa en 15.1 para que tus documentos lo lleven."}
@@ -599,7 +659,7 @@ export default function ConfiguracionPage() {
                 </div>
 
                 <div className="cfg-guardar">
-                  <Boton onClick={guardar} cargando={saving} textoCargando="Guardando…" ancho="movil">
+                  <Boton onClick={() => guardar()} cargando={saving} textoCargando="Guardando…" ancho="movil">
                     Guardar cambios
                   </Boton>
                   <p className="k-apoyo">Guarda tu perfil (15.1) y la marca de tus documentos (15.2).</p>
@@ -635,7 +695,7 @@ export default function ConfiguracionPage() {
             nota="tus tickets"
             acciones={
               !showTicketForm && (ticketsLoading || hayTickets) ? (
-                <Boton tam={40} flecha="crea" onClick={() => setShowTicketForm(true)}>Nuevo ticket</Boton>
+                <Boton tam={40} flecha="crea" onClick={() => setShowTicketForm(true)} data-nuevo-ticket="">Nuevo ticket</Boton>
               ) : undefined
             }
           >
@@ -646,6 +706,7 @@ export default function ConfiguracionPage() {
                     <Campo id="cfg-tk-asunto" etiqueta="Asunto">
                       <Entrada
                         id="cfg-tk-asunto"
+                        autoFocus
                         value={ticketSubject}
                         onChange={(e) => setTicketSubject(e.target.value)}
                         placeholder="Describe brevemente tu problema"

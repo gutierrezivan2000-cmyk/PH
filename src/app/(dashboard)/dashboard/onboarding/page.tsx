@@ -73,6 +73,7 @@ const CSS_ONB = `
 .onb-doc + .onb-doc { margin-top: 8px; }
 .onb-doc .k-archivos { margin-top: 0; }
 .onb-avisos { display: grid; gap: 12px; margin-top: 28px; }
+.onb-resumen-movil { display: none; }
 
 .onb-filas { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--rule); }
 .onb-fila { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; padding: 18px 0 20px; border-bottom: 1px solid var(--line); }
@@ -91,6 +92,8 @@ const CSS_ONB = `
   .onb-hero { margin-bottom: 28px; }
   .onb-lead { font-size: 16px; }
   .onb-ayuda { margin-top: 40px; }
+  .onb-resumen-movil { display: block; margin-top: 32px; }
+  .onb-resumen-escritorio { display: none; }
   .onb-nota { max-width: none; }
   .onb-fila { grid-template-columns: 28px minmax(0, 1fr); column-gap: 8px; }
   .onb-fila h2 { font-size: 24px; }
@@ -217,7 +220,9 @@ export default function OnboardingPage() {
           }
 
           if (failedDocs.length > 0) {
-            setDocWarning(`La propiedad se guardó, pero falló la subida de ${failedDocs.join(", ")}. Podrás subirlo después desde Propiedades.`);
+            // Solo la lista de archivos: el texto se arma al pintarlo (y sigue
+            // sirviendo de bandera para no reintentar la subida).
+            setDocWarning(failedDocs.join(", "));
             setLoading(false);
             return;
           }
@@ -275,11 +280,13 @@ export default function OnboardingPage() {
         ? (skipped || !propiedad ? "Omitida" : nombreCorto(propiedad))
         : step === 2 ? "Nombre, dirección y unidades" : undefined,
       alVolver: () => setStep(2),
+      omitido: skipped || !propiedad,
     },
     {
       nombre: NOMBRES_PASOS[2],
       valor: step > 3 ? (skipped ? "Omitido" : textoDocs) : step === 3 ? "Manual y reglamento · opcional" : "Opcional",
       alVolver: skipped ? undefined : () => setStep(3),
+      omitido: skipped,
     },
     { nombre: NOMBRES_PASOS[3], valor: step === 4 ? "Resumen y entrada" : undefined },
   ];
@@ -305,15 +312,48 @@ export default function OnboardingPage() {
     "Al pulsar «Ir al inicio» guardamos tu cuenta. Estas son las tres entradas del índice que más vas a usar.",
   ];
 
-  // docWarning llega como una frase compuesta: la primera oración va en negrita (SPEC §f.14).
-  const partirAviso = (t: string) => {
-    const i = t.indexOf(". ");
-    return i === -1 ? { titulo: t, texto: undefined } : { titulo: t.slice(0, i + 1), texto: t.slice(i + 2) };
-  };
-
   // Agentes activos y en preparación, de la misma lista que usa la app (src/lib/agents.ts).
   const activos = INCLUDED_AGENT_IDS;
+  const nombresActivos = activos
+    .map((id) => AGENTS[id].name)
+    .reduce((acc, n, i, arr) => (i === 0 ? n : `${acc}${i === arr.length - 1 ? " y " : ", "}${n}`), "");
   const enPreparacion = COMING_SOON_AGENT_IDS.length;
+
+  const panelResumen = (
+    <Panel titulo="Resumen" nota="lo que guardaremos" nivel={2}>
+          <Resumen
+            etiquetaAccesible="Lo que guardaremos"
+            filas={[
+              { etiqueta: "Tu perfil", valor: <>{name.trim()}{etiquetaCargo && <> · {etiquetaCargo}</>}</> },
+              ...(company.trim() ? [{ etiqueta: "Empresa", valor: company.trim() }] : []),
+              ...(phone.trim() || city.trim()
+                ? [{ etiqueta: "Contacto", valor: [phone.trim(), city.trim()].filter(Boolean).join(" · ") }]
+                : []),
+              {
+                etiqueta: "Copropiedad",
+                valor: skipped || !propiedad
+                  ? <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>Omitida por ahora</span>
+                  : (
+                    <>
+                      {propiedad}
+                      {(propCity.trim() || propUnits.trim()) && (
+                        <span style={{ display: "block", fontWeight: 400, fontSize: 14, color: "var(--ink-3)" }}>
+                          {[propCity.trim(), propUnits.trim() && `${propUnits.trim()} unidades`].filter(Boolean).join(" · ")}
+                        </span>
+                      )}
+                    </>
+                  ),
+              },
+              {
+                etiqueta: "Documentos",
+                valor: skipped || nDocs === 0
+                  ? <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>Ninguno por ahora</span>
+                  : docsElegidos.map((f) => <span key={f.name} style={{ display: "block" }}>{f.name}</span>),
+              },
+            ]}
+          />
+        </Panel>
+  );
 
   return (
     <div className="onb" data-onb="">
@@ -535,8 +575,9 @@ export default function OnboardingPage() {
                   <aside className="onb-ayuda" aria-label="Ayuda del paso 2">
                     <Panel titulo="Por qué la pedimos" nivel={2}>
                       <p>
-                        Con tu copropiedad, SOPH.IA arma los informes de cada mes, y Themis y Chronos responden con su
-                        contexto: nombre, dirección, ciudad y número de unidades.
+                        Con tu copropiedad, SOPH.IA arma los informes de cada mes, y {nombresActivos}{" "}
+                        {activos.length === 1 ? "responde" : "responden"} con su contexto: nombre, dirección, ciudad y
+                        número de unidades.
                       </p>
                       <p>¿Administras varias? Agrega aquí una; las demás, después desde Propiedades.</p>
                     </Panel>
@@ -555,7 +596,7 @@ export default function OnboardingPage() {
                             <FilaArchivo
                               nombre={manualFile.name}
                               detalle={<>{pesoLegible(manualFile.size)} · se sube al terminar</>}
-                              estado="espera"
+                              estado="anadido"
                               alQuitar={() => setManualFile(null)}
                               etiquetaQuitar={`Quitar ${manualFile.name}`}
                             />
@@ -580,7 +621,7 @@ export default function OnboardingPage() {
                             <FilaArchivo
                               nombre={reglamentoFile.name}
                               detalle={<>{pesoLegible(reglamentoFile.size)} · se sube al terminar</>}
-                              estado="espera"
+                              estado="anadido"
                               alQuitar={() => setReglamentoFile(null)}
                               etiquetaQuitar={`Quitar ${reglamentoFile.name}`}
                             />
@@ -687,11 +728,22 @@ export default function OnboardingPage() {
                       </li>
                     </ol>
 
+                    {/* En móvil el resumen va ANTES de «Ir al inicio»: el texto pide
+                        «Revisa y entra», así que lo que se guarda tiene que verse antes
+                        del botón que lo guarda. En escritorio vive en la columna lateral. */}
+                    <div className="onb-resumen-movil">{panelResumen}</div>
+
                     {(error || docWarning) && (
                       <div className="onb-avisos">
-                        {error && <Aviso tipo="error" enLinea {...partirAviso(error)} />}
+                        {/* Error en línea (SPEC §f.3): ■ + mensaje junto a la acción. */}
+                        {error && <p className="k-err" role="alert">{error}</p>}
+                        {/* No es un fallo total (la cuenta y la propiedad sí se guardaron): aviso informativo. */}
                         {docWarning && (
-                          <Aviso tipo="error" enLinea {...partirAviso(docWarning)} />
+                          <Aviso
+                            enLinea
+                            titulo="La propiedad se guardó, pero falló la subida de documentos."
+                            texto={<>No se pudo subir: {docWarning}. Podrás subirlos después desde Propiedades.</>}
+                          />
                         )}
                       </div>
                     )}
@@ -712,40 +764,8 @@ export default function OnboardingPage() {
                     </NavPasos>
                   </div>
 
-                  <aside className="onb-ayuda" aria-label="Resumen de tu configuración">
-                    <Panel titulo="Resumen" nota="lo que guardaremos" nivel={2}>
-                      <Resumen
-                        etiquetaAccesible="Lo que guardaremos"
-                        filas={[
-                          { etiqueta: "Tu perfil", valor: <>{name.trim()}{etiquetaCargo && <> · {etiquetaCargo}</>}</> },
-                          ...(company.trim() ? [{ etiqueta: "Empresa", valor: company.trim() }] : []),
-                          ...(phone.trim() || city.trim()
-                            ? [{ etiqueta: "Contacto", valor: [phone.trim(), city.trim()].filter(Boolean).join(" · ") }]
-                            : []),
-                          {
-                            etiqueta: "Copropiedad",
-                            valor: skipped || !propiedad
-                              ? <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>Omitida por ahora</span>
-                              : (
-                                <>
-                                  {propiedad}
-                                  {(propCity.trim() || propUnits.trim()) && (
-                                    <span style={{ display: "block", fontWeight: 400, fontSize: 14, color: "var(--ink-3)" }}>
-                                      {[propCity.trim(), propUnits.trim() && `${propUnits.trim()} unidades`].filter(Boolean).join(" · ")}
-                                    </span>
-                                  )}
-                                </>
-                              ),
-                          },
-                          {
-                            etiqueta: "Documentos",
-                            valor: skipped || nDocs === 0
-                              ? <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>Ninguno por ahora</span>
-                              : docsElegidos.map((f) => <span key={f.name} style={{ display: "block" }}>{f.name}</span>),
-                          },
-                        ]}
-                      />
-                    </Panel>
+                  <aside className="onb-ayuda onb-resumen-escritorio" aria-label="Resumen de tu configuración">
+                    {panelResumen}
                   </aside>
                 </>
               )}

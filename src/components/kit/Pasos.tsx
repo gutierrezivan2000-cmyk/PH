@@ -10,6 +10,11 @@ export type PasoAsistente = {
   href?: string;
   /** Pasos hechos que vuelven con un handler en vez de una ruta. */
   alVolver?: () => void;
+  /**
+   * Paso que el usuario SALTÓ: ya quedó atrás pero no se hizo. Se pinta sin ✓ y
+   * se anuncia «(omitido)», no «(hecho)», para no afirmar algo que no ocurrió.
+   */
+  omitido?: boolean;
 };
 
 /**
@@ -40,6 +45,7 @@ export function Pasos({ pasos, actual, etiquetaAccesible = "Pasos del asistente"
       {pasos.map((p, i) => {
         const num = i + 1;
         const estado = num < actual ? "hecho" : num === actual ? "actual" : "futuro";
+        const omitido = estado === "hecho" && !!p.omitido;
         const cuerpo = (
           <>
             <b aria-hidden="true">{num}</b>
@@ -47,13 +53,13 @@ export function Pasos({ pasos, actual, etiquetaAccesible = "Pasos del asistente"
               <span className="k-sr">Paso {num}: </span>
               {p.nombre}
               {estado === "actual" && <span className="k-sr"> (paso actual)</span>}
-              {estado === "hecho" && <span className="k-sr"> (hecho)</span>}
+              {estado === "hecho" && <span className="k-sr">{omitido ? " (omitido)" : " (hecho)"}</span>}
               {p.valor && <small>{p.valor}</small>}
             </span>
           </>
         );
         return (
-          <li key={i} className={unir("k-paso", estado === "hecho" && "hecho", estado === "futuro" && "futuro")}
+          <li key={i} className={unir("k-paso", estado === "hecho" && "hecho", omitido && "omitido", estado === "futuro" && "futuro")}
             aria-current={estado === "actual" ? "step" : undefined}
             style={{ gridColumn: `span ${estado === "actual" ? anchoActual : 2}` }}>
             {estado === "hecho" && p.href ? (
