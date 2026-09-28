@@ -1162,6 +1162,8 @@ select.ui-input:focus-visible {
   .k-campo { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border: 1.5px solid var(--rule); background: var(--surface-0); cursor: text; }
   .k-campo > svg { width: 16px; height: 16px; flex: none; color: var(--ink-2); }
   .k-campo input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: 400 15px/1.3 var(--f-sans); color: var(--ink); text-overflow: ellipsis; }
+  /* La «×» nativa de input[type=search] salía azul en tema claro y ajena al diseño. */
+  .k-campo input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
   .k-campo input::placeholder { color: var(--ink-3); opacity: 1; }
   .k-campo:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   .k-campo kbd { font: 500 12px/1 var(--f-mono); border: 1px solid var(--line); padding: 3px 6px; color: var(--ink-3); flex: none; }
@@ -1552,7 +1554,7 @@ select.ui-input:focus-visible {
   .k-msg-a > .cuerpo { min-width: 0; }
   .k-msg-a .acc { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
   /* Contenido markdown de una respuesta (RespuestaMarkdown): lectura de 17 px, tablas del kit. */
-  .k-md { font-size: 17px; line-height: 1.5; }
+  .k-md { position: relative; font-size: 17px; line-height: 1.5; }
   .k-md > * { max-width: 68ch; }
   .k-md p { margin: 0 0 14px; }
   .k-md :is(ul, ol) { margin: 0 0 14px; padding-left: 22px; }
@@ -1574,7 +1576,8 @@ select.ui-input:focus-visible {
   .k-notas { list-style: none; margin: 0 0 16px; padding: 10px 0 0; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.5; color: var(--ink-2); }
   .k-notas sup { font-size: 12px; font-weight: 600; margin-right: 6px; }
   .k-redactor { border: 2px solid var(--rule); display: grid; grid-template-columns: minmax(0, 1fr) auto; background: var(--surface-0); }
-  .k-redactor:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+  /* Solo con el foco en el texto: con focus-within se sumaba al anillo propio de Adjuntar/Grabar. */
+  .k-redactor:has(textarea:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
   .k-redactor textarea { grid-column: 1 / 3; resize: none; border: 0; outline: 0; background: transparent; padding: 16px 16px 8px; min-height: 76px; font: 400 17px/1.4 var(--f-sans); color: var(--ink); }
   .k-redactor textarea::placeholder { color: var(--ink-3); opacity: 1; }
   .k-redactor .herr { display: flex; gap: 16px; align-items: center; padding: 0 16px 10px; font-size: 14px; color: var(--ink-2); flex-wrap: wrap; min-width: 0; }
@@ -1781,6 +1784,7 @@ select.ui-input:focus-visible {
     .k-colofon a { display: inline-block; padding: 12px 0; }
     .k-btn.k-movil-ancho { width: 100%; }
     .k-btn.k-40 { min-height: 44px; }
+    .k-ic.k-40 { width: 44px; height: 44px; }
     .k-ver { min-height: 44px; }
     .k-bt { min-height: 44px; }
     .k-urgencias { grid-template-columns: 1.3fr 1fr .8fr; column-gap: 12px; }
