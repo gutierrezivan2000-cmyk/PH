@@ -59,6 +59,8 @@ interface Generacion {
   year: number;
   createdAt: string;
   outputFiles?: Record<string, string> | null;
+  /** La API lo devuelve (lo usa Generar); el nombre solo sirve de respaldo. */
+  propertyId?: string | null;
   property?: { name: string } | null;
 }
 
@@ -103,6 +105,8 @@ const estilos = (
     .prop-doc .k-arch { grid-template-columns: 52px minmax(0, 1fr) 44px; grid-template-areas: "tipo nom x"; }
     .prop-doc .k-arch > .k-barra, .prop-doc .k-arch > .est { display: none; }
     .prop-nota { margin: 16px 0 0; font-size: 14px; color: var(--ink-3); max-width: 68ch; }
+    .prop-doc-falla { display: grid; justify-items: start; gap: 10px; padding-top: 12px; border-top: 2px solid var(--rule); }
+    .prop-doc-falla p { margin: 0; }
     @media (max-width: 860px) { .prop-col-docs { margin-top: 36px; } .prop-col-docs + .prop-col-docs { margin-top: 28px; } }
     @media (max-width: 600px) { .prop-dos { grid-template-columns: minmax(0, 1fr); } }
     @layer components {
@@ -143,9 +147,11 @@ export default function PropiedadesPage() {
   const [borrarPropiedad, setBorrarPropiedad] = useState<Property | null>(null);
   const [eliminando, setEliminando] = useState(false);
   const [borrarDoc, setBorrarDoc] = useState<{ propiedad: Property; doc: PropertyDocument; etiqueta: string } | null>(null);
+  const [quitandoDoc, setQuitandoDoc] = useState(false);
 
   // «Último informe»: la misma respuesta de /api/generations que ya pide el armazón (caché compartida).
-  const [generaciones, setGeneraciones] = useState<Generacion[] | null>(null);
+  // undefined = consultando; null = no se pudo consultar.
+  const [generaciones, setGeneraciones] = useState<Generacion[] | null | undefined>(undefined);
 
   const refNueva = useRef<HTMLElement>(null);
   const refEditar = useRef<HTMLElement>(null);
@@ -173,7 +179,7 @@ export default function PropiedadesPage() {
   useEffect(() => {
     fetchProperties();
     pedirJSON<unknown>(URL_GENERACIONES).then((data) => {
-      if (Array.isArray(data)) setGeneraciones(data as Generacion[]);
+      setGeneraciones(Array.isArray(data) ? (data as Generacion[]) : null);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -245,23 +251,31 @@ export default function PropiedadesPage() {
       }
       await fetchDocs(propertyId);
     } catch {
-      avisar({ tipo: "error", titulo: "No se pudo subir el documento.", texto: "Revisa tu conexión e inténtalo de nuevo." });
+      // No se afirma la causa (red, permisos, límite del almacenamiento): solo lo que pasó.
+      avisar({ tipo: "error", titulo: "No se pudo subir el documento.", texto: `«${file.name}» no se guardó. Inténtalo de nuevo en un momento.` });
     } finally {
       setUploadingDoc(null);
     }
   };
 
-  const handleDocDelete = async (propertyId: string, docId: string) => {
+  // Solo se quita de la lista si la API lo borró: el demo (solo lectura) y cualquier error
+  // responden sin borrar, y la pantalla marcaba «Falta» un documento que seguía guardado.
+  const handleDocDelete = async (propertyId: string, docId: string): Promise<{ ok: boolean; error?: string }> => {
     try {
-      await fetch(`/api/properties/${propertyId}/documents?docId=${docId}`, {
+      const res = await fetch(`/api/properties/${propertyId}/documents?docId=${docId}`, {
         method: "DELETE",
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        return { ok: false, error: typeof data?.error === "string" ? data.error : undefined };
+      }
       setDocs((prev) => ({
         ...prev,
         [propertyId]: (prev[propertyId] || []).filter((d) => d.id !== docId),
       }));
+      return { ok: true };
     } catch {
-      // ignore
+      return { ok: false };
     }
   };
 
@@ -373,10 +387,25 @@ export default function PropiedadesPage() {
     else avisar({ tipo: "error", titulo: "No se pudo eliminar la propiedad.", texto: nombre });
   };
 
-  /* ── último informe por copropiedad (/api/generations se cruza por nombre, como en Inicio) ── */
+  const confirmarQuitarDoc = async () => {
+    if (!borrarDoc) return;
+    const { propiedad, doc } = borrarDoc;
+    setQuitandoDoc(true);
+    const r = await handleDocDelete(propiedad.id, doc.id);
+    setQuitandoDoc(false);
+    setBorrarDoc(null);
+    if (r.ok) avisar({ tipo: "ok", titulo: "Documento quitado.", texto: `«${doc.name}» · ${nombreCorto(propiedad.name)}` });
+    else avisar({ tipo: "error", titulo: "No se pudo quitar el documento.", texto: r.error ?? `«${doc.name}» sigue guardado. Inténtalo de nuevo en un momento.` });
+  };
+
+  /* ── último informe por copropiedad: /api/generations se cruza por propertyId (el nombre
+        solo si la respuesta no lo trae: dos copropiedades pueden llamarse igual) ── */
   const ultimoInforme = (p: Property) =>
     (generaciones ?? []).find(
-      (g) => g.property?.name === p.name && g.status === "completed" && g.outputFiles?.informeHtml,
+      (g) =>
+        (g.propertyId ? g.propertyId === p.id : g.property?.name === p.name) &&
+        g.status === "completed" &&
+        g.outputFiles?.informeHtml,
     );
   // La API devuelve como mucho 100: si llegan 100 y no aparece, puede haber uno más antiguo.
   const topeGeneraciones = (generaciones?.length ?? 0) >= 100;
@@ -442,15 +471,17 @@ export default function PropiedadesPage() {
       titulo: "Último informe",
       ancho: "minmax(0, 1.6fr)",
       celda: (p) => {
+        if (generaciones === undefined) return <span className="k-meta">Consultando…</span>;
         if (generaciones === null) return <span className="k-meta">Sin dato</span>;
         const g = ultimoInforme(p);
         if (!g) {
           return <span className="k-meta">{topeGeneraciones ? "Ninguno reciente" : "Aún sin informes"}</span>;
         }
+        // «Informe generado el…»: en la ficha móvil no se ve la cabecera «Último informe».
         return (
           <span className="prop-inf">
             <b>{MESES[g.month - 1]?.replace(/^./, (c) => c.toUpperCase())}{NB}{g.year}</b>
-            <span className="k-meta">Generado el {fechaCorta(new Date(g.createdAt))}</span>
+            <span className="k-meta">Informe generado el {fechaCorta(new Date(g.createdAt))}</span>
           </span>
         );
       },
@@ -502,6 +533,8 @@ export default function PropiedadesPage() {
         corto={d.corto}
         nivel={nivel}
         cargando={!docs[p.id] && !docsFallidos[p.id]}
+        fallido={!docs[p.id] && Boolean(docsFallidos[p.id])}
+        alReintentar={() => fetchDocs(p.id)}
         doc={getDocByType(p.id, d.tipo)}
         uploading={uploadingDoc === `${p.id}-${d.tipo}`}
         onUpload={(file) => handleDocUpload(p.id, d.tipo, file)}
@@ -774,21 +807,14 @@ export default function PropiedadesPage() {
       {/* Quitar un documento base. */}
       <Modal
         abierto={Boolean(borrarDoc)}
-        alCerrar={() => setBorrarDoc(null)}
+        alCerrar={() => { if (!quitandoDoc) setBorrarDoc(null); }}
         titulo={`¿Quitar el ${borrarDoc?.etiqueta.toLowerCase() ?? "documento"} de ${borrarDoc ? nombreCorto(borrarDoc.propiedad.name) : ""}?`}
         acciones={
           <>
-            <Boton variante="secundario" onClick={() => setBorrarDoc(null)}>
+            <Boton variante="secundario" onClick={() => setBorrarDoc(null)} disabled={quitandoDoc}>
               Cancelar
             </Boton>
-            <Boton
-              variante="peligro"
-              lleno
-              onClick={() => {
-                if (borrarDoc) handleDocDelete(borrarDoc.propiedad.id, borrarDoc.doc.id);
-                setBorrarDoc(null);
-              }}
-            >
+            <Boton variante="peligro" lleno onClick={confirmarQuitarDoc} cargando={quitandoDoc} textoCargando="Quitando…">
               Quitar documento
             </Boton>
           </>
@@ -808,6 +834,8 @@ function DocumentSlot({
   corto,
   nivel,
   cargando,
+  fallido,
+  alReintentar,
   doc,
   uploading,
   onUpload,
@@ -817,6 +845,9 @@ function DocumentSlot({
   corto: string;
   nivel: 3 | 4;
   cargando: boolean;
+  /** No se pudo consultar la lista: no se sabe si falta (antes decía «Falta»). */
+  fallido: boolean;
+  alReintentar: () => void;
   doc?: PropertyDocument;
   uploading: boolean;
   onUpload: (file: File) => void;
@@ -831,7 +862,9 @@ function DocumentSlot({
           <Estado tipo="enCurso" tamLetra={14}>Subiendo</Estado>
         ) : doc ? (
           <Estado tipo="ok" tamLetra={14}>Subido</Estado>
-        ) : cargando ? null : (
+        ) : cargando ? null : fallido ? (
+          <Estado tipo="falta" tamLetra={14}>Sin dato</Estado>
+        ) : (
           <Estado tipo="pendiente" tamLetra={14}>Falta</Estado>
         )}
       </div>
@@ -857,6 +890,13 @@ function DocumentSlot({
         </ListaArchivos>
       ) : cargando ? (
         <span className="k-meta">Consultando…</span>
+      ) : fallido ? (
+        <div className="prop-doc-falla">
+          <p className="k-apoyo">No pudimos consultar si ya está subido.</p>
+          <Boton variante="secundario" tam={40} onClick={alReintentar}>
+            Reintentar
+          </Boton>
+        </div>
       ) : (
         <ZonaSubida
           compacta

@@ -42,6 +42,7 @@ const CSS_RESPUESTA = `
 .k-md h4 { margin: 18px 0 6px; font-size: 17px; font-weight: 700; font-stretch: 100%; text-transform: none; letter-spacing: 0; line-height: 1.3; }
 .k-md > :first-child { margin-top: 0; }
 .k-md li > p { margin: 0; }
+.k-md img { max-width: 100%; height: auto; }
 .k-md pre { margin: 0 0 14px; padding: 12px 14px; max-width: 100%; overflow-x: auto; background: var(--surface-2); border-left: 4px solid var(--rule); }
 .k-md pre code { padding: 0; background: none; font-size: 14px; line-height: 1.45; }
 .k-md sup a { font-weight: 600; text-decoration: none; }

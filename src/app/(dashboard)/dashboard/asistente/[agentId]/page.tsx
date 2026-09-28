@@ -16,6 +16,7 @@ import {
   AGENTES,
   AreaTexto,
   Aviso,
+  avisar,
   Boton,
   BotonIcono,
   Buscador,
@@ -136,7 +137,7 @@ function fechaHilo(iso: string): string {
 
 /** Peso de un archivo como se escribe en español: coma decimal y espacio fijo («8,7&nbsp;KB»). */
 function peso(bytes: number): string {
-  return formatoTamano(bytes).replace(".", ",").replace(" ", " ");
+  return formatoTamano(bytes).replace(".", ",").replace(" ", "\u00a0");
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -222,6 +223,7 @@ a.asis-ficha { border-color: var(--rule); }
 a.asis-ficha:hover { background: var(--hl); }
 .asis-escribe .cuerpo { display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 56px; }
 .asis-escribe .asis-herr { margin: 0; font-size: 14px; color: var(--ink-2); }
+.asis-herr-en { margin: 0 0 14px; min-height: 24px; color: var(--ink-2); }
 .asis-bloq { max-width: 560px; margin-top: 4px; padding: 16px 18px 18px; border: 2px solid var(--rule); }
 .asis-bloq h3 { margin: 0; font: 800 22px/1.05 var(--f-sans); font-stretch: 75%; letter-spacing: -.01em; }
 .asis-bloq p { margin: 8px 0 14px; font-size: 15px; line-height: 1.45; color: var(--ink-2); }
@@ -917,12 +919,24 @@ export default function AgentPage() {
     if (chatId !== activeChatId) setExportError("");
   };
 
+  // Tras confirmar en el modal (kit §5.6: «tras hacerlo, avisar()»). La respuesta
+  // de la API se mira: si no se borró —el demo es de solo lectura (403) o falló
+  // el servidor— la conversación ya no desaparece de la lista como si se hubiera
+  // borrado (volvía al recargar); se dice por qué.
   const deleteChat = async (chatId: string) => {
     try {
-      await fetch(`/api/agents/${agentId}/chats?chatId=${chatId}`, { method: "DELETE" });
+      const res = await fetch(`/api/agents/${agentId}/chats?chatId=${chatId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        avisar({ tipo: "error", titulo: "No se pudo eliminar la conversación.", texto: data?.error || undefined });
+        return;
+      }
       setChats((prev) => prev.filter((c) => c.id !== chatId));
       if (activeChatId === chatId) { setActiveChatId(null); setMessages([]); setExportError(""); }
-    } catch { /* ignore */ }
+      avisar({ tipo: "ok", titulo: "Conversación eliminada." });
+    } catch {
+      avisar({ tipo: "error", titulo: "No se pudo eliminar la conversación.", texto: "Revisa tu conexión e inténtalo de nuevo." });
+    }
   };
 
   const exportChat = async (format: "txt" | "pdf") => {
@@ -1331,6 +1345,20 @@ export default function AgentPage() {
                     >
                       {msg.content ? <RespuestaMarkdown>{msg.content}</RespuestaMarkdown> : null}
                       {fichas(msg, true)}
+                      {/* El servidor avisa de la herramienta DESPUÉS del texto con que
+                          el agente la anuncia: con la respuesta ya empezada, el aviso
+                          solo cabía en «escribiendo…» (oculto) y la espera del archivo
+                          quedaba muda. Va al pie de la respuesta en curso. */}
+                      {isLoading && herramientaEnCurso && msg.id === messages[messages.length - 1]?.id && (
+                        <p className="k-escribe asis-herr-en" role="status">
+                          <span aria-hidden="true">
+                            <i />
+                            <i />
+                            <i />
+                          </span>
+                          {herramientaEnCurso}
+                        </p>
+                      )}
                     </RespuestaAgente>
                   );
                 })}

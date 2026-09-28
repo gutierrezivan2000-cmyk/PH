@@ -84,6 +84,16 @@ function plural(n: number, uno: string, varios: string) {
   return `${n} ${n === 1 ? uno : varios}`;
 }
 
+/**
+ * Resultado de una acción como aviso del kit (SPEC §f.14): primera frase en negrita
+ * y el resto como texto. «Número de WhatsApp guardado. Ya aparece en…» →
+ * titulo «Número de WhatsApp guardado.» + texto «Ya aparece en…».
+ */
+function avisarResultado(m: { ok: boolean; text: string }) {
+  const partes = m.text.match(/^(.+?[.!?])\s+(?=[A-ZÁÉÍÓÚÑ¿¡«])([\s\S]+)$/);
+  avisar({ tipo: m.ok ? "ok" : "error", titulo: partes ? partes[1] : m.text, texto: partes ? partes[2] : undefined });
+}
+
 export default function ResidentesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState("");
@@ -118,6 +128,8 @@ export default function ResidentesPage() {
   const [bulkText, setBulkText] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkMsg, setBulkMsg] = useState("");
+  // Solo presentación: el mensaje del alta a mano se pinta como error (■ naranja) o como resultado.
+  const [bulkErr, setBulkErr] = useState(false);
 
   const [showImport, setShowImport] = useState(false);
 
@@ -128,12 +140,21 @@ export default function ResidentesPage() {
   const [payKey, setPayKey] = useState("");
   const [payTest, setPayTest] = useState(true);
   const [paySaving, setPaySaving] = useState(false);
+  // Solo presentación: mientras no llega (o si falla) /api/pagos/config no se afirma «Sin configurar».
+  const [payConsulta, setPayConsulta] = useState<"cargando" | "lista" | "error">("cargando");
 
   // Presentación de la tabla: filtro, búsqueda, selección y confirmaciones (estado local).
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [consulta, setConsulta] = useState("");
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [confirmar, setConfirmar] = useState<Confirmacion | null>(null);
+
+  // El resultado de cada acción sale como aviso del kit (abajo a la derecha; errores hasta
+  // cerrarlos). Un mensaje fijo encima de la tabla no se veía al actuar desde una fila
+  // lejana ni al guardar en «Ajustes del portal», que está al final de la página.
+  useEffect(() => {
+    if (msg) avisarResultado(msg);
+  }, [msg]);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -146,9 +167,12 @@ export default function ResidentesPage() {
           setPayCustId(d.pCustId || "");
           setPayKey(d.pKeyMasked || "");
           setPayTest(d.test !== false);
+          setPayConsulta("lista");
+        } else {
+          setPayConsulta("error");
         }
       })
-      .catch(() => {});
+      .catch(() => setPayConsulta("error"));
   }, []);
 
   async function savePayConfig() {
@@ -188,15 +212,18 @@ export default function ResidentesPage() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
+        setBulkErr(true);
         setBulkMsg(data?.error || "No se pudo agregar.");
         return;
       }
+      setBulkErr(false);
       setBulkMsg(
         `${data.created} agregadas${data.skipped ? ` · ${data.skipped} omitidas (duplicadas)` : ""}`
       );
       setBulkText("");
       await load(propertyId);
     } catch {
+      setBulkErr(true);
       setBulkMsg("Error de red.");
     } finally {
       setBulkBusy(false);
@@ -403,34 +430,53 @@ export default function ResidentesPage() {
    * Barra de lote: repite en bucle las MISMAS llamadas por unidad que ya usan las
    * filas (POST /api/portal/send con unitId, POST/PATCH /api/portal/tokens) y da un
    * solo resultado al final. La selección es estado local.
+   * `efecto` lee cuántas unidades cambió DE VERDAD cada respuesta (`sent` / `created`):
+   * una respuesta 200 puede no haber enviado ni generado nada (el demo responde 0).
+   * Si alguna falla, se cita el primer motivo que da la API (p. ej. la cuota de correos).
    */
   async function enLote(
     ids: string[],
     llamada: (unitId: string) => Promise<Response>,
     textos: { hecho: (n: number) => string; fallo: string },
+    efecto?: (data: { sent?: unknown; created?: unknown } | null) => number | undefined,
   ) {
     if (!ids.length) return;
     setBusy(true);
     setMsg(null);
-    let ok = 0;
+    let hechas = 0;
+    let fallos = 0;
+    let motivo = "";
     for (const id of ids) {
       try {
         const res = await llamada(id);
-        if (res.ok) ok++;
+        const data = await res.json().catch(() => null);
+        if (res.ok) hechas += efecto?.(data) ?? 1;
+        else {
+          fallos++;
+          if (!motivo && typeof data?.error === "string") motivo = data.error;
+        }
       } catch {
-        /* se cuenta como fallo */
+        fallos++;
       }
     }
-    const fallos = ids.length - ok;
+    // Con fallos, el aviso abre con el fallo (va en negrita) y sigue con el motivo y lo que sí se hizo.
+    const causa = motivo && !/[.!?]$/.test(motivo.trim()) ? `${motivo.trim()}.` : motivo.trim();
     setMsg(
       fallos === 0
-        ? { ok: true, text: textos.hecho(ok) }
-        : { ok: false, text: `${textos.hecho(ok)} ${textos.fallo} ${plural(fallos, "unidad", "unidades")}.` },
+        ? { ok: true, text: textos.hecho(hechas) }
+        : {
+            ok: false,
+            text: [`${textos.fallo} ${plural(fallos, "unidad", "unidades")}.`, causa, hechas > 0 ? textos.hecho(hechas) : ""]
+              .filter(Boolean)
+              .join(" "),
+          },
     );
     setSel(new Set());
     await load(propertyId);
     setBusy(false);
   }
+
+  const cifra = (v: unknown) => (typeof v === "number" ? v : undefined);
 
   const postJSON = (url: string, method: string, body: unknown) =>
     fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -439,13 +485,13 @@ export default function ResidentesPage() {
     return enLote(ids, (unitId) => postJSON("/api/portal/send", "POST", { propertyId, unitId }), {
       hecho: (n) => `Enlace enviado por correo a ${plural(n, "unidad", "unidades")}.`,
       fallo: "No se pudo enviar a",
-    });
+    }, (d) => cifra(d?.sent));
   }
   function generateSelection(ids: string[]) {
     return enLote(ids, (unitId) => postJSON("/api/portal/tokens", "POST", { propertyId, unitId }), {
       hecho: (n) => `Enlace generado para ${plural(n, "unidad", "unidades")}.`,
       fallo: "No se pudo generar para",
-    });
+    }, (d) => cifra(d?.created));
   }
   function rotateSelection(ids: string[]) {
     return enLote(ids, (unitId) => postJSON("/api/portal/tokens", "PATCH", { unitId, action: "rotate" }), {
@@ -462,7 +508,8 @@ export default function ResidentesPage() {
       setTimeout(() => setCopied(null), 2000);
       avisar({ tipo: "ok", titulo: "Enlace copiado.", texto: `Portal de ${u.label}` });
     } catch {
-      /* clipboard unavailable */
+      // Portapapeles no disponible (permiso denegado, http): antes no pasaba nada al pulsar.
+      avisar({ tipo: "error", titulo: "No se pudo copiar el enlace.", texto: `Cópialo a mano: ${origin}/u/${u.portalToken}` });
     }
   }
 
@@ -480,11 +527,13 @@ export default function ResidentesPage() {
   function abrirAgregar(prefill?: string) {
     setShowAdd(true);
     setBulkMsg("");
+    setBulkErr(false);
     if (prefill !== undefined) setBulkText(prefill);
   }
   function cerrarAgregar() {
     setShowAdd(false);
     setBulkMsg("");
+    setBulkErr(false);
   }
 
   // ── Derivados de lo ya cargado ───────────────────────────────────────
@@ -697,12 +746,6 @@ export default function ResidentesPage() {
                 </div>
               )}
 
-              {msg && (
-                <div className="res-msg">
-                  <Aviso enLinea tipo={msg.ok ? "ok" : "error"} titulo={msg.text} alCerrar={() => setMsg(null)} />
-                </div>
-              )}
-
               {listas && units.length > 0 && (
                 <div className="res-portal">
                   <span className="res-cifras">
@@ -861,21 +904,31 @@ export default function ResidentesPage() {
 
                     <Panel titulo="Pago en línea (ePayco)">
                       <div className="res-pago">
-                        {payConfigured ? (
-                          <Estado tipo="ok">Configurado</Estado>
+                        {!payConfigured && payConsulta === "cargando" ? (
+                          <p className="k-meta res-p">Consultando la configuración…</p>
                         ) : (
-                          <Estado tipo="sin">Sin configurar</Estado>
+                          <>
+                            {payConfigured ? (
+                              <Estado tipo="ok">Configurado</Estado>
+                            ) : payConsulta === "error" ? (
+                              <Estado tipo="falta">Sin dato</Estado>
+                            ) : (
+                              <Estado tipo="sin">Sin configurar</Estado>
+                            )}
+                            <p className="k-apoyo res-p">
+                              {payConfigured
+                                ? COMING_SOON.cartera
+                                  // El botón de pago del portal vive en la sección de
+                                  // estado de cuenta, hoy pausada con Cartera: decir que
+                                  // "ya pueden pagar" sería falso.
+                                  ? "Se activará cuando Cartera esté disponible."
+                                  : "Los residentes con saldo pueden pagar desde su portal."
+                                : payConsulta === "error"
+                                  ? "No pudimos consultar la configuración de pago."
+                                  : "Conéctalo para recibir pagos en línea."}
+                            </p>
+                          </>
                         )}
-                        <p className="k-apoyo res-p">
-                          {payConfigured
-                            ? COMING_SOON.cartera
-                              // El botón de pago del portal vive en la sección de
-                              // estado de cuenta, hoy pausada con Cartera: decir que
-                              // "ya pueden pagar" sería falso.
-                              ? "Se activará cuando Cartera esté disponible."
-                              : "Los residentes con saldo pueden pagar desde su portal."
-                            : "Conéctalo para recibir pagos en línea."}
-                        </p>
                         <Boton variante="secundario" tam={40} aria-expanded={showPay} aria-controls="res-pago-form"
                           onClick={() => setShowPay((v) => !v)}>
                           {showPay ? "Ocultar las llaves" : payConfigured ? "Cambiar las llaves" : "Configurar las llaves"}
@@ -936,7 +989,8 @@ export default function ResidentesPage() {
         titulo={`¿Qué unidades quieres agregar${corto ? ` a ${corto}` : ""}?`}
         acciones={
           <>
-            <Boton variante="secundario" onClick={cerrarAgregar}>Cancelar</Boton>
+            {/* Tras agregar, el modal sigue abierto para seguir cargando: «Cancelar» ya no deshace nada. */}
+            <Boton variante="secundario" onClick={cerrarAgregar}>{bulkMsg && !bulkErr ? "Cerrar" : "Cancelar"}</Boton>
             <Boton flecha="crea" onClick={addUnitsFromText} disabled={!bulkText.trim()}
               cargando={bulkBusy} textoCargando="Agregando…">
               Agregar
@@ -955,7 +1009,12 @@ export default function ResidentesPage() {
             placeholder={"Apto 101, María Pérez, maria@correo.com, 3001112233\nApto 102, juan@correo.com\ncarlos@correo.com"}
           />
         </Campo>
-        {bulkMsg && <p className="res-bulk" role="status">{bulkMsg}</p>}
+        {bulkMsg &&
+          (bulkErr ? (
+            <p className="k-err res-bulk-err" role="alert">{bulkMsg}</p>
+          ) : (
+            <p className="res-bulk" role="status">{bulkMsg}</p>
+          ))}
       </Modal>
 
       <Modal
@@ -975,7 +1034,6 @@ const estilos = `
   /* Título corto: las dos acciones caben en una línea (cols. 7–12). */
   @media (min-width: 1181px) { .res .k-pieza-h .acc { grid-column: 7 / 13; } }
   .res .res-importar { margin: 6px 0 32px; }
-  .res .res-msg { margin: 0 0 18px; }
   .res .res-portal { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: flex-end; margin: 0 0 14px; }
   .res .res-cifras { display: none; font-size: 14px; color: var(--ink-2); margin-right: auto; }
   .res .res-filtros { display: flex; gap: 12px 16px; align-items: stretch; margin: 0 0 18px; flex-wrap: wrap; }
@@ -994,6 +1052,8 @@ const estilos = `
   .res .res-pago-acc { margin-top: 16px; }
   .res-mono { font-family: var(--f-mono); font-size: 15px; }
   .res-bulk { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+  .res-bulk-err { margin: 0; font-size: 15px; align-items: flex-start; }
+  .res-bulk-err::before { margin-top: 5px; }
   @media (max-width: 860px) {
     .res .res-cifras { display: block; flex-basis: 100%; }
     .res .res-pre { display: block; margin-bottom: 4px; font: 500 12px/1 var(--f-mono); color: var(--ink-3); }

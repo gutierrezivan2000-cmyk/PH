@@ -223,13 +223,13 @@ export function UnitImport({
       />
 
       {!preview && modo === "boton" && (
+        // Sin textoCargando: «Leyendo «archivo» con IA…» ya lo dice la línea de estado de abajo.
         <Boton
           variante="secundario"
           tam={40}
           onClick={() => inputRef.current?.click()}
           disabled={parsing}
           cargando={parsing}
-          textoCargando="Leyendo el archivo con IA…"
         >
           Importar de archivo (Excel o PDF) con IA
         </Boton>
@@ -320,6 +320,7 @@ const estilos = `
   .ui-import .ui-leyendo .k-fecha { margin: 0; }
   .ui-import .ui-leyendo .k-fecha b { color: var(--ink); font-weight: 700; }
   .ui-import .ui-error { margin-top: 14px; }
+  .ui-import .ui-error + .ui-vista { margin-top: 24px; }
   .ui-import .ui-sin { color: var(--ink-3); font-weight: 400; }
   .ui-import .ui-vista { margin-top: 4px; }
   .ui-import .ui-vista-h { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; margin-bottom: 18px; }
