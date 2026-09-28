@@ -209,7 +209,7 @@ export async function POST(
         if (minutesUsedDay + estimatedMinutesForThisRequest > dailyCap) {
           return NextResponse.json(
             {
-              error: `Has alcanzado el limite diario de ${dailyCap} minutos de transcripcion. Intenta manana. (Usado hoy: ${minutesUsedDay} min)`,
+              error: `Has alcanzado el límite diario de ${dailyCap} minutos de transcripción. Intenta mañana. (Usado hoy: ${minutesUsedDay} min)`,
             },
             { status: 429 }
           );
@@ -217,7 +217,7 @@ export async function POST(
         if (minutesUsedMonth + estimatedMinutesForThisRequest > monthlyCap) {
           return NextResponse.json(
             {
-              error: `Has alcanzado el limite mensual de ${monthlyCap} minutos de transcripcion. (Usado este mes: ${minutesUsedMonth} min)`,
+              error: `Has alcanzado el límite mensual de ${monthlyCap} minutos de transcripción. (Usado este mes: ${minutesUsedMonth} min)`,
             },
             { status: 429 }
           );
@@ -276,7 +276,7 @@ export async function POST(
         if (!isBeta && dailyCount >= planLimits.agentMessagesPerDay) {
           return NextResponse.json(
             {
-              error: `Has alcanzado el limite diario de ${planLimits.agentMessagesPerDay} mensajes. Intenta manana.`,
+              error: `Has alcanzado el límite diario de ${planLimits.agentMessagesPerDay} mensajes. Intenta mañana.`,
             },
             { status: 429 }
           );
@@ -293,7 +293,7 @@ export async function POST(
         if (!isBeta && weeklyCount >= planLimits.agentMessagesPerWeek) {
           return NextResponse.json(
             {
-              error: `Has alcanzado el limite semanal de ${planLimits.agentMessagesPerWeek} mensajes.`,
+              error: `Has alcanzado el límite semanal de ${planLimits.agentMessagesPerWeek} mensajes.`,
             },
             { status: 429 }
           );

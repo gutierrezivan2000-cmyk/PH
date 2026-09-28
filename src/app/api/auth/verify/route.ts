@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     const code = body.code as string | undefined;
 
     if (!email || !code) {
-      return NextResponse.json({ error: "Email y codigo son requeridos" }, { status: 400 });
+      return NextResponse.json({ error: "Email y código son requeridos" }, { status: 400 });
     }
 
     // Throttle guesses: the code is only 6 digits, so cap attempts per email.

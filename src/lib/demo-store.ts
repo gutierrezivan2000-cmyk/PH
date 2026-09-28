@@ -248,10 +248,10 @@ export function getUsageSummary(userId: string) {
 export function checkUsageLimitDemo(userId: string): { allowed: boolean; reason?: string } {
   const usage = getUsageSummary(userId);
   if (usage.dailyGenerations >= 3) {
-    return { allowed: false, reason: "Has alcanzado el limite diario de 3 generaciones." };
+    return { allowed: false, reason: "Has alcanzado el límite diario de 3 generaciones." };
   }
   if (usage.monthlyGenerations >= 15) {
-    return { allowed: false, reason: "Has alcanzado el limite mensual de 15 generaciones." };
+    return { allowed: false, reason: "Has alcanzado el límite mensual de 15 generaciones." };
   }
   return { allowed: true };
 }
