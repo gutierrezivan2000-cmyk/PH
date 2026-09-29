@@ -1,8 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Loader2, Sparkles, Upload, X, CheckCircle2, Trash2, FileSpreadsheet } from "lucide-react";
+import { useState } from "react";
 import { ASSET_KIND_LABELS, recurrenceLabel, type AssetKind } from "@/lib/common-assets";
+import {
+  Boton,
+  BotonFila,
+  Entrada,
+  Estado,
+  FilaArchivo,
+  ListaArchivos,
+  Selector,
+  TipoArchivo,
+  ZonaSubida,
+  tipoDeArchivo,
+} from "@/components/kit";
 
 interface ExtractedAsset {
   kind: AssetKind;
@@ -25,12 +36,46 @@ function errorForStatus(status: number): string {
   return "No se pudo procesar el archivo.";
 }
 
-const monoLabel: React.CSSProperties = {
-  fontFamily: "'Geist Mono', 'GeistMono', monospace",
-  fontSize: "10px",
-  letterSpacing: "0.16em",
-  textTransform: "uppercase",
-};
+/* Estilos locales (el kit no trae la revisión de filas importadas). Solo tokens. */
+const CSS_IMPORT = `
+.ai-leyendo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 14px 0 0; padding: 12px 0; border-top: 2px solid var(--rule); border-bottom: 1px solid var(--line); }
+.ai-leyendo b { font-size: 15px; font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; min-width: 0; }
+.ai-err { margin: 12px 0 0; }
+.ai-prev { border-top: 2px solid var(--rule); padding-top: 12px; }
+.ai-prev-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+.ai-prev-h h3 { margin: 0; font-size: 22px; font-weight: 800; font-stretch: 75%; letter-spacing: -.01em; line-height: 1.05; }
+.ai-prev-h p { margin: 0; font-size: 14px; line-height: 1.35; color: var(--ink-2); }
+.ai-cab, .ai-fila { display: grid; grid-template-columns: minmax(0, 1fr) 176px 188px auto; column-gap: 16px; }
+.ai-cab { margin-top: 14px; padding: 9px 8px 8px; border-top: 2px solid var(--rule); border-bottom: 2px solid var(--rule); font: 500 12px/1.2 var(--f-mono); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); }
+.ai-cab > span:last-child { min-width: 72px; }
+.ai-filas { list-style: none; margin: 0; padding: 0; max-height: 480px; overflow-y: auto; }
+.ai-fila { align-items: center; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+.ai-fila.sin-fecha { background: var(--danger-pale); }
+.ai-fila > * { min-width: 0; }
+.ai-fila .nom b { display: block; font-size: 15px; font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; }
+.ai-fila .nom span { display: block; margin-top: 2px; font-size: 14px; line-height: 1.3; color: var(--ink-3); overflow-wrap: anywhere; }
+.ai-fila.sin-fecha .nom span { color: var(--ink-2); }
+.ai-fila.sin-fecha .nom span.falta { color: var(--danger-text); font-weight: 600; }
+.ai-lb { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.ai-pie { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding-top: 16px; }
+.ai-pie .k-err { flex-basis: 100%; }
+@media (min-width: 861px) {
+  .ai-zona .k-zona.k-compacta { padding-right: 84px; }
+  /* La zona vive en una columna estrecha: la fila de archivo usa la disposición apilada del kit (≤ 1180). */
+  .ai-zona .k-arch { grid-template-columns: 52px minmax(0, 1fr) 44px; grid-template-areas: "tipo nom x" ". barra x" ". est x"; row-gap: 6px; }
+  .ai-zona .k-arch > .est { justify-content: flex-start; }
+}
+@media (max-width: 860px) {
+  .ai-cab { display: none; }
+  .ai-filas { max-height: none; overflow: visible; }
+  .ai-fila { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); row-gap: 10px; column-gap: 12px; padding: 14px 0; }
+  .ai-fila.sin-fecha { box-shadow: -8px 0 0 var(--danger-pale), 8px 0 0 var(--danger-pale); }
+  .ai-fila .nom, .ai-fila .x { grid-column: 1 / -1; }
+  .ai-fila .x .k-bt { min-height: 44px; }
+  .ai-lb { position: static; width: auto; height: auto; margin: 0 0 6px; overflow: visible; clip: auto; white-space: normal; display: block; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+  .ai-pie .k-btn { flex: 1 1 100%; }
+}
+`;
 
 /**
  * Importación de la bitácora asistida por IA: sube un Excel/PDF/Word con la
@@ -44,15 +89,15 @@ export function AssetImport({
   propertyId: string;
   onImported: (created: number) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [parsing, setParsing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<ExtractedAsset[] | null>(null);
   const [fileName, setFileName] = useState("");
 
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  // La zona de subida del kit entrega los archivos elegidos o soltados y limpia
+  // su propio <input> (antes lo hacía inputRef): la lógica de envío es la misma.
+  async function onFile(file: File | undefined) {
     if (!file) return;
     setError("");
     setPreview(null);
@@ -60,10 +105,9 @@ export function AssetImport({
 
     if (file.size > MAX_UPLOAD_BYTES) {
       setError(
-        `El archivo pesa ${(file.size / 1024 / 1024).toFixed(1)} MB y el máximo es 4 MB. ` +
+        `El archivo pesa ${(file.size / 1024 / 1024).toFixed(1).replace(".", ",")} MB y el máximo es 4 MB. ` +
           `Si es un Excel, guárdalo como CSV: pesa muchísimo menos.`
       );
-      if (inputRef.current) inputRef.current.value = "";
       return;
     }
 
@@ -90,7 +134,6 @@ export function AssetImport({
       setError("No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.");
     } finally {
       setParsing(false);
-      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
@@ -121,126 +164,152 @@ export function AssetImport({
       setFileName("");
       onImported(data.created || 0);
     } catch {
-      setError("Error de red.");
+      setError("Error de red. Revisa tu conexión e inténtalo de nuevo.");
     } finally {
       setCreating(false);
     }
   }
 
-  return (
-    <div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".xlsx,.xls,.csv,.pdf,.docx,.txt"
-        onChange={onFile}
-        className="hidden"
-      />
+  const descartar = () => {
+    setPreview(null);
+    setFileName("");
+  };
 
-      {!preview && (
-        <button
-          onClick={() => inputRef.current?.click()}
-          disabled={parsing}
-          className="inline-flex items-center gap-2 rounded-full text-[12px] font-medium px-4 py-2 transition-all disabled:opacity-60 cursor-pointer"
-          style={{ background: "rgb(var(--accent-rgb) / 0.14)", color: "var(--accent-text)", border: "1px solid rgb(var(--accent-rgb) / 0.35)" }}
-        >
-          {parsing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-          {parsing ? "Leyendo el archivo con IA…" : "Importar de archivo (Excel/PDF) con IA"}
-        </button>
-      )}
+  const estilos = (
+    <style href="k-assetimport-local" precedence="default">
+      {CSS_IMPORT}
+    </style>
+  );
 
-      {parsing && (
-        <p className="text-[11.5px] mt-2 flex items-center gap-1.5" style={{ color: "var(--ink-3)" }}>
-          <FileSpreadsheet className="h-3.5 w-3.5" /> {fileName}
-        </p>
-      )}
+  if (!preview) {
+    return (
+      <div className="ai-zona">
+        {estilos}
+        <ZonaSubida
+          compacta
+          titulo="Suelta aquí el listado"
+          texto="o haz clic para elegir el archivo."
+          formatos="Excel, CSV, PDF, Word o texto · hasta 4 MB"
+          accept=".xlsx,.xls,.csv,.pdf,.docx,.txt"
+          deshabilitado={parsing}
+          etiquetaAccesible="Elegir el archivo con el listado de zonas comunes y pólizas"
+          alElegir={(archivos) => onFile(archivos[0])}
+        />
 
-      {error && <p className="text-[12px] mt-2" style={{ color: "var(--danger-text)" }}>{error}</p>}
-
-      {preview && (
-        <div className="mt-3 rounded-xl overflow-hidden" style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgb(var(--accent-rgb) / 0.25)" }}>
-          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgb(var(--veil-rgb) / 0.06)" }}>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" style={{ color: "var(--ok-text)" }} />
-              <span className="text-[13px] font-medium" style={{ color: "var(--ink)" }}>
-                {preview.length} {preview.length === 1 ? "registro detectado" : "registros detectados"}
-              </span>
-            </div>
-            <button onClick={() => { setPreview(null); setFileName(""); }} className="p-1 rounded cursor-pointer hover:bg-white/[0.06]" style={{ color: "var(--ink-3)" }}>
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          <p className="px-4 pt-3 text-[11px]" style={{ color: "var(--ink-3)" }}>
-            Revisa sobre todo las fechas — son lo más fácil de leer mal desde un documento escaneado.
+        {parsing && (
+          <p className="ai-leyendo" role="status">
+            <TipoArchivo>{tipoDeArchivo(fileName)}</TipoArchivo>
+            <b>{fileName}</b>
+            <Estado tipo="enCurso" tamLetra={14}>Leyendo el archivo con IA…</Estado>
           </p>
+        )}
 
-          <div className="max-h-80 overflow-y-auto mt-2">
-            {preview.map((a, i) => (
-              <div
-                key={i}
-                className="flex flex-wrap items-center gap-2 px-4 py-2.5"
-                style={{ borderBottom: i < preview.length - 1 ? "1px solid rgb(var(--veil-rgb) / 0.04)" : "none" }}
-              >
-                <button
-                  onClick={() => updateRow(i, { kind: a.kind === "poliza" ? "zona_comun" : "poliza" })}
-                  className="shrink-0 px-2 py-0.5 rounded text-[9px] cursor-pointer"
-                  style={{
-                    ...monoLabel,
-                    fontSize: 9,
-                    color: a.kind === "poliza" ? "var(--warn)" : "var(--info)",
-                    background: a.kind === "poliza" ? "rgb(var(--warn-rgb) / 0.1)" : "rgb(var(--info-rgb) / 0.1)",
-                    border: `1px solid ${a.kind === "poliza" ? "rgb(var(--warn-rgb) / 0.3)" : "rgb(var(--info-rgb) / 0.3)"}`,
-                  }}
-                  title="Cambiar tipo"
+        {!parsing && error && fileName && (
+          <ListaArchivos etiquetaAccesible="Archivo elegido">
+            <FilaArchivo
+              nombre={fileName}
+              estado="error"
+              mensaje={error}
+              alQuitar={() => {
+                setError("");
+                setFileName("");
+              }}
+              etiquetaQuitar={`Descartar ${fileName}`}
+            />
+          </ListaArchivos>
+        )}
+        {!parsing && error && !fileName && (
+          <p className="k-err ai-err" role="alert">{error}</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="ai-prev">
+      {estilos}
+      <div className="ai-prev-h">
+        <h3>
+          {preview.length} {preview.length === 1 ? "registro detectado" : "registros detectados"}
+        </h3>
+        <p>
+          {fileName && <>De {fileName}. </>}Revisa sobre todo las fechas: son lo más fácil de leer mal desde un
+          documento escaneado.
+        </p>
+      </div>
+
+      <div className="ai-cab" aria-hidden="true">
+        <span>Nombre</span>
+        <span>Tipo</span>
+        <span>Fecha</span>
+        <span />
+      </div>
+      <ul className="ai-filas" aria-label="Registros detectados en el archivo">
+        {preview.map((a, i) => {
+          const detalle = [
+            a.provider,
+            a.reference ? `Ref. ${a.reference}` : null,
+            a.recurrenceMonths ? recurrenceLabel(a.recurrenceMonths) : null,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          const nombre = a.name || `Fila ${i + 1}`;
+          return (
+            <li key={i} className={a.dueDate ? "ai-fila" : "ai-fila sin-fecha"}>
+              <div className="nom">
+                <b>{nombre}</b>
+                {detalle && <span>{detalle}</span>}
+                {!a.dueDate && <span className="falta">Falta la fecha</span>}
+              </div>
+              <div>
+                <label className="ai-lb" htmlFor={`ai-tipo-${i}`}>Tipo<span className="k-sr"> de {nombre}</span></label>
+                <Selector
+                  id={`ai-tipo-${i}`}
+                  value={a.kind}
+                  onChange={(e) => updateRow(i, { kind: e.target.value === "poliza" ? "poliza" : "zona_comun" })}
                 >
-                  {ASSET_KIND_LABELS[a.kind]}
-                </button>
-                <span className="text-[12.5px] font-medium truncate" style={{ color: "var(--ink)", minWidth: 120, maxWidth: 220 }}>
-                  {a.name}
-                </span>
-                <span className="flex-1 min-w-0 text-[11.5px] truncate" style={{ color: "var(--ink-2)" }}>
-                  {[a.provider, a.reference ? `Ref. ${a.reference}` : null, a.recurrenceMonths ? recurrenceLabel(a.recurrenceMonths) : null]
-                    .filter(Boolean)
-                    .join(" · ") || "—"}
-                </span>
-                <input
+                  <option value="zona_comun">{ASSET_KIND_LABELS.zona_comun}</option>
+                  <option value="poliza">{ASSET_KIND_LABELS.poliza}</option>
+                </Selector>
+              </div>
+              <div>
+                <label className="ai-lb" htmlFor={`ai-fecha-${i}`}>Fecha<span className="k-sr"> de {nombre}</span></label>
+                <Entrada
+                  id={`ai-fecha-${i}`}
                   type="date"
                   value={a.dueDate || ""}
+                  invalido={!a.dueDate}
                   onChange={(e) => updateRow(i, { dueDate: e.target.value || null })}
-                  className="shrink-0 rounded px-2 py-1 text-[11.5px]"
-                  style={{
-                    background: "rgb(var(--veil-rgb) / 0.04)",
-                    border: `1px solid ${a.dueDate ? "rgb(var(--veil-rgb) / 0.1)" : "rgb(var(--danger-rgb) / 0.4)"}`,
-                    color: "var(--ink)",
-                    colorScheme: "dark",
-                  }}
                 />
-                <button
-                  onClick={() => setPreview((prev) => (prev ? prev.filter((_, j) => j !== i) : prev))}
-                  className="p-1 rounded cursor-pointer hover:bg-white/[0.06] shrink-0"
-                  style={{ color: "rgb(var(--danger-rgb) / 0.5)" }}
-                  title="Quitar de la lista"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
               </div>
-            ))}
-          </div>
+              <div className="x">
+                <BotonFila
+                  onClick={() => setPreview((prev) => (prev ? prev.filter((_, j) => j !== i) : prev))}
+                  aria-label={`Quitar ${nombre} de la lista`}
+                >
+                  Quitar
+                </BotonFila>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
 
-          <div className="flex items-center gap-3 px-4 py-3" style={{ borderTop: "1px solid var(--hifi-hairline)" }}>
-            <button
-              onClick={confirm}
-              disabled={creating || preview.length === 0}
-              className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2 transition-all disabled:opacity-50 cursor-pointer"
-              style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
-            >
-              {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-              Crear {preview.length} {preview.length === 1 ? "registro" : "registros"}
-            </button>
-          </div>
-        </div>
-      )}
+      <div className="ai-pie">
+        {error && <p className="k-err" role="alert">{error}</p>}
+        <Boton
+          onClick={confirm}
+          disabled={preview.length === 0}
+          cargando={creating}
+          textoCargando="Creando los registros…"
+          flecha="crea"
+        >
+          Crear {preview.length} {preview.length === 1 ? "registro" : "registros"}
+        </Boton>
+        <Boton variante="fantasma" onClick={descartar} disabled={creating}>
+          Descartar
+        </Boton>
+      </div>
     </div>
   );
 }

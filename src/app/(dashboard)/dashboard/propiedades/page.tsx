@@ -1,28 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { pedirJSON, URL_GENERACIONES } from "@/components/dashboard/datosIndice";
 import {
-  Building2,
-  Plus,
-  MapPin,
-  Home,
-  X,
-  AlertCircle,
-  Trash2,
-  Pencil,
-  Check,
-  FileText,
-  Shield,
-  BookOpen,
-  Loader2,
-  ChevronDown,
-  ChevronUp,
-  Upload,
-  Layers,
-} from "lucide-react";
+  AccionesFila,
+  Aviso,
+  Boton,
+  BotonFila,
+  CabeceraPieza,
+  Campo,
+  Entrada,
+  ErrorCarga,
+  Esqueleto,
+  Estado,
+  FilaArchivo,
+  GrupoCampos,
+  ListaArchivos,
+  MenuMas,
+  Modal,
+  Pagina,
+  Pieza,
+  Seccion,
+  Tabla,
+  Vacio,
+  ZonaSubida,
+  avisar,
+  nombreCorto,
+  pesoLegible,
+  type ColumnaTabla,
+} from "@/components/kit";
 import { upload as blobUpload } from "@vercel/blob/client";
 
 interface PropertyDocument {
@@ -44,28 +51,77 @@ interface Property {
   createdAt: string;
 }
 
-// Shared inline styles
-const monoLabel: React.CSSProperties = {
-  fontFamily: "'Geist Mono', 'GeistMono', monospace",
-  fontSize: "10px",
-  letterSpacing: "0.16em",
-  textTransform: "uppercase",
-};
+/** GET /api/generations (máx. 100, las más recientes primero). Solo se lee lo necesario para «Último informe». */
+interface Generacion {
+  id: string;
+  status: string;
+  month: number;
+  year: number;
+  createdAt: string;
+  outputFiles?: Record<string, string> | null;
+  /** La API lo devuelve (lo usa Generar); el nombre solo sirve de respaldo. */
+  propertyId?: string | null;
+  property?: { name: string } | null;
+}
 
-const cardStyle: React.CSSProperties = {
-  background: "var(--hifi-surface-1)",
-  border: "1px solid var(--hifi-hairline)",
-};
+/** Los dos documentos base que admite la API (`type` de /api/properties/[id]/documents). */
+const DOCUMENTOS_BASE = [
+  { tipo: "manual_convivencia", nombre: "Manual de convivencia", corto: "el manual" },
+  { tipo: "reglamento_interno", nombre: "Reglamento interno", corto: "el reglamento" },
+] as const;
 
-const inputStyle: React.CSSProperties = {
-  background: "var(--surface-3)",
-  border: "1px solid var(--hifi-hairline)",
-  color: "var(--ink)",
-  borderRadius: "10px",
-};
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const NB = " "; // espacio duro entre número y unidad o mes
+
+/** «29 ago», o «29 ago de 2025» si no es de este año. */
+function fechaCorta(f: Date): string {
+  const base = `${f.getDate()}${NB}${MESES_CORTOS[f.getMonth()]}`;
+  return f.getFullYear() === new Date().getFullYear() ? base : `${base} de ${f.getFullYear()}`;
+}
+
+/* Ajustes locales de la tabla y los paneles (lo que el kit no trae hecho). */
+const estilos = (
+  <style>{`
+    .prop-nom { display: block; font-size: 18px; font-weight: 700; line-height: 1.2; letter-spacing: -.005em; overflow-wrap: anywhere; }
+    .prop-nom + .k-apoyo { display: block; margin-top: 4px; }
+    .prop-u { display: grid; gap: 4px; justify-items: start; }
+    .prop-u .k-cifra { line-height: .85; }
+    .prop-docs { display: grid; gap: 6px; }
+    .prop-inf { display: grid; gap: 3px; }
+    .prop-inf b { font-size: 15px; font-weight: 600; color: var(--ink-2); }
+    .prop-ficha { scroll-margin-top: calc(var(--cab-h) + 16px); }
+    .prop-ficha:focus { outline: none; }
+    .prop-dos { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; }
+    .prop-ayuda { margin: 0; font-size: 15px; line-height: 1.45; color: var(--ink-2); max-width: 52ch; text-wrap: pretty; }
+    .prop-ayuda + .prop-ayuda { margin-top: 12px; }
+    .prop-doc + .prop-doc { margin-top: 28px; }
+    .prop-doc-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin: 0 0 12px; }
+    .prop-doc-h h3, .prop-doc-h h4 { margin: 0; }
+    /* Documento ya guardado: sin barra de progreso ni «Listo» (el estado va en su título: «Subido»). */
+    .prop-doc .k-arch { grid-template-columns: 52px minmax(0, 1fr) 44px; grid-template-areas: "tipo nom x"; }
+    .prop-doc .k-arch > .k-barra, .prop-doc .k-arch > .est { display: none; }
+    .prop-nota { margin: 16px 0 0; font-size: 14px; color: var(--ink-3); max-width: 68ch; }
+    .prop-doc-falla { display: grid; justify-items: start; gap: 10px; padding-top: 12px; border-top: 2px solid var(--rule); }
+    .prop-doc-falla p { margin: 0; }
+    @media (max-width: 860px) { .prop-col-docs { margin-top: 36px; } .prop-col-docs + .prop-col-docs { margin-top: 28px; } }
+    @media (max-width: 600px) { .prop-dos { grid-template-columns: minmax(0, 1fr); } }
+    @layer components {
+      @media (max-width: 860px) {
+        /* En ficha, las unidades van a la columna izquierda aunque no sean la primera celda. */
+        .prop-tabla .k-tr > .prop-u.k-td-principal { grid-row: 1 / span 6 !important; }
+      }
+    }
+  `}</style>
+);
 
 export default function PropiedadesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
+  // Estado de la lista: sin él, la carga y un error se veían como «aún no tienes propiedades».
+  const [estadoLista, setEstadoLista] = useState<"cargando" | "listo" | "error">("cargando");
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
@@ -84,20 +140,66 @@ export default function PropiedadesPage() {
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [docs, setDocs] = useState<Record<string, PropertyDocument[]>>({});
+  const [docsFallidos, setDocsFallidos] = useState<Record<string, boolean>>({});
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
+
+  // Confirmaciones (antes: confirm() del navegador; ahora el modal del kit).
+  const [borrarPropiedad, setBorrarPropiedad] = useState<Property | null>(null);
+  const [eliminando, setEliminando] = useState(false);
+  const [borrarDoc, setBorrarDoc] = useState<{ propiedad: Property; doc: PropertyDocument; etiqueta: string } | null>(null);
+  const [quitandoDoc, setQuitandoDoc] = useState(false);
+
+  // «Último informe»: la misma respuesta de /api/generations que ya pide el armazón (caché compartida).
+  // undefined = consultando; null = no se pudo consultar.
+  const [generaciones, setGeneraciones] = useState<Generacion[] | null | undefined>(undefined);
+
+  const refNueva = useRef<HTMLElement>(null);
+  const refEditar = useRef<HTMLElement>(null);
+  const refDocs = useRef<HTMLElement>(null);
 
   const fetchProperties = () => {
     fetch("/api/properties")
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) setProperties(data);
+        if (Array.isArray(data)) {
+          setProperties(data);
+          setEstadoLista("listo");
+          // Documentos base de cada copropiedad para la columna «Documentos base» (GET existente).
+          (data as Property[]).forEach((p) => fetchDocs(p.id));
+        } else {
+          setEstadoLista("error");
+        }
       })
-      .catch(console.error);
+      .catch((e) => {
+        console.error(e);
+        setEstadoLista("error");
+      });
   };
 
   useEffect(() => {
     fetchProperties();
+    pedirJSON<unknown>(URL_GENERACIONES).then((data) => {
+      setGeneraciones(Array.isArray(data) ? (data as Generacion[]) : null);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Al abrir un panel, se lleva a la vista y el foco entra en él.
+  useEffect(() => {
+    if (!showForm) return;
+    refNueva.current?.scrollIntoView({ block: "start" });
+    refNueva.current?.querySelector<HTMLElement>("input")?.focus({ preventScroll: true });
+  }, [showForm]);
+  useEffect(() => {
+    if (!editingId) return;
+    refEditar.current?.scrollIntoView({ block: "start" });
+    refEditar.current?.querySelector<HTMLElement>("input")?.focus({ preventScroll: true });
+  }, [editingId]);
+  useEffect(() => {
+    if (!expandedId) return;
+    refDocs.current?.scrollIntoView({ block: "start" });
+    refDocs.current?.focus({ preventScroll: true });
+  }, [expandedId]);
 
   const fetchDocs = async (propertyId: string) => {
     try {
@@ -105,9 +207,12 @@ export default function PropiedadesPage() {
       const data = await res.json();
       if (Array.isArray(data)) {
         setDocs((prev) => ({ ...prev, [propertyId]: data }));
+        setDocsFallidos((prev) => ({ ...prev, [propertyId]: false }));
+      } else {
+        setDocsFallidos((prev) => ({ ...prev, [propertyId]: true }));
       }
     } catch {
-      // ignore
+      setDocsFallidos((prev) => ({ ...prev, [propertyId]: true }));
     }
   };
 
@@ -129,7 +234,7 @@ export default function PropiedadesPage() {
         handleUploadUrl: "/api/upload/token",
         contentType: file.type || "application/octet-stream",
       });
-      await fetch(`/api/properties/${propertyId}/documents`, {
+      const res = await fetch(`/api/properties/${propertyId}/documents`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -140,25 +245,37 @@ export default function PropiedadesPage() {
           mimeType: file.type,
         }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        avisar({ tipo: "error", titulo: "No se pudo guardar el documento.", texto: data?.error || undefined });
+      }
       await fetchDocs(propertyId);
     } catch {
-      // ignore
+      // No se afirma la causa (red, permisos, límite del almacenamiento): solo lo que pasó.
+      avisar({ tipo: "error", titulo: "No se pudo subir el documento.", texto: `«${file.name}» no se guardó. Inténtalo de nuevo en un momento.` });
     } finally {
       setUploadingDoc(null);
     }
   };
 
-  const handleDocDelete = async (propertyId: string, docId: string) => {
+  // Solo se quita de la lista si la API lo borró: el demo (solo lectura) y cualquier error
+  // responden sin borrar, y la pantalla marcaba «Falta» un documento que seguía guardado.
+  const handleDocDelete = async (propertyId: string, docId: string): Promise<{ ok: boolean; error?: string }> => {
     try {
-      await fetch(`/api/properties/${propertyId}/documents?docId=${docId}`, {
+      const res = await fetch(`/api/properties/${propertyId}/documents?docId=${docId}`, {
         method: "DELETE",
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        return { ok: false, error: typeof data?.error === "string" ? data.error : undefined };
+      }
       setDocs((prev) => ({
         ...prev,
         [propertyId]: (prev[propertyId] || []).filter((d) => d.id !== docId),
       }));
+      return { ok: true };
     } catch {
-      // ignore
+      return { ok: false };
     }
   };
 
@@ -182,30 +299,30 @@ export default function PropiedadesPage() {
         setUnits("");
         setShowForm(false);
         fetchProperties();
+        avisar({ tipo: "ok", titulo: "Propiedad guardada.", texto: name.trim() });
       } else {
         const data = await res.json();
         setError(data.error || "Error al guardar la propiedad");
       }
     } catch {
-      setError("Error de conexion. Intenta de nuevo.");
+      setError("Error de conexión. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
   };
 
+  // La confirmación la hace el modal (antes, confirm() con el mismo texto).
   const handleDelete = async (id: string) => {
-    if (
-      !confirm(
-        "¿Eliminar esta propiedad? Se borrará también todo su historial de documentos generados (informes, actas y presentaciones). Esta acción no se puede deshacer."
-      )
-    )
-      return;
     try {
       const res = await fetch(`/api/properties?id=${id}`, { method: "DELETE" });
-      if (res.ok) fetchProperties();
+      if (res.ok) {
+        fetchProperties();
+        return true;
+      }
     } catch {
       // ignore
     }
+    return false;
   };
 
   const startEditing = (property: Property) => {
@@ -244,12 +361,13 @@ export default function PropiedadesPage() {
       if (res.ok) {
         setEditingId(null);
         fetchProperties();
+        avisar({ tipo: "ok", titulo: "Cambios guardados.", texto: editName.trim() });
       } else {
         const data = await res.json();
         setEditError(data.error || "Error al actualizar la propiedad");
       }
     } catch {
-      setEditError("Error de conexion. Intenta de nuevo.");
+      setEditError("Error de conexión. Intenta de nuevo.");
     } finally {
       setEditLoading(false);
     }
@@ -258,664 +376,540 @@ export default function PropiedadesPage() {
   const getDocByType = (propertyId: string, type: string) =>
     (docs[propertyId] || []).find((d) => d.type === type);
 
+  const confirmarBorrado = async () => {
+    if (!borrarPropiedad) return;
+    setEliminando(true);
+    const nombre = borrarPropiedad.name;
+    const ok = await handleDelete(borrarPropiedad.id);
+    setEliminando(false);
+    setBorrarPropiedad(null);
+    if (ok) avisar({ tipo: "ok", titulo: "Propiedad eliminada.", texto: nombre });
+    else avisar({ tipo: "error", titulo: "No se pudo eliminar la propiedad.", texto: nombre });
+  };
+
+  const confirmarQuitarDoc = async () => {
+    if (!borrarDoc) return;
+    const { propiedad, doc } = borrarDoc;
+    setQuitandoDoc(true);
+    const r = await handleDocDelete(propiedad.id, doc.id);
+    setQuitandoDoc(false);
+    setBorrarDoc(null);
+    if (r.ok) avisar({ tipo: "ok", titulo: "Documento quitado.", texto: `«${doc.name}» · ${nombreCorto(propiedad.name)}` });
+    else avisar({ tipo: "error", titulo: "No se pudo quitar el documento.", texto: r.error ?? `«${doc.name}» sigue guardado. Inténtalo de nuevo en un momento.` });
+  };
+
+  /* ── último informe por copropiedad: /api/generations se cruza por propertyId (el nombre
+        solo si la respuesta no lo trae: dos copropiedades pueden llamarse igual) ── */
+  const ultimoInforme = (p: Property) =>
+    (generaciones ?? []).find(
+      (g) =>
+        (g.propertyId ? g.propertyId === p.id : g.property?.name === p.name) &&
+        g.status === "completed" &&
+        g.outputFiles?.informeHtml,
+    );
+  // La API devuelve como mucho 100: si llegan 100 y no aparece, puede haber uno más antiguo.
+  const topeGeneraciones = (generaciones?.length ?? 0) >= 100;
+
+  const editando = properties.find((p) => p.id === editingId) ?? null;
+  const conDocs = properties.find((p) => p.id === expandedId) ?? null;
+  const n = properties.length;
+
+  const columnas: ColumnaTabla<Property>[] = [
+    {
+      id: "nombre",
+      titulo: "Copropiedad",
+      ancho: "minmax(0, 3.2fr)",
+      celda: (p) => {
+        const donde = [p.address, p.city].filter(Boolean).join(" · ");
+        return (
+          <span>
+            <span className="prop-nom">{p.name}</span>
+            {donde && <span className="k-apoyo">{donde}</span>}
+          </span>
+        );
+      },
+    },
+    {
+      id: "unidades",
+      titulo: "Unidades",
+      ancho: "minmax(0, 1fr)",
+      principal: true,
+      claseCelda: "prop-u",
+      celda: (p) =>
+        p.units ? (
+          <>
+            <span className="k-cifra k-32">{p.units}</span>
+            <span className="k-meta">{p.units === 1 ? "unidad" : "unidades"}</span>
+          </>
+        ) : (
+          <span className="k-meta">Sin dato</span>
+        ),
+    },
+    {
+      id: "docs",
+      titulo: "Documentos base",
+      ancho: "minmax(0, 2.2fr)",
+      celda: (p) => {
+        if (!docs[p.id]) {
+          return <span className="k-meta">{docsFallidos[p.id] ? "No se pudieron consultar" : "Consultando…"}</span>;
+        }
+        return (
+          <span className="prop-docs">
+            {DOCUMENTOS_BASE.map((d) =>
+              getDocByType(p.id, d.tipo) ? (
+                <Estado key={d.tipo} tipo="ok" tamLetra={14}>{d.nombre}</Estado>
+              ) : (
+                <Estado key={d.tipo} tipo="pendiente" tamLetra={14}>{d.nombre} · Falta</Estado>
+              ),
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      id: "informe",
+      titulo: "Último informe",
+      ancho: "minmax(0, 1.6fr)",
+      celda: (p) => {
+        if (generaciones === undefined) return <span className="k-meta">Consultando…</span>;
+        if (generaciones === null) return <span className="k-meta">Sin dato</span>;
+        const g = ultimoInforme(p);
+        if (!g) {
+          return <span className="k-meta">{topeGeneraciones ? "Ninguno reciente" : "Aún sin informes"}</span>;
+        }
+        // «Informe generado el…»: en la ficha móvil no se ve la cabecera «Último informe».
+        return (
+          <span className="prop-inf">
+            <b>{MESES[g.month - 1]?.replace(/^./, (c) => c.toUpperCase())}{NB}{g.year}</b>
+            <span className="k-meta">Informe generado el {fechaCorta(new Date(g.createdAt))}</span>
+          </span>
+        );
+      },
+    },
+    {
+      id: "acciones",
+      titulo: "Acciones",
+      tituloOculto: true,
+      alinear: "fin",
+      ancho: "auto",
+      claseCelda: "k-td-acc",
+      celda: (p) => (
+        <AccionesFila>
+          <BotonFila
+            aria-label={`Editar ${p.name}`}
+            onClick={() => {
+              startEditing(p);
+              if (!docs[p.id]) fetchDocs(p.id);
+            }}
+          >
+            Editar
+          </BotonFila>
+          <MenuMas
+            etiquetaAccesible={`Más acciones · ${p.name}`}
+            items={[
+              {
+                etiqueta: expandedId === p.id ? "Cerrar documentos base" : "Documentos base",
+                alElegir: () => toggleExpand(p.id),
+              },
+              {
+                etiqueta: "Eliminar propiedad…",
+                nota: "pide confirmación",
+                peligro: true,
+                alElegir: () => setBorrarPropiedad(p),
+              },
+            ]}
+          />
+        </AccionesFila>
+      ),
+    },
+  ];
+
+  /** Documentos base de una copropiedad (manual y reglamento), con subida y quitar. */
+  const bloqueDocumentos = (p: Property, nivel: 3 | 4) =>
+    DOCUMENTOS_BASE.map((d) => (
+      <DocumentSlot
+        key={d.tipo}
+        label={d.nombre}
+        corto={d.corto}
+        nivel={nivel}
+        cargando={!docs[p.id] && !docsFallidos[p.id]}
+        fallido={!docs[p.id] && Boolean(docsFallidos[p.id])}
+        alReintentar={() => fetchDocs(p.id)}
+        doc={getDocByType(p.id, d.tipo)}
+        uploading={uploadingDoc === `${p.id}-${d.tipo}`}
+        onUpload={(file) => handleDocUpload(p.id, d.tipo, file)}
+        onDelete={(doc) => setBorrarDoc({ propiedad: p, doc, etiqueta: d.nombre })}
+      />
+    ));
+
   return (
     <div>
-      <Header title="Mis Propiedades" />
-      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-3xl space-y-4">
+      {estilos}
+      <Header title="Propiedades" />
+      <Pagina>
+        <Pieza>
+          <CabeceraPieza
+            nn="12"
+            titulo="Propiedades"
+            subtitulo={
+              estadoLista === "listo" && n > 0
+                ? `${n}${NB}${n === 1 ? "copropiedad" : "copropiedades"} · sus datos y documentos base`
+                : "Administra las propiedades horizontales que gestionas"
+            }
+            acciones={
+              // Sin copropiedades, el único primario es «Agregar la primera» del vacío.
+              showForm || (estadoLista === "listo" && n === 0) ? undefined : (
+                <Boton flecha="crea" onClick={() => setShowForm(!showForm)}>
+                  Nueva propiedad
+                </Boton>
+              )
+            }
+          />
 
-        {/* Top row */}
-        <div className="flex justify-between items-center">
-          <p className="text-sm" style={{ color: "var(--ink-2)" }}>
-            Administra las propiedades horizontales que gestionas
-          </p>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 px-4 h-9 rounded-xl text-sm font-medium transition-all"
-            style={{
-              background: showForm ? "rgb(var(--veil-rgb) / 0.06)" : "var(--accent)",
-              color: "#ffffff",
-              border: showForm ? "1px solid rgb(var(--veil-rgb) / 0.12)" : "none",
-              boxShadow: showForm ? "none" : "0 2px 12px rgb(var(--accent-rgb) / 0.35)",
-            }}
-            onMouseEnter={(e) => {
-              if (!showForm) e.currentTarget.style.background = "var(--accent-hi)";
-            }}
-            onMouseLeave={(e) => {
-              if (!showForm) e.currentTarget.style.background = "var(--accent)";
-            }}
-          >
-            {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {showForm ? "Cancelar" : "Nueva propiedad"}
-          </button>
-        </div>
-
-        {/* Create Form */}
-        {showForm && (
-          <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="rounded-2xl p-6" style={cardStyle}>
-              <h3
-                className="font-medium mb-5"
-                style={{ color: "var(--ink)", fontSize: "15px", fontWeight: 500 }}
-              >
-                Nueva Propiedad
-              </h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {error && (
-                  <div
-                    className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
-                    style={{
-                      background: "rgb(var(--danger-rgb) / 0.08)",
-                      border: "1px solid rgb(var(--danger-rgb) / 0.25)",
-                      color: "var(--danger-text)",
-                    }}
-                  >
-                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                    {error}
-                  </div>
-                )}
-                <div>
-                  <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
-                    Nombre del conjunto/edificio *
-                  </label>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Ej: Conjunto Residencial Los Pinos"
-                    required
-                    className="w-full h-10 px-4 text-sm outline-none transition-all"
-                    style={inputStyle}
-                    onFocus={(e) => {
-                      e.currentTarget.style.border = "1px solid var(--accent)";
-                      e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-                      e.currentTarget.style.boxShadow = "none";
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
-                    Direccion
-                  </label>
-                  <input
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Ej: Calle 123 #45-67"
-                    className="w-full h-10 px-4 text-sm outline-none transition-all"
-                    style={inputStyle}
-                    onFocus={(e) => {
-                      e.currentTarget.style.border = "1px solid var(--accent)";
-                      e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-                      e.currentTarget.style.boxShadow = "none";
-                    }}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
-                      Ciudad
-                    </label>
-                    <input
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      placeholder="Ej: Bogota"
-                      className="w-full h-10 px-4 text-sm outline-none transition-all"
-                      style={inputStyle}
-                      onFocus={(e) => {
-                        e.currentTarget.style.border = "1px solid var(--accent)";
-                        e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
-                      }}
-                      onBlur={(e) => {
-                        e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-                        e.currentTarget.style.boxShadow = "none";
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
-                      Unidades
-                    </label>
-                    <input
-                      type="number"
-                      value={units}
-                      onChange={(e) => setUnits(e.target.value)}
-                      placeholder="Ej: 120"
-                      className="w-full h-10 px-4 text-sm outline-none transition-all"
-                      style={inputStyle}
-                      onFocus={(e) => {
-                        e.currentTarget.style.border = "1px solid var(--accent)";
-                        e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
-                      }}
-                      onBlur={(e) => {
-                        e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-                        e.currentTarget.style.boxShadow = "none";
-                      }}
-                    />
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-10 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2"
-                  style={{
-                    background: loading ? "rgb(var(--accent-rgb) / 0.4)" : "var(--accent)",
-                    color: "#ffffff",
-                    boxShadow: loading ? "none" : "0 2px 12px rgb(var(--accent-rgb) / 0.3)",
-                    cursor: loading ? "not-allowed" : "pointer",
-                    border: "none",
-                  }}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Guardando...
-                    </>
-                  ) : (
-                    "Guardar Propiedad"
-                  )}
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {properties.length === 0 && !showForm && (
-          <div
-            className="rounded-2xl flex flex-col items-center py-16 text-center px-6"
-            style={{
-              background: "var(--hifi-surface-1)",
-              border: "1.5px dashed rgb(var(--veil-rgb) / 0.1)",
-            }}
-          >
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
-              style={{
-                background: "rgb(var(--accent-rgb) / 0.1)",
-                border: "1px solid rgb(var(--accent-rgb) / 0.2)",
-              }}
-            >
-              <Building2 className="h-8 w-8" style={{ color: "var(--accent-text)" }} />
-            </div>
-            <span
-              className="block mb-1"
-              style={{
-                ...monoLabel,
-                color: "var(--ink-3)",
-                marginBottom: "6px",
-              }}
-            >
-              Sin propiedades
-            </span>
-            <p className="font-medium mb-1" style={{ color: "var(--ink)", fontSize: "15px" }}>
-              Aun no tienes propiedades
-            </p>
-            <p className="text-sm max-w-xs" style={{ color: "var(--ink-2)" }}>
-              Agrega tu primera propiedad para empezar a generar documentos profesionales
-            </p>
-            <button
-              onClick={() => setShowForm(true)}
-              className="mt-6 flex items-center gap-2 px-5 h-10 rounded-xl text-sm font-medium transition-all"
-              style={{
-                background: "var(--accent)",
-                color: "#ffffff",
-                boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.35)",
-                border: "none",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--accent-hi)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--accent)"; }}
-            >
-              <Plus className="h-4 w-4" />
-              Agregar primera propiedad
-            </button>
-          </div>
-        )}
-
-        {/* Property Cards */}
-        <div className="space-y-3">
-          {properties.map((property) => (
-            <div
-              key={property.id}
-              className="group rounded-2xl overflow-hidden transition-all duration-300"
-              style={{
-                background: "var(--hifi-surface-1)",
-                border: "1px solid var(--hifi-hairline)",
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.border = "1px solid rgb(var(--accent-rgb) / 0.25)";
-                el.style.transform = "translateY(-2px)";
-                el.style.boxShadow = "0 8px 32px rgba(0,0,0,0.30)";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-                el.style.transform = "translateY(0)";
-                el.style.boxShadow = "none";
-              }}
-            >
-              {editingId === property.id ? (
-                <div className="p-5 animate-in fade-in duration-200">
-                  <form onSubmit={handleEditSubmit} className="space-y-4">
-                    {editError && (
-                      <div
-                        className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
-                        style={{
-                          background: "rgb(var(--danger-rgb) / 0.08)",
-                          border: "1px solid rgb(var(--danger-rgb) / 0.25)",
-                          color: "var(--danger-text)",
-                        }}
-                      >
-                        <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                        {editError}
-                      </div>
+          {/* ── Nueva propiedad: panel en la misma pantalla (SPEC §g 12) ── */}
+          {showForm && (
+            <section ref={refNueva} className="prop-ficha">
+              <Seccion id="prop-nueva-t" titulo="Nueva propiedad">
+                <div className="k-r12">
+                  <form onSubmit={handleSubmit} style={{ gridColumn: "1 / 8" }}>
+                    {error && (
+                      <Aviso enLinea tipo="error" titulo="No se pudo guardar la propiedad." texto={error} className="mb-6" />
                     )}
-                    <div>
-                      <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
-                        Nombre *
-                      </label>
-                      <input
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        placeholder="Nombre del conjunto/edificio"
-                        required
-                        className="w-full h-10 px-4 text-sm outline-none transition-all"
-                        style={inputStyle}
-                        onFocus={(e) => {
-                          e.currentTarget.style.border = "1px solid var(--accent)";
-                          e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
-                        }}
-                        onBlur={(e) => {
-                          e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-                          e.currentTarget.style.boxShadow = "none";
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
-                        Direccion
-                      </label>
-                      <input
-                        value={editAddress}
-                        onChange={(e) => setEditAddress(e.target.value)}
-                        placeholder="Direccion"
-                        className="w-full h-10 px-4 text-sm outline-none transition-all"
-                        style={inputStyle}
-                        onFocus={(e) => {
-                          e.currentTarget.style.border = "1px solid var(--accent)";
-                          e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
-                        }}
-                        onBlur={(e) => {
-                          e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-                          e.currentTarget.style.boxShadow = "none";
-                        }}
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
-                          Ciudad
-                        </label>
-                        <input
-                          value={editCity}
-                          onChange={(e) => setEditCity(e.target.value)}
-                          placeholder="Ciudad"
-                          className="w-full h-10 px-4 text-sm outline-none transition-all"
-                          style={inputStyle}
-                          onFocus={(e) => {
-                            e.currentTarget.style.border = "1px solid var(--accent)";
-                            e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
-                          }}
-                          onBlur={(e) => {
-                            e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-                            e.currentTarget.style.boxShadow = "none";
-                          }}
+                    <GrupoCampos titulo="Datos de la copropiedad">
+                      <Campo id="prop-nombre" etiqueta="Nombre del conjunto o edificio">
+                        <Entrada
+                          id="prop-nombre"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder="Ej.: Conjunto Residencial Los Pinos"
+                          required
                         />
-                      </div>
-                      <div>
-                        <label className="block mb-1.5 text-xs font-medium" style={{ color: "var(--ink-2)" }}>
-                          Unidades
-                        </label>
-                        <input
-                          type="number"
-                          value={editUnits}
-                          onChange={(e) => setEditUnits(e.target.value)}
-                          placeholder="Unidades"
-                          className="w-full h-10 px-4 text-sm outline-none transition-all"
-                          style={inputStyle}
-                          onFocus={(e) => {
-                            e.currentTarget.style.border = "1px solid var(--accent)";
-                            e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
-                          }}
-                          onBlur={(e) => {
-                            e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-                            e.currentTarget.style.boxShadow = "none";
-                          }}
+                      </Campo>
+                      <Campo id="prop-direccion" etiqueta="Dirección" opcional>
+                        <Entrada
+                          id="prop-direccion"
+                          value={address}
+                          onChange={(e) => setAddress(e.target.value)}
+                          placeholder="Ej.: Calle 123 # 45-67"
                         />
+                      </Campo>
+                      <div className="prop-dos">
+                        <Campo id="prop-ciudad" etiqueta="Ciudad" opcional>
+                          <Entrada
+                            id="prop-ciudad"
+                            value={city}
+                            onChange={(e) => setCity(e.target.value)}
+                            placeholder="Ej.: Bogotá"
+                          />
+                        </Campo>
+                        <Campo id="prop-unidades" etiqueta="Unidades" opcional>
+                          <Entrada
+                            id="prop-unidades"
+                            type="number"
+                            inputMode="numeric"
+                            value={units}
+                            onChange={(e) => setUnits(e.target.value)}
+                            placeholder="Ej.: 120"
+                          />
+                        </Campo>
                       </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        type="submit"
-                        disabled={editLoading}
-                        className="flex-1 h-10 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all"
-                        style={{
-                          background: "var(--accent)",
-                          color: "#ffffff",
-                          boxShadow: "0 2px 12px rgb(var(--accent-rgb) / 0.3)",
-                          border: "none",
-                          cursor: editLoading ? "not-allowed" : "pointer",
-                        }}
-                      >
-                        <Check className="h-4 w-4" />
-                        {editLoading ? "Guardando..." : "Guardar"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={cancelEditing}
-                        className="flex-1 h-10 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all"
-                        style={{
-                          background: "rgb(var(--veil-rgb) / 0.04)",
-                          color: "var(--ink-2)",
-                          border: "1px solid rgb(var(--veil-rgb) / 0.1)",
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.08)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.04)"; }}
-                      >
-                        <X className="h-4 w-4" />
+                    </GrupoCampos>
+                    <div className="k-btns">
+                      <Boton variante="secundario" onClick={() => setShowForm(false)}>
                         Cancelar
-                      </button>
+                      </Boton>
+                      <Boton type="submit" cargando={loading} textoCargando="Guardando…">
+                        Guardar propiedad
+                      </Boton>
                     </div>
                   </form>
+                  <aside className="prop-col-docs" style={{ gridColumn: "8 / 13" }} aria-label="Sobre los documentos base">
+                    <GrupoCampos titulo="Documentos base">
+                      <p className="prop-ayuda">
+                        El manual de convivencia y el reglamento interno se suben después de guardar: usa «Editar»
+                        o «Documentos base» en la fila de la copropiedad.
+                      </p>
+                      <p className="prop-ayuda">
+                        Los agentes de IA usan estos documentos como contexto para darte respuestas más precisas.
+                      </p>
+                    </GrupoCampos>
+                  </aside>
                 </div>
-              ) : (
-                <>
-                  {/* Card main row */}
-                  <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5">
-                    {/* Building icon */}
-                    <div
-                      className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{
-                        background: "rgb(var(--accent-rgb) / 0.1)",
-                        border: "1px solid rgb(var(--accent-rgb) / 0.2)",
-                      }}
-                    >
-                      <Building2 className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: "var(--accent-text)" }} />
-                    </div>
+              </Seccion>
+            </section>
+          )}
 
-                    {/* Name + chips */}
-                    <div className="flex-1 min-w-0">
-                      <h3
-                        className="font-bold truncate"
-                        style={{ color: "var(--ink)", fontSize: "15px" }}
-                      >
-                        {property.name}
-                      </h3>
-                      {property.address && (
-                        <div
-                          className="flex items-center gap-1 mt-0.5"
-                          style={{
-                            fontFamily: "'Geist Mono', monospace",
-                            fontSize: "11px",
-                            color: "var(--ink-3)",
-                          }}
-                        >
-                          <MapPin className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">{property.address}{property.city ? `, ${property.city}` : ""}</span>
-                        </div>
-                      )}
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {property.units && (
-                          <span
-                            className="flex items-center gap-1 px-2 py-0.5 rounded-md"
-                            style={{
-                              ...monoLabel,
-                              background: "rgb(var(--accent-rgb) / 0.08)",
-                              border: "1px solid rgb(var(--accent-rgb) / 0.2)",
-                              color: "var(--accent-text)",
-                            }}
-                          >
-                            <Home className="h-2.5 w-2.5" />
-                            {property.units} unidades
-                          </span>
-                        )}
-                        {property.city && !property.address && (
-                          <span
-                            className="flex items-center gap-1 px-2 py-0.5 rounded-md"
-                            style={{
-                              ...monoLabel,
-                              background: "rgb(var(--veil-rgb) / 0.04)",
-                              border: "1px solid var(--hifi-hairline)",
-                              color: "var(--ink-2)",
-                            }}
-                          >
-                            {property.city}
-                          </span>
-                        )}
+          {/* ── Editar: datos + documentos base ── */}
+          {editando && (
+            <section ref={refEditar} className="prop-ficha">
+              <Seccion id="prop-editar-t" titulo={`Editar · ${nombreCorto(editando.name)}`}>
+                <div className="k-r12">
+                  <form onSubmit={handleEditSubmit} style={{ gridColumn: "1 / 7" }}>
+                    {editError && (
+                      <Aviso enLinea tipo="error" titulo="No se pudieron guardar los cambios." texto={editError} className="mb-6" />
+                    )}
+                    <GrupoCampos titulo="Datos de la copropiedad">
+                      <Campo id="prop-e-nombre" etiqueta="Nombre del conjunto o edificio">
+                        <Entrada
+                          id="prop-e-nombre"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          placeholder="Nombre del conjunto o edificio"
+                          required
+                        />
+                      </Campo>
+                      <Campo id="prop-e-direccion" etiqueta="Dirección" opcional>
+                        <Entrada
+                          id="prop-e-direccion"
+                          value={editAddress}
+                          onChange={(e) => setEditAddress(e.target.value)}
+                          placeholder="Dirección"
+                        />
+                      </Campo>
+                      <div className="prop-dos">
+                        <Campo id="prop-e-ciudad" etiqueta="Ciudad" opcional>
+                          <Entrada
+                            id="prop-e-ciudad"
+                            value={editCity}
+                            onChange={(e) => setEditCity(e.target.value)}
+                            placeholder="Ciudad"
+                          />
+                        </Campo>
+                        <Campo id="prop-e-unidades" etiqueta="Unidades" opcional>
+                          <Entrada
+                            id="prop-e-unidades"
+                            type="number"
+                            inputMode="numeric"
+                            value={editUnits}
+                            onChange={(e) => setEditUnits(e.target.value)}
+                            placeholder="Unidades"
+                          />
+                        </Campo>
                       </div>
+                    </GrupoCampos>
+                    <div className="k-btns">
+                      <Boton variante="secundario" onClick={cancelEditing}>
+                        Cancelar
+                      </Boton>
+                      <Boton type="submit" cargando={editLoading} textoCargando="Guardando…">
+                        Guardar cambios
+                      </Boton>
                     </div>
-
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => toggleExpand(property.id)}
-                        className="p-2 rounded-lg transition-all"
-                        style={{ color: "var(--ink-3)" }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "rgb(var(--accent-rgb) / 0.1)";
-                          e.currentTarget.style.color = "var(--accent-text)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "var(--ink-3)";
-                        }}
-                        title="Documentos"
-                      >
-                        {expandedId === property.id ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => startEditing(property)}
-                        className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200 p-2 rounded-lg"
-                        style={{ color: "var(--ink-3)" }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "rgb(var(--accent-rgb) / 0.1)";
-                          e.currentTarget.style.color = "var(--accent-text)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "var(--ink-3)";
-                        }}
-                        title="Editar propiedad"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(property.id)}
-                        className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200 p-2 rounded-lg"
-                        style={{ color: "var(--ink-3)" }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "rgb(var(--danger-rgb) / 0.1)";
-                          e.currentTarget.style.color = "var(--danger-text)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "var(--ink-3)";
-                        }}
-                        title="Eliminar propiedad"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                  </form>
+                  <div className="prop-col-docs" style={{ gridColumn: "7 / 13" }}>
+                    <GrupoCampos
+                      titulo="Documentos base"
+                      nota="Se guardan al subirlos. Los agentes de IA los usan como contexto."
+                    >
+                      {bloqueDocumentos(editando, 3)}
+                    </GrupoCampos>
                   </div>
+                </div>
+              </Seccion>
+            </section>
+          )}
 
-                  {/* Documents section */}
-                  {expandedId === property.id && (
-                    <div
-                      className="px-5 pb-5"
-                      style={{ borderTop: "1px solid var(--hifi-hairline)" }}
-                    >
-                      <div className="pt-4 space-y-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <BookOpen className="h-4 w-4" style={{ color: "var(--accent-text)" }} />
-                          <span
-                            className="text-sm font-semibold"
-                            style={{ color: "var(--ink)" }}
-                          >
-                            Documentos de la propiedad
-                          </span>
-                        </div>
-                        <p className="text-xs" style={{ color: "var(--ink-3)" }}>
-                          Los agentes IA usaran estos documentos como contexto para darte respuestas mas precisas.
-                        </p>
+          {/* ── Documentos base de una copropiedad (desde «Más») ── */}
+          {conDocs && conDocs.id !== editingId && (
+            <section ref={refDocs} className="prop-ficha" tabIndex={-1} aria-labelledby="prop-docs-t">
+              <Seccion
+                id="prop-docs-t"
+                titulo={`Documentos base · ${nombreCorto(conDocs.name)}`}
+                acciones={
+                  <Boton variante="secundario" tam={40} onClick={() => toggleExpand(conDocs.id)}>
+                    Cerrar
+                  </Boton>
+                }
+              >
+                <p className="prop-ayuda" style={{ marginBottom: 20 }}>
+                  Los agentes de IA usarán estos documentos como contexto para darte respuestas más precisas.
+                </p>
+                <div className="k-r12">
+                  {bloqueDocumentos(conDocs, 3).map((b, i) => (
+                    <div key={i} className={i === 0 ? undefined : "prop-col-docs"} style={{ gridColumn: i === 0 ? "1 / 7" : "7 / 13" }}>{b}</div>
+                  ))}
+                </div>
+              </Seccion>
+            </section>
+          )}
 
-                        <DocumentSlot
-                          label="Manual de Convivencia"
-                          icon={<Shield className="h-5 w-5 flex-shrink-0" style={{ color: "var(--accent-text)" }} />}
-                          doc={getDocByType(property.id, "manual_convivencia")}
-                          uploading={uploadingDoc === `${property.id}-manual_convivencia`}
-                          onUpload={(file) => handleDocUpload(property.id, "manual_convivencia", file)}
-                          onDelete={(docId) => handleDocDelete(property.id, docId)}
-                        />
+          {/* ── Tabla-índice de copropiedades ── */}
+          {estadoLista === "cargando" ? (
+            <Esqueleto variante="tabla" filas={3} etiquetaAccesible="Cargando tus copropiedades…" />
+          ) : estadoLista === "error" ? (
+            <ErrorCarga
+              titulo="No pudimos cargar tus copropiedades."
+              texto="Revisa tu conexión e inténtalo de nuevo."
+              acciones={
+                <Boton
+                  variante="secundario"
+                  onClick={() => {
+                    setEstadoLista("cargando");
+                    fetchProperties();
+                  }}
+                >
+                  Reintentar
+                </Boton>
+              }
+            />
+          ) : properties.length === 0 ? (
+            !showForm && (
+              <Vacio
+                titulo="Aún no tienes copropiedades."
+                texto="Agrega tu primera copropiedad para empezar a generar informes y actas con IA."
+                acciones={
+                  <Boton flecha="avanza" onClick={() => setShowForm(true)}>
+                    Agregar la primera
+                  </Boton>
+                }
+              />
+            )
+          ) : (
+            <>
+              <Tabla
+                className="prop-tabla"
+                etiquetaAccesible="Mis copropiedades"
+                filas={properties}
+                claveFila={(p) => p.id}
+                columnas={columnas}
+                alta
+              />
+              <p className="prop-nota">
+                Los documentos base (manual de convivencia y reglamento interno) le dan contexto a los agentes de IA.
+              </p>
+            </>
+          )}
+        </Pieza>
+      </Pagina>
 
-                        <DocumentSlot
-                          label="Reglamento Interno"
-                          icon={<FileText className="h-5 w-5 flex-shrink-0" style={{ color: "var(--ok-text)" }} />}
-                          doc={getDocByType(property.id, "reglamento_interno")}
-                          uploading={uploadingDoc === `${property.id}-reglamento_interno`}
-                          onUpload={(file) => handleDocUpload(property.id, "reglamento_interno", file)}
-                          onDelete={(docId) => handleDocDelete(property.id, docId)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Eliminar propiedad: nombra la copropiedad y lo que se borra. */}
+      <Modal
+        abierto={Boolean(borrarPropiedad)}
+        alCerrar={() => { if (!eliminando) setBorrarPropiedad(null); }}
+        titulo={`¿Eliminar ${borrarPropiedad?.name ?? "esta propiedad"}?`}
+        acciones={
+          <>
+            <Boton variante="secundario" onClick={() => setBorrarPropiedad(null)} disabled={eliminando}>
+              Cancelar
+            </Boton>
+            <Boton variante="peligro" lleno onClick={confirmarBorrado} cargando={eliminando} textoCargando="Eliminando…">
+              Eliminar propiedad
+            </Boton>
+          </>
+        }
+      >
+        <p>
+          Se borrará también todo su historial de documentos generados (informes, actas y presentaciones). Esta
+          acción no se puede deshacer.
+        </p>
+      </Modal>
+
+      {/* Quitar un documento base. */}
+      <Modal
+        abierto={Boolean(borrarDoc)}
+        alCerrar={() => { if (!quitandoDoc) setBorrarDoc(null); }}
+        titulo={`¿Quitar el ${borrarDoc?.etiqueta.toLowerCase() ?? "documento"} de ${borrarDoc ? nombreCorto(borrarDoc.propiedad.name) : ""}?`}
+        acciones={
+          <>
+            <Boton variante="secundario" onClick={() => setBorrarDoc(null)} disabled={quitandoDoc}>
+              Cancelar
+            </Boton>
+            <Boton variante="peligro" lleno onClick={confirmarQuitarDoc} cargando={quitandoDoc} textoCargando="Quitando…">
+              Quitar documento
+            </Boton>
+          </>
+        }
+      >
+        <p>
+          Se borra «{borrarDoc?.doc.name}» y los agentes de IA dejarán de usarlo como contexto. Puedes subirlo de
+          nuevo cuando quieras.
+        </p>
+      </Modal>
     </div>
   );
 }
 
 function DocumentSlot({
   label,
-  icon,
+  corto,
+  nivel,
+  cargando,
+  fallido,
+  alReintentar,
   doc,
   uploading,
   onUpload,
   onDelete,
 }: {
   label: string;
-  icon: React.ReactNode;
+  corto: string;
+  nivel: 3 | 4;
+  cargando: boolean;
+  /** No se pudo consultar la lista: no se sabe si falta (antes decía «Falta»). */
+  fallido: boolean;
+  alReintentar: () => void;
   doc?: PropertyDocument;
   uploading: boolean;
   onUpload: (file: File) => void;
-  onDelete: (docId: string) => void;
+  onDelete: (doc: PropertyDocument) => void;
 }) {
-  const monoMini: React.CSSProperties = {
-    fontFamily: "'Geist Mono', monospace",
-    fontSize: "11px",
-    letterSpacing: "0.08em",
-  };
-
-  if (uploading) {
-    return (
-      <div
-        className="flex items-center gap-3 p-3 rounded-xl"
-        style={{
-          background: "var(--surface-3)",
-          border: "1px solid var(--hifi-hairline)",
-        }}
-      >
-        {icon}
-        <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium" style={{ color: "var(--ink)" }}>{label}</span>
-          <span className="block text-xs" style={{ color: "var(--accent-text)", ...monoMini }}>Subiendo...</span>
-        </div>
-        <Loader2 className="h-4 w-4 animate-spin" style={{ color: "var(--accent-text)" }} />
-      </div>
-    );
-  }
-
-  if (doc) {
-    return (
-      <div
-        className="flex items-center gap-3 p-3 rounded-xl"
-        style={{
-          background: "var(--surface-3)",
-          border: "1px solid var(--hifi-hairline)",
-        }}
-      >
-        {icon}
-        <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium truncate block" style={{ color: "var(--ink)" }}>{doc.name}</span>
-          <span className="text-xs" style={{ color: "var(--ink-3)", ...monoMini }}>
-            {label} — {(doc.size / 1024 / 1024).toFixed(1)} MB
-          </span>
-        </div>
-        <button
-          onClick={() => onDelete(doc.id)}
-          className="p-1.5 rounded-lg transition-all"
-          style={{ color: "var(--ink-3)" }}
-          title="Eliminar documento"
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgb(var(--danger-rgb) / 0.1)";
-            e.currentTarget.style.color = "var(--danger-text)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "var(--ink-3)";
-          }}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    );
-  }
-
+  const H = nivel === 3 ? "h3" : "h4";
   return (
-    <label
-      className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all"
-      style={{
-        background: "transparent",
-        border: "1.5px dashed rgb(var(--veil-rgb) / 0.1)",
-      }}
-      onMouseEnter={(e) => {
-        const el = e.currentTarget as HTMLElement;
-        el.style.border = "1.5px dashed rgb(var(--accent-rgb) / 0.4)";
-        el.style.background = "rgb(var(--accent-rgb) / 0.05)";
-      }}
-      onMouseLeave={(e) => {
-        const el = e.currentTarget as HTMLElement;
-        el.style.border = "1.5px dashed rgb(var(--veil-rgb) / 0.1)";
-        el.style.background = "transparent";
-      }}
-    >
-      {icon}
-      <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium" style={{ color: "var(--ink)" }}>{label}</span>
-        <span className="block text-xs" style={{ color: "var(--ink-3)", ...monoMini }}>
-          PDF o Word — clic para subir
-        </span>
+    <div className="prop-doc">
+      <div className="prop-doc-h">
+        <H className="k-fila-t">{label}</H>
+        {uploading ? (
+          <Estado tipo="enCurso" tamLetra={14}>Subiendo</Estado>
+        ) : doc ? (
+          <Estado tipo="ok" tamLetra={14}>Subido</Estado>
+        ) : cargando ? null : fallido ? (
+          <Estado tipo="falta" tamLetra={14}>Sin dato</Estado>
+        ) : (
+          <Estado tipo="pendiente" tamLetra={14}>Falta</Estado>
+        )}
       </div>
-      <Upload className="h-4 w-4" style={{ color: "var(--ink-3)" }} />
-      <input
-        type="file"
-        className="hidden"
-        accept=".pdf,.docx,.doc"
-        onChange={(e) => {
-          if (e.target.files?.[0]) onUpload(e.target.files[0]);
-        }}
-      />
-    </label>
+      {uploading ? (
+        <div role="status">
+          <ZonaSubida
+            compacta
+            deshabilitado
+            titulo={`Subiendo ${corto}…`}
+            texto="Espera a que termine antes de salir de esta pantalla."
+            alElegir={() => {}}
+          />
+        </div>
+      ) : doc ? (
+        <ListaArchivos etiquetaAccesible={label}>
+          <FilaArchivo
+            nombre={doc.name}
+            detalle={pesoLegible(doc.size)}
+            estado="listo"
+            alQuitar={() => onDelete(doc)}
+            etiquetaQuitar={`Quitar ${label.toLowerCase()}: ${doc.name}`}
+          />
+        </ListaArchivos>
+      ) : cargando ? (
+        <span className="k-meta">Consultando…</span>
+      ) : fallido ? (
+        <div className="prop-doc-falla">
+          <p className="k-apoyo">No pudimos consultar si ya está subido.</p>
+          <Boton variante="secundario" tam={40} onClick={alReintentar}>
+            Reintentar
+          </Boton>
+        </div>
+      ) : (
+        <ZonaSubida
+          compacta
+          titulo={`Suelta aquí ${corto}`}
+          texto="o haz clic para elegirlo."
+          formatos="PDF o Word"
+          accept=".pdf,.docx,.doc"
+          etiquetaAccesible={`Subir ${label.toLowerCase()}`}
+          alElegir={(files) => {
+            if (files[0]) onUpload(files[0]);
+          }}
+        />
+      )}
+    </div>
   );
 }

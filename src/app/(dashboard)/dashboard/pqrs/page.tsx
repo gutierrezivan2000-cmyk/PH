@@ -161,7 +161,7 @@ function PqrsInboxPage() {
               Los residentes radican peticiones, quejas y reclamos desde su portal (sin cuenta) y tú
               respondes desde aquí.
             </p>
-            <Link href="/dashboard/suscripcion" className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-6 py-3" style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}>
+            <Link href="/dashboard/suscripcion" className="inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-6 py-3" style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}>
               Ver planes <ArrowUpRight className="h-4 w-4" />
             </Link>
           </div>
@@ -183,7 +183,7 @@ function PqrsInboxPage() {
                 <Link
                   href="/dashboard/suscripcion"
                   className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2"
-                  style={{ background: "var(--accent)", color: "#fff" }}
+                  style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                 >
                   Ver planes <ArrowUpRight className="h-3.5 w-3.5" />
                 </Link>
@@ -207,7 +207,7 @@ function PqrsInboxPage() {
                         className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0 inline-flex items-center gap-1.5"
                         style={{
                           background: on ? "var(--hifi-accent)" : "transparent",
-                          color: on ? "#fff" : "var(--ink-2)",
+                          color: on ? "var(--on-accent)" : "var(--ink-2)",
                           boxShadow: on ? "0 6px 16px -8px rgb(var(--accent-rgb) / 0.9)" : "none",
                         }}
                       >
@@ -217,7 +217,7 @@ function PqrsInboxPage() {
                             className="tabular-nums rounded px-1.5 text-[11px]"
                             style={{
                               background: on ? "rgb(var(--veil-rgb) / 0.2)" : "rgb(var(--veil-rgb) / 0.07)",
-                              color: on ? "#fff" : "var(--ink-2)",
+                              color: on ? "var(--on-accent)" : "var(--ink-2)",
                             }}
                           >
                             {n}
@@ -323,7 +323,7 @@ function PqrsInboxPage() {
                                 <button
                                   onClick={() => act(p.id, { reply, notify })}
                                   disabled={busy || !reply.trim()}
-                                  className="ui-press inline-flex items-center gap-2 rounded-full text-white text-[12.5px] font-medium px-4 py-2 cursor-pointer"
+                                  className="ui-press inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[12.5px] font-medium px-4 py-2 cursor-pointer"
                                   style={{ background: "var(--accent)" }}
                                 >
                                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}

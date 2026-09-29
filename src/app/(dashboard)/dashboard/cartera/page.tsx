@@ -537,7 +537,7 @@ function CarteraPage() {
             </p>
             <Link
               href="/dashboard/suscripcion"
-              className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-6 py-3"
+              className="inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-6 py-3"
               style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
             >
               Ver planes
@@ -574,7 +574,7 @@ function CarteraPage() {
                         className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap"
                         style={{
                           background: on ? "var(--hifi-accent)" : "transparent",
-                          color: on ? "#fff" : "var(--ink-2)",
+                          color: on ? "var(--on-accent)" : "var(--ink-2)",
                           boxShadow: on ? "0 6px 16px -8px rgb(var(--accent-rgb) / 0.9)" : "none",
                         }}
                       >
@@ -683,7 +683,7 @@ function CarteraPage() {
                   <button
                     onClick={causar}
                     disabled={busy}
-                    className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
+                    className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                     style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                   >
                     {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarPlus className="h-3.5 w-3.5" />}
@@ -742,7 +742,7 @@ function CarteraPage() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
+                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                   style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                 >
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <HandCoins className="h-3.5 w-3.5" />}
@@ -824,7 +824,7 @@ function CarteraPage() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
+                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                   style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                 >
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
@@ -876,7 +876,7 @@ function CarteraPage() {
                   <button
                     onClick={liquidarIntereses}
                     disabled={busy}
-                    className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
+                    className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                     style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                   >
                     {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Percent className="h-3.5 w-3.5" />}
@@ -975,7 +975,7 @@ function CarteraPage() {
                       <button
                         onClick={enviarCarta}
                         disabled={cartaSending || !units.find((u) => u.id === cartaUnit)?.email}
-                        className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-40 cursor-pointer"
+                        className="inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2.5 transition-all disabled:opacity-40 cursor-pointer"
                         style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                       >
                         {cartaSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
@@ -1103,7 +1103,7 @@ function CarteraPage() {
                   <Link
                     href="/dashboard/residentes"
                     className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12.5px] font-medium px-5 py-2.5"
-                    style={{ background: "var(--hifi-accent)", color: "#fff", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
+                    style={{ background: "var(--hifi-accent)", color: "var(--on-accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                   >
                     Agregar unidades
                     <ArrowUpRight className="h-3.5 w-3.5" />

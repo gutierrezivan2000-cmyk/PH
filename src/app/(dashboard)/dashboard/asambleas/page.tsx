@@ -363,7 +363,7 @@ La Administración`;
                 className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
                 style={{
                   background: showForm ? "rgb(var(--veil-rgb) / 0.06)" : "var(--accent)",
-                  color: showForm ? "var(--ink-2)" : "#fff",
+                  color: showForm ? "var(--ink-2)" : "var(--on-accent)",
                 }}
               >
                 <Plus
@@ -488,7 +488,7 @@ La Administración`;
                 <button
                   type="submit"
                   disabled={creating}
-                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
+                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                   style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
                 >
                   {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gavel className="h-3.5 w-3.5" />}

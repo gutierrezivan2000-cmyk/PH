@@ -5,24 +5,9 @@ import { notFound } from "next/navigation";
 import { eliteGate } from "@/components/empresa/EmpresaGate";
 import { EmpresaShell } from "@/components/empresa/EmpresaShell";
 import { MonthlyDataCard } from "@/components/empresa/MonthlyDataCard";
-import { PageHeader } from "@/components/admin/PageHeader";
-import { Badge } from "@/components/ui/badge";
+import { Boton, BotonFila, CabeceraPieza, Pagina, Panel, Pieza, Resumen, Seccion, TipoArchivo, Vacio, tipoDeArchivo } from "@/components/kit";
 import { db } from "@/lib/db";
-import {
-  ArrowLeft,
-  FilePlus2,
-  MapPin,
-  Building2,
-  Layers3,
-  FileText,
-  FolderOpen,
-  ArrowUpRight,
-} from "lucide-react";
-
-const MONTHS = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-];
+import { TablaGeneraciones, type FilaGeneracion } from "../PropertyFilters";
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   reglamento_interno: "Reglamento interno",
@@ -59,132 +44,119 @@ export default async function PropertyDetailPage({
   if (!loaded) notFound();
   const { property, generations } = loaded;
 
+  const historial: FilaGeneracion[] = generations.map((g) => ({
+    id: g.id,
+    month: g.month,
+    year: g.year,
+    status: g.status,
+    createdAt: g.createdAt,
+  }));
+  const nDocs = property.documents.length;
+
   return (
     <EmpresaShell elite={elite}>
-      <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-5xl">
-        <Link
-          href="/empresa/propiedades"
-          className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground mb-4 transition-colors"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> Volver a propiedades
-        </Link>
+      <style href="k-empresa-propiedad" precedence="default">{CSS_PROPIEDAD}</style>
+      <Pagina>
+        <Pieza className="emp-con-miga">
+          <Boton variante="fantasma" tam={40} flecha="vuelve" href="/empresa/propiedades" className="emp-miga">
+            Volver a propiedades
+          </Boton>
+          <CabeceraPieza
+            nn="03"
+            titulo={property.name}
+            subtitulo={[property.address, property.city].filter(Boolean).join(" · ") || undefined}
+            acciones={<Boton href="/dashboard/generar" flecha="avanza">Generar informe</Boton>}
+          />
 
-        <PageHeader
-          section="Portafolio · Propiedad"
-          title={property.name}
-          description={[property.address, property.city].filter(Boolean).join(" · ") || undefined}
-          action={
-            <Link
-              href="/dashboard/generar"
-              className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold text-white transition-all hover:opacity-90"
-              style={{ background: "var(--accent)", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.35)" }}
-            >
-              <FilePlus2 className="h-4 w-4" />
-              Generar informe
-            </Link>
-          }
-        />
+          <div className="emp-ficha">
+            {/* Datos del mes para la generación en lote (7 columnas) */}
+            <div className="emp-ficha-a">
+              <MonthlyDataCard propertyId={property.id} />
+            </div>
 
-        <div className="grid md:grid-cols-3 gap-4 mb-6">
-          <InfoTile icon={MapPin} label="Ciudad" value={property.city || "—"} />
-          <InfoTile icon={Building2} label="Unidades" value={property.units ? String(property.units) : "—"} />
-          <InfoTile icon={Layers3} label="Grupo" value={property.groupLabel || "Sin grupo"} />
-        </div>
+            <div className="emp-ficha-b">
+              <Panel titulo="Datos de la copropiedad">
+                <Resumen
+                  etiquetaAccesible="Datos de la copropiedad"
+                  filas={[
+                    { etiqueta: "Ciudad", valor: property.city || "Sin dato" },
+                    { etiqueta: "Unidades", valor: property.units ? property.units.toLocaleString("es-CO") : "Sin dato" },
+                    { etiqueta: "Grupo", valor: property.groupLabel || "Sin grupo" },
+                  ]}
+                />
+              </Panel>
 
-        {/* Monthly input staging for batch generation */}
-        <MonthlyDataCard propertyId={property.id} />
-
-        {/* Documents */}
-        <section className="rounded-2xl border border-border bg-card overflow-hidden mb-6">
-          <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-            <FolderOpen className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm font-semibold text-foreground">Documentos</p>
-            <span className="text-[11px] text-muted-foreground/60 ml-auto" style={{ fontFamily: "var(--font-mono)" }}>
-              {property.documents.length}
-            </span>
+              <Panel titulo="Documentos" nota={`${nDocs} ${nDocs === 1 ? "cargado" : "cargados"}`} className="emp-docs">
+                {nDocs === 0 ? (
+                  <p className="emp-docs-vacio">
+                    Sin reglamento ni manual cargados. Puedes subirlos desde{" "}
+                    <Link href="/dashboard/propiedades" className="k-enlace">Propiedades</Link>.
+                  </p>
+                ) : (
+                  <ul className="emp-docs-l">
+                    {property.documents.map((doc) => (
+                      <li key={doc.id}>
+                        <TipoArchivo>{tipoDeArchivo(doc.name)}</TipoArchivo>
+                        <span className="nom">
+                          <b>{doc.name}</b>
+                          <span>{DOC_TYPE_LABELS[doc.type] || doc.type}</span>
+                        </span>
+                        <BotonFila href={doc.url} nuevaPestana aria-label={`Abrir ${doc.name}`}>
+                          Abrir
+                        </BotonFila>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+            </div>
           </div>
-          {property.documents.length === 0 ? (
-            <p className="px-5 py-8 text-center text-[13px] text-muted-foreground">
-              Sin reglamento ni manual cargados. Puedes subirlos desde{" "}
-              <Link href="/dashboard/propiedades" className="text-[var(--accent-hi)] hover:underline">Propiedades</Link>.
-            </p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {property.documents.map((doc) => (
-                <li key={doc.id} className="px-5 py-3 flex items-center gap-3">
-                  <FileText className="h-4 w-4 text-muted-foreground/70 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-foreground truncate">{doc.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{DOC_TYPE_LABELS[doc.type] || doc.type}</p>
-                  </div>
-                  <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                    Abrir <ArrowUpRight className="h-3.5 w-3.5" />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
 
-        {/* Generations timeline */}
-        <section className="rounded-2xl border border-border bg-card overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm font-semibold text-foreground">Historial de generaciones</p>
-            <span className="text-[11px] text-muted-foreground/60 ml-auto" style={{ fontFamily: "var(--font-mono)" }}>
-              {generations.length}
-            </span>
-          </div>
-          {generations.length === 0 ? (
-            <p className="px-5 py-8 text-center text-[13px] text-muted-foreground">
-              Esta propiedad aún no tiene informes generados.
-            </p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {generations.map((g) => (
-                <li key={g.id} className="px-5 py-3.5 flex items-center gap-4 hover:bg-secondary/40 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-foreground">
-                      {MONTHS[(g.month - 1) % 12]} {g.year}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground/60" style={{ fontFamily: "var(--font-mono)" }}>
-                      {new Date(g.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
-                    </p>
-                  </div>
-                  <StatusBadge status={g.status} />
-                  <Link
-                    href={`/dashboard/generar/${g.id}`}
-                    className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-                  >
-                    Ver <ArrowUpRight className="h-3.5 w-3.5" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
+          <Seccion id="emp-historial" titulo="Historial de generaciones" nota={
+              generations.length >= 20
+                ? "las 20 más recientes"
+                : `${generations.length} ${generations.length === 1 ? "generación" : "generaciones"}`
+            }>
+            <TablaGeneraciones
+              etiquetaAccesible={`Historial de generaciones de ${property.name}`}
+              filas={historial}
+              conEnlace
+              vacio={
+                <Vacio
+                  nivel={3}
+                  titulo="Esta propiedad aún no tiene informes generados."
+                  texto="Carga sus datos del mes y inclúyela en el próximo lote, o genera su informe desde el asistente."
+                />
+              }
+            />
+          </Seccion>
+        </Pieza>
+      </Pagina>
     </EmpresaShell>
   );
 }
 
-function InfoTile({ icon: Icon, label, value }: { icon: typeof MapPin; label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className="h-3.5 w-3.5 text-muted-foreground/70" />
-        <p className="text-[10px] uppercase text-muted-foreground/70" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.14em" }}>
-          {label}
-        </p>
-      </div>
-      <p className="text-[15px] font-medium text-foreground truncate">{value}</p>
-    </div>
-  );
+const CSS_PROPIEDAD = `
+.emp-con-miga { padding-top: 20px; }
+.emp-miga { margin: 0 0 16px -8px; }
+.emp-ficha { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); align-items: start; margin-bottom: 56px; }
+.emp-ficha-a { grid-column: 1 / 8; min-width: 0; }
+.emp-ficha-b { grid-column: 8 / 13; min-width: 0; display: grid; gap: 32px; }
+.emp-docs-vacio { margin: 0; font-size: 15px; line-height: 1.45; color: var(--ink-2); }
+.emp-docs-l { list-style: none; margin: 0; padding: 0; }
+.emp-docs-l > li { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; column-gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.emp-docs-l > li:first-child { border-top: 1px solid var(--line); }
+.emp-docs-l .nom { min-width: 0; }
+.emp-docs-l .nom b { display: block; font-size: 15px; font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; }
+.emp-docs-l .nom span { display: block; font-size: 14px; color: var(--ink-3); }
+@media (max-width: 1180px) {
+  .emp-ficha-a, .emp-ficha-b { grid-column: 1 / -1; }
+  .emp-ficha-b { margin-top: 40px; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--g); }
 }
-
-function StatusBadge({ status }: { status: string }) {
-  if (status === "completed") return <Badge variant="ok">Listo</Badge>;
-  if (status === "processing" || status === "pending") return <Badge variant="warn">En proceso</Badge>;
-  if (status === "failed") return <Badge variant="destructive">Error</Badge>;
-  return <Badge variant="secondary">{status}</Badge>;
+@media (max-width: 860px) {
+  .emp-ficha { display: block; margin-bottom: 40px; }
+  .emp-ficha-b { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .emp-docs-l > li { grid-template-columns: 52px minmax(0, 1fr); row-gap: 10px; }
+  .emp-docs-l > li > .k-bt { grid-column: 1 / -1; justify-content: center; }
 }
+`;

@@ -1,8 +1,19 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { useCallback, useTransition, useRef } from "react";
-import { Search } from "lucide-react";
+import { useCallback, useTransition, useRef, type ReactNode } from "react";
+import {
+  AccionesFila,
+  BotonFila,
+  Buscador,
+  Campo,
+  Categoria,
+  Estado,
+  Segmentos,
+  Selector,
+  Tabla,
+  type TipoEstado,
+} from "@/components/kit";
 
 interface Props {
   defaultQ: string;
@@ -38,71 +49,342 @@ export function PropertyFilters({ defaultQ, defaultGroup, defaultReporte, defaul
     }, 400);
   };
 
-  const selectBase =
-    "rounded-lg border border-border bg-card text-sm text-foreground px-3 h-9 focus-visible:outline-none focus-visible:border-[var(--accent)] focus-visible:ring-[3px] focus-visible:ring-[rgb(var(--accent-rgb) / 0.15)] transition-all cursor-pointer";
-
   return (
-    <div
-      className="flex flex-wrap items-center gap-3 mb-5 p-4 rounded-xl border border-border"
-      style={{ background: "rgb(var(--veil-rgb) / 0.02)" }}
-    >
-      <div className="relative flex-1 min-w-[200px] max-w-[320px]">
-        <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none"
-          style={{ color: "var(--ink-4)" }}
+    <div className="emp-filtros">
+      <style href="k-empresa-filtros" precedence="default">{CSS_FILTROS}</style>
+      <div className="emp-filtros-a">
+        <Segmentos
+          etiquetaAccesible="Filtrar por informe reciente"
+          valor={defaultReporte}
+          alCambiar={(id) => push(defaultQ, defaultGroup, id, defaultSort)}
+          items={[
+            { id: "all", etiqueta: "Todas" },
+            { id: "con", etiqueta: "Con informe en 30 días" },
+            { id: "sin", etiqueta: "Sin informe en 30 días" },
+          ]}
         />
-        <input
-          type="search"
+        <Buscador
+          etiquetaAccesible="Buscar por nombre o ciudad"
+          placeholder="Buscar por nombre o ciudad…"
           defaultValue={defaultQ}
           onChange={(e) => handleQ(e.target.value)}
-          placeholder="Buscar por nombre o ciudad…"
-          className="w-full h-9 rounded-lg border border-border bg-card text-sm text-foreground pl-8 pr-3 placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-[var(--accent)] focus-visible:ring-[3px] focus-visible:ring-[rgb(var(--accent-rgb) / 0.15)] transition-all"
         />
       </div>
 
-      {groups.length > 0 && (
-        <select
-          defaultValue={defaultGroup}
-          onChange={(e) => push(defaultQ, e.target.value, defaultReporte, defaultSort)}
-          className={selectBase}
-        >
-          <option value="all">Todos los grupos</option>
-          {groups.map((g) => (
-            <option key={g} value={g}>
-              {g}
-            </option>
-          ))}
-        </select>
-      )}
+      <div className="emp-filtros-b">
+        {groups.length > 0 && (
+          <Campo id="emp-grupo" etiqueta="Grupo">
+            <Selector
+              id="emp-grupo"
+              defaultValue={defaultGroup}
+              onChange={(e) => push(defaultQ, e.target.value, defaultReporte, defaultSort)}
+            >
+              <option value="all">Todos los grupos</option>
+              {groups.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </Selector>
+          </Campo>
+        )}
 
-      <select
-        defaultValue={defaultReporte}
-        onChange={(e) => push(defaultQ, defaultGroup, e.target.value, defaultSort)}
-        className={selectBase}
-      >
-        <option value="all">Cualquier estado</option>
-        <option value="con">Con informe reciente (30d)</option>
-        <option value="sin">Sin informe reciente (30d)</option>
-      </select>
+        <Campo id="emp-orden" etiqueta="Ordenar por">
+          <Selector
+            id="emp-orden"
+            defaultValue={defaultSort}
+            onChange={(e) => push(defaultQ, defaultGroup, defaultReporte, e.target.value)}
+          >
+            <option value="recent">Más recientes</option>
+            <option value="name">Nombre (A–Z)</option>
+            <option value="units">Más unidades</option>
+          </Selector>
+        </Campo>
 
-      <select
-        defaultValue={defaultSort}
-        onChange={(e) => push(defaultQ, defaultGroup, defaultReporte, e.target.value)}
-        className={selectBase}
-      >
-        <option value="recent">Más recientes</option>
-        <option value="name">Nombre (A–Z)</option>
-        <option value="units">Más unidades</option>
-      </select>
-
-      {isPending && (
-        <span
-          className="text-[10px] text-muted-foreground/50 ml-auto"
-          style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.1em" }}
-        >
-          Cargando…
+        <span className="emp-cargando k-meta" role="status">
+          {isPending ? "Cargando…" : ""}
         </span>
-      )}
+      </div>
     </div>
   );
 }
+
+const CSS_FILTROS = `
+.emp-filtros { margin-bottom: 22px; }
+.emp-filtros-a { display: flex; align-items: flex-end; gap: 12px 24px; flex-wrap: wrap; }
+.emp-filtros-a > .k-seg { flex: none; }
+.emp-filtros-a > .k-campo { flex: 1 1 280px; }
+.emp-filtros-b { display: flex; align-items: flex-end; gap: 0 16px; flex-wrap: wrap; margin-top: 18px; }
+.emp-filtros-b > .k-fld { width: 240px; max-width: 100%; margin-bottom: 0; }
+.emp-filtros-b > .emp-cargando { align-self: center; margin-left: auto; min-height: 1.3em; }
+@media (max-width: 860px) {
+  .emp-filtros-a > .k-seg, .emp-filtros-a > .k-campo { flex: 1 1 100%; }
+  .emp-filtros-b { gap: 12px; }
+  .emp-filtros-b > .k-fld { flex: 1 1 140px; width: auto; }
+}
+`;
+
+/* ════════════════════════════════════════════════════════════════════
+   Tablas del portafolio. Viven aquí porque <Tabla> del kit es de cliente
+   (sus columnas son funciones) y las páginas de /empresa son de servidor:
+   la página pasa filas planas y estas envolturas definen las columnas.
+   ════════════════════════════════════════════════════════════════════ */
+
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** Día, mes (0–11) y año de una fecha EN HORA DE COLOMBIA. */
+const PARTES_BOGOTA = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Bogota", year: "numeric", month: "numeric", day: "numeric",
+});
+function partesBogota(d: Date) {
+  const p = Object.fromEntries(PARTES_BOGOTA.formatToParts(d).map((x) => [x.type, x.value]));
+  return { dia: Number(p.day), mes: Number(p.month) - 1, anio: Number(p.year) };
+}
+
+/**
+ * «29 ago» (o «29 ago 2025» si no es de este año).
+ * En hora de Colombia, como las páginas imprimibles: /empresa se renderiza en el
+ * servidor (UTC en Vercel) y con la hora local una generación de las 9 p. m.
+ * salía con la fecha del día siguiente (y el navegador la corregía al hidratar).
+ */
+export function fechaCorta(valor: Date | string, conAnio?: boolean) {
+  const f = partesBogota(new Date(valor));
+  const anio = conAnio ?? f.anio !== partesBogota(new Date()).anio;
+  return `${f.dia} ${MESES_CORTOS[f.mes]}${anio ? ` ${f.anio}` : ""}`;
+}
+
+/** «Febrero 2026». */
+export function periodo(month: number, year: number) {
+  const m = MESES[(month - 1) % 12] ?? "";
+  return `${m.charAt(0).toUpperCase()}${m.slice(1)} ${year}`;
+}
+
+/** Estado de una generación: forma + color + palabra (textos de siempre). */
+export function estadoGeneracion(status: string): { tipo: TipoEstado; palabra: string } {
+  if (status === "completed") return { tipo: "ok", palabra: "Listo" };
+  if (status === "processing" || status === "pending") return { tipo: "enCurso", palabra: "En proceso" };
+  if (status === "failed") return { tipo: "vencido", palabra: "Error" };
+  return { tipo: "pendiente", palabra: status };
+}
+
+export type FilaPropiedad = {
+  id: string;
+  name: string;
+  city: string | null;
+  groupLabel: string | null;
+  units: number | null;
+  lastGenAt: Date | string | null;
+  documentos: number;
+  generaciones: number;
+};
+
+/** Tabla-índice de copropiedades de /empresa/propiedades (una fila por copropiedad, 76 px). */
+export function TablaPropiedades({ filas, vacio }: { filas: FilaPropiedad[]; vacio?: ReactNode }) {
+  return (
+    <>
+    <EstilosTablas />
+    <Tabla<FilaPropiedad>
+      etiquetaAccesible="Copropiedades del portafolio"
+      filas={filas}
+      claveFila={(p) => p.id}
+      alta
+      vacio={vacio}
+      columnas={[
+        {
+          id: "unidades",
+          titulo: "Unidades",
+          ancho: "minmax(0, 0.9fr)",
+          principal: true,
+          celda: (p) =>
+            p.units ? (
+              <span className="emp-cifra">
+                {p.units.toLocaleString("es-CO")}
+                <small> u.</small>
+              </span>
+            ) : (
+              <span className="k-apoyo">Sin dato</span>
+            ),
+        },
+        {
+          id: "propiedad",
+          titulo: "Propiedad",
+          ancho: "minmax(0, 3fr)",
+          celda: (p) => (
+            <span className="emp-nom">
+              <b>{p.name}</b>
+              <span>{p.city || "Sin ciudad"}</span>
+            </span>
+          ),
+        },
+        {
+          id: "grupo",
+          titulo: "Grupo",
+          ancho: "minmax(0, 1.3fr)",
+          celda: (p) => (p.groupLabel ? <Categoria>{p.groupLabel}</Categoria> : <span className="k-apoyo">Sin grupo</span>),
+        },
+        {
+          id: "informe",
+          titulo: "Último informe",
+          ancho: "minmax(0, 1.5fr)",
+          celda: (p) =>
+            p.lastGenAt ? (
+              <span className="k-fecha">{fechaCorta(p.lastGenAt, true)}</span>
+            ) : (
+              <Estado tipo="falta" tamLetra={14}>Nunca</Estado>
+            ),
+        },
+        {
+          id: "docs",
+          titulo: "Documentos",
+          ancho: "minmax(0, 1fr)",
+          alinear: "fin",
+          claseCelda: "k-td-cifra emp-num",
+          celda: (p) => (
+            <>
+              {p.documentos}
+              <span className="emp-lbl"> documentos</span>
+            </>
+          ),
+        },
+        {
+          id: "gens",
+          titulo: "Generaciones",
+          ancho: "minmax(0, 1fr)",
+          alinear: "fin",
+          claseCelda: "k-td-cifra emp-num",
+          celda: (p) => (
+            <>
+              {p.generaciones}
+              <span className="emp-lbl"> generaciones</span>
+            </>
+          ),
+        },
+        {
+          id: "acc",
+          titulo: "Acciones",
+          tituloOculto: true,
+          alinear: "fin",
+          ancho: "auto",
+          claseCelda: "k-td-acc",
+          celda: (p) => (
+            <AccionesFila>
+              <BotonFila href={`/empresa/propiedades/${p.id}`} aria-label={`Abrir ${p.name}`}>
+                Abrir
+              </BotonFila>
+            </AccionesFila>
+          ),
+        },
+      ]}
+    />
+    </>
+  );
+}
+
+export type FilaGeneracion = {
+  id: string;
+  month: number;
+  year: number;
+  status: string;
+  createdAt: Date | string;
+  propertyName?: string;
+};
+
+/**
+ * Generaciones (actividad reciente del portafolio o historial de una copropiedad):
+ * fecha · [copropiedad] · periodo · estado · [Ver].
+ */
+export function TablaGeneraciones({
+  filas, etiquetaAccesible, conPropiedad, conEnlace, vacio,
+}: {
+  filas: FilaGeneracion[];
+  etiquetaAccesible: string;
+  conPropiedad?: boolean;
+  conEnlace?: boolean;
+  vacio?: ReactNode;
+}) {
+  return (
+    <>
+    <EstilosTablas />
+    <Tabla<FilaGeneracion>
+      etiquetaAccesible={etiquetaAccesible}
+      filas={filas}
+      claveFila={(g) => g.id}
+      vacio={vacio}
+      columnas={[
+        {
+          id: "fecha",
+          titulo: "Fecha",
+          ancho: "minmax(0, 1fr)",
+          principal: true,
+          celda: (g) => <span className="k-fecha">{fechaCorta(g.createdAt)}</span>,
+        },
+        ...(conPropiedad
+          ? [{
+              id: "prop",
+              titulo: "Propiedad",
+              ancho: "minmax(0, 3fr)",
+              celda: (g: FilaGeneracion) => <span className="emp-nom emp-16"><b>{g.propertyName}</b></span>,
+            }]
+          : []),
+        {
+          id: "periodo",
+          titulo: "Periodo",
+          ancho: "minmax(0, 2fr)",
+          celda: (g) => <span className="emp-periodo">{periodo(g.month, g.year)}</span>,
+        },
+        {
+          id: "estado",
+          titulo: "Estado",
+          ancho: "minmax(0, 1.5fr)",
+          celda: (g) => {
+            const e = estadoGeneracion(g.status);
+            return <Estado tipo={e.tipo}>{e.palabra}</Estado>;
+          },
+        },
+        ...(conEnlace
+          ? [{
+              id: "acc",
+              titulo: "Acciones",
+              tituloOculto: true,
+              alinear: "fin" as const,
+              ancho: "auto",
+              claseCelda: "k-td-acc",
+              celda: (g: FilaGeneracion) => (
+                <AccionesFila>
+                  <BotonFila href={`/dashboard/generar/${g.id}`} aria-label={`Ver ${periodo(g.month, g.year)}`}>
+                    Ver
+                  </BotonFila>
+                </AccionesFila>
+              ),
+            }]
+          : []),
+      ]}
+    />
+    </>
+  );
+}
+
+/** Estilos de celda compartidos por las tablas del portafolio (React deduplica por `href`). */
+function EstilosTablas() {
+  return <style href="k-empresa-tablas" precedence="default">{CSS_TABLAS}</style>;
+}
+
+const CSS_TABLAS = `
+.emp-cifra { font: 800 32px/.8 var(--f-sans); font-stretch: 62%; letter-spacing: -.03em; white-space: nowrap; }
+.emp-cifra small { font-size: 15px; font-weight: 600; font-stretch: 100%; letter-spacing: 0; color: var(--ink-3); }
+.emp-nom { display: block; min-width: 0; }
+.emp-nom b { display: block; font-size: 18px; font-weight: 700; line-height: 1.2; letter-spacing: -.005em; overflow-wrap: anywhere; }
+.emp-nom.emp-16 b { font-size: 16px; font-weight: 650; }
+.emp-nom > span { display: block; margin-top: 3px; font-size: 14px; line-height: 1.3; color: var(--ink-3); }
+.emp-num { font-size: 15px; font-weight: 600; }
+.emp-periodo { font-size: 15px; font-weight: 600; }
+.emp-lbl { display: none; }
+@media (max-width: 860px) {
+  .emp-lbl { display: inline; font-weight: 400; color: var(--ink-3); }
+  .emp-num { justify-self: start; text-align: left; }
+}
+`;

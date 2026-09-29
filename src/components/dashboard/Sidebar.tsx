@@ -1,342 +1,340 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
-import {
-  Home,
-  Building2,
-  History,
-  CreditCard,
-  LogOut,
-  FilePlus2,
-  Settings2,
-  ChevronsLeft,
-  ChevronsRight,
-  X,
-  Sparkles,
-  LayoutGrid,
-  CalendarClock,
-  Send,
-  BadgeCheck,
-  Gavel,
-  Wallet,
-  PieChart,
-  Users,
-  MessageSquare,
-} from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { signOut } from "next-auth/react";
 import { COMING_SOON, type ComingSoonKey } from "@/lib/feature-flags";
+import { Chevron, Flecha, GrupoIndice, Indice, ItemIndice } from "@/components/kit";
+import { AGENTES_ACTIVOS, type DatosIndice } from "@/components/dashboard/datosIndice";
+import { abrirSoporte, useSoporteAbierto, useSoporteDisponible } from "@/components/dashboard/soporte";
 
-type NavEntry = {
+// Los datos vivos del índice viven en ./datosIndice (caché compartida con las pantallas).
+export { useDatosIndice, type DatosIndice } from "@/components/dashboard/datosIndice";
+
+/* ════════════════════════════════════════════════════════════════════
+   ÍNDICE lateral del dashboard (SPEC «Índice» §f.1).
+   La navegación es la tabla de contenido de un libro: 01–15 con líneas
+   guía y, donde iría el número de página, un DATO VIVO. Ese dato sale
+   SOLO de APIs que ya existen (IMPL §8); si no hay dato real, nada.
+   ════════════════════════════════════════════════════════════════════ */
+
+export type EntradaIndice = {
   name: string;
   href: string;
-  icon: typeof Home;
   n: string;
-  badge?: string;
-  /** Si la función está en COMING_SOON, el ítem muestra la insignia "Pronto". */
+  /** Si la función está en COMING_SOON, el ítem se dibuja achurado con «pronto». */
   comingSoon?: ComingSoonKey;
 };
-type NavGroup = { label: string; items: NavEntry[] };
+export type GrupoNav = { letra: string; label: string; items: EntradaIndice[] };
 
 // Grouped navigation: 15 flat entries were hard to scan. Sections mirror how
 // an administrator actually thinks about their work.
-const NAV_GROUPS: NavGroup[] = [
+export const NAV_GROUPS: GrupoNav[] = [
   {
+    letra: "A",
     label: "Día a día",
     items: [
-      { name: "Inicio", href: "/dashboard", icon: Home, n: "01" },
-      { name: "Generar", href: "/dashboard/generar", icon: FilePlus2, n: "02" },
-      { name: "Bitácora", href: "/dashboard/calendario", icon: CalendarClock, n: "03" },
-      { name: "Asistente IA", href: "/dashboard/asistente", icon: Sparkles, n: "04", badge: "6" },
+      { name: "Inicio", href: "/dashboard", n: "01" },
+      { name: "Generar", href: "/dashboard/generar", n: "02" },
+      { name: "Bitácora", href: "/dashboard/calendario", n: "03" },
+      { name: "Asistente IA", href: "/dashboard/asistente", n: "04" },
     ],
   },
   {
+    letra: "B",
     label: "Finanzas",
     items: [
-      { name: "Cartera", href: "/dashboard/cartera", icon: Wallet, n: "05", comingSoon: "cartera" },
-      { name: "Presupuesto", href: "/dashboard/presupuesto", icon: PieChart, n: "06", comingSoon: "presupuesto" },
+      { name: "Cartera", href: "/dashboard/cartera", n: "05", comingSoon: "cartera" },
+      { name: "Presupuesto", href: "/dashboard/presupuesto", n: "06", comingSoon: "presupuesto" },
     ],
   },
   {
+    letra: "C",
     label: "Comunidad",
     items: [
-      { name: "Residentes", href: "/dashboard/residentes", icon: Users, n: "07" },
-      { name: "PQRS", href: "/dashboard/pqrs", icon: MessageSquare, n: "08", comingSoon: "pqrs" },
-      { name: "Comunicados", href: "/dashboard/comunicados", icon: Send, n: "09", comingSoon: "comunicados" },
-      { name: "Asambleas", href: "/dashboard/asambleas", icon: Gavel, n: "10", comingSoon: "asambleas" },
-      { name: "Certificados", href: "/dashboard/certificados", icon: BadgeCheck, n: "11", comingSoon: "certificados" },
+      { name: "Residentes", href: "/dashboard/residentes", n: "07" },
+      { name: "PQRS", href: "/dashboard/pqrs", n: "08", comingSoon: "pqrs" },
+      { name: "Comunicados", href: "/dashboard/comunicados", n: "09", comingSoon: "comunicados" },
+      { name: "Asambleas", href: "/dashboard/asambleas", n: "10", comingSoon: "asambleas" },
+      { name: "Certificados", href: "/dashboard/certificados", n: "11", comingSoon: "certificados" },
     ],
   },
   {
+    letra: "D",
     label: "Administración",
     items: [
-      { name: "Propiedades", href: "/dashboard/propiedades", icon: Building2, n: "12" },
-      { name: "Historial", href: "/dashboard/historial", icon: History, n: "13" },
-      { name: "Suscripción", href: "/dashboard/suscripcion", icon: CreditCard, n: "14" },
-      { name: "Configuración", href: "/dashboard/configuracion", icon: Settings2, n: "15" },
+      { name: "Propiedades", href: "/dashboard/propiedades", n: "12" },
+      { name: "Historial", href: "/dashboard/historial", n: "13" },
+      { name: "Suscripción", href: "/dashboard/suscripcion", n: "14" },
+      { name: "Configuración", href: "/dashboard/configuracion", n: "15" },
     ],
   },
 ];
 
 // Enterprise "Portafolio" — only for Elite subscribers and beta testers.
-const PORTAFOLIO_ENTRY: NavEntry = {
-  name: "Portafolio",
-  href: "/empresa",
-  icon: LayoutGrid,
-  n: "★",
-  badge: "Élite",
-};
+// Va fuera de la numeración 01–15: es otra consola (/empresa), no una entrada del libro.
+export const PORTAFOLIO_ENTRY: EntradaIndice = { name: "Portafolio", href: "/empresa", n: "—" };
+
+/** Índice propio de /empresa (SPEC §g /empresa): A Portafolio · 01–03. */
+export const NAV_EMPRESA: EntradaIndice[] = [
+  { name: "Portafolio", href: "/empresa", n: "01" },
+  { name: "Generar en lote", href: "/empresa/generar", n: "02" },
+  { name: "Propiedades", href: "/empresa/propiedades", n: "03" },
+];
+
+const RAICES = new Set(["/dashboard", "/empresa"]);
+
+/** Estado activo de una entrada: la ruta exacta o cualquier subruta (las raíces, solo exactas). */
+export function esActiva(pathname: string | null, href: string): boolean {
+  const p = pathname || "";
+  return p === href || (!RAICES.has(href) && p.startsWith(href));
+}
+
+/** Entrada del índice que corresponde a una ruta (para el número NN de la cabecera y de «en obra»). */
+export function entradaIndice(pathname: string | null): EntradaIndice | null {
+  const todas = [...NAV_GROUPS.flatMap((g) => g.items), ...NAV_EMPRESA];
+  return todas.find((e) => esActiva(pathname, e.href)) ?? null;
+}
+
+/** Texto del dato vivo de cada entrada (con unidad), o nada si no hay dato real. */
+function datoDe(href: string, datos?: DatosIndice): { texto: string; tipo: "pend" | "alerta" | "tot" } | undefined {
+  if (href === "/dashboard/asistente" && AGENTES_ACTIVOS > 0) {
+    return { texto: `${AGENTES_ACTIVOS} ${AGENTES_ACTIVOS === 1 ? "activo" : "activos"}`, tipo: "tot" };
+  }
+  if (!datos) return undefined;
+  if (href === "/dashboard/generar" && datos.porGenerar) {
+    return { texto: `${datos.porGenerar} por generar`, tipo: "pend" };
+  }
+  if (href === "/dashboard/calendario" && datos.vencidas) {
+    return { texto: `${datos.vencidas} ${datos.vencidas === 1 ? "vencida" : "vencidas"}`, tipo: "alerta" };
+  }
+  if (href === "/dashboard/historial" && datos.documentos?.n) {
+    return { texto: `${datos.documentos.n}${datos.documentos.tope ? "+" : ""} doc.`, tipo: "tot" };
+  }
+  return undefined;
+}
+
+/* ── estilos locales del armazón (no existen en el kit; ver pendientes) ── */
+/* Índice compacto por alto REAL. El kit compacta todo a ≤ 820 px de ventana,
+   pero el índice completo pide ~955 px (medido: marca 72 + lista 723 + pie 160,
+   con la entrada «Soporte») y el banner de demo (30 px) y el grupo Élite (~64 px)
+   le restan sitio. Primero se pliega solo el pie a una línea (avatar + tema +
+   flecha, 100 px menos); si aún no cabe (~855 px), también las filas. */
+const pieCompacto = (c: string) => `
+  ${c} .k-indice-pie { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 14px 10px 22px; }
+  ${c} .k-yo > div:not(.k-yo-a) { display: none; }
+  ${c} .k-tema button { min-height: 36px; }
+  ${c} .k-salir { width: 32px; justify-content: center; }
+  ${c} .k-salir span { display: none; }`;
+const filasCompactas = (c: string) => `
+  ${c} .k-indice-lista { padding-top: 2px; padding-bottom: 6px; }
+  ${c} .k-grupo-idx { margin-top: 4px; }
+  ${c} .k-grupo-h { padding: 5px 10px 2px; }
+  ${c} .k-it { min-height: 28px; }
+  ${c} .k-idx-ayuda { margin-top: 6px; padding-top: 2px; }
+  ${c} .k-idx-tit { padding-top: 4px; }`;
+// Solo el índice largo del dashboard (el de /empresa tiene 4 entradas y siempre cabe).
+const N = ".k-col-indice[data-largo]:not([data-plegado])";
+const E = ".k-col-indice[data-largo][data-elite]:not([data-plegado])";
+const DEMO = ":root:has([data-demo-banner]) ";
+const segunAlto = (max: number, css: string) => `@media (min-width: 861px) and (max-height: ${max}px) { ${css} }`;
+const CSS_COMPACTO = [
+  segunAlto(954, pieCompacto(N)),
+  segunAlto(984, pieCompacto(DEMO + N)),
+  segunAlto(1018, pieCompacto(E)),
+  segunAlto(1048, pieCompacto(DEMO + E)),
+  segunAlto(854, filasCompactas(N)),
+  segunAlto(884, filasCompactas(DEMO + N)),
+  segunAlto(918, filasCompactas(E)),
+  segunAlto(948, filasCompactas(DEMO + E)),
+  // ≤ 820 px el kit ya compacta filas y pie; aquí solo el bloque «Soporte».
+  segunAlto(820, filasCompactas(".k-col-indice[data-largo]:not([data-plegado])")),
+].join("\n");
+
+const CSS_INDICE = `
+.k-idx-tit { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; padding: 8px 0 0 10px;
+  font: 800 12px/1 var(--f-sans); font-stretch: 125%; letter-spacing: .08em; text-transform: uppercase; color: var(--ink); }
+.k-plegar { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 28px; margin: -2px 0; padding: 0 8px;
+  font: 600 13px/1 var(--f-sans); font-stretch: 100%; letter-spacing: 0; text-transform: none; color: var(--ink-2); background: transparent; cursor: pointer; }
+.k-plegar::after { content: ""; position: absolute; inset: -6px 0; }
+.k-plegar:hover { background: var(--hl); color: var(--ink); }
+.k-plegar svg { width: 13px; height: 13px; }
+.k-yo .plan { color: var(--ink-2); }
+/* «Soporte» (abre el chat de soporte) cierra la lista, separado de las entradas numeradas. */
+.k-idx-ayuda { margin-top: 12px; padding-top: 6px; border-top: 1px solid var(--line); }
+@media (min-width: 861px) {
+  /* El índice arranca bajo el banner de demo: su alto no puede ser la ventana entera. */
+  .k-col-indice > .k-indice { height: calc(100dvh - var(--demo-banner-h, 0px)); }
+  /* Índice plegado: solo los números (el nombre queda para lectores de pantalla y en el title). */
+  .k-app:has(> .k-col-indice[data-plegado]) { --nav-w: 76px; }
+  .k-col-indice[data-plegado] .k-marca { padding: 0; justify-content: center; }
+  .k-col-indice[data-plegado] .k-marca-w { display: none; }
+  .k-col-indice[data-plegado] .k-idx-tit { justify-content: center; padding: 4px 0 0; }
+  .k-col-indice[data-plegado] .k-idx-tit > span { display: none; }
+  .k-col-indice[data-plegado] .k-grupo-idx { margin-top: 6px; }
+  .k-col-indice[data-plegado] .k-grupo-h { justify-content: center; padding: 4px 0 2px; font-size: 0; }
+  .k-col-indice[data-plegado] .k-grupo-h b { font-size: 13px; }
+  .k-col-indice[data-plegado] .k-it { justify-content: center; gap: 5px; padding: 0; min-height: 30px; }
+  .k-col-indice[data-plegado] .k-it .n { width: auto; font-size: 13px; }
+  .k-col-indice[data-plegado] .k-it .dots { display: none; }
+  .k-col-indice[data-plegado] .k-it .l,
+  .k-col-indice[data-plegado] .k-it .c.tot { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .k-col-indice[data-plegado] .k-it .c { font-size: 0; line-height: 0; padding: 0; }
+  .k-col-indice[data-plegado] .k-it .c.alerta { width: 8px; height: 8px; }
+  .k-col-indice[data-plegado] .k-it .c.pend { width: 8px; height: 8px; box-shadow: inset 0 0 0 2px currentColor; }
+  .k-col-indice[data-plegado] .k-it.pronto .c i { width: 8px; height: 8px; }
+  .k-col-indice[data-plegado] .k-indice-pie { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 8px; padding: 10px 8px 10px; }
+  .k-col-indice[data-plegado] .k-yo > div:not(.k-yo-a) { display: none; }
+  .k-col-indice[data-plegado] .k-salir { width: 44px; justify-content: center; }
+  .k-col-indice[data-plegado] .k-salir span { display: none; }
+}
+${CSS_COMPACTO}
+@media (max-width: 860px) {
+  .k-plegar { display: none; }
+  .k-idx-tit { padding-top: 14px; }
+}
+`;
+
+/** Estilos locales del índice (compartidos con el índice de /empresa). */
+export function EstilosIndice() {
+  return (
+    <style href="k-indice-local" precedence="default">
+      {CSS_INDICE}
+    </style>
+  );
+}
+
+/** Iniciales para el avatar cuadrado del pie («Carlos Ramírez» → «CR»). */
+export function iniciales(nombre: string): string {
+  return nombre
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
+}
 
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  /** Datos vivos (useDatosIndice). Sin ellos el índice solo muestra lo estático. */
+  datos?: DatosIndice;
 }
 
-function BrandMark({ collapsed = false }: { collapsed?: boolean }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <div
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white flex-shrink-0"
-        style={{
-          background: "linear-gradient(135deg, var(--accent), var(--accent-lo))",
-          boxShadow: "0 0 18px rgb(var(--accent-rgb) / 0.3)",
-        }}
-      >
-        S
-      </div>
-      {!collapsed && (
-        <span className="text-[15px] font-bold tracking-tight text-foreground">
-          SOPH<span className="text-muted-foreground/60 font-normal">.</span>
-          <span style={{ color: "var(--accent-text)" }}>IA</span>
-        </span>
-      )}
-    </div>
-  );
-}
-
-export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarProps) {
+export function Sidebar({ open, onClose, collapsed, onToggleCollapse, datos }: SidebarProps) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const nombre = session?.user?.name || session?.user?.email?.split("@")[0] || "";
+  const correo = session?.user?.email || undefined;
 
-  // Show the enterprise "Portafolio" entry only for Elite / beta users.
-  const [showPortafolio, setShowPortafolio] = useState(false);
-  useEffect(() => {
-    let active = true;
-    fetch("/api/usage")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (active && d && (d.planName === "elite" || d.planStatus === "beta")) {
-          setShowPortafolio(true);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
+  // Plegado solo en escritorio: en ≤ 860 px el índice es un diálogo a pantalla completa.
+  const plegado = collapsed && !open;
+  // «Soporte» abre el panel del chat de soporte (antes, un botón flotante que tapaba contenido).
+  const soporteDisponible = useSoporteDisponible();
+  const soporteAbierto = useSoporteAbierto();
 
-  // Élite "Portafolio" joins the Finanzas group when available.
-  const groups: NavGroup[] = NAV_GROUPS.map((g) =>
-    g.label === "Finanzas" && showPortafolio
-      ? { ...g, items: [PORTAFOLIO_ENTRY, ...g.items] }
-      : g
-  );
-
-  const isActiveHref = (href: string) =>
-    pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
-
-  const navItem = (item: NavEntry, isActive: boolean, isMobile = false) => {
-    const showLabel = isMobile || !collapsed;
-    return (
-      <Link
-        key={item.name}
+  const entrada = (item: EntradaIndice) => {
+    const pronto = Boolean(item.comingSoon && COMING_SOON[item.comingSoon]);
+    const enlace = (
+      <ItemIndice
+        key={item.href}
+        n={item.n}
         href={item.href}
-        onClick={isMobile ? onClose : undefined}
-        title={collapsed && !isMobile ? item.name : undefined}
-        data-active={isActive}
-        className={cn(
-          "ui-nav-item group/item flex items-center gap-3 rounded-xl",
-          showLabel ? "px-3 py-2" : "px-3 py-2.5 justify-center",
-          isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-        )}
-        style={{
-          background: isActive ? "rgb(var(--accent-rgb) / 0.1)" : undefined,
-        }}
-        onMouseEnter={(e) => {
-          if (!isActive) e.currentTarget.style.background = "rgb(var(--veil-rgb) / 0.04)";
-        }}
-        onMouseLeave={(e) => {
-          if (!isActive) e.currentTarget.style.background = "";
-        }}
+        actual={esActiva(pathname, item.href)}
+        pronto={pronto}
+        dato={pronto ? undefined : datoDe(item.href, datos)}
+        alNavegar={onClose}
       >
-        <item.icon
-          className={cn(
-            "h-[16px] w-[16px] flex-shrink-0 transition-all duration-200",
-            isActive
-              ? "text-[var(--accent-hi)] scale-105"
-              : "text-muted-foreground/70 group-hover/item:text-foreground group-hover/item:scale-105"
-          )}
-        />
-        {showLabel && (
-          <>
-            <span className="flex-1 truncate text-[13px] font-medium">{item.name}</span>
-            {item.comingSoon && COMING_SOON[item.comingSoon] ? (
-              <span
-                className="text-[9px] px-1.5 py-0.5 rounded-md"
-                style={{
-                  fontFamily: "var(--hifi-mono)",
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  background: "rgb(var(--veil-rgb) / 0.04)",
-                  color: "var(--hifi-ink-faint)",
-                  border: "1px solid var(--hifi-hairline)",
-                }}
-              >
-                Pronto
-              </span>
-            ) : (
-              item.badge && (
-                <span
-                  className="text-[9.5px] px-1.5 py-0.5 rounded-md transition-colors"
-                  style={{
-                    fontFamily: "var(--hifi-mono)",
-                    letterSpacing: "0.06em",
-                    background: isActive ? "rgb(var(--accent-rgb) / 0.16)" : "rgb(var(--veil-rgb) / 0.05)",
-                    color: isActive ? "var(--accent-text)" : "var(--hifi-ink-faint)",
-                  }}
-                >
-                  {item.badge}
-                </span>
-              )
-            )}
-          </>
-        )}
-      </Link>
+        {item.name}
+      </ItemIndice>
+    );
+    // Plegado, el nombre no se ve: el title lo muestra al pasar el cursor.
+    return plegado ? (
+      <div key={item.href} title={pronto ? `${item.name} · próximamente` : item.name}>
+        {enlace}
+      </div>
+    ) : (
+      enlace
     );
   };
 
-  const renderGroups = (isMobile = false) =>
-    groups.map((group, gi) => (
-      <div key={group.label} className={gi > 0 ? "mt-5" : undefined}>
-        {(isMobile || !collapsed) && (
-          <p
-            className="px-3 mb-1.5 text-[9px] font-medium select-none"
-            style={{
-              fontFamily: "var(--hifi-mono)",
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              color: "var(--ink-4)",
-            }}
-          >
-            {group.label}
-          </p>
-        )}
-        {collapsed && !isMobile && gi > 0 && (
-          <div className="mx-3 mb-2 h-px" style={{ background: "var(--hifi-hairline)" }} />
-        )}
-        <div className="space-y-0.5">
-          {group.items.map((item) => navItem(item, isActiveHref(item.href), isMobile))}
+  const pie = (
+    <>
+      {nombre && (
+        <div className="k-yo" title={correo ? `${nombre} · ${correo}` : nombre}>
+          <div className="k-yo-a" aria-hidden="true">{iniciales(nombre)}</div>
+          <div style={{ minWidth: 0 }}>
+            <b>{nombre}</b>
+            {correo && <span>{correo}</span>}
+          </div>
         </div>
-      </div>
-    ));
+      )}
+      <ThemeToggle ciclo={plegado} />
+      <button
+        type="button"
+        className="k-salir"
+        onClick={() => signOut({ callbackUrl: "/" })}
+        aria-label="Cerrar sesión"
+        title={plegado ? "Cerrar sesión" : undefined}
+      >
+        <span>Cerrar sesión</span>
+        <Flecha />
+      </button>
+    </>
+  );
 
   return (
-    <>
-      {/* Desktop sidebar */}
-      <aside
-        className={cn(
-          // `min-h-screen` mide la ventana entera, pero la barra arranca DEBAJO
-          // del banner de demo: en las pantallas cortas su alto mínimo se salía
-          // justo lo que mide el banner. La variable la publica el propio banner
-          // midiéndose, y vale 0 cuando no lo hay.
-          "hidden lg:flex flex-col min-h-[calc(100dvh-var(--demo-banner-h,0px))] sticky top-0 transition-all duration-300 ease-in-out relative group/sidebar",
-          "bg-background border-r border-border",
-          collapsed ? "w-[72px]" : "w-[260px]"
-        )}
-      >
-        {/* Brand */}
-        <div
-          className={cn(
-            "flex items-center h-[72px] border-b border-border",
-            collapsed ? "justify-center px-3" : "px-5"
-          )}
-        >
-          <BrandMark collapsed={collapsed} />
-        </div>
-
-        {/* Collapse toggle */}
-        <button
-          onClick={onToggleCollapse}
-          className="absolute -right-3 top-[56px] w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center opacity-0 group-hover/sidebar:opacity-100 transition-all duration-200 hover:border-[var(--accent)]/40 z-10"
-        >
-          {collapsed ? (
-            <ChevronsRight className="h-3 w-3 text-muted-foreground" />
-          ) : (
-            <ChevronsLeft className="h-3 w-3 text-muted-foreground" />
-          )}
-        </button>
-
-        {/* Nav */}
-        <nav className={cn("ui-scroll flex-1 overflow-y-auto", collapsed ? "px-2 py-4" : "px-3 py-4")}>
-          {renderGroups()}
-        </nav>
-
-        {/* Logout */}
-        <div className={cn("py-3 border-t border-border", collapsed ? "px-2" : "px-3")}>
+    <div className="k-col-indice" data-largo="" data-plegado={plegado || undefined} data-elite={datos?.elite || undefined}>
+      <EstilosIndice />
+      <Indice abierto={open} alCerrar={onClose} pie={pie} hrefInicio="/dashboard">
+        <div className="k-idx-tit">
+          <span aria-hidden="true">Índice</span>
           <button
-            onClick={() => signOut({ callbackUrl: "/" })}
-            title={collapsed ? "Cerrar sesión" : undefined}
-            className={cn(
-              "flex items-center gap-3 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 w-full transition-all duration-200",
-              collapsed ? "px-3 py-3 justify-center" : "px-3 py-2.5"
-            )}
+            type="button"
+            className="k-plegar"
+            onClick={onToggleCollapse}
+            aria-expanded={!plegado}
+            aria-label={plegado ? "Desplegar el índice" : "Plegar el índice"}
+            title={plegado ? "Desplegar el índice" : "Plegar el índice"}
           >
-            <LogOut className="h-[16px] w-[16px] flex-shrink-0" />
-            {!collapsed && <span>Cerrar sesión</span>}
+            {!plegado && <span aria-hidden="true">Plegar</span>}
+            <Chevron dir={plegado ? "der" : "izq"} />
           </button>
         </div>
-      </aside>
-
-      {/* Mobile sidebar */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 w-[280px] bg-background border-r border-border transform transition-transform duration-300 ease-in-out lg:hidden flex flex-col",
-          open ? "translate-x-0" : "-translate-x-full"
+        {NAV_GROUPS.map((grupo) => (
+          <GrupoIndice key={grupo.letra} letra={grupo.letra} titulo={grupo.label}>
+            {grupo.items.map(entrada)}
+          </GrupoIndice>
+        ))}
+        {datos?.elite && (
+          <GrupoIndice letra="E" titulo="Élite">
+            {entrada(PORTAFOLIO_ENTRY)}
+          </GrupoIndice>
         )}
-      >
-        <div className="flex items-center justify-between px-5 h-[72px] border-b border-border flex-shrink-0">
-          <BrandMark />
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-secondary transition-colors"
-            aria-label="Cerrar menú"
-          >
-            <X className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </div>
-
-        <nav className="ui-scroll flex-1 px-3 py-4 overflow-y-auto">{renderGroups(true)}</nav>
-
-        <div className="px-3 py-3 border-t border-border flex-shrink-0">
-          {/* En móvil el control de la cabecera está oculto: este es el único
-              sitio desde el que se puede cambiar el tema. */}
-          <div className="flex items-center justify-between gap-2 px-3 pb-3">
-            <span className="text-[12px] text-muted-foreground">Tema</span>
-            <ThemeToggle />
+        {soporteDisponible && (
+          <div className="k-grupo-idx k-idx-ayuda">
+            <button
+              type="button"
+              className="k-it"
+              onClick={() => {
+                onClose();
+                abrirSoporte();
+              }}
+              aria-expanded={soporteAbierto}
+              aria-controls="soporte-sophia"
+              title={plegado ? "Soporte" : undefined}
+            >
+              <span className="n" aria-hidden="true">
+                —
+              </span>
+              <span className="l">Soporte</span>
+              <span className="dots" aria-hidden="true" />
+            </button>
           </div>
-          <button
-            onClick={() => signOut({ callbackUrl: "/" })}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 w-full transition-all duration-200"
-          >
-            <LogOut className="h-[16px] w-[16px]" />
-            Cerrar sesión
-          </button>
-        </div>
-      </aside>
-    </>
+        )}
+      </Indice>
+    </div>
   );
 }

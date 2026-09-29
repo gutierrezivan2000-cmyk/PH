@@ -1,7 +1,17 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Loader2, Sparkles, Upload, X, CheckCircle2, Trash2, FileSpreadsheet } from "lucide-react";
+import {
+  AccionesFila,
+  Aviso,
+  Boton,
+  BotonFila,
+  Esqueleto,
+  Estado,
+  Tabla,
+  ZonaSubida,
+  type ColumnaTabla,
+} from "@/components/kit";
 
 interface ExtractedUnit {
   label: string;
@@ -19,6 +29,8 @@ interface ExtractedUnit {
  */
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
+const ACCEPT = ".xlsx,.xls,.csv,.pdf,.docx,.txt";
+
 function errorForStatus(status: number): string {
   if (status === 413) return "El archivo es demasiado grande. Guárdalo como CSV e inténtalo de nuevo.";
   if (status === 429) return "Alcanzaste el límite de importaciones por hora. Intenta más tarde.";
@@ -28,24 +40,28 @@ function errorForStatus(status: number): string {
   return "No se pudo procesar el archivo.";
 }
 
-const monoLabel: React.CSSProperties = {
-  fontFamily: "'Geist Mono', 'GeistMono', monospace",
-  fontSize: "10px",
-  letterSpacing: "0.16em",
-  textTransform: "uppercase",
-};
+type FilaVista = { u: ExtractedUnit; i: number };
 
 /**
  * AI-assisted unit import: attach Excel/CSV/PDF/Word, Claude organizes it into
  * a unit list, admin reviews (and removes) rows, then creates them. Reusable
  * across Comunicados / Residentes / Cartera.
+ *
+ * `modo`:
+ *  - "boton" (por defecto): un botón secundario abre el selector de archivo
+ *    (Comunicados, dentro de su propio bloque).
+ *  - "zona": zona de subida del kit con arrastrar y soltar (Residentes, en el
+ *    panel «Importar Excel con IA»).
+ * En ambos, la vista previa es una tabla del kit con las filas detectadas.
  */
 export function UnitImport({
   propertyId,
   onImported,
+  modo = "boton",
 }: {
   propertyId: string;
   onImported: (created: number) => void;
+  modo?: "boton" | "zona";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [parsing, setParsing] = useState(false);
@@ -59,6 +75,10 @@ export function UnitImport({
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    await processFile(file);
+  }
+
+  async function processFile(file: File) {
     setError("");
     setPreview(null);
     setNote("");
@@ -69,7 +89,7 @@ export function UnitImport({
     // un "error de red" sin explicación.
     if (file.size > MAX_UPLOAD_BYTES) {
       setError(
-        `El archivo pesa ${(file.size / 1024 / 1024).toFixed(1)} MB y el máximo es 4 MB. ` +
+        `El archivo pesa ${(file.size / 1024 / 1024).toFixed(1).replace(".", ",")} MB y el máximo es 4 MB. ` +
           `Si es un Excel, guárdalo como CSV: pesa muchísimo menos.`
       );
       if (inputRef.current) inputRef.current.value = "";
@@ -135,97 +155,179 @@ export function UnitImport({
     }
   }
 
+  function discard() {
+    setPreview(null);
+    setFileName("");
+    setNote("");
+  }
+
   const withEmail = preview?.filter((u) => u.email).length ?? 0;
 
+  const columnas: ColumnaTabla<FilaVista>[] = [
+    { id: "u", titulo: "Unidad", ancho: "minmax(0, 1.3fr)", principal: true, claseCelda: "k-c-id", celda: ({ u }) => {
+      // En la ficha móvil el prefijo («Apto») va en una línea pequeña encima del número.
+      const m = u.label.trim().match(/^(apto\.?|apartamento|ap\.?|casa|local|oficina)\s+(\S+)$/i);
+      return m ? <><span className="ui-pre">{m[1]}{"\u00a0"}</span>{m[2]}</> : u.label;
+    } },
+    {
+      id: "r", titulo: "Residente", ancho: "minmax(0, 2.4fr)", claseCelda: "k-c-nom",
+      celda: ({ u }) => (
+        <>
+          {u.residentName || <span className="ui-sin">Sin nombre</span>}
+          {u.phone && <span>{u.phone}</span>}
+        </>
+      ),
+    },
+    {
+      id: "c", titulo: "Correo", ancho: "minmax(0, 2.6fr)", claseCelda: "k-c-correo",
+      celda: ({ u }) => (u.email ? u.email : <Estado tipo="falta" tamLetra={14}>Sin correo</Estado>),
+    },
+    {
+      // Coeficiente y cuota solo si el archivo los trae (dato real de la IA).
+      id: "d", titulo: "Coef. · cuota", ancho: "minmax(0, 1.6fr)", alinear: "fin", claseCelda: "k-td-cifra",
+      celda: ({ u }) => {
+        const partes = [
+          u.coeficiente ? `${String(u.coeficiente).replace(".", ",")} %` : null,
+          u.monthlyFee ? `$ ${u.monthlyFee.toLocaleString("es-CO")}` : null,
+        ].filter(Boolean);
+        return partes.length ? partes.join(" · ") : <span className="ui-sin">Sin dato</span>;
+      },
+    },
+    {
+      id: "a", titulo: "Acciones", tituloOculto: true, alinear: "fin", ancho: "auto", claseCelda: "k-td-acc",
+      celda: ({ u, i }) => (
+        <AccionesFila>
+          <BotonFila
+            onClick={() => setPreview((prev) => (prev ? prev.filter((_, j) => j !== i) : prev))}
+            aria-label={`Quitar ${u.label} de la lista`}
+            disabled={creating}
+          >
+            Quitar
+          </BotonFila>
+        </AccionesFila>
+      ),
+    },
+  ];
+
   return (
-    <div>
+    <div className="ui-import">
+      <style>{estilos}</style>
       <input
         ref={inputRef}
         type="file"
-        accept=".xlsx,.xls,.csv,.pdf,.docx,.txt"
+        accept={ACCEPT}
         onChange={onFile}
         className="hidden"
+        tabIndex={-1}
+        aria-hidden="true"
       />
 
-      {!preview && (
-        <button
+      {!preview && modo === "boton" && (
+        // Sin textoCargando: «Leyendo «archivo» con IA…» ya lo dice la línea de estado de abajo.
+        <Boton
+          variante="secundario"
+          tam={40}
           onClick={() => inputRef.current?.click()}
           disabled={parsing}
-          className="inline-flex items-center gap-2 rounded-full text-[12px] font-medium px-4 py-2 transition-all disabled:opacity-60 cursor-pointer"
-          style={{ background: "rgb(var(--accent-rgb) / 0.14)", color: "var(--accent-text)", border: "1px solid rgb(var(--accent-rgb) / 0.35)" }}
+          cargando={parsing}
         >
-          {parsing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-          {parsing ? "Leyendo el archivo con IA…" : "Importar de archivo (Excel/PDF) con IA"}
-        </button>
+          Importar de archivo (Excel o PDF) con IA
+        </Boton>
+      )}
+
+      {!preview && modo === "zona" && !parsing && (
+        <ZonaSubida
+          titulo="Suelta aquí el listado de unidades"
+          texto="o haz clic para elegirlo. La IA lo ordena en una lista que revisas antes de crear nada."
+          formatos="Excel, CSV, PDF, Word o texto · un archivo de hasta 4&nbsp;MB"
+          accept={ACCEPT}
+          alElegir={(files) => { if (files[0]) processFile(files[0]); }}
+          deshabilitado={parsing}
+          etiquetaAccesible="Elegir el archivo con el listado de unidades"
+        />
       )}
 
       {parsing && (
-        <p className="text-[11.5px] mt-2 flex items-center gap-1.5" style={{ color: "var(--ink-3)" }}>
-          <FileSpreadsheet className="h-3.5 w-3.5" /> {fileName}
-        </p>
+        <div className="ui-leyendo">
+          <p className="k-fecha" role="status">
+            Leyendo <b>«{fileName}»</b> con IA…
+          </p>
+          {modo === "zona" && <Esqueleto variante="tabla" filas={4} etiquetaAccesible="Leyendo el archivo…" />}
+        </div>
       )}
 
-      {error && <p className="text-[12px] mt-2" style={{ color: "var(--danger-text)" }}>{error}</p>}
+      {error && (
+        <div className="ui-error">
+          <Aviso
+            enLinea
+            tipo="error"
+            titulo={fileName ? `No se pudo importar «${fileName}».` : "No se pudo importar el archivo."}
+            texto={error}
+            alCerrar={() => setError("")}
+          />
+        </div>
+      )}
 
       {preview && (
-        <div className="mt-3 rounded-xl overflow-hidden" style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgb(var(--accent-rgb) / 0.25)" }}>
-          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgb(var(--veil-rgb) / 0.06)" }}>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" style={{ color: "var(--ok-text)" }} />
-              <span className="text-[13px] font-medium" style={{ color: "var(--ink)" }}>
+        <section className="ui-vista" aria-label="Vista previa de la importación">
+          <div className="ui-vista-h">
+            <div>
+              <h3 className="k-t26">
                 {preview.length} {preview.length === 1 ? "unidad detectada" : "unidades detectadas"}
-              </span>
-              <span style={{ ...monoLabel, color: "var(--ink-3)" }}>· {withEmail} con correo</span>
+              </h3>
+              <p className="k-apoyo">
+                {withEmail} con correo{fileName ? <> · de «{fileName}»</> : null}. Revisa la lista y quita lo que no
+                aplique. Podrás editar cada unidad después.
+              </p>
             </div>
-            <button onClick={() => { setPreview(null); setFileName(""); setNote(""); }} className="p-1 rounded cursor-pointer hover:bg-white/[0.06]" style={{ color: "var(--ink-3)" }}>
-              <X className="h-4 w-4" />
-            </button>
+            <div className="k-btns">
+              <Boton variante="fantasma" tam={40} onClick={discard} disabled={creating}>
+                Descartar
+              </Boton>
+              <Boton
+                tam={40}
+                flecha="avanza"
+                onClick={confirm}
+                disabled={creating || preview.length === 0}
+                cargando={creating}
+                textoCargando="Creando…"
+              >
+                Crear {preview.length} {preview.length === 1 ? "unidad" : "unidades"}
+              </Boton>
+            </div>
           </div>
 
           {note && (
-            <p
-              className="px-4 py-2.5 text-[11.5px]"
-              style={{ background: "rgba(255,193,94,0.10)", color: "#ffc15e", borderBottom: "1px solid rgb(var(--veil-rgb) / 0.06)" }}
-            >
-              {note}
-            </p>
+            <div className="ui-nota">
+              <Aviso enLinea tipo="info" titulo="Importación parcial." texto={note} rol={null} />
+            </div>
           )}
 
-          <div className="max-h-72 overflow-y-auto">
-            {preview.map((u, i) => (
-              <div key={i} className="flex items-center gap-2 px-4 py-2" style={{ borderBottom: i < preview.length - 1 ? "1px solid rgb(var(--veil-rgb) / 0.04)" : "none" }}>
-                <span className="text-[12.5px] font-medium" style={{ color: "var(--ink)", minWidth: 90 }}>{u.label}</span>
-                <span className="flex-1 min-w-0 text-[11.5px] truncate" style={{ color: "var(--ink-2)" }}>
-                  {[u.residentName, u.email, u.phone, u.coeficiente ? `${u.coeficiente}%` : null, u.monthlyFee ? `$${u.monthlyFee.toLocaleString("es-CO")}` : null].filter(Boolean).join(" · ") || "—"}
-                </span>
-                <button
-                  onClick={() => setPreview((prev) => (prev ? prev.filter((_, j) => j !== i) : prev))}
-                  className="p-1 rounded cursor-pointer hover:bg-white/[0.06] flex-shrink-0"
-                  style={{ color: "rgb(var(--danger-rgb) / 0.5)" }}
-                  title="Quitar de la lista"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3 px-4 py-3" style={{ borderTop: "1px solid var(--hifi-hairline)" }}>
-            <button
-              onClick={confirm}
-              disabled={creating || preview.length === 0}
-              className="inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2 transition-all disabled:opacity-50 cursor-pointer"
-              style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
-            >
-              {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-              Crear {preview.length} {preview.length === 1 ? "unidad" : "unidades"}
-            </button>
-            <span className="text-[11.5px]" style={{ color: "var(--ink-3)" }}>
-              Revisa la lista y quita lo que no aplique. Podrás editar cada unidad después.
-            </span>
-          </div>
-        </div>
+          <Tabla
+            etiquetaAccesible="Unidades detectadas en el archivo"
+            filas={preview.map((u, i) => ({ u, i }))}
+            claveFila={(f) => String(f.i)}
+            columnas={columnas}
+          />
+        </section>
       )}
     </div>
   );
 }
+
+const estilos = `
+  .ui-import .ui-leyendo { display: grid; gap: 14px; margin-top: 4px; }
+  .ui-import .ui-leyendo .k-fecha { margin: 0; }
+  .ui-import .ui-leyendo .k-fecha b { color: var(--ink); font-weight: 700; }
+  .ui-import .ui-error { margin-top: 14px; }
+  .ui-import .ui-error + .ui-vista { margin-top: 24px; }
+  .ui-import .ui-sin { color: var(--ink-3); font-weight: 400; }
+  .ui-import .ui-vista { margin-top: 4px; }
+  .ui-import .ui-vista-h { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; margin-bottom: 18px; }
+  .ui-import .ui-vista-h h3 { margin: 0 0 6px; }
+  .ui-import .ui-vista-h p { margin: 0; max-width: 62ch; }
+  .ui-import .ui-nota { margin-bottom: 18px; }
+  @media (max-width: 860px) {
+    .ui-import .ui-pre { display: block; margin-bottom: 4px; font: 500 12px/1 var(--f-mono); color: var(--ink-3); }
+  }
+`;

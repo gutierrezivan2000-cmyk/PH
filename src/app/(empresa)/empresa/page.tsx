@@ -1,27 +1,23 @@
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
 import { eliteGate } from "@/components/empresa/EmpresaGate";
 import { EmpresaShell } from "@/components/empresa/EmpresaShell";
-import { PageHeader } from "@/components/admin/PageHeader";
-import { Badge } from "@/components/ui/badge";
+import {
+  Boton,
+  CabeceraPieza,
+  Cornisa,
+  Kpi,
+  Kpis,
+  Medidor,
+  Pagina,
+  Panel,
+  Pieza,
+  Seccion,
+  Vacio,
+} from "@/components/kit";
 import { db } from "@/lib/db";
 import { PLANS } from "@/lib/epayco";
-import {
-  Building2,
-  FileText,
-  AlertTriangle,
-  FolderOpen,
-  Layers,
-  ArrowRight,
-  ArrowUpRight,
-} from "lucide-react";
-import { tinte } from "@/lib/tinte";
-
-const MONTHS = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-];
+import { TablaGeneraciones, type FilaGeneracion } from "./propiedades/PropertyFilters";
 
 async function loadOverview(userId: string) {
   // Sin esta rama la página respondía 500 en demo: `db` es un stub y
@@ -68,156 +64,128 @@ export default async function EmpresaOverviewPage() {
   const data = await loadOverview(elite.userId);
   const monthlyCap = elite.plan === "beta" ? null : PLANS.elite.limits.generationsPerMonth;
 
-  const kpis = [
-    {
-      label: "Propiedades",
-      value: data.totalProperties.toLocaleString("es-CO"),
-      sub: "en tu portafolio",
-      icon: Building2,
-      tint: "var(--accent)",
-    },
-    {
-      label: "Generaciones del mes",
-      value: monthlyCap
-        ? `${data.generationsThisMonth} / ${monthlyCap}`
-        : data.generationsThisMonth.toLocaleString("es-CO"),
-      sub: monthlyCap ? "informes/actas completados" : "ilimitado en beta",
-      icon: FileText,
-      tint: "var(--ok)",
-    },
-    {
-      label: "Sin informe reciente",
-      value: data.withoutRecentReport.toLocaleString("es-CO"),
-      sub: "en los últimos 30 días",
-      icon: AlertTriangle,
-      tint: data.withoutRecentReport > 0 ? "var(--warn)" : "var(--ok)",
-    },
-    {
-      label: "Documentos cargados",
-      value: data.totalDocuments.toLocaleString("es-CO"),
-      sub: "reglamentos y manuales",
-      icon: FolderOpen,
-      tint: "var(--info)",
-    },
-  ];
+  const n = data.withoutRecentReport;
+  const N = data.totalProperties;
+  const cop = (x: number) => (x === 1 ? "copropiedad" : "copropiedades");
+  const fmt = (x: number) => x.toLocaleString("es-CO");
+
+  // Titular: la respuesta del día, derivada de los mismos conteos que ya se cargan
+  // (propiedades sin informe completado en los últimos 30 días).
+  const titular =
+    N === 0
+      ? { a: "Tu portafolio está vacío.", b: " Agrega tu primera copropiedad para empezar." }
+      : n === 0
+        ? { a: `${N === 1 ? "Tu copropiedad tiene" : `Las ${fmt(N)} copropiedades tienen`} informe reciente.`, b: " Nada pendiente en los últimos 30 días." }
+        : { a: `${fmt(n)} de ${fmt(N)} ${cop(N)}`, b: " sin informe en los últimos 30 días." };
+
+  const recientes: FilaGeneracion[] = data.recent.map((g) => ({
+    id: g.id,
+    month: g.month,
+    year: g.year,
+    status: g.status,
+    createdAt: g.createdAt,
+    propertyName: g.property?.name ?? "Propiedad eliminada",
+  }));
 
   return (
     <EmpresaShell elite={elite}>
-      <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-7xl">
-        <PageHeader
-          section="Portafolio"
-          title="Resumen"
-          description="Vista general de todas tus copropiedades y su actividad este mes."
-          action={
-            <Link
-              href="/empresa/generar"
-              className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold text-white transition-all hover:opacity-90"
-              style={{ background: "var(--accent)", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.35)" }}
-            >
-              <Layers className="h-4 w-4" />
-              Generar en lote
-            </Link>
-          }
-        />
+      <style href="k-empresa-portafolio" precedence="default">{CSS_PORTAFOLIO}</style>
+      {/* Cornisa informativa (SPEC §f.1, /empresa): alcance del portafolio con datos reales. */}
+      <Cornisa
+        info={
+          <>
+            Portafolio · <b>{fmt(N)}</b> {cop(N)}
+            {N > 0 && (
+              <>
+                {" "}· <b>{fmt(n)}</b> sin informe en los últimos 30 días
+              </>
+            )}
+          </>
+        }
+      />
+      <Pagina>
+        <Pieza>
+          <CabeceraPieza
+            nn="01"
+            titulo="Portafolio"
+            subtitulo="Vista general de todas tus copropiedades y su actividad este mes."
+            acciones={<Boton href="/empresa/generar" flecha="avanza">Generar en lote</Boton>}
+          />
 
-        {/* KPI grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {kpis.map((k) => (
-            <div key={k.label} className="rounded-2xl border border-border bg-card p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center"
-                  style={{ background: `${tinte(k.tint, 0.1)}`, color: k.tint }}
-                >
-                  <k.icon className="h-4 w-4" />
-                </div>
-              </div>
-              <p
-                className="text-[10px] uppercase text-muted-foreground/70 mb-1"
-                style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.14em" }}
-              >
-                {k.label}
-              </p>
-              <p className="text-2xl font-semibold text-foreground tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>
-                {k.value}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-1">{k.sub}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Quick links */}
-        <div className="grid sm:grid-cols-2 gap-4 mb-8">
-          <Link
-            href="/empresa/propiedades"
-            className="group rounded-2xl border border-border bg-card p-5 flex items-center gap-4 hover:border-[var(--accent)]/40 transition-colors"
-          >
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgb(var(--accent-rgb) / 0.12)", color: "var(--accent-text)" }}>
-              <Building2 className="h-5 w-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground">Gestionar propiedades</p>
-              <p className="text-[12px] text-muted-foreground">Buscar, filtrar y administrar tu portafolio a escala</p>
-            </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-          </Link>
-          <Link
-            href="/empresa/generar"
-            className="group rounded-2xl border border-border bg-card p-5 flex items-center gap-4 hover:border-[var(--accent)]/40 transition-colors"
-          >
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgb(var(--ok-rgb) / 0.12)", color: "var(--ok-text)" }}>
-              <Layers className="h-5 w-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground">Generar en lote</p>
-              <p className="text-[12px] text-muted-foreground">Producir informes y actas de varias propiedades a la vez</p>
-            </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-          </Link>
-        </div>
-
-        {/* Recent activity */}
-        <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <p className="text-sm font-semibold text-foreground">Actividad reciente</p>
-            <Link href="/empresa/propiedades" className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-              Ver todo <ArrowUpRight className="h-3.5 w-3.5" />
-            </Link>
+          <div className="emp-resumen">
+            <p className="emp-titular k-t40">
+              {titular.a}
+              <span>{titular.b}</span>
+            </p>
+            <p className="emp-nota">
+              Genera en lote los informes y actas del mes de las copropiedades que ya tienen sus datos cargados.
+            </p>
           </div>
-          {data.recent.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16">
-              <FileText className="h-8 w-8 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">Aún no hay generaciones. Empieza generando en lote.</p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-border">
-              {data.recent.map((g) => (
-                <li key={g.id} className="px-5 py-3.5 flex items-center gap-4 hover:bg-secondary/40 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-foreground truncate">
-                      {g.property?.name ?? "Propiedad eliminada"}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground" style={{ fontFamily: "var(--font-mono)" }}>
-                      {MONTHS[(g.month - 1) % 12]} {g.year}
-                    </p>
-                  </div>
-                  <StatusBadge status={g.status} />
-                  <span className="text-[11px] text-muted-foreground/60 whitespace-nowrap" style={{ fontFamily: "var(--font-mono)" }}>
-                    {new Date(g.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+
+          {monthlyCap ? (
+            <Panel className="emp-uso" titulo="Generaciones del mes" nota="informes y actas completados">
+              <Medidor
+                filas={[{ etiqueta: "Este mes", usado: data.generationsThisMonth, total: monthlyCap }]}
+                libres={Math.max(0, monthlyCap - data.generationsThisMonth)}
+                unidadLibres="libres este mes"
+              />
+            </Panel>
+          ) : null}
+
+          <Kpis className="emp-kpis">
+            {!monthlyCap && (
+              <Kpi cifra={fmt(data.generationsThisMonth)} etiqueta="Generaciones del mes" variacion="ilimitado en beta" />
+            )}
+            <Kpi cifra={fmt(N)} etiqueta="Propiedades" variacion="en tu portafolio" />
+            <Kpi cifra={fmt(n)} etiqueta="Sin informe reciente" variacion="en los últimos 30 días" />
+            <Kpi cifra={fmt(data.totalDocuments)} etiqueta="Documentos cargados" variacion="reglamentos y manuales" />
+          </Kpis>
+
+          <Seccion
+            id="emp-actividad"
+            titulo="Actividad reciente"
+            nota="últimas generaciones"
+            enlace={{ href: "/empresa/propiedades", texto: "Ver propiedades", refIndice: "03" }}
+          >
+            <TablaGeneraciones
+              etiquetaAccesible="Actividad reciente del portafolio"
+              filas={recientes}
+              conPropiedad
+              vacio={
+                <Vacio
+                  nivel={3}
+                  titulo="Aún no hay generaciones."
+                  texto="Empieza generando en lote los informes del mes de tus copropiedades."
+                  acciones={<Boton href="/empresa/generar" flecha="avanza">Generar en lote</Boton>}
+                />
+              }
+            />
+          </Seccion>
+        </Pieza>
+      </Pagina>
     </EmpresaShell>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  if (status === "completed") return <Badge variant="ok">Listo</Badge>;
-  if (status === "processing" || status === "pending") return <Badge variant="warn">En proceso</Badge>;
-  if (status === "failed") return <Badge variant="destructive">Error</Badge>;
-  return <Badge variant="secondary">{status}</Badge>;
+const CSS_PORTAFOLIO = `
+.emp-resumen { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); align-items: end; margin: 44px 0 40px; }
+.emp-titular { grid-column: 1 / 8; min-width: 0; margin: 0; text-wrap: balance; }
+.emp-titular span { color: var(--ink-3); }
+.emp-nota { grid-column: 8 / 13; margin: 0; font-size: 15px; line-height: 1.4; color: var(--ink-2); text-wrap: pretty; }
+.emp-uso { margin-bottom: 40px; }
+/* Con 100 generaciones el medidor agrupa en 40 celdas: con el hueco de 4 px no se verían. */
+.emp-uso .k-celdas { gap: 3px; }
+.emp-kpis { margin-bottom: 56px; }
+@media (max-width: 1180px) {
+  .emp-titular { grid-column: 1 / -1; font-size: 36px; }
+  .emp-nota { grid-column: 1 / -1; margin-top: 12px; }
 }
+@media (max-width: 860px) {
+  .emp-resumen { display: block; margin: 28px 0 32px; }
+  .emp-titular { font-size: 32px; }
+  .emp-uso .k-medidor-c { grid-template-columns: minmax(0, 1fr); row-gap: 16px; }
+  .emp-uso .k-medidor { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .emp-uso .k-celdas { gap: 2px; }
+  .emp-uso, .emp-kpis { margin-bottom: 40px; }
+}
+`;

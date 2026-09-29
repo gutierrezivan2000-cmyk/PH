@@ -1,9 +1,22 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, type ReactNode } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { UsageCard } from "@/components/dashboard/UsageCard";
-import { Check, Loader2, Shield, Zap } from "lucide-react";
+import { UsageCard, estadoDelPlan, suscripcionNoVigente, type UsageData } from "@/components/dashboard/UsageCard";
+import { COMING_SOON_AGENT_IDS } from "@/lib/agents";
+import {
+  Aviso,
+  Boton,
+  CabeceraPieza,
+  Cuadro,
+  Estado,
+  FranjaPreparacion,
+  Pagina,
+  Pieza,
+  Reticula,
+  TarjetaPlan,
+  type AgenteId,
+} from "@/components/kit";
 import Script from "next/script";
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
@@ -20,13 +33,6 @@ declare global {
   }
 }
 
-const monoLabel = {
-  fontFamily: "'Geist Mono', monospace",
-  fontSize: 10,
-  letterSpacing: "0.18em",
-  textTransform: "uppercase" as const,
-};
-
 type PlanId = "pro" | "business" | "elite";
 
 const PLAN_CARDS: {
@@ -35,7 +41,6 @@ const PLAN_CARDS: {
   priceCop: string;
   usd: string;
   tagline: string;
-  chip: string;
   cta: string;
   featured: boolean;
   ribbon?: string;
@@ -43,63 +48,86 @@ const PLAN_CARDS: {
 }[] = [
   {
     id: "pro",
-    label: "Plan Pro",
+    label: "Pro",
     priceCop: "99.900",
-    usd: "≈ USD 24",
+    usd: "aprox. USD 24 al mes",
     tagline: "Para empezar",
-    chip: "Gratis en pruebas",
     cta: "Empezar gratis",
     featured: false,
     features: [
       "Hasta 3 propiedades",
-      "15 generaciones / mes (3/día)",
-      "Themis + Chronos incluidos",
+      "15 generaciones al mes (3 por día)",
+      "Themis y Chronos incluidos",
       "Soporte por chat",
     ],
   },
   {
     id: "business",
-    label: "Plan Business",
+    label: "Business",
     priceCop: "299.900",
-    usd: "≈ USD 73",
+    usd: "aprox. USD 73 al mes",
     tagline: "Para administradores en crecimiento",
-    chip: "Más elegido",
     cta: "Subir a Business",
     featured: true,
-    ribbon: "recomendado · 4 a 10 propiedades",
+    ribbon: "Recomendado · de 4 a 10 propiedades",
     features: [
       "Hasta 10 propiedades",
-      "40 generaciones / mes (5/día)",
-      "Themis + Chronos incluidos",
+      "40 generaciones al mes (5 por día)",
+      "Themis y Chronos incluidos",
       "Generación en lote",
       "Soporte prioritario",
     ],
   },
   {
     id: "elite",
-    label: "Plan Elite",
+    label: "Élite",
     priceCop: "749.900",
-    usd: "≈ USD 183",
+    usd: "aprox. USD 183 al mes",
     tagline: "Para grandes administradores",
-    chip: "Ilimitado",
-    cta: "Subir a Elite",
+    cta: "Subir a Élite",
     featured: false,
     features: [
       "Propiedades ilimitadas",
-      "100 generaciones / mes (10/día)",
-      "Themis + Chronos incluidos",
+      "100 generaciones al mes (10 por día)",
+      "Themis y Chronos incluidos",
       "Generación en lote",
       "Soporte prioritario · WhatsApp directo",
     ],
   },
 ];
 
-const COMING_SOON_AGENTS = [
-  { id: "metra",    color: "var(--ok-text)", name: "Metra",    role: "Analista Financiera" },
-  { id: "nomethes", color: "var(--warn-text)", name: "Nomethes", role: "Consultor de Decisiones" },
-  { id: "hermes",   color: "var(--pink)", name: "Hermes",   role: "Redactor de Comunicaciones" },
-  { id: "logistes", color: "var(--logistes)", name: "Logistes", role: "Coordinador Operativo" },
-];
+const NOMBRE_PLAN: Record<PlanId, string> = { pro: "Pro", business: "Business", elite: "Élite" };
+
+// Agentes «Próximamente», de la configuración real (lib/agents).
+const AGENTES_PROXIMAMENTE = COMING_SOON_AGENT_IDS as AgenteId[];
+
+/* Rejilla de planes: 3 × 4 columnas; en móvil (k-r12 pasa a una columna) se apilan.
+   En escritorio, las filas de las tres tarjetas se alinean con subgrid (etiqueta,
+   nombre, para quién, precio, equivalencia, beneficios, acción): así el precio y
+   la lista empiezan a la misma altura aunque «para quién» o la etiqueta de
+   «Recomendado» partan en dos líneas (p. ej. a 1024 px). */
+const CSS_SUSCRIPCION = `
+.k-susc-sub { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.k-planes { row-gap: 16px; margin-top: 26px; }
+.k-planes > div { grid-column: span 4; display: flex; min-width: 0; }
+.k-planes > div > .k-plan { flex: 1 1 auto; }
+@media (min-width: 861px) {
+  .k-planes { row-gap: 0; }
+  .k-planes > div { display: grid; grid-row: span 7; grid-template-rows: subgrid; }
+  .k-planes > div > .k-plan { display: grid; grid-row: span 7; grid-template-rows: subgrid; row-gap: 0; }
+  .k-planes .k-plan > .tag { grid-row: 1; justify-self: start; }
+  .k-planes .k-plan > h3 { grid-row: 2; }
+  .k-planes .k-plan > .para { grid-row: 3; }
+  .k-planes .k-plan > .precio { grid-row: 4; }
+  .k-planes .k-plan > .equiv { grid-row: 5; }
+  .k-planes .k-plan > ul { grid-row: 6; }
+  .k-planes .k-plan > .pie { grid-row: 7; align-self: end; }
+}
+.k-plan .k-pie-actual { display: grid; gap: 10px; }
+.k-susc-nota { margin: 14px 0 0; font-size: 14px; line-height: 1.4; color: var(--ink-2); max-width: 78ch; }
+.k-susc-prep { margin-top: 32px; }
+.k-susc-prep + p { margin: 10px 0 0; font-size: 14px; line-height: 1.4; color: var(--ink-3); }
+`;
 
 export default function SuscripcionPage() {
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
@@ -108,6 +136,8 @@ export default function SuscripcionPage() {
   // state from window on mount and fall back to a click-time check.
   const [epaycoReady, setEpaycoReady] = useState(false);
   const [error, setError] = useState("");
+  // Uso y estado del plan: la misma respuesta de /api/usage que pinta UsageCard.
+  const [datos, setDatos] = useState<UsageData | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.ePayco) setEpaycoReady(true);
@@ -153,6 +183,47 @@ export default function SuscripcionPage() {
     }
   }, []);
 
+  /* ── Plan actual (de /api/usage) ──────────────────────────────────────
+     · plan pagado y vigente (planStatus "active" + planName) → ese plan;
+     · beta (cuentas antiguas) → acceso sin restricciones, sin plan marcado;
+     · todo lo demás → fase de pruebas abierta: funciones Pro para todos (es
+       lo que dice la tarjeta Pro, «Gratis en pruebas»). /api/usage no expone
+       OPEN_TESTING y calcula el estado con la fila de suscripción, así que
+       una prueba antigua ("trialing", "trial_expired") o un plan pagado vencido
+       ("grace", "expired", "past_due", "canceled") no bloquea hoy: se muestra
+       como fase de pruebas y, si había un plan pagado, su estado en tono neutro. */
+  const pagado = datos?.planStatus === "active" && datos.planName ? datos.planName : null;
+  const estado = datos ? estadoDelPlan(datos) : null;
+  const enPruebas = Boolean(datos) && !pagado && datos?.planStatus !== "beta" && datos?.planStatus !== "active";
+  const planActual: PlanId | null = pagado ?? (enPruebas ? "pro" : null);
+  const noVigente = datos && datos.planName ? suscripcionNoVigente(datos) : null;
+
+  let subtitulo: ReactNode = "Gestiona tu plan y uso";
+  if (pagado) {
+    const hasta = datos?.periodEndsAt
+      ? new Date(datos.periodEndsAt).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" })
+      : null;
+    subtitulo = `Plan ${NOMBRE_PLAN[pagado]}${hasta ? ` · vigente hasta el ${hasta}` : ""}`;
+  } else if (enPruebas) {
+    subtitulo = (
+      <span className="k-susc-sub">
+        <span>Plan Pro</span>
+        <span className="k-sr"> · </span>
+        <Estado tipo="ok">Fase de pruebas · funciones Pro</Estado>
+        {noVigente && datos?.planName && (
+          <>
+            <span className="k-sr"> · </span>
+            <Estado tipo="sin">
+              Suscripción {NOMBRE_PLAN[datos.planName]} {noVigente}
+            </Estado>
+          </>
+        )}
+      </span>
+    );
+  } else if (estado) {
+    subtitulo = <Estado tipo={estado.tipo}>{estado.texto}</Estado>;
+  }
+
   return (
     <div>
       {!IS_DEMO && (
@@ -163,231 +234,115 @@ export default function SuscripcionPage() {
           strategy="afterInteractive"
         />
       )}
+      <style href="k-suscripcion-local" precedence="default">
+        {CSS_SUSCRIPCION}
+      </style>
 
-      <Header title="Suscripción" subtitle="Gestiona tu plan y uso" />
+      <Header title="Suscripción" />
 
-      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-5xl mx-auto space-y-8">
-        <UsageCard />
+      <Pagina>
+        <Pieza>
+          <CabeceraPieza nn="14" titulo="Suscripción" subtitulo={subtitulo} />
 
-        {error && (
-          <div
-            className="px-4 py-3 rounded-2xl text-sm"
-            style={{
-              background: "rgb(var(--danger-rgb) / 0.08)",
-              border: "1px solid rgb(var(--danger-rgb) / 0.2)",
-              color: "var(--danger-text)",
-            }}
-          >
-            {error}
-          </div>
-        )}
+          {IS_DEMO && (
+            <div style={{ marginBottom: 24 }}>
+              <Aviso
+                enLinea
+                rol={null}
+                tipo="info"
+                titulo="Demo activo."
+                texto="Puedes ver los planes, pero en la demostración no se procesan pagos."
+              />
+            </div>
+          )}
 
-        {/* ── Pricing grid ────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
-          {PLAN_CARDS.map((plan) => {
-            const isLoading = loadingPlan === plan.id;
-            return (
-              <div
-                key={plan.id}
-                className="rounded-2xl flex flex-col relative overflow-hidden"
-                style={
-                  plan.featured
-                    ? {
-                        background: "radial-gradient(ellipse at 50% 0%, rgb(var(--accent-rgb) / 0.2) 0%, var(--surface-2) 65%)",
-                        border: "1px solid rgb(var(--accent-rgb) / 0.4)",
-                        padding: "28px 24px",
-                        boxShadow: "0 0 0 1px rgb(var(--accent-rgb) / 0.15), 0 8px 40px rgb(var(--accent-rgb) / 0.2)",
-                      }
-                    : {
-                        background: "var(--card)",
-                        border: "1px solid var(--border)",
-                        padding: "28px 24px",
-                      }
-                }
-              >
-                {plan.featured && (
-                  <>
-                    <div
-                      className="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 h-40 w-40 rounded-full blur-3xl"
-                      style={{ background: "rgb(var(--accent-rgb) / 0.25)" }}
-                    />
-                    <div className="absolute top-0 right-0">
-                      <div
-                        className="text-[9px] font-semibold px-3 py-1 rounded-bl-xl"
-                        style={{
-                          fontFamily: "'Geist Mono', monospace",
-                          letterSpacing: "0.08em",
-                          background: "rgb(var(--accent-rgb) / 0.35)",
-                          color: "var(--accent-pale)",
-                          border: "1px solid rgb(var(--accent-rgb) / 0.4)",
-                          borderTopWidth: 0,
-                          borderRightWidth: 0,
-                        }}
-                      >
-                        {plan.ribbon}
-                      </div>
+          <UsageCard alCargar={setDatos} />
+
+          <h2 className="k-sr">Planes</h2>
+
+          {error && (
+            <div style={{ marginTop: 16 }}>
+              <Aviso enLinea tipo="error" titulo="No se pudo iniciar el pago." texto={error} />
+            </div>
+          )}
+
+          {/* ── Planes ────────────────────────────────────────────────── */}
+          <Reticula className="k-planes">
+            {PLAN_CARDS.map((plan) => {
+              const isLoading = loadingPlan === plan.id;
+              const esActual = planActual === plan.id;
+              const boton = (
+                <Boton
+                  variante={plan.featured ? "primario" : "secundario"}
+                  flecha="avanza"
+                  onClick={() => handleSubscribe(plan.id)}
+                  disabled={IS_DEMO || (loadingPlan !== null && !isLoading)}
+                  cargando={isLoading}
+                  textoCargando="Procesando…"
+                >
+                  {plan.cta}
+                </Boton>
+              );
+              const gratis =
+                plan.id === "pro" ? <Estado tipo="ok" tamLetra={14}>Gratis en pruebas</Estado> : null;
+              // En la fase de pruebas Pro es el plan actual y es gratis: bajo «Tu plan
+              // actual» no se ofrece su compra («Empezar gratis» abre un cobro de
+              // ePayco del mismo plan). Decisión de producto escalada: la compra de
+              // Pro vuelve a mostrarse cuando no es el plan actual.
+              const pie =
+                esActual && !pagado ? (
+                  <div className="k-pie-actual">
+                    {gratis}
+                    <div className="actual">
+                      <span>Tu plan actual</span>
+                      <Cuadro tipo="ok" />
                     </div>
-                  </>
-                )}
-
-                {/* Eyebrow + chip */}
-                <div className={`flex items-start justify-between mb-5 ${plan.featured ? "mt-2" : ""}`}>
-                  <p style={{ ...monoLabel, color: plan.featured ? "var(--accent-text)" : "var(--muted-foreground)" }}>
-                    {plan.label}
-                  </p>
-                  <span
-                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                    style={{
-                      fontFamily: "'Geist Mono', monospace",
-                      letterSpacing: "0.08em",
-                      background: plan.featured ? "rgb(var(--accent-rgb) / 0.2)" : "rgb(var(--info-rgb) / 0.12)",
-                      color: plan.featured ? "var(--accent-text)" : "var(--info)",
-                      border: `1px solid ${plan.featured ? "rgb(var(--accent-rgb) / 0.35)" : "rgb(var(--info-rgb) / 0.25)"}`,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {plan.chip}
-                  </span>
-                </div>
-
-                {/* Price (COP) */}
-                <div className="flex items-baseline gap-1.5 mb-1">
-                  <span
-                    style={{
-                      fontFamily: "'Geist Mono', monospace",
-                      fontSize: 11,
-                      letterSpacing: "0.12em",
-                      color: "var(--muted-foreground)",
-                      textTransform: "uppercase",
-                      alignSelf: "flex-start",
-                      marginTop: 12,
-                    }}
-                  >
-                    $
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: "'Geist', sans-serif",
-                      fontSize: 44,
-                      fontWeight: 400,
-                      letterSpacing: "-0.03em",
-                      lineHeight: 1,
-                      ...(plan.featured
-                        ? {
-                            background: "linear-gradient(135deg, #ffffff 30%, var(--accent-hi) 100%)",
-                            WebkitBackgroundClip: "text",
-                            WebkitTextFillColor: "transparent",
-                            backgroundClip: "text",
-                          }
-                        : { color: "var(--foreground)" }),
-                    }}
-                  >
-                    {plan.priceCop}
-                  </span>
-                  <span style={{ fontSize: 13, color: "var(--muted-foreground)", alignSelf: "flex-end", marginBottom: 6 }}>
-                    COP/mes
-                  </span>
-                </div>
-                <p className="mb-1" style={{ ...monoLabel, fontSize: 10, color: "var(--muted-foreground)" }}>
-                  {plan.usd} · el administrador factura por propiedad
-                </p>
-                <p className="text-sm mb-6 mt-2" style={{ color: "var(--muted-foreground)" }}>
-                  {plan.tagline}
-                </p>
-
-                {IS_DEMO && (
-                  <div
-                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold mb-4"
-                    style={{ background: "rgb(var(--warn-rgb) / 0.1)", color: "var(--warn-text)", border: "1px solid rgb(var(--warn-rgb) / 0.2)" }}
-                  >
-                    <Zap className="h-3 w-3" /> Demo activo
                   </div>
-                )}
-
-                {/* Features */}
-                <ul className="space-y-3 mb-8 flex-1">
-                  {plan.features.map((f, i) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm text-foreground">
-                      <div
-                        className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ background: plan.featured ? "rgb(var(--accent-rgb) / 0.25)" : "rgb(var(--accent-rgb) / 0.15)" }}
-                      >
-                        <Check className="h-2.5 w-2.5" style={{ color: plan.featured ? "var(--accent-text)" : "var(--accent-text)" }} />
-                      </div>
-                      <span style={i === 0 ? { fontWeight: 700 } : undefined}>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {/* CTA */}
-                {IS_DEMO ? (
-                  <div
-                    className="rounded-xl p-3 text-center"
-                    style={{ background: "rgb(var(--warn-rgb) / 0.08)", border: "1px solid rgb(var(--warn-rgb) / 0.15)" }}
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <Shield className="h-4 w-4" style={{ color: "var(--warn-text)" }} />
-                      <p className="text-sm font-semibold" style={{ color: "var(--warn-text)" }}>Demo activo</p>
-                    </div>
+                ) : gratis ? (
+                  <div className="k-pie-actual">
+                    {gratis}
+                    {boton}
                   </div>
                 ) : (
-                  <button
-                    onClick={() => handleSubscribe(plan.id)}
-                    disabled={loadingPlan !== null}
-                    className="w-full h-11 rounded-xl text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    style={
-                      plan.featured
-                        ? { background: "var(--accent)", color: "#fff", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.45)" }
-                        : { border: "1px solid var(--border)", color: "var(--foreground)", background: "transparent" }
-                    }
-                  >
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    {isLoading ? "Procesando..." : plan.cta}
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* ── Coming-soon agents strip ────────────────────────────────── */}
-        <div
-          className="rounded-2xl p-5"
-          style={{
-            background: "repeating-linear-gradient(135deg, transparent 0px, transparent 12px, rgb(var(--accent-rgb) / 0.025) 12px, rgb(var(--accent-rgb) / 0.025) 13px), var(--card)",
-            border: "1px solid var(--border)",
-          }}
-        >
-          <p style={{ ...monoLabel, color: "var(--muted-foreground)" }} className="mb-4">
-            Más agentes · Próximamente
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {COMING_SOON_AGENTS.map((a) => (
-              <div key={a.id} className="flex items-center gap-2.5">
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0"
-                  style={{ background: a.color }}
-                >
-                  {a.name[0]}
+                  boton
+                );
+              return (
+                <div key={plan.id}>
+                  <TarjetaPlan
+                    id={`plan-${plan.id}`}
+                    nombre={plan.label}
+                    para={plan.tagline}
+                    precio={plan.priceCop}
+                    equivalencia={plan.usd}
+                    beneficios={plan.features}
+                    recomendado={plan.featured ? plan.ribbon : undefined}
+                    actual={esActual && Boolean(pagado)}
+                    className={esActual && !pagado && !plan.featured ? "es-actual" : undefined}
+                    accion={pie}
+                  />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-bold text-foreground leading-none truncate">{a.name}</p>
-                  <p className="mt-0.5 leading-none" style={{ ...monoLabel, fontSize: 9, color: "var(--muted-foreground)" }}>
-                    Próximamente
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="mt-4 text-[11px] leading-relaxed" style={{ color: "var(--muted-foreground)", opacity: 0.75 }}>
-            Estos agentes especializados se lanzarán como complementos de tu plan. Te avisaremos cuando estén disponibles.
-          </p>
-        </div>
+              );
+            })}
+          </Reticula>
 
-        <p className="text-xs text-center" style={{ color: "var(--muted-foreground)", opacity: 0.65 }}>
-          Cobro en COP procesado por ePayco. Acepta tarjetas de crédito, débito, PSE y más.
-        </p>
-      </div>
+          <p className="k-susc-nota">
+            El administrador factura por propiedad. Cobro en COP procesado por ePayco: acepta tarjetas de crédito,
+            débito, PSE y más.
+          </p>
+
+          {AGENTES_PROXIMAMENTE.length > 0 && (
+            <>
+              <FranjaPreparacion
+                className="k-susc-prep"
+                rotulo="Más agentes"
+                nota="· próximamente, como complementos de tu plan"
+                agentes={AGENTES_PROXIMAMENTE}
+              />
+              <p>Te avisaremos cuando estén disponibles.</p>
+            </>
+          )}
+        </Pieza>
+      </Pagina>
     </div>
   );
 }

@@ -1,11 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { DOC_KIND_LABELS, docTypesFromSelection, type DocKind } from "@/lib/generation/doc-kind";
 import {
-  Layers, Loader2, CheckCircle2, AlertTriangle, RefreshCw, FileText, Search, ArrowRight, Clock,
-} from "lucide-react";
+  AccionesFila,
+  Aviso,
+  Boton,
+  BotonFila,
+  Buscador,
+  Casilla,
+  Esqueleto,
+  Estado,
+  Opcion,
+  Panel,
+  ProgresoGeneracion,
+  RejillaMeses,
+  Segmentos,
+  SinResultados,
+  Tabla,
+  Vacio,
+  type EtapaGeneracion,
+} from "@/components/kit";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -143,201 +158,266 @@ export function BatchGenerator() {
     }
   };
 
-  const selectBase = "rounded-lg border border-border bg-card text-sm text-foreground px-3 h-9 focus-visible:outline-none focus-visible:border-[var(--accent)] transition-all cursor-pointer";
-
   // ── Progress view ──────────────────────────────────────────────────────────
   if (batchId && progress) {
     const pct = progress.total ? Math.round(((progress.completed + progress.failed) / progress.total) * 100) : 0;
+    const enCola = progress.pending + progress.processing;
+    // Una fila por propiedad del lote, con el estado real de su generación.
+    const etapas: EtapaGeneracion[] = progress.items.map((it) => ({
+      nombre: it.propertyName,
+      estado:
+        it.status === "completed" ? "listo"
+        : it.status === "failed" ? "error"
+        : it.status === "processing" ? "curso"
+        : "espera",
+      motivo: it.status === "failed" ? it.errorMessage || undefined : undefined,
+    }));
     return (
-      <div className="space-y-5">
-        <div className="rounded-2xl border border-border bg-card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-sm font-semibold text-foreground">
-                Lote de {MONTHS[month - 1]} {year}
-              </p>
-              <p className="text-[12px] text-muted-foreground">
-                {progress.done ? "Completado" : "Generando… el procesamiento continúa aunque cierres esta página."}
-              </p>
-            </div>
-            <span className="text-2xl font-semibold tabular-nums" style={{ fontFamily: "var(--font-mono)", color: "var(--accent-text)" }}>
-              {progress.completed}/{progress.total}
-            </span>
-          </div>
-          <div className="w-full h-2 rounded-full overflow-hidden bg-secondary mb-3">
-            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: progress.failed > 0 ? "var(--warn)" : "var(--ok)" }} />
-          </div>
-          <div className="flex flex-wrap gap-4 text-[12px]" style={{ fontFamily: "var(--font-mono)" }}>
-            <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" style={{ color: "var(--ok-text)" }} /> {progress.completed} listas</span>
-            <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" style={{ color: "var(--accent-text)" }} /> {progress.pending + progress.processing} en cola</span>
-            {progress.failed > 0 && <span className="inline-flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" style={{ color: "var(--danger-text)" }} /> {progress.failed} fallidas</span>}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          <ul className="divide-y divide-border max-h-[420px] overflow-y-auto">
-            {progress.items.map((it) => (
-              <li key={it.generationId} className="px-5 py-3 flex items-center gap-3">
-                <FileText className="h-4 w-4 text-muted-foreground/60 flex-shrink-0" />
-                <span className="flex-1 min-w-0 truncate text-[13px] text-foreground">{it.propertyName}</span>
-                <ItemStatus status={it.status} />
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          {progress.failed > 0 && (
-            <button onClick={retryFailed} disabled={retrying} className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-medium border border-border text-foreground hover:bg-secondary transition-colors disabled:opacity-50">
-              {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              Reintentar fallidas
-            </button>
-          )}
-          <Link href="/empresa/propiedades" className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-medium text-white transition-all hover:opacity-90" style={{ background: "var(--accent)" }}>
-            Ver propiedades <ArrowRight className="h-4 w-4" />
-          </Link>
-          <button onClick={() => { setBatchId(null); setProgress(null); }} className="inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-medium border border-border text-foreground hover:bg-secondary transition-colors">
-            Nuevo lote
-          </button>
+      <div className="emp-lote">
+        <style href="k-empresa-lote" precedence="default">{CSS_LOTE}</style>
+        <div className="emp-prog">
+          <ProgresoGeneracion
+            titulo={`Lote de ${MONTHS[month - 1].toLowerCase()} ${year}`}
+            subtitulo={
+              `${progress.completed} de ${progress.total} listas` +
+              ` · ${enCola} en cola` +
+              (progress.failed > 0 ? ` · ${progress.failed} ${progress.failed === 1 ? "fallida" : "fallidas"}` : "")
+            }
+            porcentaje={pct}
+            etapas={etapas}
+            nota={progress.done ? "Completado." : "Generando… el procesamiento continúa aunque cierres esta página."}
+            acciones={
+              <>
+                {progress.failed > 0 && (
+                  <Boton variante="secundario" onClick={retryFailed} cargando={retrying} textoCargando="Reintentando…">
+                    Reintentar fallidas
+                  </Boton>
+                )}
+                <Boton variante="secundario" onClick={() => { setBatchId(null); setProgress(null); }}>
+                  Nuevo lote
+                </Boton>
+                <Boton href="/empresa/propiedades" flecha="avanza">Ver propiedades</Boton>
+              </>
+            }
+          />
         </div>
       </div>
     );
   }
 
   // ── Configuration view ─────────────────────────────────────────────────────
+  const hayConsulta = query.trim().length > 0;
   return (
-    <div className="space-y-5">
-      {error && (
-        <div className="rounded-xl px-4 py-3 text-[13px]" style={{ background: "rgb(var(--danger-rgb) / 0.1)", border: "1px solid rgb(var(--danger-rgb) / 0.25)", color: "var(--danger-text)" }}>
-          {error}
-        </div>
-      )}
+    <div className="emp-lote">
+      <style href="k-empresa-lote" precedence="default">{CSS_LOTE}</style>
+      {error && <Aviso enLinea tipo="error" titulo={error} className="emp-lote-err" />}
 
-      {/* Period + doc types */}
-      <div className="rounded-2xl border border-border bg-card p-5 flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] uppercase text-muted-foreground/70" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }}>Periodo</span>
-          <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className={selectBase}>
-            {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-          </select>
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={selectBase}>
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-3 ml-auto flex-wrap">
-          <span className="text-[11px] uppercase text-muted-foreground/70" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }}>Documentos</span>
-          {(["informe", "acta"] as const).map((k) => (
-            <label key={k} className="inline-flex items-center gap-1.5 text-[13px] text-foreground cursor-pointer">
-              <input
-                type="radio"
+      {/* Periodo + documento */}
+      <div className="emp-conf">
+        <Panel titulo="Periodo" nota={`${MONTHS[month - 1]} ${year}`} className="emp-conf-per">
+          <Segmentos
+            etiquetaAccesible="Año del lote"
+            valor={String(year)}
+            alCambiar={(id) => setYear(Number(id))}
+            items={years.map((y) => ({ id: String(y), etiqueta: String(y) }))}
+            className="emp-anios"
+          />
+          <RejillaMeses
+            nombre="batchMonth"
+            etiquetaAccesible={`Mes del lote · ${year}`}
+            valor={month}
+            alCambiar={setMonth}
+          />
+        </Panel>
+
+        <Panel titulo="Documento" nota="uno por lote" className="emp-conf-doc">
+          <div className="k-ctls" role="radiogroup" aria-label="Documento a generar">
+            {(["informe", "acta"] as const).map((k) => (
+              <Opcion
+                key={k}
                 name="batchDocKind"
+                etiqueta={DOC_KIND_LABELS[k]}
                 checked={docKind === k}
                 onChange={() => { setDocKind(k); if (k === "acta") setIncludePptx(false); }}
-                className="accent-[var(--accent)]"
               />
-              {DOC_KIND_LABELS[k]}
-            </label>
-          ))}
-          <label
-            className={`inline-flex items-center gap-1.5 text-[13px] ${docKind === "informe" ? "text-foreground cursor-pointer" : "text-muted-foreground/50 cursor-not-allowed"}`}
-            title={docKind === "informe" ? undefined : "Un acta no tiene diapositivas"}
-          >
-            <input
-              type="checkbox"
+            ))}
+          </div>
+          <div className="k-ctls emp-pptx">
+            <Casilla
+              etiqueta="Incluir presentación"
+              detalle={docKind === "informe" ? "Diapositivas del informe de gestión." : "Un acta no tiene diapositivas."}
               checked={includePptx}
               disabled={docKind !== "informe"}
               onChange={(e) => setIncludePptx(e.target.checked)}
-              className="accent-[var(--accent)]"
             />
-            + Presentación
-          </label>
-        </div>
+          </div>
+        </Panel>
       </div>
 
-      {/* Checklist */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-border flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[180px] max-w-[280px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: "var(--ink-4)" }} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar propiedad…" className="w-full h-9 rounded-lg border border-border bg-card text-sm text-foreground pl-8 pr-3 placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-[var(--accent)] transition-all" />
-          </div>
-          <span className="text-[12px] text-muted-foreground">
-            {readyCount} de {rows.length} listas · <strong className="text-foreground">{selected.size} seleccionadas</strong>
-          </span>
-          <div className="flex items-center gap-2 ml-auto">
-            <label className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground cursor-pointer">
-              <input type="checkbox" checked={regenerate} onChange={(e) => setRegenerate(e.target.checked)} className="accent-[var(--accent)]" />
-              Regenerar ya generadas
-            </label>
-            <button onClick={selectAllReady} className="text-[12px] text-[var(--accent-hi)] hover:underline">Todas las listas</button>
-            <button onClick={clearAll} className="text-[12px] text-muted-foreground hover:text-foreground">Ninguna</button>
+      {/* Lista de propiedades */}
+      <Panel
+        titulo="Propiedades"
+        nota={`${readyCount} de ${rows.length} con datos del mes · ${selected.size} ${selected.size === 1 ? "seleccionada" : "seleccionadas"}`}
+        className="emp-lista"
+      >
+        <div className="emp-barra">
+          <Buscador
+            etiquetaAccesible="Buscar propiedad"
+            placeholder="Buscar propiedad…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <div className="emp-barra-acc">
+            <Casilla etiqueta="Regenerar ya generadas" checked={regenerate} onChange={(e) => setRegenerate(e.target.checked)} />
+            <Boton variante="fantasma" tam={40} onClick={selectAllReady} disabled={selectableIds.length === 0}>
+              Todas las listas
+            </Boton>
+            <Boton variante="fantasma" tam={40} onClick={clearAll} disabled={selected.size === 0}>
+              Ninguna
+            </Boton>
           </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-[13px] text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-16">
-            <Layers className="h-8 w-8 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">No hay propiedades para este periodo.</p>
-          </div>
+          <Esqueleto variante="tabla" filas={4} etiquetaAccesible="Cargando las propiedades…" />
         ) : (
-          <ul className="divide-y divide-border max-h-[460px] overflow-y-auto">
-            {filtered.map((p) => {
-              const disabled = !p.ready;
-              return (
-                <li key={p.propertyId} className={`px-5 py-3 flex items-center gap-3 ${disabled ? "opacity-60" : "hover:bg-secondary/40"} transition-colors`}>
-                  <input
-                    type="checkbox"
+          <Tabla<PreviewRow>
+            etiquetaAccesible={`Propiedades para el lote de ${MONTHS[month - 1].toLowerCase()} ${year}`}
+            filas={filtered}
+            claveFila={(p) => p.propertyId}
+            vacio={
+              hayConsulta ? (
+                <SinResultados
+                  nivel={3}
+                  consulta={query.trim()}
+                  titulo={`No encontramos «${query.trim()}» en tu portafolio.`}
+                  texto="Busca por nombre o ciudad de la copropiedad."
+                  acciones={<Boton variante="fantasma" onClick={() => setQuery("")}>Limpiar búsqueda</Boton>}
+                />
+              ) : (
+                <Vacio
+                  nivel={3}
+                  titulo="No hay propiedades para este periodo."
+                  acciones={<Boton variante="secundario" href="/empresa/propiedades">Ver propiedades</Boton>}
+                />
+              )
+            }
+            columnas={[
+              {
+                id: "sel",
+                titulo: "Incluir",
+                ancho: "56px",
+                principal: true,
+                celda: (p) => (
+                  <Casilla
                     checked={selected.has(p.propertyId)}
-                    disabled={disabled}
+                    disabled={!p.ready}
                     onChange={() => toggle(p.propertyId)}
-                    className="accent-[var(--accent)] flex-shrink-0"
+                    aria-label={p.ready ? `Incluir ${p.name}` : `${p.name}: faltan datos del mes`}
                   />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-foreground truncate">{p.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{p.city || "—"}{p.groupLabel ? ` · ${p.groupLabel}` : ""}</p>
-                  </div>
-                  {p.alreadyGenerated && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ fontFamily: "var(--font-mono)", background: "rgb(var(--ok-rgb) / 0.1)", color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.25)" }}>ya generado</span>
-                  )}
-                  {p.ready ? (
-                    <span className="text-[11px] text-muted-foreground whitespace-nowrap" style={{ fontFamily: "var(--font-mono)" }}>{p.fileCount} arch.</span>
+                ),
+              },
+              {
+                id: "prop",
+                titulo: "Propiedad",
+                ancho: "minmax(0, 3fr)",
+                celda: (p) => (
+                  <span className="emp-lnom">
+                    <b>{p.name}</b>
+                    <span>{p.city || "Sin ciudad"}{p.groupLabel ? ` · ${p.groupLabel}` : ""}</span>
+                  </span>
+                ),
+              },
+              {
+                id: "datos",
+                titulo: "Datos del mes",
+                ancho: "minmax(0, 1.6fr)",
+                celda: (p) =>
+                  p.ready ? (
+                    <Estado tipo="ok" tamLetra={14}>
+                      {p.fileCount} {p.fileCount === 1 ? "archivo" : "archivos"}
+                    </Estado>
                   ) : (
-                    <Link href={`/empresa/propiedades/${p.propertyId}`} className="text-[11px] whitespace-nowrap hover:underline" style={{ color: "var(--warn-text)" }}>
-                      faltan datos →
-                    </Link>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                    <Estado tipo="falta" tamLetra={14}>Faltan datos</Estado>
+                  ),
+              },
+              {
+                id: "gen",
+                titulo: "Este periodo",
+                ancho: "minmax(0, 1.4fr)",
+                celda: (p) =>
+                  p.alreadyGenerated ? (
+                    <Estado tipo="ok" tamLetra={14}>Ya generado</Estado>
+                  ) : (
+                    <Estado tipo="pendiente" tamLetra={14}>Sin generar</Estado>
+                  ),
+              },
+              {
+                id: "acc",
+                titulo: "Acciones",
+                tituloOculto: true,
+                alinear: "fin",
+                ancho: "auto",
+                claseCelda: "k-td-acc",
+                celda: (p) =>
+                  p.ready ? null : (
+                    <AccionesFila>
+                      <BotonFila href={`/empresa/propiedades/${p.propertyId}`} aria-label={`Cargar datos de ${p.name}`}>
+                        Cargar datos
+                      </BotonFila>
+                    </AccionesFila>
+                  ),
+              },
+            ]}
+          />
         )}
-      </div>
+      </Panel>
 
-      <div className="flex items-center gap-3">
-        <button
+      <div className="emp-lanzar">
+        <Boton
+          tam={56}
+          flecha="avanza"
           onClick={launch}
-          disabled={launching || selected.size === 0}
-          className="inline-flex items-center gap-2 rounded-xl px-5 h-11 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: "var(--accent)", boxShadow: "0 4px 20px rgb(var(--accent-rgb) / 0.35)" }}
+          disabled={selected.size === 0}
+          cargando={launching}
+          textoCargando="Iniciando el lote…"
+          ancho="movil"
         >
-          {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
           Generar {selected.size} {selected.size === 1 ? "propiedad" : "propiedades"}
-        </button>
-        <p className="text-[12px] text-muted-foreground">
-          Solo se generan las propiedades con datos cargados. Las demás aparecen como “faltan datos”.
+        </Boton>
+        <p>
+          Solo se generan las propiedades con datos cargados. Las demás aparecen como «Faltan datos».
         </p>
       </div>
     </div>
   );
 }
 
-function ItemStatus({ status }: { status: string }) {
-  if (status === "completed") return <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "var(--ok-text)" }}><CheckCircle2 className="h-3.5 w-3.5" /> Listo</span>;
-  if (status === "failed") return <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "var(--danger-text)" }}><AlertTriangle className="h-3.5 w-3.5" /> Error</span>;
-  if (status === "processing") return <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "var(--accent-text)" }}><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generando</span>;
-  return <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground"><Clock className="h-3.5 w-3.5" /> En cola</span>;
+const CSS_LOTE = `
+.emp-lote-err { margin-bottom: 24px; }
+.emp-conf { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); align-items: start; margin-bottom: 48px; }
+.emp-conf-per { grid-column: 1 / 8; }
+.emp-conf-doc { grid-column: 8 / 13; }
+.emp-anios { margin-bottom: 16px; }
+.emp-pptx { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.emp-lista { margin-bottom: 32px; }
+.emp-barra { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; margin-bottom: 16px; }
+.emp-barra > .k-campo { flex: 1 1 280px; max-width: 420px; }
+.emp-barra-acc { display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; margin-left: auto; }
+.emp-lnom { display: block; min-width: 0; }
+.emp-lnom b { display: block; font-size: 16px; font-weight: 650; line-height: 1.2; overflow-wrap: anywhere; }
+.emp-lnom > span { display: block; margin-top: 3px; font-size: 14px; line-height: 1.3; color: var(--ink-3); }
+.emp-lanzar { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; }
+.emp-lanzar p { margin: 0; flex: 1 1 280px; font-size: 14px; line-height: 1.4; color: var(--ink-2); max-width: 56ch; }
+.emp-prog { max-width: 760px; }
+@media (max-width: 1180px) {
+  .emp-conf-per, .emp-conf-doc { grid-column: 1 / -1; }
+  .emp-conf-doc { margin-top: 32px; }
 }
+@media (max-width: 860px) {
+  .emp-conf { display: block; margin-bottom: 36px; }
+  .emp-barra > .k-campo { flex: 1 1 100%; max-width: none; }
+  .emp-barra-acc { margin-left: 0; }
+  .emp-barra-acc > .k-ctl { flex: 1 1 100%; }
+}
+`;

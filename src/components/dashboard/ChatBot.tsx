@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
-import { MessageCircle, Send, X, Sparkles } from "lucide-react";
+import { Boton } from "@/components/kit";
+import { cerrarSoporte, registrarSoporte, useSoporteAbierto } from "@/components/dashboard/soporte";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -13,7 +14,10 @@ interface ChatMessage {
 export function ChatBot() {
   const { data: session } = useSession();
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
+  // Se abre desde la entrada «Soporte» del índice (o del colofón de Inicio):
+  // el rediseño «Índice» no tiene botones flotantes.
+  const isOpen = useSoporteAbierto();
+  const conSesion = Boolean(session?.user);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -25,14 +29,25 @@ export function ChatBot() {
   }, []);
 
   useEffect(() => {
+    // Sin mensajes no hay nada que desplazar. Hacerlo al montar movía el punto
+    // de partida del tabulador de Chromium al final de la página: el primer Tab
+    // saltaba al final en vez de al índice.
+    if (messages.length === 0 && !isLoading) return;
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 300);
+      const t = setTimeout(() => inputRef.current?.focus(), 300);
+      return () => clearTimeout(t);
     }
   }, [isOpen]);
+
+  // Solo con sesión el panel existe: así la entrada «Soporte» del índice no queda muerta.
+  useEffect(() => {
+    if (!conSesion) return;
+    return registrarSoporte();
+  }, [conSesion]);
 
   const sendMessage = async () => {
     const trimmed = input.trim();
@@ -86,187 +101,135 @@ export function ChatBot() {
 
   if (!session?.user) return null;
 
+  /* Aspecto «Índice»: capa flotante recta (borde 2 px + --shadow-pop), sin
+     degradados ni burbujas. Abajo a la derecha; en móvil, sobre el dock
+     (z 35: por encima del dock, por debajo del índice móvil, los modales y los avisos). */
+  const posicion =
+    "fixed right-4 sm:right-6 z-[35] bottom-6 max-[860px]:bottom-[calc(var(--dock-h)+env(safe-area-inset-bottom)+12px)]";
+
   return (
-    <>
-      {/* Chat Panel */}
+    <section
+      id="soporte-sophia"
+      aria-labelledby="soporte-sophia-t"
+      aria-hidden={!isOpen}
+      inert={!isOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          cerrarSoporte();
+        }
+      }}
+      className={`${posicion} w-[min(400px,calc(100vw-2rem))] motion-safe:transition-opacity motion-safe:duration-200 ${
+        isOpen ? "visible opacity-100" : "invisible opacity-0"
+      } ${isAgentChat ? "hidden lg:block" : ""}`}
+    >
       <div
-        className={`fixed bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[400px] transition-all duration-300 ease-out ${
-          isOpen
-            ? "opacity-100 translate-y-0 pointer-events-auto"
-            : "opacity-0 translate-y-4 pointer-events-none"
-        } ${isAgentChat ? "hidden lg:block" : ""}`}
+        className="flex flex-col h-[520px] max-h-[min(70vh,calc(100dvh-var(--dock-h)-140px))]"
+        style={{
+          background: "var(--surface-0)",
+          border: "2px solid var(--rule)",
+          boxShadow: "var(--shadow-pop)",
+        }}
       >
+        {/* Header */}
         <div
-          className="flex flex-col h-[520px] max-h-[70vh] rounded-2xl border border-border bg-card overflow-hidden"
-          style={{
-            boxShadow:
-              "0 30px 60px -20px rgba(0,0,0,0.5), 0 0 60px -20px rgb(var(--accent-rgb) / 0.18)",
-          }}
+          className="flex items-center justify-between gap-3 px-4 py-3"
+          style={{ borderBottom: "2px solid var(--rule)" }}
         >
-          {/* Header */}
-          <div
-            className="flex items-center justify-between px-5 py-4 border-b border-border"
-            style={{
-              background:
-                "radial-gradient(120% 100% at 0% 0%, rgb(var(--accent-rgb) / 0.16), transparent 70%), var(--card)",
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center text-white"
-                style={{
-                  background: "linear-gradient(135deg, var(--accent), var(--accent-lo))",
-                  boxShadow: "0 0 14px rgb(var(--accent-rgb) / 0.4)",
-                }}
-              >
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold tracking-tight text-foreground">
-                  Soporte SOPH.IA
-                </h3>
-                <p
-                  className="text-[10px] uppercase text-muted-foreground/70"
-                  style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.14em" }}
-                >
-                  Asistente · en línea
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="p-2 rounded-lg hover:bg-secondary transition-colors"
-              aria-label="Cerrar chat"
-            >
-              <X className="w-4 h-4 text-muted-foreground" />
-            </button>
+          <div className="min-w-0">
+            <h2 id="soporte-sophia-t" className="k-rotulo k-14" style={{ margin: 0 }}>
+              Soporte SOPH.IA
+            </h2>
+            <p className="k-meta" style={{ margin: "4px 0 0" }}>
+              Asistente · en línea
+            </p>
           </div>
+          <Boton variante="fantasma" tam={40} onClick={cerrarSoporte} aria-label="Cerrar el chat de soporte">
+            Cerrar
+          </Boton>
+        </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-            {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-center px-6 gap-3">
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center"
-                  style={{
-                    background: "rgb(var(--accent-rgb) / 0.1)",
-                    border: "1px solid rgb(var(--accent-rgb) / 0.4)",
-                    color: "var(--accent-text)",
-                  }}
-                >
-                  <Sparkles className="w-6 h-6" />
-                </div>
-                <p className="text-sm font-semibold text-foreground">
-                  Hola, soy el soporte de SOPH.IA
-                </p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Te ayudo con el uso de la plataforma: cómo generar documentos,
-                  subir archivos, gestionar propiedades y activar agentes.
-                </p>
-              </div>
-            )}
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+          {messages.length === 0 && (
+            <div className="flex flex-col justify-end h-full gap-3">
+              <p className="k-t22" style={{ margin: 0 }}>
+                Hola, soy el soporte de SOPH.IA
+              </p>
+              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.45, color: "var(--ink-2)" }}>
+                Te ayudo con el uso de la plataforma: cómo generar documentos,
+                subir archivos, gestionar propiedades y activar agentes.
+              </p>
+            </div>
+          )}
 
-            {messages.map((msg, i) => (
+          {messages.map((msg, i) =>
+            msg.role === "user" ? (
               <div
                 key={i}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className={`max-w-[85%] px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "text-white"
-                      : "text-foreground border border-border"
-                  }`}
-                  style={{
-                    background:
-                      msg.role === "user" ? "var(--accent)" : "var(--secondary)",
-                    borderRadius:
-                      msg.role === "user"
-                        ? "14px 14px 4px 14px"
-                        : "14px 14px 14px 4px",
-                  }}
-                >
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-
-            {isLoading && (
-              <div className="flex justify-start">
-                <div
-                  className="border border-border px-4 py-3 flex items-center gap-1.5"
-                  style={{ background: "var(--secondary)", borderRadius: "14px 14px 14px 4px" }}
-                >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full hifi-typing-dot"
-                    style={{ background: "var(--accent)" }}
-                  />
-                  <span
-                    className="w-1.5 h-1.5 rounded-full hifi-typing-dot"
-                    style={{ background: "var(--accent)" }}
-                  />
-                  <span
-                    className="w-1.5 h-1.5 rounded-full hifi-typing-dot"
-                    style={{ background: "var(--accent)" }}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input */}
-          <div className="px-4 py-3 border-t border-border bg-background/40">
-            <div className="flex items-center gap-2">
-              <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Escribe tu pregunta…"
-                className="flex-1 px-3.5 py-2.5 text-[13px] rounded-lg border border-border bg-secondary text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-[var(--accent)] focus:ring-[3px] focus:ring-[rgb(var(--accent-rgb) / 0.15)] transition-all"
-                disabled={isLoading}
-                maxLength={2000}
-              />
-              <button
-                onClick={sendMessage}
-                disabled={isLoading || !input.trim()}
-                className="p-2.5 rounded-lg text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                className="self-end max-w-[85%] whitespace-pre-wrap"
                 style={{
-                  background: "var(--accent)",
-                  boxShadow: "0 6px 18px -6px rgb(var(--accent-rgb) / 0.5)",
+                  background: "var(--surface-2)",
+                  borderLeft: "4px solid var(--rule)",
+                  padding: "10px 12px 11px",
+                  fontSize: 15,
+                  lineHeight: 1.45,
+                  color: "var(--ink)",
                 }}
-                aria-label="Enviar mensaje"
               >
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+                {msg.content}
+              </div>
+            ) : (
+              <div key={i} className="self-start max-w-[92%]">
+                <p className="k-meta" style={{ margin: "0 0 4px", fontWeight: 700, color: "var(--ink-2)" }}>
+                  Soporte
+                </p>
+                <p className="whitespace-pre-wrap" style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: "var(--ink)" }}>
+                  {msg.content}
+                </p>
+              </div>
+            )
+          )}
+
+          {isLoading && (
+            <span className="k-escribe" role="status">
+              <span aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+              Escribiendo…
+            </span>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input */}
+        <div className="flex items-center gap-2 p-3" style={{ borderTop: "2px solid var(--rule)" }}>
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Escribe tu pregunta…"
+            aria-label="Tu pregunta para el soporte"
+            className="k-in flex-1"
+            style={{ minHeight: 44, fontSize: 15 }}
+            disabled={isLoading}
+            maxLength={2000}
+          />
+          <Boton
+            onClick={sendMessage}
+            disabled={isLoading || !input.trim()}
+            aria-label="Enviar mensaje"
+            flecha="avanza"
+          >
+            Enviar
+          </Boton>
         </div>
       </div>
-
-      {/* Floating Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-4 sm:right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 ${
-          isAgentChat ? "hidden lg:flex" : ""
-        }`}
-        style={{
-          background: isOpen
-            ? "var(--card)"
-            : "linear-gradient(135deg, var(--accent), var(--accent-lo))",
-          border: isOpen ? "1px solid var(--border)" : "none",
-          color: isOpen ? "var(--foreground)" : "white",
-          boxShadow: isOpen
-            ? "0 8px 24px -8px rgba(0,0,0,0.3)"
-            : "0 12px 32px -8px rgb(var(--accent-rgb) / 0.5)",
-        }}
-        aria-label={isOpen ? "Cerrar asistente" : "Abrir asistente SOPH.IA"}
-      >
-        {isOpen ? <X className="w-5 h-5" /> : <MessageCircle className="w-5 h-5" />}
-      </button>
-    </>
+    </section>
   );
 }

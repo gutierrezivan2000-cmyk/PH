@@ -448,7 +448,7 @@ function ComunicadosPage() {
                     onClick={draftWithAI}
                     disabled={drafting || !brief.trim()}
                     className="inline-flex items-center justify-center gap-1.5 rounded-full text-[12.5px] font-medium px-4 py-2.5 transition-all disabled:opacity-40 cursor-pointer flex-shrink-0"
-                    style={{ background: "var(--accent)", color: "#fff" }}
+                    style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                   >
                     {drafting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                     {drafting ? "Redactando…" : "Redactar"}
@@ -501,9 +501,11 @@ function ComunicadosPage() {
                 <button
                   onClick={sendAnnouncement}
                   disabled={sending || !subject.trim() || !content.trim() || emailCount === 0}
-                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-white text-[13px] font-medium px-5 py-2.5 cursor-pointer"
+                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[13px] font-medium px-5 py-2.5 cursor-pointer"
                   style={{
-                    background: confirming ? "#e5484d" : "var(--accent)",
+                    // Confirmar el envío es la señal de peligro: naranja con tinta encima (nunca blanco).
+                    background: confirming ? "var(--danger)" : "var(--accent)",
+                    color: confirming ? "var(--on-danger)" : "var(--on-accent)",
                     boxShadow: confirming ? "none" : "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)",
                   }}
                 >

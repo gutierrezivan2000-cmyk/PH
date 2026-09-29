@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import {
@@ -12,24 +12,37 @@ import {
   MAX_DOC_MB,
 } from "@/lib/upload-limits";
 import { Header } from "@/components/dashboard/Header";
+import { pedirJSON, URL_GENERACIONES } from "@/components/dashboard/datosIndice";
 import { DOC_KIND_LABELS, type DocKind } from "@/lib/generation/doc-kind";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
-  Upload,
-  FileText,
-  X,
-  AlertCircle,
-  Sparkles,
-  Lightbulb,
-  FileBarChart,
-  Presentation,
-  Scale,
-  ChevronRight,
-  Info,
-  ArrowRight,
-  CheckCircle2,
-} from "lucide-react";
+  AreaTexto,
+  Aviso,
+  Boton,
+  CabeceraPieza,
+  Campo,
+  Casilla,
+  EnlaceVer,
+  ErrorCarga,
+  Esqueleto,
+  Estado,
+  FilaArchivo,
+  ListaArchivos,
+  Medidor,
+  OpcionFila,
+  OpcionesFila,
+  Pagina,
+  Panel,
+  Pasos,
+  Pieza,
+  RejillaMeses,
+  Resumen,
+  Segmentos,
+  Vacio,
+  ZonaSubida,
+  nombreCorto,
+  pesoLegible,
+  type PasoAsistente,
+} from "@/components/kit";
 
 // Topes por defecto hasta que /api/usage responda con los del plan. El 500 MB
 // que se anunciaba antes era imposible: el token de subida corta en 25 MB, así
@@ -37,45 +50,157 @@ import {
 // explicación tras esperar toda la carga.
 const DEFAULT_FILE_LIMITS = { maxFiles: 20, maxFileSizeMb: MAX_DOC_MB };
 
+const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 interface Property {
   id: string;
   name: string;
   address?: string;
+  city?: string | null;
+  units?: number | null;
+}
+
+/** Lo que se lee de GET /api/usage (la misma respuesta que ya da los topes de archivos). */
+interface UsoPlan {
+  monthlyGenerations: number;
+  dailyGenerations: number;
+  limits?: { generationsPerDay?: number; generationsPerMonth?: number } | null;
+  planStatus?: string;
+}
+
+/** Lo que se lee de GET /api/generations para el «último informe» de cada copropiedad. */
+interface GeneracionPrevia {
+  propertyId?: string;
+  status?: string;
+  month: number;
+  year: number;
+  outputFiles?: Record<string, unknown> | null;
 }
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
+const MESES_CORTOS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
-// Stepper step data
-const STEPS = [
-  { num: 1, label: "Propiedad" },
-  { num: 2, label: "Periodo" },
-  { num: 3, label: "Documentos" },
-  { num: 4, label: "Archivos" },
-  { num: 5, label: "Notas" },
+// Mismos años que admitía el campo numérico de antes (min 2020, max 2030); si
+// algún día el año en curso pasa de 2030, se incluye para no dejarlo fuera.
+const ANIO_ACTUAL = new Date().getFullYear();
+const ANIOS = Array.from({ length: Math.max(2030, ANIO_ACTUAL) - 2020 + 1 }, (_, i) => 2020 + i);
+
+const DOCUMENTOS: { kind: DocKind; desc: string }[] = [
+  { kind: "informe", desc: "Resumen ejecutivo de la gestión mensual de la copropiedad." },
+  { kind: "acta", desc: "Acta de reunión del Consejo de Administración con formato legal." },
 ];
 
-// Geist Mono label style
-const monoLabel: React.CSSProperties = {
-  fontFamily: "'Geist Mono', 'GeistMono', monospace",
-  fontSize: "10px",
-  letterSpacing: "0.16em",
-  textTransform: "uppercase",
+// Solo se muestran las recomendaciones del documento elegido: mezclarlas era
+// justo lo que hacía que se mezclaran los insumos.
+const QUE_SUBIR: Record<DocKind, string[]> = {
+  informe: [
+    "Estados financieros del mes (Excel o PDF)",
+    "Reporte de cartera y recaudos",
+    "Registros de mantenimientos realizados",
+    "Fotos de obras, mejoras o daños",
+    "Novedades de seguridad, personal o proveedores",
+  ],
+  acta: [
+    "Grabación de audio de la reunión (MP3, M4A, WAV)",
+    "Orden del día o agenda de la reunión",
+    "Lista de asistentes",
+    "Actas anteriores como referencia de formato",
+  ],
 };
 
-const monoLabelSm: React.CSSProperties = {
-  fontFamily: "'Geist Mono', 'GeistMono', monospace",
-  fontSize: "11px",
-  letterSpacing: "0.16em",
-  textTransform: "uppercase",
-};
+const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+
+/* ════════════════════════════════════════════════════════════════════
+   Estilos locales (el kit no trae la cabecera de bloque del asistente)
+   ════════════════════════════════════════════════════════════════════ */
+
+const CSS_GENERAR = `
+.gen-bloque { position: relative; padding-bottom: 56px; min-width: 0; scroll-margin-top: calc(var(--cab-h) + 12px); }
+.gen-bloque-h { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); align-items: end;
+  border-top: 4px solid var(--rule); padding-top: 16px; margin-bottom: 24px; }
+.gen-bloque-h > b { grid-column: 1 / 2; font: 800 40px/.8 var(--f-sans); font-stretch: 62%; letter-spacing: -.03em;
+  font-feature-settings: "tnum" 0, "lnum" 1; }
+.gen-bloque-h.hecho > b { color: var(--ink-3); }
+.gen-bloque-h.futuro > b { color: transparent; -webkit-text-stroke: 1.5px var(--ink-3); }
+.gen-bloque-h > div { grid-column: 2 / 13; min-width: 0; }
+.gen-bloque-h h2 { margin: 0; font-size: 26px; font-weight: 800; font-stretch: 75%; letter-spacing: -.02em; line-height: 1.05; }
+.gen-bloque-h p { margin: 8px 0 0; font-size: 14px; line-height: 1.35; color: var(--ink-3); }
+.gen-lb { display: block; margin: 0 0 8px; font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--ink-2); }
+.gen-lb.sep { margin-top: 24px; }
+.gen-anios > button { padding: 0 11px; }
+.gen-pptx { padding: 6px 14px; border-bottom: 1px solid var(--line); }
+.gen-pptx .k-ctl { align-items: flex-start; padding: 6px 0; }
+.gen-pptx .k-ctl > .k-chk { margin-top: 1px; flex: none; }
+.gen-pptx .k-ctl > span { font-weight: 700; }
+.gen-pptx .k-ctl small { font-weight: 400; margin-top: 3px; }
+.gen-ayuda { margin: 0; font-size: 15px; line-height: 1.4; color: var(--ink-2); }
+.gen-ayuda + .k-ver { margin-top: 4px; }
+.gen-lado { min-width: 0; }
+.gen-guia p { margin: 0; font-size: 15px; line-height: 1.45; color: var(--ink-2); }
+.gen-guia h4 { margin: 20px 0 0; padding-bottom: 10px; border-bottom: 2px solid var(--rule); font: 800 14px/1.1 var(--f-sans);
+  font-stretch: 125%; text-transform: uppercase; letter-spacing: .03em; }
+.gen-guia ul { list-style: none; margin: 0; padding: 0; }
+.gen-guia li { display: grid; grid-template-columns: 22px minmax(0, 1fr); padding: 10px 0; border-bottom: 1px solid var(--line);
+  font-size: 15px; line-height: 1.35; }
+.gen-guia li::before { content: ""; width: 8px; height: 2px; margin-top: .6em; background: var(--ink-3); }
+.gen-guia .mas { margin-top: 14px; font-size: 14px; color: var(--ink-3); }
+.gen-aviso { margin-top: 16px; }
+/* En 7 columnas junto al índice lateral, la barra y el estado de la fila de
+   archivo ceden ancho al nombre (de 120/128 a 72/124 px). En ≤ 1180 manda el kit. */
+@media (min-width: 1181px) {
+  .gen-tray .k-arch { grid-template-columns: 52px minmax(0, 1fr) 72px 124px 44px; column-gap: 12px; }
+}
+.gen-envio { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.gen-envio .gen-lb { margin-bottom: 12px; }
+.gen-estado { margin: -12px 0 0; font-size: 14px; line-height: 1.4; color: var(--ink-2); overflow-wrap: anywhere; }
+.gen-estado:empty { display: none; }
+/* En 5 columnas estrechas la cifra «N libres hoy» dejaba sin ancho las 15 celdas del mes: va debajo. */
+@media (max-width: 1180px) {
+  .gen-envio .k-medidor-c { grid-template-columns: minmax(0, 1fr); row-gap: 16px; }
+}
+@media (max-width: 860px) {
+  .gen-bloque { padding-bottom: 40px; }
+  .gen-bloque-h { display: flex; align-items: baseline; gap: 14px; margin-bottom: 20px; }
+  .gen-bloque-h > b { font-size: 34px; flex: none; }
+  .gen-bloque-h h2 { font-size: 22px; }
+  .gen-lado { margin-top: 28px; }
+  .gen-envio { margin-top: 8px; }
+}
+`;
+
+/**
+ * Bloque del asistente: filete de 4 px, numeral del paso con la misma gramática
+ * que <Pasos> (hecho en --ink-3, actual en --ink, futuro hueco) y titular.
+ * `id` es el ancla a la que saltan los pasos hechos.
+ */
+function Bloque({ id, n, estado, titulo, nota, children }: {
+  id: string; n: number; estado: "hecho" | "actual" | "futuro"; titulo: ReactNode; nota?: ReactNode; children: ReactNode;
+}) {
+  return (
+    <section id={id} className="gen-bloque" aria-labelledby={`${id}-t`}>
+      <div className={`gen-bloque-h k-ticks ${estado}`}>
+        <b aria-hidden="true">{n}</b>
+        <div>
+          <h2 id={`${id}-t`}>
+            <span className="k-sr">Paso {n}: </span>
+            {titulo}
+          </h2>
+          {nota && <p>{nota}</p>}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
 
 export default function GenerarPage() {
   const router = useRouter();
   const [properties, setProperties] = useState<Property[]>([]);
+  const [cargandoProps, setCargandoProps] = useState(true);
+  const [errorProps, setErrorProps] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState("");
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -92,16 +217,41 @@ export default function GenerarPage() {
   const [loading, setLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [error, setError] = useState("");
-  const [dragOver, setDragOver] = useState(false);
+  // Dónde se pinta el error: junto a la zona de subida (al elegir archivos) o
+  // junto al botón (al enviar). Antes salía arriba del todo, fuera de la vista.
+  const [errorEn, setErrorEn] = useState<"archivos" | "envio">("envio");
+  // Archivo que se está subiendo y su porcentaje (el mismo dato que ya se
+  // escribía en uploadStatus), para pintarlo en su fila.
+  const [subida, setSubida] = useState<{ i: number; pct: number } | null>(null);
   const [fileLimits, setFileLimits] = useState(DEFAULT_FILE_LIMITS);
+  const [uso, setUso] = useState<UsoPlan | null>(null);
+  // «último informe: febrero 2026» de cada copropiedad (solo si existe).
+  const [ultimos, setUltimos] = useState<Record<string, { month: number; year: number }>>({});
+
+  const pedirPropiedades = useCallback(
+    () =>
+      fetch("/api/properties")
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) setProperties(data);
+          else setErrorProps(true);
+        })
+        .catch((e) => {
+          console.error(e);
+          setErrorProps(true);
+        })
+        .finally(() => setCargandoProps(false)),
+    []
+  );
+
+  const reintentarPropiedades = () => {
+    setErrorProps(false);
+    setCargandoProps(true);
+    void pedirPropiedades();
+  };
 
   useEffect(() => {
-    fetch("/api/properties")
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) setProperties(data);
-      })
-      .catch(console.error);
+    void pedirPropiedades();
 
     fetch("/api/usage")
       .then((res) => res.json())
@@ -110,8 +260,37 @@ export default function GenerarPage() {
         if (l && Number.isFinite(l.maxFiles) && Number.isFinite(l.maxFileSizeMb)) {
           setFileLimits({ maxFiles: l.maxFiles, maxFileSizeMb: l.maxFileSizeMb });
         }
+        if (Number.isFinite(data?.monthlyGenerations) && Number.isFinite(data?.dailyGenerations)) setUso(data);
       })
       .catch(() => {});
+
+    // Sale de /api/generations (ruta GET existente; caché de 2 s compartida con
+    // el índice, que la pide en cada cambio de ruta). Se toma el periodo más
+    // reciente con informe de gestión completado. Si no hay, no se dice nada:
+    // la lista trae como máximo 100 generaciones.
+    pedirJSON<GeneracionPrevia[]>(URL_GENERACIONES).then((gens) => {
+      if (!Array.isArray(gens)) return;
+      const porProp: Record<string, { month: number; year: number }> = {};
+      for (const g of gens) {
+        if (g.status !== "completed" || !g.propertyId || !g.outputFiles?.informeHtml) continue;
+        const previo = porProp[g.propertyId];
+        if (!previo || g.year * 12 + g.month > previo.year * 12 + previo.month) {
+          porProp[g.propertyId] = { month: g.month, year: g.year };
+        }
+      }
+      setUltimos(porProp);
+    });
+  }, [pedirPropiedades]);
+
+  // En móvil la fila de años hace scroll: el año elegido se centra dentro de
+  // su propia fila (sin mover la página) para que se vea al llegar.
+  useEffect(() => {
+    const fila = document.querySelector<HTMLElement>(".gen-anios");
+    const activo = fila?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!fila || !activo || fila.scrollWidth <= fila.clientWidth) return;
+    const f = fila.getBoundingClientRect();
+    const a = activo.getBoundingClientRect();
+    fila.scrollLeft += a.left - f.left - (f.width - a.width) / 2;
   }, []);
 
   // Elegir acta descarta la presentación: un acta no tiene diapositivas.
@@ -140,10 +319,11 @@ export default function GenerarPage() {
     [docKind, fileLimits.maxFiles]
   );
 
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!e.target.files) return;
-      const newFiles = Array.from(e.target.files);
+  // Elegidos con el selector o soltados en la zona: la misma validación de
+  // tamaño que antes tenían el input y el drop por separado.
+  const elegirArchivos = useCallback(
+    (newFiles: File[]) => {
+      setErrorEn("archivos");
       const oversized = newFiles.find((f) => f.size > limiteMbPara(f.name) * 1024 * 1024);
       if (oversized) {
         setError(mensajeDeTamano(oversized));
@@ -154,19 +334,6 @@ export default function GenerarPage() {
     },
     [addFiles]
   );
-
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDragOver(false);
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    const oversized = droppedFiles.find((f) => f.size > limiteMbPara(f.name) * 1024 * 1024);
-    if (oversized) {
-      setError(mensajeDeTamano(oversized));
-      return;
-    }
-    setError("");
-    addFiles(droppedFiles);
-  }, [addFiles]);
 
   const removeFile = useCallback(
     (index: number) => {
@@ -185,17 +352,18 @@ export default function GenerarPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorEn("envio");
     setError("");
     setUploadStatus("");
 
     if (!selectedProperty) {
-      setError("Selecciona una propiedad");
+      setError("Selecciona una propiedad.");
       return;
     }
 
     const isDemo = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
     if (!isDemo && files.length === 0 && !additionalText.trim()) {
-      setError("Debes subir al menos un archivo o escribir informacion");
+      setError("Debes subir al menos un archivo o escribir información.");
       return;
     }
 
@@ -221,6 +389,7 @@ export default function GenerarPage() {
         const file = files[i];
         const mb = (file.size / 1024 / 1024).toFixed(0);
         setUploadStatus(`Subiendo ${i + 1} de ${files.length}: ${file.name} (${mb} MB)`);
+        setSubida({ i, pct: 0 });
         const safeName = file.name.replace(/[^\w.\-]+/g, "_");
         const result = await upload(`uploads/${Date.now()}-${safeName}`, file, {
           access: "private",
@@ -231,8 +400,9 @@ export default function GenerarPage() {
           // pantalla quieta y el usuario no sabe si va o se colgó.
           onUploadProgress: ({ percentage }) => {
             setUploadStatus(
-              `Subiendo ${i + 1} de ${files.length}: ${file.name} (${mb} MB) — ${Math.round(percentage)}%`
+              `Subiendo ${i + 1} de ${files.length}: ${file.name} (${mb} MB) — ${Math.round(percentage)} %`
             );
+            setSubida({ i, pct: Math.round(percentage) });
           },
         });
         blobFiles.push({
@@ -243,7 +413,8 @@ export default function GenerarPage() {
         });
       }
 
-      setUploadStatus("Iniciando generacion...");
+      setSubida({ i: files.length, pct: 100 });
+      setUploadStatus("Iniciando generación…");
 
       const res = await fetch("/api/generate/full", {
         method: "POST",
@@ -269,7 +440,7 @@ export default function GenerarPage() {
       }
 
       if (!res.ok) {
-        setError(data.error || "Error al generar documentos");
+        setError(data.error || "Error al generar documentos.");
         return;
       }
 
@@ -288,7 +459,7 @@ export default function GenerarPage() {
       // Blob: Content type mismatch…»). Se traducen a algo accionable, que era
       // buena parte de lo que los usuarios reportaban como «error al subir».
       if (/No autorizado/i.test(msg)) {
-        setError("Sesion expirada. Recarga la pagina e inicia sesion de nuevo.");
+        setError("Sesión expirada. Recarga la página e inicia sesión de nuevo.");
       } else if (/aborted/i.test(msg)) {
         setError("La subida fue cancelada. Intenta de nuevo.");
       } else if (/content type|not allowed|mismatch/i.test(msg)) {
@@ -310,665 +481,379 @@ export default function GenerarPage() {
     } finally {
       setLoading(false);
       setUploadStatus("");
+      setSubida(null);
     }
   };
 
-  // Card shared style
-  const cardStyle: React.CSSProperties = {
-    background: "var(--hifi-surface-1)",
-    border: "1px solid var(--hifi-hairline)",
+  /* ── Derivados para la vista (solo del estado que ya existe) ── */
+
+  const prop = properties.find((p) => p.id === selectedProperty);
+  const periodo = `${MONTHS[month - 1]} ${year}`;
+  const docLabel = DOC_KIND_LABELS[docKind];
+  const docLabelMin = docLabel.toLowerCase();
+
+  // Paso actual = el primer bloque incompleto (KIT §4.10). Periodo y
+  // documentos siempre tienen valor; archivos y notas son opcionales.
+  const completos = [Boolean(selectedProperty), Boolean(month && year), Boolean(docKind)];
+  const actual = completos.indexOf(false) + 1 || 5;
+  const estadoDe = (n: number) => (n < actual ? "hecho" : n === actual ? "actual" : "futuro");
+
+  const pasos: PasoAsistente[] = [
+    { nombre: "Propiedad", valor: prop ? nombreCorto(prop.name) : "Sin elegir", href: "#g-propiedad" },
+    { nombre: "Periodo", valor: `${MESES_CORTOS[month - 1]} ${year}`, href: "#g-periodo" },
+    {
+      nombre: "Documentos",
+      valor: docKind === "acta" ? "Acta" : includePptx ? "Informe y PPTX" : "Informe",
+      href: "#g-documentos",
+    },
+    { nombre: "Archivos", valor: files.length ? plural(files.length, "archivo", "archivos") : "Opcional", href: "#g-archivos" },
+    { nombre: "Notas", valor: additionalText.trim() ? "Con notas" : "Opcional", href: "#g-notas" },
+  ];
+
+  const pesoTotal = files.reduce((s, f) => s + f.size, 0);
+
+  // Uso del plan con la misma respuesta de /api/usage. Solo con plan activo (o
+  // en el demo): en la prueba gratis el tope es TOTAL, no mensual, y los
+  // probadores beta no tienen topes, así que el medidor diría algo falso.
+  const lim = uso?.limits;
+  const usoVisible =
+    uso &&
+    lim &&
+    Number.isFinite(lim.generationsPerDay) &&
+    Number.isFinite(lim.generationsPerMonth) &&
+    (!uso.planStatus || uso.planStatus === "active" || uso.planStatus === "grace");
+  const porDia = lim?.generationsPerDay ?? 0;
+  const porMes = lim?.generationsPerMonth ?? 0;
+  const libresHoy = uso ? Math.max(0, Math.min(porDia - uso.dailyGenerations, porMes - uso.monthlyGenerations)) : 0;
+
+  // Nada se sube hasta pulsar «Generar documentos»: antes de eso los archivos
+  // están «Por subir». Solo durante la subida hay «Listo» (los ya enviados),
+  // «Subiendo» (el actual) y «En espera» (los que faltan).
+  const estadoArchivo = (i: number): { estado: "anadido" | "listo" | "subiendo" | "espera"; progreso?: number } => {
+    if (!loading) return { estado: "anadido" };
+    if (!subida || i < subida.i) return { estado: "listo" };
+    if (i === subida.i) return { estado: "subiendo", progreso: subida.pct };
+    return { estado: "espera" };
   };
+
+  const avisoError = error ? <Aviso tipo="error" enLinea titulo={error} className="gen-aviso" /> : null;
 
   return (
     <div>
-      <Header title="Generar Documentos" subtitle="Crea informes, actas y presentaciones con IA" />
+      <style href="k-generar-local" precedence="default">
+        {CSS_GENERAR}
+      </style>
+      <Header title="Generar documentos" />
 
-      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-3xl mx-auto">
+      <Pagina>
+        <Pieza>
+          <CabeceraPieza
+            nn="02"
+            titulo="Generar documentos"
+            subtitulo={`Paso ${actual} de 5 · ${prop ? prop.name : "elige la copropiedad"} · ${periodo.toLowerCase()}`}
+          />
 
-        {/* Horizontal stepper */}
-        <div className="flex items-center gap-0 mb-8 overflow-x-auto pb-1">
-          {STEPS.map((step, idx) => (
-            <div key={step.num} className="flex items-center flex-shrink-0">
-              <div className="flex flex-col items-center gap-1.5">
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
-                  style={{
-                    background: idx < 4 ? "rgb(var(--accent-rgb) / 0.1)" : "rgb(var(--veil-rgb) / 0.04)",
-                    border: idx === 0 ? "1.5px solid var(--accent)" : idx < 4 ? "1.5px solid rgb(var(--ok-rgb) / 0.5)" : "1.5px solid rgb(var(--veil-rgb) / 0.12)",
-                    color: idx === 0 ? "var(--accent-hi)" : idx < 4 ? "var(--ok)" : "var(--ink-3)",
-                  }}
-                >
-                  <span style={{ ...monoLabel, fontSize: "11px" }}>{step.num}</span>
-                </div>
-                <span
-                  style={{
-                    ...monoLabel,
-                    color: idx === 0 ? "var(--accent-hi)" : idx < 4 ? "var(--ok)" : "var(--ink-3)",
-                  }}
-                >
-                  {step.label}
-                </span>
-              </div>
-              {idx < STEPS.length - 1 && (
-                <div
-                  className="h-px w-8 sm:w-12 mx-1 flex-shrink-0 mt-[-18px]"
-                  style={{ background: "rgb(var(--veil-rgb) / 0.07)" }}
-                />
-              )}
-            </div>
-          ))}
-        </div>
+          <Pasos actual={actual} pasos={pasos} etiquetaAccesible="Pasos para generar documentos" />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div
-              className="flex items-center gap-2.5 px-4 py-3 rounded-2xl text-sm"
-              style={{
-                background: "rgb(var(--danger-rgb) / 0.08)",
-                border: "1px solid rgb(var(--danger-rgb) / 0.25)",
-                color: "var(--danger-text)",
-              }}
-            >
-              <AlertCircle className="h-4 w-4 flex-shrink-0" />
-              {error}
-            </div>
-          )}
-
-          {/* Step 1 — Property */}
-          <div className="rounded-2xl p-6" style={cardStyle}>
-            <div className="flex items-center gap-2 mb-4">
-              <span
-                style={{
-                  ...monoLabelSm,
-                  color: "var(--accent-text)",
-                  background: "rgb(var(--accent-rgb) / 0.1)",
-                  border: "1px solid rgb(var(--accent-rgb) / 0.4)",
-                  padding: "3px 8px",
-                  borderRadius: "6px",
-                }}
-              >
-                01
-              </span>
-              <span style={{ ...monoLabelSm, color: "var(--ink-2)" }}>
-                Propiedad
-              </span>
-            </div>
-            <h3
-              className="font-medium mb-4"
-              style={{ color: "var(--ink)", fontSize: "16px", fontWeight: 500 }}
-            >
-              Selecciona tu propiedad
-            </h3>
-            {properties.length === 0 ? (
-              <div
-                className="rounded-xl p-4 text-center"
-                style={{
-                  background: "rgb(var(--warn-rgb) / 0.07)",
-                  border: "1px solid rgb(var(--warn-rgb) / 0.25)",
-                }}
-              >
-                <p className="text-sm" style={{ color: "var(--warn-text)" }}>
-                  No tienes propiedades registradas.{" "}
-                  <a
-                    href="/dashboard/propiedades"
-                    style={{ color: "var(--accent-text)", fontWeight: 600, textDecoration: "underline" }}
-                  >
-                    Agrega una primero
-                  </a>
-                  .
-                </p>
-              </div>
-            ) : (
-              <div className="relative">
-                <select
-                  value={selectedProperty}
-                  onChange={(e) => setSelectedProperty(e.target.value)}
-                  className="w-full h-11 rounded-xl px-4 text-sm appearance-none cursor-pointer transition-all outline-none"
-                  style={{
-                    background: "var(--surface-3)",
-                    border: selectedProperty
-                      ? "1px solid rgb(var(--accent-rgb) / 0.4)"
-                      : "1px solid rgb(var(--veil-rgb) / 0.07)",
-                    color: selectedProperty ? "var(--ink)" : "var(--ink-3)",
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.border = "1px solid var(--accent)";
-                    e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.border = selectedProperty
-                      ? "1px solid rgb(var(--accent-rgb) / 0.4)"
-                      : "1px solid rgb(var(--veil-rgb) / 0.07)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                >
-                  <option value="" style={{ background: "var(--surface-3)", color: "var(--ink-3)" }}>
-                    Seleccionar propiedad...
-                  </option>
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id} style={{ background: "var(--surface-3)", color: "var(--ink)" }}>
-                      {p.name} {p.address ? `— ${p.address}` : ""}
-                    </option>
-                  ))}
-                </select>
-                <ChevronRight
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none h-4 w-4"
-                  style={{ color: "var(--ink-3)" }}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Step 2 — Period */}
-          <div className="rounded-2xl p-6" style={cardStyle}>
-            <div className="flex items-center gap-2 mb-4">
-              <span
-                style={{
-                  ...monoLabelSm,
-                  color: "var(--accent-text)",
-                  background: "rgb(var(--accent-rgb) / 0.1)",
-                  border: "1px solid rgb(var(--accent-rgb) / 0.4)",
-                  padding: "3px 8px",
-                  borderRadius: "6px",
-                }}
-              >
-                02
-              </span>
-              <span style={{ ...monoLabelSm, color: "var(--ink-2)" }}>
-                Periodo
-              </span>
-            </div>
-            <h3
-              className="font-medium mb-4"
-              style={{ color: "var(--ink)", fontSize: "16px", fontWeight: 500 }}
-            >
-              Periodo del documento
-            </h3>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
-                <select
-                  value={month}
-                  onChange={(e) => setMonth(parseInt(e.target.value))}
-                  className="w-full h-11 rounded-xl px-4 text-sm appearance-none cursor-pointer transition-all outline-none"
-                  style={{
-                    background: "var(--surface-3)",
-                    border: "1px solid var(--hifi-hairline)",
-                    color: "var(--ink)",
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.border = "1px solid var(--accent)";
-                    e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                >
-                  {MONTHS.map((m, i) => (
-                    <option key={m} value={i + 1} style={{ background: "var(--surface-3)" }}>{m}</option>
-                  ))}
-                </select>
-                <ChevronRight
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none h-4 w-4"
-                  style={{ color: "var(--ink-3)" }}
-                />
-              </div>
-              <input
-                type="number"
-                value={year}
-                onChange={(e) => setYear(parseInt(e.target.value))}
-                min={2020}
-                max={2030}
-                className="w-full sm:w-28 h-11 rounded-xl px-4 text-sm outline-none transition-all"
-                style={{
-                  background: "var(--surface-3)",
-                  border: "1px solid var(--hifi-hairline)",
-                  color: "var(--ink)",
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.border = "1px solid var(--accent)";
-                  e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Step 3 — Document types */}
-          <div className="rounded-2xl p-6" style={cardStyle}>
-            <div className="flex items-center gap-2 mb-4">
-              <span
-                style={{
-                  ...monoLabelSm,
-                  color: "var(--accent-text)",
-                  background: "rgb(var(--accent-rgb) / 0.1)",
-                  border: "1px solid rgb(var(--accent-rgb) / 0.4)",
-                  padding: "3px 8px",
-                  borderRadius: "6px",
-                }}
-              >
-                03
-              </span>
-              <span style={{ ...monoLabelSm, color: "var(--ink-2)" }}>
-                Documentos
-              </span>
-            </div>
-            <h3
-              className="font-medium mb-4"
-              style={{ color: "var(--ink)", fontSize: "16px", fontWeight: 500 }}
-            >
-              Que documentos necesitas?
-            </h3>
-
-            <div className="grid sm:grid-cols-2 gap-3">
-              {([
-                {
-                  kind: "informe" as const,
-                  Icon: FileBarChart,
-                  accent: "var(--accent-hi)",
-                  tint: "rgb(var(--accent-rgb) / 0.1)",
-                  edge: "rgb(var(--accent-rgb) / 0.4)",
-                  desc: "Resumen ejecutivo de la gestión mensual de la copropiedad.",
-                },
-                {
-                  kind: "acta" as const,
-                  Icon: Scale,
-                  accent: "var(--ok)",
-                  tint: "rgb(var(--ok-rgb) / 0.08)",
-                  edge: "rgb(var(--ok-rgb) / 0.35)",
-                  desc: "Acta de reunión del Consejo de Administración con formato legal.",
-                },
-              ]).map(({ kind, Icon, accent, tint, edge, desc }) => {
-                const on = docKind === kind;
-                const count = filesByKind[kind].length;
-                return (
-                  <label
-                    key={kind}
-                    className="ui-card-interactive flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all"
-                    style={{
-                      background: on ? tint : "var(--surface-3)",
-                      border: `1px solid ${on ? edge : "rgb(var(--veil-rgb) / 0.07)"}`,
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="docKind"
-                      checked={on}
-                      onChange={() => selectDocKind(kind)}
-                      className="h-4 w-4 mt-0.5 flex-shrink-0"
-                      style={{ accentColor: accent }}
+          <form onSubmit={handleSubmit}>
+            {/* ── 1 · Propiedad ── */}
+            <Bloque id="g-propiedad" n={1} estado={estadoDe(1)} titulo="Selecciona tu propiedad">
+              <div className="k-r12">
+                <div style={{ gridColumn: "1 / 8", minWidth: 0 }}>
+                  {cargandoProps ? (
+                    <Esqueleto variante="tabla" filas={2} etiquetaAccesible="Cargando tus propiedades…" />
+                  ) : errorProps ? (
+                    <ErrorCarga
+                      nivel={3}
+                      titulo="No pudimos cargar tus propiedades."
+                      texto="Revisa tu conexión e inténtalo de nuevo."
+                      acciones={
+                        <Boton variante="secundario" onClick={reintentarPropiedades}>
+                          Reintentar
+                        </Boton>
+                      }
                     />
-                    <Icon
-                      className="h-5 w-5 flex-shrink-0 mt-0.5"
-                      style={{ color: on ? accent : "var(--ink-3)" }}
+                  ) : properties.length === 0 ? (
+                    <Vacio
+                      nivel={3}
+                      titulo="No tienes propiedades registradas."
+                      texto="Agrega una primero: los documentos se generan para una copropiedad."
+                      acciones={
+                        <Boton href="/dashboard/propiedades" flecha="avanza">
+                          Agregar una propiedad
+                        </Boton>
+                      }
                     />
-                    <div className="flex-1 min-w-0">
-                      <span
-                        className="text-sm font-medium block"
-                        style={{ color: on ? accent : "var(--ink)" }}
-                      >
-                        {DOC_KIND_LABELS[kind]}
-                      </span>
-                      <span className="text-xs block mt-0.5" style={{ color: "var(--ink-3)" }}>
-                        {desc}
-                      </span>
-                      {count > 0 && (
-                        <span className="text-[11px] block mt-1.5" style={{ color: accent }}>
-                          {count} {count === 1 ? "archivo" : "archivos"} en su bandeja
-                        </span>
-                      )}
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-
-            {/* La presentación no es un tercer documento: son las diapositivas
-                del informe, así que solo acompaña al informe. */}
-            <label
-              className={`flex items-center gap-3 p-4 rounded-xl mt-3 transition-all ${
-                docKind === "informe" ? "cursor-pointer" : "cursor-not-allowed opacity-45"
-              }`}
-              style={{
-                background: includePptx ? "rgb(var(--warn-rgb) / 0.07)" : "var(--surface-3)",
-                border: includePptx
-                  ? "1px solid rgb(var(--warn-rgb) / 0.3)"
-                  : "1px solid rgb(var(--veil-rgb) / 0.07)",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={includePptx}
-                disabled={docKind !== "informe"}
-                onChange={(e) => setIncludePptx(e.target.checked)}
-                className="h-4 w-4 rounded"
-                style={{ accentColor: "var(--warn)" }}
-              />
-              <Presentation
-                className="h-5 w-5 flex-shrink-0"
-                style={{ color: includePptx ? "var(--warn-text)" : "var(--ink-3)" }}
-              />
-              <div className="flex-1">
-                <span
-                  className="text-sm font-medium block"
-                  style={{ color: includePptx ? "var(--warn-text)" : "var(--ink)" }}
-                >
-                  Añadir presentación PPTX
-                </span>
-                <span className="text-xs block mt-0.5" style={{ color: "var(--ink-3)" }}>
-                  {docKind === "informe"
-                    ? "Diapositivas construidas a partir del mismo informe. Opcional."
-                    : "Solo disponible con el informe de gestión — un acta no tiene diapositivas."}
-                </span>
-              </div>
-            </label>
-          </div>
-
-          {/* Step 4 — Files */}
-          <div className="rounded-2xl p-6" style={cardStyle}>
-            <div className="flex items-center gap-2 mb-4">
-              <span
-                style={{
-                  ...monoLabelSm,
-                  color: "var(--accent-text)",
-                  background: "rgb(var(--accent-rgb) / 0.1)",
-                  border: "1px solid rgb(var(--accent-rgb) / 0.4)",
-                  padding: "3px 8px",
-                  borderRadius: "6px",
-                }}
-              >
-                04
-              </span>
-              <span style={{ ...monoLabelSm, color: "var(--ink-2)" }}>
-                Archivos
-              </span>
-            </div>
-            <h3
-              className="font-medium mb-1"
-              style={{ color: "var(--ink)", fontSize: "16px", fontWeight: 500 }}
-            >
-              Archivos para el {DOC_KIND_LABELS[docKind].toLowerCase()}
-            </h3>
-            {/* Cada documento tiene su propia bandeja: los archivos del otro no
-                se mezclan ni se pierden al cambiar de tipo. */}
-            <p className="text-xs mb-4" style={{ color: "var(--ink-3)" }}>
-              Bandeja independiente
-              {otherCount > 0
-                ? ` — el ${DOC_KIND_LABELS[otherKind].toLowerCase()} conserva sus ${otherCount} ${otherCount === 1 ? "archivo" : "archivos"} aparte.`
-                : ": lo que subas aquí solo alimenta este documento."}
-            </p>
-
-            {/* Recommendations panel */}
-            <div
-              className="mb-5 rounded-xl p-4"
-              style={{
-                background: "rgb(var(--accent-rgb) / 0.06)",
-                border: "1px solid rgb(var(--accent-rgb) / 0.18)",
-              }}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Lightbulb className="h-4 w-4" style={{ color: "var(--accent-text)" }} />
-                <span className="text-sm font-medium" style={{ color: "var(--accent-text)" }}>
-                  Que deberia subir para obtener buenos resultados?
-                </span>
-              </div>
-              <p className="text-xs mb-3" style={{ color: "var(--ink-2)" }}>
-                No es obligatorio subir todo, pero entre mas informacion le des a la IA, mejores seran los documentos.
-              </p>
-
-              {/* Solo se muestran las recomendaciones del documento elegido:
-                  mezclarlas era justo lo que hacía que se mezclaran los insumos. */}
-              {docKind === "informe" ? (
-                <div className="mb-3">
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <FileBarChart className="h-3.5 w-3.5" style={{ color: "var(--accent-text)" }} />
-                    <span className="text-xs font-semibold" style={{ color: "var(--accent-text)" }}>
-                      Para el informe de gestión:
-                    </span>
+                  ) : (
+                    <OpcionesFila etiquetaAccesible="Propiedad">
+                      {properties.map((p) => {
+                        const ultimo = ultimos[p.id];
+                        const detalle = [
+                          p.units ? plural(p.units, "unidad", "unidades") : null,
+                          p.address,
+                          p.city,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ");
+                        return (
+                          <OpcionFila
+                            key={p.id}
+                            name="g-propiedad"
+                            value={p.id}
+                            etiqueta={p.name}
+                            detalle={detalle || undefined}
+                            extra={
+                              ultimo
+                                ? `último informe: ${MONTHS[ultimo.month - 1].toLowerCase()} ${ultimo.year}`
+                                : undefined
+                            }
+                            checked={selectedProperty === p.id}
+                            onChange={() => setSelectedProperty(p.id)}
+                          />
+                        );
+                      })}
+                    </OpcionesFila>
+                  )}
+                </div>
+                {!cargandoProps && !errorProps && properties.length > 0 && (
+                  <div className="gen-lado" style={{ gridColumn: "8 / 13" }}>
+                    <p className="gen-ayuda">¿Falta una copropiedad?</p>
+                    <EnlaceVer href="/dashboard/propiedades" refIndice="12">
+                      Agregarla en Propiedades
+                    </EnlaceVer>
                   </div>
-                  <ul className="space-y-1 ml-5">
-                    {[
-                      "Estados financieros del mes (Excel o PDF)",
-                      "Reporte de cartera y recaudos",
-                      "Registros de mantenimientos realizados",
-                      "Fotos de obras, mejoras o daños",
-                      "Novedades de seguridad, personal o proveedores",
-                    ].map((item) => (
-                      <li key={item} className="flex items-start gap-1.5">
-                        <ChevronRight className="h-3 w-3 mt-0.5 flex-shrink-0" style={{ color: "var(--accent-text)" }} />
-                        <span className="text-xs" style={{ color: "var(--ink-2)" }}>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <div className="mb-3">
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <Scale className="h-3.5 w-3.5" style={{ color: "var(--ok-text)" }} />
-                    <span className="text-xs font-semibold" style={{ color: "var(--ok-text)" }}>
-                      Para el acta de reunión:
-                    </span>
-                  </div>
-                  <ul className="space-y-1 ml-5">
-                    {[
-                      "Grabación de audio de la reunión (MP3, M4A, WAV)",
-                      "Orden del día o agenda de la reunión",
-                      "Lista de asistentes",
-                      "Actas anteriores como referencia de formato",
-                    ].map((item) => (
-                      <li key={item} className="flex items-start gap-1.5">
-                        <ChevronRight className="h-3 w-3 mt-0.5 flex-shrink-0" style={{ color: "var(--ok-text)" }} />
-                        <span className="text-xs" style={{ color: "var(--ink-2)" }}>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div
-                className="mt-2 pt-2"
-                style={{ borderTop: "1px solid rgb(var(--accent-rgb) / 0.15)" }}
-              >
-                <p className="text-xs italic" style={{ color: "var(--ink-3)" }}>
-                  {`Tambien puedes subir: PDFs, documentos Word, archivos de texto, hojas de calculo e imagenes de hasta ${MAX_DOC_MB} MB, y grabaciones de audio de hasta ${MAX_AUDIO_MB} MB.`}
-                </p>
+                )}
               </div>
-            </div>
+            </Bloque>
 
-            {/* Drop zone */}
-            <div
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              className="relative"
-            >
-              <label
-                className="flex flex-col items-center justify-center rounded-xl p-8 sm:p-12 cursor-pointer transition-all"
-                style={{
-                  border: dragOver
-                    ? "1.5px dashed var(--accent)"
-                    : "1.5px dashed rgb(var(--veil-rgb) / 0.12)",
-                  background: dragOver ? "rgb(var(--accent-rgb) / 0.08)" : "rgb(var(--veil-rgb) / 0.02)",
-                }}
-              >
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-                  style={{
-                    background: dragOver ? "rgb(var(--accent-rgb) / 0.2)" : "rgb(var(--accent-rgb) / 0.1)",
-                    border: "1px solid rgb(var(--accent-rgb) / 0.3)",
-                  }}
-                >
-                  <Upload className="h-7 w-7" style={{ color: "var(--accent-text)" }} />
+            {/* ── 2 · Periodo ── */}
+            <Bloque id="g-periodo" n={2} estado={estadoDe(2)} titulo="Periodo del documento">
+              <div className="k-r12">
+                <div style={{ gridColumn: "1 / 8", minWidth: 0 }}>
+                  <span className="gen-lb" aria-hidden="true">
+                    Año
+                  </span>
+                  <Segmentos
+                    etiquetaAccesible="Año del documento"
+                    className="gen-anios"
+                    valor={String(year)}
+                    alCambiar={(v) => setYear(parseInt(v))}
+                    items={ANIOS.map((a) => ({ id: String(a), etiqueta: String(a) }))}
+                  />
+                  <span className="gen-lb sep" aria-hidden="true">
+                    Mes
+                  </span>
+                  <RejillaMeses
+                    nombre="g-mes"
+                    etiquetaAccesible={`Mes del documento · ${year}`}
+                    valor={month}
+                    alCambiar={setMonth}
+                  />
                 </div>
-                <span className="text-sm font-medium" style={{ color: "var(--ink)" }}>
-                  Arrastra archivos o haz clic para seleccionar
-                </span>
-                <span className="text-xs mt-1" style={{ color: "var(--ink-3)" }}>
-                  {`PDF, Word, Excel, imagenes — hasta ${fileLimits.maxFiles} archivos · audio hasta ${MAX_AUDIO_MB} MB`}
-                </span>
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileChange}
-                  className="hidden"
-                  accept={ACCEPT_ARCHIVOS}
-                />
-              </label>
-            </div>
+              </div>
+            </Bloque>
 
-            {/* File pills */}
-            {files.length > 0 && (
-              <div className="space-y-2 mt-4">
-                {files.map((file, i) => (
-                  <div
-                    key={`${file.name}-${i}`}
-                    className="flex items-center justify-between rounded-xl px-4 py-2.5"
-                    style={{
-                      background: "var(--surface-3)",
-                      border: "1px solid var(--hifi-hairline)",
-                    }}
+            {/* ── 3 · Documentos ── */}
+            <Bloque id="g-documentos" n={3} estado={estadoDe(3)} titulo="¿Qué documentos necesitas?">
+              <div className="k-r12">
+                <div style={{ gridColumn: "1 / 8", minWidth: 0 }}>
+                  <OpcionesFila etiquetaAccesible="Documento que se genera">
+                    {DOCUMENTOS.map(({ kind, desc }) => {
+                      const count = filesByKind[kind].length;
+                      return (
+                        <OpcionFila
+                          key={kind}
+                          name="docKind"
+                          value={kind}
+                          etiqueta={DOC_KIND_LABELS[kind]}
+                          detalle={desc}
+                          extra={count > 0 ? `${plural(count, "archivo", "archivos")} en su bandeja` : undefined}
+                          checked={docKind === kind}
+                          onChange={() => selectDocKind(kind)}
+                        />
+                      );
+                    })}
+                  </OpcionesFila>
+                  {/* La presentación no es un tercer documento: son las diapositivas
+                      del informe, así que solo acompaña al informe. */}
+                  <div className="gen-pptx">
+                    <Casilla
+                      etiqueta="Añadir presentación PPTX"
+                      detalle={
+                        docKind === "informe"
+                          ? "Diapositivas construidas a partir del mismo informe. Opcional."
+                          : "Solo disponible con el informe de gestión: un acta no tiene diapositivas."
+                      }
+                      checked={includePptx}
+                      disabled={docKind !== "informe"}
+                      onChange={(e) => setIncludePptx(e.target.checked)}
+                    />
+                  </div>
+                </div>
+                <div className="gen-lado" style={{ gridColumn: "8 / 13" }}>
+                  {/* Así funciona hoy: la selección es excluyente y cada documento
+                      tiene su bandeja (lib/generation/doc-kind.ts). */}
+                  <p className="gen-ayuda">
+                    Se genera un documento a la vez: cada uno usa sus propios archivos, para que la grabación de
+                    una reunión no acabe en el informe.
+                  </p>
+                </div>
+              </div>
+            </Bloque>
+
+            {/* ── 4 · Archivos ── */}
+            <Bloque
+              id="g-archivos"
+              n={4}
+              estado={estadoDe(4)}
+              titulo={`Archivos para el ${docLabelMin}`}
+              nota={
+                // Cada documento tiene su propia bandeja: los archivos del otro no
+                // se mezclan ni se pierden al cambiar de tipo.
+                otherCount > 0
+                  ? `Bandeja independiente: el ${DOC_KIND_LABELS[otherKind].toLowerCase()} conserva sus ${plural(otherCount, "archivo", "archivos")} aparte.`
+                  : "Bandeja independiente: lo que subas aquí solo alimenta este documento."
+              }
+            >
+              <div className="k-r12">
+                <div className="gen-tray" style={{ gridColumn: "1 / 8", minWidth: 0 }}>
+                  <ZonaSubida
+                    titulo="Suelta aquí los archivos"
+                    texto="o haz clic para elegirlos."
+                    formatos={
+                      <>
+                        PDF, Word, Excel e imágenes · hasta {fileLimits.maxFiles} archivos · audio hasta{" "}
+                        {MAX_AUDIO_MB}&nbsp;MB
+                      </>
+                    }
+                    etiquetaAccesible={`Elegir archivos para el ${docLabelMin}`}
+                    multiple
+                    accept={ACCEPT_ARCHIVOS}
+                    alElegir={elegirArchivos}
+                    deshabilitado={loading}
+                  />
+                  {errorEn === "archivos" && avisoError}
+                  {files.length > 0 && (
+                    <ListaArchivos etiquetaAccesible={`Archivos para el ${docLabelMin}`}>
+                      {files.map((file, i) => {
+                        const est = estadoArchivo(i);
+                        return (
+                          <FilaArchivo
+                            key={`${file.name}-${i}`}
+                            nombre={file.name}
+                            detalle={pesoLegible(file.size)}
+                            estado={est.estado}
+                            progreso={est.progreso}
+                            alQuitar={loading ? undefined : () => removeFile(i)}
+                          />
+                        );
+                      })}
+                    </ListaArchivos>
+                  )}
+                </div>
+
+                <div className="gen-lado" style={{ gridColumn: "8 / 13" }}>
+                  <Panel titular titulo="¿Qué debería subir para obtener buenos resultados?" className="gen-guia" as="aside">
+                    <p>
+                      No es obligatorio subir todo, pero entre más información le des a la IA, mejores serán los
+                      documentos.
+                    </p>
+                    <h4>Para el {docLabelMin}</h4>
+                    <ul>
+                      {QUE_SUBIR[docKind].map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                    <p className="mas">
+                      {`También puedes subir: PDF, documentos Word, archivos de texto, hojas de cálculo e imágenes de hasta ${MAX_DOC_MB} MB, y grabaciones de audio de hasta ${MAX_AUDIO_MB} MB.`}
+                    </p>
+                  </Panel>
+                </div>
+              </div>
+            </Bloque>
+
+            {/* ── 5 · Notas y envío ── */}
+            <Bloque id="g-notas" n={5} estado={estadoDe(5)} titulo="Información adicional">
+              <div className="k-r12">
+                <div style={{ gridColumn: "1 / 8", minWidth: 0 }}>
+                  <Campo
+                    id="g-texto"
+                    etiqueta="Notas para la IA"
+                    // La misma regla que valida el envío: sin archivos, hace falta texto.
+                    ayuda={
+                      !IS_DEMO && files.length === 0
+                        ? "Si no subes archivos, escribe aquí lo que pasó en el periodo."
+                        : undefined
+                    }
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <FileText className="h-4 w-4 flex-shrink-0" style={{ color: "var(--accent-text)" }} />
-                      <span
-                        className="text-sm truncate"
-                        style={{
-                          fontFamily: "'Geist Mono', monospace",
-                          fontSize: "12px",
-                          color: "var(--ink)",
-                        }}
-                      >
-                        {file.name}
-                      </span>
-                      <span
-                        className="flex-shrink-0 px-2 py-0.5 rounded"
-                        style={{
-                          ...monoLabel,
-                          background: "rgb(var(--veil-rgb) / 0.06)",
-                          color: "var(--ink-2)",
-                          border: "1px solid var(--hifi-hairline)",
-                        }}
-                      >
-                        {(file.size / 1024 / 1024).toFixed(1)}MB
-                      </span>
+                    <AreaTexto
+                      id="g-texto"
+                      value={additionalText}
+                      onChange={(e) => setAdditionalText(e.target.value)}
+                      rows={7}
+                      placeholder="Ejemplo: este mes se realizó el cambio de bombas del cuarto de máquinas. Hubo un corte de agua del 3 al 5 de marzo por obras de la empresa de acueducto…"
+                    />
+                  </Campo>
+                </div>
+
+                <div className="gen-lado gen-envio" style={{ gridColumn: "8 / 13" }}>
+                  <Resumen
+                    etiquetaAccesible="Resumen de lo que se va a generar"
+                    filas={[
+                      {
+                        etiqueta: "Propiedad",
+                        valor: prop ? prop.name : <Estado tipo="pendiente" tamLetra={14}>Sin elegir</Estado>,
+                      },
+                      { etiqueta: "Periodo", valor: periodo },
+                      {
+                        etiqueta: "Documentos",
+                        valor: docKind === "informe" && includePptx ? `${docLabel} y presentación PPTX` : docLabel,
+                      },
+                      {
+                        etiqueta: "Archivos",
+                        valor: files.length
+                          ? `${plural(files.length, "archivo", "archivos")} · ${pesoLegible(pesoTotal)}`
+                          : "Ninguno",
+                      },
+                      { etiqueta: "Notas", valor: additionalText.trim() ? "Con notas" : "Sin notas" },
+                    ]}
+                  />
+
+                  {usoVisible && (
+                    <div>
+                      <span className="gen-lb">Uso de tu plan</span>
+                      <Medidor
+                        filas={[
+                          { etiqueta: "Este mes", usado: uso.monthlyGenerations, total: porMes },
+                          { etiqueta: "Hoy", usado: uso.dailyGenerations, total: porDia },
+                        ]}
+                        libres={libresHoy}
+                        unidadLibres="libres hoy"
+                      />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(i)}
-                      className="p-1.5 rounded-lg transition-colors ml-2 flex-shrink-0"
-                      style={{ color: "var(--ink-3)" }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "rgb(var(--danger-rgb) / 0.1)";
-                        e.currentTarget.style.color = "var(--danger-text)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "transparent";
-                        e.currentTarget.style.color = "var(--ink-3)";
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+                  )}
+
+                  {errorEn === "envio" && avisoError}
+
+                  <Boton
+                    type="submit"
+                    tam={56}
+                    flecha="avanza"
+                    ancho
+                    cargando={loading}
+                    textoCargando="Enviando…"
+                  >
+                    Generar documentos
+                  </Boton>
+                  <p className="gen-estado" role="status">
+                    {loading ? uploadStatus : ""}
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
-
-          {/* Step 5 — Additional text */}
-          <div className="rounded-2xl p-6" style={cardStyle}>
-            <div className="flex items-center gap-2 mb-4">
-              <span
-                style={{
-                  ...monoLabelSm,
-                  color: "var(--accent-text)",
-                  background: "rgb(var(--accent-rgb) / 0.1)",
-                  border: "1px solid rgb(var(--accent-rgb) / 0.4)",
-                  padding: "3px 8px",
-                  borderRadius: "6px",
-                }}
-              >
-                05
-              </span>
-              <span style={{ ...monoLabelSm, color: "var(--ink-2)" }}>
-                Notas
-              </span>
-            </div>
-            <h3
-              className="font-medium mb-4"
-              style={{ color: "var(--ink)", fontSize: "16px", fontWeight: 500 }}
-            >
-              Informacion adicional
-            </h3>
-            <textarea
-              value={additionalText}
-              onChange={(e) => setAdditionalText(e.target.value)}
-              rows={5}
-              placeholder="Ejemplo: Este mes se realizo el cambio de bombas del cuarto de maquinas. Hubo un corte de agua del 3 al 5 de marzo por obras de la empresa de acueducto..."
-              className="w-full rounded-xl px-4 py-3 text-sm resize-none outline-none transition-all"
-              style={{
-                background: "var(--surface-3)",
-                border: "1px solid var(--hifi-hairline)",
-                color: "var(--ink)",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.border = "1px solid var(--accent)";
-                e.currentTarget.style.boxShadow = "0 0 0 3px rgb(var(--accent-rgb) / 0.15)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.border = "1px solid rgb(var(--veil-rgb) / 0.07)";
-                e.currentTarget.style.boxShadow = "none";
-              }}
-            />
-          </div>
-
-          {/* Submit button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-14 rounded-xl flex items-center justify-center gap-2.5 text-base font-medium transition-all"
-            style={{
-              background: loading ? "rgb(var(--accent-rgb) / 0.4)" : "var(--accent)",
-              color: "#ffffff",
-              cursor: loading ? "not-allowed" : "pointer",
-              boxShadow: loading ? "none" : "0 4px 24px rgb(var(--accent-rgb) / 0.35)",
-              border: "none",
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.currentTarget.style.background = "var(--accent-hi)";
-                e.currentTarget.style.boxShadow = "0 6px 32px rgb(var(--accent-rgb) / 0.5)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!loading) {
-                e.currentTarget.style.background = "var(--accent)";
-                e.currentTarget.style.boxShadow = "0 4px 24px rgb(var(--accent-rgb) / 0.35)";
-              }
-            }}
-          >
-            {loading ? (
-              <>
-                <span
-                  className="w-2.5 h-2.5 rounded-full animate-pulse"
-                  style={{ background: "#fff", opacity: 0.9 }}
-                />
-                <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: "13px", letterSpacing: "0.08em" }}>
-                  {uploadStatus || "Enviando..."}
-                </span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-5 w-5" />
-                <span>Generar Documentos</span>
-                <ArrowRight className="h-4 w-4 ml-1" />
-              </>
-            )}
-          </button>
-        </form>
-      </div>
+            </Bloque>
+          </form>
+        </Pieza>
+      </Pagina>
     </div>
   );
 }

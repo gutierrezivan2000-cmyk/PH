@@ -1,18 +1,32 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useRef, useCallback, type ReactNode } from "react";
+import { useParams } from "next/navigation";
 import { Header } from "@/components/dashboard/Header";
-import { Card, CardContent } from "@/components/ui/card";
+import { refrescarIndice } from "@/components/dashboard/datosIndice";
 import { upload } from "@vercel/blob/client";
 import {
-  FileText, Presentation, Download, AlertCircle, CheckCircle2,
-  Sparkles, ArrowLeft, Loader2, Mic, MessageSquarePlus, ClipboardList,
-  CircleCheck, CircleAlert, Upload, X, Paperclip,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+  AreaTexto,
+  Aviso,
+  Boton,
+  CabeceraPieza,
+  Campo,
+  ErrorCarga,
+  Esqueleto,
+  Estado,
+  FilaArchivo,
+  ListaArchivos,
+  Pagina,
+  Panel,
+  Pieza,
+  ProgresoGeneracion,
+  Resumen,
+  TipoArchivo,
+  ZonaSubida,
+  nombreCorto,
+  pesoLegible,
+  type EtapaGeneracion,
+} from "@/components/kit";
 
 interface ActaRequirement {
   item: string;
@@ -40,6 +54,8 @@ interface Generation {
     actaRequirements?: string;
     pptxRequested?: string;
   };
+  /** La fila de /api/jobs trae los insumos; la copia de sessionStorage, no. */
+  inputFiles?: { name: string; type?: string }[] | null;
   property: {
     name: string;
   };
@@ -52,21 +68,27 @@ const MONTHS = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
-const PROGRESS_STEPS = [
-  { min: 0, label: "Preparando archivos..." },
-  { min: 10, label: "Analizando contenido..." },
-  { min: 25, label: "Generando documentos con IA..." },
-  { min: 60, label: "Creando documentos..." },
-  { min: 70, label: "Generando presentacion..." },
-  { min: 90, label: "Finalizando..." },
+// Etapas reales del trabajo: son los puntos de avance que escribe
+// runGeneration (src/lib/generation/run.ts: 5 → 10 → 25 → 60 → 70 → 90 → 100).
+// El tramo 60–89 guarda los documentos y, solo si se pidió, arma la
+// presentación: por eso va como una sola etapa y no se anuncia una
+// presentación que nadie pidió.
+const ETAPAS = [
+  { min: 0, nombre: "Preparando los archivos" },
+  { min: 10, nombre: "Analizando el contenido" },
+  { min: 25, nombre: "Generando los documentos con IA" },
+  { min: 60, nombre: "Creando los documentos" },
+  { min: 90, nombre: "Finalizando" },
 ];
 
-function getProgressLabel(progress: number): string {
-  let label = PROGRESS_STEPS[0].label;
-  for (const step of PROGRESS_STEPS) {
-    if (progress >= step.min) label = step.label;
-  }
-  return label;
+function etapasDe(progreso: number, archivos?: number): EtapaGeneracion[] {
+  return ETAPAS.map((e, i) => {
+    const siguiente = ETAPAS[i + 1]?.min ?? 101;
+    const estado = progreso >= siguiente ? "listo" : progreso >= e.min ? "curso" : "espera";
+    const nombre =
+      i === 0 && archivos ? `Preparando ${archivos === 1 ? "el archivo" : `los ${archivos} archivos`}` : e.nombre;
+    return { nombre, estado };
+  });
 }
 
 function parseActaRequirements(raw?: string): ActaRequirement[] {
@@ -79,9 +101,85 @@ function parseActaRequirements(raw?: string): ActaRequirement[] {
   }
 }
 
+/** «29 de agosto de 2026, 5:25 p. m.» (hora de este equipo). */
+function fechaHora(iso?: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const hora = d.toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" });
+  return `${d.getDate()} de ${MONTHS[d.getMonth()].toLowerCase()} de ${d.getFullYear()}, ${hora}`;
+}
+
+const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+
+/* ════════════════════════════════════════════════════════════════════
+   Estilos locales (filas de documento, requisitos y pie de la pantalla)
+   ════════════════════════════════════════════════════════════════════ */
+
+const CSS_RESULTADO = `
+.res-fila { margin-bottom: 56px; }
+.res-lado { min-width: 0; }
+.res-docs { list-style: none; margin: 0; padding: 0; }
+.res-doc { position: relative; display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; column-gap: 16px; align-items: center;
+  min-height: 76px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.res-doc > .k-tipo { justify-self: start; }
+.res-doc .t { min-width: 0; }
+.res-doc .t b { display: block; font-size: 18px; font-weight: 700; line-height: 1.2; letter-spacing: -.005em; }
+.res-doc .t > .d { display: block; margin-top: 3px; font-size: 14px; line-height: 1.35; color: var(--ink-3); }
+.res-doc .t .k-estado { margin-top: 6px; }
+.res-doc .acc { display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.res-doc.error { background: var(--danger-pale); box-shadow: calc(var(--g) / -2) 0 0 var(--danger-pale), calc(var(--g) / 2) 0 0 var(--danger-pale); }
+.res-doc.error .t > .d { color: var(--ink); }
+.res-doc.error > .k-tipo { color: var(--danger-text); }
+.res-cifra { margin: 0; display: flex; align-items: flex-end; gap: 12px; }
+.res-cifra > b { font-size: 48px; font-weight: 800; font-stretch: 62%; letter-spacing: -.03em; line-height: .8;
+  font-feature-settings: "tnum" 0, "lnum" 1; }
+.res-cifra > span { font-size: 15px; line-height: 1.25; color: var(--ink-2); }
+.res-lado .k-aviso { margin-top: 20px; }
+.res-reqs { list-style: none; margin: 0; padding: 0; }
+.res-req { display: grid; grid-template-columns: 124px minmax(0, 1fr); column-gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.res-req b { display: block; font-size: 16px; font-weight: 650; line-height: 1.25; }
+.res-req span.d { display: block; margin-top: 3px; font-size: 14px; line-height: 1.4; color: var(--ink-3); }
+.res-req > .k-estado { align-self: start; margin-top: 1px; }
+.res-apoyo { margin: -4px 0 18px; font-size: 15px; line-height: 1.45; color: var(--ink-2); max-width: 60ch; }
+.res-corr .k-zona { margin-top: 4px; }
+.res-corr .k-aviso { margin-top: 16px; }
+.res-corr .enviar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 20px; }
+.res-corr .enviar p { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink-3); overflow-wrap: anywhere; }
+.res-corr .enviar p:empty { display: none; }
+.res-nav { display: flex; flex-wrap: wrap; gap: 10px; border-top: 2px solid var(--rule); padding-top: 20px; }
+@media (max-width: 860px) {
+  .res-fila { margin-bottom: 40px; }
+  .res-lado { margin-top: 28px; }
+  .res-doc { grid-template-columns: 52px minmax(0, 1fr); row-gap: 12px; align-items: start; padding: 14px 0; }
+  .res-doc .acc { grid-column: 1 / -1; justify-content: stretch; }
+  .res-doc .acc .k-btn { flex: 1 1 100%; min-height: 48px; }
+  .res-doc.error { box-shadow: -8px 0 0 var(--danger-pale), 8px 0 0 var(--danger-pale); }
+  .res-req { grid-template-columns: minmax(0, 1fr); row-gap: 6px; }
+  .res-corr .enviar .k-btn { width: 100%; }
+  .res-nav .k-btn { flex: 1 1 100%; }
+  .res-nav .k-btn.k-sec { justify-content: flex-start; gap: 12px; }
+}
+`;
+
+function FilaDocumento({ tipo, nombre, detalle, estado, accion, error }: {
+  tipo: string; nombre: string; detalle?: ReactNode; estado?: ReactNode; accion?: ReactNode; error?: boolean;
+}) {
+  return (
+    <li className={`res-doc${error ? " error" : ""}`}>
+      <TipoArchivo>{tipo}</TipoArchivo>
+      <div className="t">
+        <b>{nombre}</b>
+        {detalle && <span className="d">{detalle}</span>}
+        {estado}
+      </div>
+      {accion ? <div className="acc">{accion}</div> : <span />}
+    </li>
+  );
+}
+
 export default function JobResultPage() {
   const params = useParams();
-  const router = useRouter();
   const [generation, setGeneration] = useState<Generation | null>(null);
   const [loading, setLoading] = useState(true);
   const [displayProgress, setDisplayProgress] = useState(0);
@@ -111,6 +209,8 @@ export default function JobResultPage() {
         setGeneration(data);
         if (data.status === "completed" || data.status === "failed") {
           clearInterval(interval);
+          // Un informe nuevo cambia «N por generar» y «N doc.» del índice.
+          if (data.status === "completed") refrescarIndice();
         }
       }
       if (!cancelled) setLoading(false);
@@ -146,7 +246,7 @@ export default function JobResultPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setPptxError(data.error || "Error al generar presentacion");
+        setPptxError(data.error || "Error al generar la presentación.");
         return;
       }
 
@@ -156,7 +256,7 @@ export default function JobResultPage() {
         setGeneration(refreshData);
       }
     } catch {
-      setPptxError("Error de conexion al generar presentacion");
+      setPptxError("Error de conexión al generar la presentación.");
     } finally {
       setPptxLoading(false);
     }
@@ -180,12 +280,11 @@ export default function JobResultPage() {
     return (
       <div>
         <Header title="Resultado" />
-        <div className="p-8 flex items-center justify-center min-h-[400px]">
-          <div className="text-center space-y-4">
-            <div className="w-14 h-14 border-[3px] border-violet-200 border-t-violet-600 rounded-full animate-spin mx-auto" />
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Cargando...</p>
-          </div>
-        </div>
+        <Pagina>
+          <Pieza>
+            <Esqueleto variante="completo" filas={4} etiquetaAccesible="Cargando el resultado de la generación…" />
+          </Pieza>
+        </Pagina>
       </div>
     );
   }
@@ -194,18 +293,19 @@ export default function JobResultPage() {
     return (
       <div>
         <Header title="Resultado" />
-        <div className="p-8 max-w-2xl mx-auto">
-          <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-3xl p-12 text-center shadow-lg dark:shadow-black/20">
-            <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="font-semibold text-lg">Generacion no encontrada</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Es posible que haya expirado o no exista.</p>
-            <Link href="/dashboard/historial">
-              <Button variant="outline" className="mt-6 gap-2 rounded-xl">
-                <ArrowLeft className="h-4 w-4" /> Ir al historial
-              </Button>
-            </Link>
-          </div>
-        </div>
+        <Pagina>
+          <Pieza>
+            <ErrorCarga
+              titulo="Generación no encontrada."
+              texto="Es posible que haya expirado o no exista."
+              acciones={
+                <Boton variante="secundario" href="/dashboard/historial" flecha="vuelve">
+                  Ir al historial
+                </Boton>
+              }
+            />
+          </Pieza>
+        </Pagina>
       </div>
     );
   }
@@ -215,231 +315,219 @@ export default function JobResultPage() {
   const isFailed = generation.status === "failed";
   const actaRequirements = parseActaRequirements(generation.outputFiles?.actaRequirements);
 
+  const periodo = `${MONTHS[generation.month - 1]} ${generation.year}`;
+  const subtitulo = `${generation.property.name} · ${periodo.toLowerCase()}`;
+  const insumos = Array.isArray(generation.inputFiles) ? generation.inputFiles : null;
+  const salida = generation.outputFiles;
+  const pptxPendiente = Boolean(!salida?.presentacionPptx && salida?.pptxRequested && salida?.informeMarkdown);
+  const nDocs =
+    [salida?.informeHtml, salida?.actaHtml, salida?.presentacionPptx, salida?.transcripcion].filter(Boolean).length +
+    (pptxPendiente ? 1 : 0);
+
   return (
     <div>
-      <Header title={`${generation.property.name} — ${MONTHS[generation.month - 1]} ${generation.year}`} />
-      <div className="p-6 lg:p-8 max-w-3xl mx-auto space-y-6">
-
-        {/* ── Processing ── */}
-        {isProcessing && (
-          <div className="relative overflow-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-3xl p-8 lg:p-10 text-white shadow-2xl shadow-violet-500/30">
-            <div className="absolute inset-0 overflow-hidden">
-              <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-orb" />
-              <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-purple-300/10 rounded-full blur-2xl animate-orb-delayed" />
-            </div>
-            <div className="relative space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/15 backdrop-blur rounded-2xl flex items-center justify-center">
-                  <Sparkles className="h-6 w-6 text-white animate-pulse" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold">Generando documentos...</h3>
-                  <p className="text-violet-200 text-sm">{getProgressLabel(displayProgress)}</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="h-3 bg-white/15 rounded-full overflow-hidden backdrop-blur-sm">
-                  <div
-                    className="h-full bg-gradient-to-r from-white/90 to-violet-200 rounded-full transition-all duration-300 ease-out relative"
-                    style={{ width: `${displayProgress}%` }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_2s_infinite]" />
-                  </div>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-violet-200">{displayProgress}%</span>
-                  <span className="text-violet-200/70">Se actualiza automaticamente</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Failed ── */}
-        {isFailed && (
-          <div className="bg-red-50/80 dark:bg-red-500/10 backdrop-blur-xl border border-red-200/50 dark:border-red-500/20 rounded-3xl p-8 shadow-lg dark:shadow-black/20">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-red-100 dark:bg-red-500/20 rounded-2xl flex items-center justify-center flex-shrink-0">
-                <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
-              </div>
-              <div>
-                <h3 className="font-bold text-red-800 dark:text-red-300 text-lg">Error en la generacion</h3>
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">{generation.errorMessage || "Ocurrio un error inesperado."}</p>
-                <Link href="/dashboard/generar">
-                  <Button className="mt-4 gap-2 rounded-xl" size="sm">
-                    <Sparkles className="h-4 w-4" /> Intentar de nuevo
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Success Banner ── */}
-        {isCompleted && (
-          <div className="bg-emerald-50/80 dark:bg-emerald-500/10 backdrop-blur-xl border border-emerald-200/50 dark:border-emerald-500/20 rounded-3xl p-6 shadow-lg dark:shadow-black/20">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-500/20 rounded-2xl flex items-center justify-center flex-shrink-0">
-                <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div>
-                <h3 className="font-bold text-emerald-800 dark:text-emerald-300">Documentos listos</h3>
-                <p className="text-sm text-emerald-600 dark:text-emerald-400">Tus documentos han sido generados exitosamente.</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Downloads ── */}
-        {isCompleted && generation.outputFiles && (
-          <Card className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-xl dark:shadow-black/20 rounded-3xl overflow-hidden">
-            <CardContent className="p-6 space-y-4">
-              <h3 className="font-bold text-gray-900 dark:text-white">Documentos Generados</h3>
-
-              {generation.outputFiles.informeHtml && (
-                <a
-                  href={generation.outputFiles.informeHtml}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex items-center justify-between p-5 bg-gradient-to-r from-blue-50/80 to-indigo-50/50 dark:from-blue-500/10 dark:to-indigo-500/10 backdrop-blur rounded-2xl border border-blue-100/50 dark:border-blue-500/20 hover:border-blue-200 dark:hover:border-blue-500/30 hover:shadow-md transition-all duration-300"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-100/80 dark:bg-blue-500/20 backdrop-blur rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <FileText className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Informe de Gestion</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Abrir e imprimir como PDF</p>
-                    </div>
-                  </div>
-                  <Download className="h-5 w-5 text-blue-500 group-hover:translate-y-0.5 transition-transform" />
-                </a>
-              )}
-
-              {generation.outputFiles.actaHtml && (
-                <a
-                  href={generation.outputFiles.actaHtml}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex items-center justify-between p-5 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 dark:from-emerald-500/10 dark:to-teal-500/10 backdrop-blur rounded-2xl border border-emerald-100/50 dark:border-emerald-500/20 hover:border-emerald-200 dark:hover:border-emerald-500/30 hover:shadow-md transition-all duration-300"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-emerald-100/80 dark:bg-emerald-500/20 backdrop-blur rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <FileText className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Acta Legal</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Abrir e imprimir como PDF</p>
-                    </div>
-                  </div>
-                  <Download className="h-5 w-5 text-emerald-500 group-hover:translate-y-0.5 transition-transform" />
-                </a>
-              )}
-
-              {generation.outputFiles.presentacionPptx ? (
-                <a
-                  href={generation.outputFiles.presentacionPptx}
-                  download
-                  className="group flex items-center justify-between p-5 bg-gradient-to-r from-purple-50/80 to-violet-50/50 dark:from-purple-500/10 dark:to-violet-500/10 backdrop-blur rounded-2xl border border-purple-100/50 dark:border-purple-500/20 hover:border-purple-200 dark:hover:border-purple-500/30 hover:shadow-md transition-all duration-300"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-purple-100/80 dark:bg-purple-500/20 backdrop-blur rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <Presentation className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Presentacion PPTX</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">PowerPoint listo para presentar</p>
-                    </div>
-                  </div>
-                  <Download className="h-5 w-5 text-purple-500 group-hover:translate-y-0.5 transition-transform" />
-                </a>
-              ) : generation.outputFiles.pptxRequested && generation.outputFiles.informeMarkdown ? (
-              // Mismo marcador que usa el efecto que dispara la generación: sin
-              // esto, todo informe SIN presentación pintaba una tarjeta
-              // "Preparando…" que nadie iba a completar nunca.
-                <div className="p-5 bg-gradient-to-r from-purple-50/80 to-violet-50/50 dark:from-purple-500/10 dark:to-violet-500/10 backdrop-blur rounded-2xl border border-purple-100/50 dark:border-purple-500/20">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-purple-100/80 dark:bg-purple-500/20 backdrop-blur rounded-xl flex items-center justify-center">
-                      {pptxLoading ? (
-                        <Loader2 className="h-6 w-6 text-purple-600 animate-spin" />
-                      ) : (
-                        <Presentation className="h-6 w-6 text-purple-600" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Presentacion PPTX</p>
-                      {pptxLoading ? (
-                        <p className="text-xs text-purple-600">Generando presentacion...</p>
-                      ) : pptxError ? (
-                        <div className="flex items-center gap-2 mt-1">
-                          <p className="text-xs text-red-500">{pptxError}</p>
-                          <button
-                            onClick={() => { pptxTriggered.current = false; triggerPptx(generation.id); }}
-                            className="text-xs text-purple-600 font-medium underline hover:text-purple-800"
-                          >
-                            Reintentar
-                          </button>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-gray-400">Preparando...</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {generation.outputFiles.transcripcion && (
-                <a
-                  href={generation.outputFiles.transcripcion}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex items-center justify-between p-5 bg-gradient-to-r from-amber-50/80 to-orange-50/50 dark:from-amber-500/10 dark:to-orange-500/10 backdrop-blur rounded-2xl border border-amber-100/50 dark:border-amber-500/20 hover:border-amber-200 dark:hover:border-amber-500/30 hover:shadow-md transition-all duration-300"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-amber-100/80 dark:bg-amber-500/20 backdrop-blur rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <Mic className="h-6 w-6 text-amber-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm text-gray-900 dark:text-white">Transcripcion de Insumos</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Verifica la transcripcion de audios y analisis de fotos</p>
-                    </div>
-                  </div>
-                  <Download className="h-5 w-5 text-amber-500 group-hover:translate-y-0.5 transition-transform" />
-                </a>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ── Acta Requirements Checklist ── */}
-        {isCompleted && generation.outputFiles?.actaHtml && actaRequirements.length > 0 && (
-          <ActaRequirementsChecklist requirements={actaRequirements} />
-        )}
-
-        {/* ── Correction Panel ── */}
-        {isCompleted && (generation.outputFiles?.informeHtml || generation.outputFiles?.actaHtml) && (
-          <CorrectionPanel
-            generationId={generation.id}
-            hasInforme={!!generation.outputFiles?.informeHtml}
-            hasActa={!!generation.outputFiles?.actaHtml}
-            onRefreshed={(data) => { pptxTriggered.current = false; setGeneration(data); }}
+      <style href="k-generar-resultado-local" precedence="default">
+        {CSS_RESULTADO}
+      </style>
+      <Header
+        // Nombre corto: el completo ya va en el subtítulo de la pieza y en la
+        // barra de 72 px no cabía junto a la miga sin partirse en dos líneas.
+        title={`${nombreCorto(generation.property.name)} · ${MONTHS[generation.month - 1]} ${generation.year}`}
+        breadcrumbs={[{ label: "Generar", href: "/dashboard/generar" }]}
+      />
+      <Pagina>
+        <Pieza>
+          <CabeceraPieza
+            nn="02"
+            titulo={isCompleted ? "Documentos listos." : isFailed ? "Error en la generación" : "Generando…"}
+            subtitulo={subtitulo}
           />
-        )}
 
-        {/* ── Back ── */}
-        <div className="flex gap-3">
-          <Button variant="outline" className="gap-2 rounded-xl" onClick={() => router.push("/dashboard/historial")}>
-            <ArrowLeft className="h-4 w-4" /> Historial
-          </Button>
-          {(isCompleted || isFailed) && (
-            <Link href="/dashboard/generar">
-              <Button className="gap-2 rounded-xl">
-                <Sparkles className="h-4 w-4" /> Nueva generacion
-              </Button>
-            </Link>
+          {/* ── Procesando ── */}
+          {isProcessing && (
+            <div className="k-r12 res-fila">
+              <div style={{ gridColumn: "1 / 8", minWidth: 0 }}>
+                <ProgresoGeneracion
+                  titulo={`Documentos de ${periodo.toLowerCase()}`}
+                  subtitulo={generation.property.name}
+                  porcentaje={displayProgress}
+                  etapas={etapasDe(displayProgress, insumos?.length)}
+                  nota="El proceso continúa aunque cierres esta página. Esta vista se actualiza automáticamente."
+                />
+              </div>
+              <div className="res-lado" style={{ gridColumn: "8 / 13" }}>
+                <Panel titulo="Qué se está generando">
+                  <Resumen
+                    etiquetaAccesible="Datos de la generación en curso"
+                    filas={[
+                      { etiqueta: "Propiedad", valor: generation.property.name },
+                      { etiqueta: "Periodo", valor: periodo },
+                      ...(insumos
+                        ? [{ etiqueta: "Archivos", valor: insumos.length ? plural(insumos.length, "archivo", "archivos") : "Ninguno" }]
+                        : []),
+                      ...(fechaHora(generation.createdAt)
+                        ? [{ etiqueta: "Iniciada", valor: fechaHora(generation.createdAt) }]
+                        : []),
+                    ]}
+                  />
+                </Panel>
+              </div>
+            </div>
           )}
-        </div>
-      </div>
+
+          {/* ── Error ── */}
+          {isFailed && (
+            <div className="k-r12 res-fila">
+              <div style={{ gridColumn: "1 / 8", minWidth: 0 }}>
+                <ErrorCarga
+                  titulo="No pudimos generar los documentos."
+                  texto={generation.errorMessage || "Ocurrió un error inesperado."}
+                  acciones={
+                    <Boton href="/dashboard/generar" flecha="avanza">
+                      Intentar de nuevo
+                    </Boton>
+                  }
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ── Documentos ── */}
+          {isCompleted && salida && (
+            <div className="k-r12 res-fila">
+              <div style={{ gridColumn: "1 / 8", minWidth: 0 }}>
+                <Panel titulo="Documentos generados" nota={plural(nDocs, "documento", "documentos")}>
+                  <ul className="res-docs">
+                    {salida.informeHtml && (
+                      <FilaDocumento
+                        tipo="INF"
+                        nombre="Informe de gestión"
+                        accion={
+                          <Boton href={salida.informeHtml} nuevaPestana flecha="avanza" tam={40}>
+                            Abrir e imprimir como PDF
+                          </Boton>
+                        }
+                      />
+                    )}
+
+                    {salida.actaHtml && (
+                      <FilaDocumento
+                        tipo="ACTA"
+                        nombre="Acta legal"
+                        accion={
+                          <Boton href={salida.actaHtml} nuevaPestana flecha="avanza" tam={40}>
+                            Abrir e imprimir como PDF
+                          </Boton>
+                        }
+                      />
+                    )}
+
+                    {salida.presentacionPptx ? (
+                      <FilaDocumento
+                        tipo="PRES"
+                        nombre="Presentación PPTX"
+                        detalle="PowerPoint listo para presentar"
+                        accion={
+                          <Boton variante="secundario" href={salida.presentacionPptx} descargar tam={40}>
+                            Descargar
+                          </Boton>
+                        }
+                      />
+                    ) : pptxPendiente ? (
+                      // Mismo marcador que usa el efecto que dispara la generación: sin
+                      // esto, todo informe SIN presentación pintaba una fila
+                      // "Preparando…" que nadie iba a completar nunca.
+                      <FilaDocumento
+                        tipo="PRES"
+                        nombre="Presentación PPTX"
+                        error={Boolean(pptxError) && !pptxLoading}
+                        detalle={!pptxLoading && pptxError ? pptxError : undefined}
+                        estado={
+                          pptxLoading ? (
+                            <Estado tipo="enCurso" tamLetra={14}>Generando la presentación…</Estado>
+                          ) : pptxError ? (
+                            <Estado tipo="vencido" tamLetra={14}>Error</Estado>
+                          ) : (
+                            <Estado tipo="pendiente" tamLetra={14}>Preparando…</Estado>
+                          )
+                        }
+                        accion={
+                          !pptxLoading && pptxError ? (
+                            <Boton
+                              variante="secundario"
+                              tam={40}
+                              onClick={() => { pptxTriggered.current = false; triggerPptx(generation.id); }}
+                            >
+                              Reintentar
+                            </Boton>
+                          ) : undefined
+                        }
+                      />
+                    ) : null}
+
+                    {salida.transcripcion && (
+                      <FilaDocumento
+                        tipo="TXT"
+                        nombre="Transcripción de insumos"
+                        detalle="Verifica la transcripción de audios y el análisis de fotos."
+                        accion={
+                          <Boton variante="secundario" href={salida.transcripcion} nuevaPestana tam={40}>
+                            Abrir
+                          </Boton>
+                        }
+                      />
+                    )}
+                  </ul>
+                </Panel>
+              </div>
+              <div className="res-lado" style={{ gridColumn: "8 / 13" }}>
+                <Panel titulo="Resumen">
+                  <Resumen
+                    etiquetaAccesible="Datos de la generación"
+                    filas={[
+                      { etiqueta: "Propiedad", valor: generation.property.name },
+                      { etiqueta: "Periodo", valor: periodo },
+                      ...(fechaHora(generation.completedAt)
+                        ? [{ etiqueta: "Generados", valor: fechaHora(generation.completedAt) }]
+                        : []),
+                      ...(insumos
+                        ? [{ etiqueta: "Archivos usados", valor: insumos.length ? plural(insumos.length, "archivo", "archivos") : "Ninguno" }]
+                        : []),
+                    ]}
+                  />
+                </Panel>
+              </div>
+            </div>
+          )}
+
+          {/* ── Requisitos del acta ── */}
+          {isCompleted && generation.outputFiles?.actaHtml && actaRequirements.length > 0 && (
+            <ActaRequirementsChecklist requirements={actaRequirements} />
+          )}
+
+          {/* ── Correcciones ── */}
+          {isCompleted && (generation.outputFiles?.informeHtml || generation.outputFiles?.actaHtml) && (
+            <CorrectionPanel
+              generationId={generation.id}
+              hasInforme={!!generation.outputFiles?.informeHtml}
+              hasActa={!!generation.outputFiles?.actaHtml}
+              onRefreshed={(data) => { pptxTriggered.current = false; setGeneration(data); }}
+            />
+          )}
+
+          {/* ── Volver ── */}
+          <nav className="res-nav" aria-label="Siguientes pasos">
+            <Boton variante="secundario" href="/dashboard/historial" flecha="vuelve">
+              Historial
+            </Boton>
+            {isCompleted && (
+              <Boton href="/dashboard/generar" flecha="crea">
+                Nueva generación
+              </Boton>
+            )}
+          </nav>
+        </Pieza>
+      </Pagina>
     </div>
   );
 }
@@ -448,57 +536,45 @@ function ActaRequirementsChecklist({ requirements }: { requirements: ActaRequire
   const completed = requirements.filter((r) => r.status === "completo").length;
   const total = requirements.length;
   const allComplete = completed === total;
+  const faltan = total - completed;
 
   return (
-    <Card className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-xl dark:shadow-black/20 rounded-3xl overflow-hidden">
-      <CardContent className="p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${allComplete ? "bg-emerald-100/80 dark:bg-emerald-500/20" : "bg-amber-100/80 dark:bg-amber-500/20"}`}>
-            <ClipboardList className={`h-5 w-5 ${allComplete ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`} />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-gray-900 dark:text-white">Requisitos del Acta Legal</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Verificacion segun la Ley 675 de 2001</p>
-          </div>
-          <div className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${allComplete ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300" : "bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300"}`}>
-            {completed}/{total}
-          </div>
-        </div>
-
+    <div className="k-r12 res-fila">
+      <div style={{ gridColumn: "1 / 8", minWidth: 0 }}>
+        <Panel titulo="Requisitos del acta legal" nota="Verificación según la Ley 675 de 2001">
+          <ul className="res-reqs">
+            {requirements.map((req, i) => (
+              <li key={i} className="res-req">
+                {req.status === "completo" ? (
+                  <Estado tipo="ok" tamLetra={14}>Completo</Estado>
+                ) : (
+                  <Estado tipo="falta" tamLetra={14}>Pendiente</Estado>
+                )}
+                <div>
+                  <b>{req.item}</b>
+                  <span className="d">{req.detail}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      </div>
+      <div className="res-lado" style={{ gridColumn: "8 / 13" }}>
+        <p className="res-cifra">
+          <b>{completed}</b>
+          <span>de {plural(total, "requisito completo", "requisitos completos")}</span>
+        </p>
         {!allComplete && (
-          <div className="bg-amber-50/80 dark:bg-amber-500/10 border border-amber-200/40 dark:border-amber-500/20 rounded-xl px-4 py-2.5">
-            <p className="text-xs text-amber-700 dark:text-amber-300">
-              Hay {total - completed} requisito{total - completed > 1 ? "s" : ""} pendiente{total - completed > 1 ? "s" : ""}. Puedes completarlos usando el panel de correcciones de abajo, indicando la informacion faltante.
-            </p>
-          </div>
+          <Aviso
+            tipo="info"
+            enLinea
+            rol={null}
+            titulo={`Hay ${faltan} ${faltan > 1 ? "requisitos pendientes" : "requisito pendiente"}.`}
+            texto="Puedes completarlos usando el panel de correcciones de abajo, indicando la información faltante."
+          />
         )}
-
-        <div className="space-y-2">
-          {requirements.map((req, i) => (
-            <div
-              key={i}
-              className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
-                req.status === "completo"
-                  ? "bg-emerald-50/50 dark:bg-emerald-500/10 border-emerald-100/50 dark:border-emerald-500/20"
-                  : "bg-amber-50/50 dark:bg-amber-500/10 border-amber-100/50 dark:border-amber-500/20"
-              }`}
-            >
-              {req.status === "completo" ? (
-                <CircleCheck className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-              ) : (
-                <CircleAlert className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-              )}
-              <div className="min-w-0">
-                <p className={`text-sm font-medium ${req.status === "completo" ? "text-emerald-800 dark:text-emerald-300" : "text-amber-800 dark:text-amber-300"}`}>
-                  {req.item}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{req.detail}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -510,11 +586,9 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setFiles((prev) => [...prev, ...newFiles].slice(0, 10));
-    }
+  // Elegidos con el selector o soltados en la zona: como antes, hasta 10.
+  const handleFiles = (newFiles: File[]) => {
+    setFiles((prev) => [...prev, ...newFiles].slice(0, 10));
   };
 
   const handleCorrect = async () => {
@@ -540,7 +614,7 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
         blobFiles.push({ url: result.url, name: file.name, type: file.type, size: file.size });
       }
 
-      setUploadStatus("Aplicando correccion...");
+      setUploadStatus("Aplicando corrección…");
 
       const res = await fetch("/api/generate/refine", {
         method: "POST",
@@ -553,7 +627,7 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Error al corregir");
+        setError(data.error || "Error al corregir.");
         return;
       }
 
@@ -562,8 +636,10 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
       // `warning` llega cuando algún documento quedó fuera (demasiado extenso o
       // respuesta cortada). Callarlo dejaba creer que se corrigió todo.
       const warning = typeof data.warning === "string" ? data.warning : "";
+      // Concordancia: «Acta actualizada», «Informe actualizado», «Informe y Acta actualizados».
+      const actualizado = docs.length > 1 ? "actualizados" : docs[0] === "acta" ? "actualizada" : "actualizado";
       setSuccess(
-        `${docNames} actualizado${docs.length > 1 ? "s" : ""} exitosamente.${hasInforme ? " La presentacion PPTX se regenerara." : ""}` +
+        `${docNames} ${actualizado} exitosamente.${hasInforme ? " La presentación PPTX se regenerará." : ""}` +
           (warning ? ` ${warning}` : "")
       );
       setInstruction("");
@@ -572,79 +648,70 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
       const refreshRes = await fetch(`/api/jobs/${generationId}`);
       if (refreshRes.ok) onRefreshed(await refreshRes.json());
     } catch {
-      setError("Error de conexion.");
+      setError("Error de conexión.");
     } finally {
       setLoading(false);
       setUploadStatus("");
     }
   };
 
-  const docLabel = hasInforme && hasActa ? "todos los documentos" : hasInforme ? "el informe" : "el acta";
+  const docLabel = hasInforme && hasActa ? "a todos los documentos" : hasInforme ? "al informe" : "al acta";
   const canSubmit = instruction.trim() || files.length > 0;
 
   return (
-    <Card className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-xl dark:shadow-black/20 rounded-3xl overflow-hidden">
-      <CardContent className="p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-violet-100/80 dark:bg-violet-500/20 rounded-xl flex items-center justify-center">
-            <MessageSquarePlus className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-          </div>
-          <div>
-            <h3 className="font-bold text-gray-900 dark:text-white">Corregir o complementar documentos</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Escribe instrucciones o sube archivos adicionales. Los cambios se aplican a {docLabel}
-            </p>
-          </div>
-        </div>
+    <div className="k-r12 res-fila res-corr">
+      <div style={{ gridColumn: "1 / 8", minWidth: 0 }}>
+        <Panel titular titulo="Corregir o complementar documentos">
+          <p className="res-apoyo">
+            Escribe instrucciones o sube archivos adicionales. Los cambios se aplican {docLabel}.
+          </p>
+          <Campo id="res-instruccion" etiqueta="Instrucciones">
+            <AreaTexto
+              id="res-instruccion"
+              value={instruction}
+              onChange={(e) => setInstruction(e.target.value)}
+              rows={4}
+              placeholder="Ej.: agrega que se realizó mantenimiento del ascensor el 15 de marzo. El costo fue de $2.500.000…"
+            />
+          </Campo>
 
-        <textarea
-          value={instruction}
-          onChange={(e) => setInstruction(e.target.value)}
-          rows={3}
-          placeholder="Ej: Agrega que se realizo mantenimiento del ascensor el 15 de marzo. El costo fue de $2.500.000..."
-          className="w-full rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 resize-none"
-        />
-
-        {/* File upload area */}
-        <div>
-          <label className="flex items-center gap-3 p-3.5 rounded-2xl border-2 border-dashed border-gray-300 dark:border-white/10 cursor-pointer hover:border-violet-300/50 dark:hover:border-violet-500/30 hover:bg-violet-50/30 dark:hover:bg-violet-500/10 transition-all">
-            <Upload className="h-5 w-5 text-violet-400" />
-            <div>
-              <span className="text-sm text-gray-600 dark:text-gray-300">Subir archivos adicionales</span>
-              <span className="block text-xs text-gray-400 dark:text-gray-500">Audios, PDFs, fotos, Excel — para complementar informacion faltante</span>
-            </div>
-            <input type="file" multiple onChange={handleFileChange} className="hidden" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.m4a,.webm" />
-          </label>
+          <ZonaSubida
+            compacta
+            titulo="Subir archivos adicionales"
+            texto="Audios, PDF, fotos, Excel: para complementar información faltante."
+            etiquetaAccesible="Subir archivos adicionales para la corrección"
+            multiple
+            accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.m4a,.webm"
+            alElegir={handleFiles}
+          />
 
           {files.length > 0 && (
-            <div className="space-y-1.5 mt-3">
+            <ListaArchivos etiquetaAccesible="Archivos para la corrección">
               {files.map((file, i) => (
-                <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-gray-50 dark:bg-white/5 rounded-xl px-3 py-2 border border-gray-200 dark:border-white/10">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Paperclip className="h-3.5 w-3.5 text-violet-500 flex-shrink-0" />
-                    <span className="text-xs truncate">{file.name}</span>
-                    <Badge variant="secondary" className="text-[10px] flex-shrink-0 bg-white/50">{(file.size / 1024 / 1024).toFixed(1)}MB</Badge>
-                  </div>
-                  <button type="button" onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))} className="p-1 hover:bg-red-100/80 rounded-lg">
-                    <X className="h-3.5 w-3.5 text-gray-400 hover:text-red-500" />
-                  </button>
-                </div>
+                <FilaArchivo
+                  key={`${file.name}-${i}`}
+                  nombre={file.name}
+                  detalle={pesoLegible(file.size)}
+                  estado="listo"
+                  alQuitar={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                />
               ))}
-            </div>
+            </ListaArchivos>
           )}
-        </div>
 
-        {error && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
-        {success && <p className="text-xs text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />{success}</p>}
+          {error && <Aviso tipo="error" enLinea titulo={error} />}
+          {success && <Aviso tipo="ok" enLinea titulo={success} />}
 
-        <Button
-          onClick={handleCorrect}
-          disabled={loading || !canSubmit}
-          className="w-full gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
-        >
-          {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> {uploadStatus || "Corrigiendo..."}</> : <><MessageSquarePlus className="h-4 w-4" /> Aplicar correccion</>}
-        </Button>
-      </CardContent>
-    </Card>
+          <div className="enviar">
+            <Boton onClick={handleCorrect} disabled={!canSubmit} cargando={loading} textoCargando="Corrigiendo…">
+              Aplicar corrección
+            </Boton>
+            {/* El avance de la subida va en texto aparte: en el botón no cabe un nombre de archivo largo. */}
+            <p role="status">{loading ? uploadStatus : ""}</p>
+            {!canSubmit && !loading && <p>Escribe una instrucción o sube un archivo para aplicarla.</p>}
+          </div>
+        </Panel>
+      </div>
+    </div>
   );
 }

@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { AlertTriangle, CreditCard } from "lucide-react";
+import { Aviso } from "@/components/kit";
 
-type Usage = { planStatus?: string; periodEndsAt?: string | null };
+type Usage = { planStatus?: string; periodEndsAt?: string | null; /** Momento de la lectura (Date.now fuera del render). */ leidoEn: number };
 
 const DAY = 24 * 60 * 60 * 1000;
 
+/**
+ * Aviso de renovación (SPEC §g 14): aviso EN LÍNEA con borde izquierdo de 8 px,
+ * naranja (--danger) si el plan ya venció, tinta si está por renovarse, y la
+ * acción «Renovar». Mismas condiciones y textos de siempre.
+ */
 export function RenewalBanner() {
   const [usage, setUsage] = useState<Usage | null>(null);
 
@@ -15,7 +19,7 @@ export function RenewalBanner() {
     let active = true;
     fetch("/api/usage")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => active && setUsage(d))
+      .then((d) => active && d && setUsage({ ...d, leidoEn: Date.now() }))
       .catch(() => {});
     return () => {
       active = false;
@@ -23,12 +27,12 @@ export function RenewalBanner() {
   }, []);
 
   if (!usage) return null;
-  const { planStatus, periodEndsAt } = usage;
+  const { planStatus, periodEndsAt, leidoEn } = usage;
 
   const endsSoon =
     planStatus === "active" &&
     periodEndsAt &&
-    new Date(periodEndsAt).getTime() - Date.now() < 5 * DAY;
+    new Date(periodEndsAt).getTime() - leidoEn < 5 * DAY;
 
   const variant =
     planStatus === "expired"
@@ -41,46 +45,36 @@ export function RenewalBanner() {
   if (!variant) return null;
 
   const fmt = (iso?: string | null) =>
-    iso ? new Date(iso).toLocaleDateString("es-CO", { day: "2-digit", month: "long" }) : "";
+    iso ? new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "long" }) : "";
 
   const config = {
     expired: {
-      color: "var(--danger-text)",
-      bg: "rgb(var(--danger-rgb) / 0.1)",
-      border: "rgb(var(--danger-rgb) / 0.3)",
-      text: "Tu plan venció. Renuévalo para seguir generando documentos.",
+      tipo: "error" as const,
+      titulo: "Tu plan venció.",
+      texto: "Renuévalo para seguir generando documentos.",
     },
     grace: {
-      color: "var(--warn-text)",
-      bg: "rgb(var(--warn-rgb) / 0.1)",
-      border: "rgb(var(--warn-rgb) / 0.3)",
-      text: "Tu plan venció y estás en período de gracia. Renuévalo para no perder el acceso.",
+      tipo: "error" as const,
+      titulo: "Tu plan venció y estás en período de gracia.",
+      texto: "Renuévalo para no perder el acceso.",
     },
     soon: {
-      color: "var(--warn-text)",
-      bg: "rgb(var(--warn-rgb) / 0.08)",
-      border: "rgb(var(--warn-rgb) / 0.22)",
-      text: `Tu plan se renueva el ${fmt(periodEndsAt)}. Renuévalo en Suscripción para no interrumpir el servicio.`,
+      tipo: "info" as const,
+      titulo: `Tu plan se renueva el ${fmt(periodEndsAt)}.`,
+      texto: "Renuévalo en Suscripción para no interrumpir el servicio.",
     },
   }[variant];
 
   return (
-    <div
-      className="flex items-center gap-3 px-4 sm:px-6 py-2.5 border-b"
-      style={{ background: config.bg, borderColor: config.border }}
-    >
-      <AlertTriangle className="h-4 w-4 flex-shrink-0" style={{ color: config.color }} />
-      <p className="text-[13px] flex-1 min-w-0" style={{ color: config.color }}>
-        {config.text}
-      </p>
-      <Link
-        href="/dashboard/suscripcion"
-        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-        style={{ background: config.color, color: "#0a0a0a" }}
-      >
-        <CreditCard className="h-3.5 w-3.5" />
-        Renovar
-      </Link>
+    <div style={{ padding: "12px var(--pad) 0" }}>
+      <Aviso
+        enLinea
+        rol={null}
+        tipo={config.tipo}
+        titulo={config.titulo}
+        texto={config.texto}
+        accion={{ etiqueta: "Renovar", href: "/dashboard/suscripcion" }}
+      />
     </div>
   );
 }
