@@ -1,22 +1,25 @@
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Cuadro } from "./Estado";
+import { Loseta } from "./Loseta";
+import type { Tono } from "./modulos";
 import { unir } from "./util";
 
 /**
- * Tarjeta de plan (SPEC §g 14): recuadro de 2 px; nombre en rótulo 125 %,
- * para quién, precio 48 px/62 % + «COP al mes» + equivalencia, beneficios con
- * filetes (el primero en negrita), acción al pie.
- * `recomendado` → área negativa (--neg-area) con marca de 6 px y etiqueta
- * invertida («Recomendado · de 4 a 10 propiedades»), NUNCA naranja.
- * `actual` → recuadro discontinuo + «Tu plan actual ■».
+ * Tarjeta de plan: ficha de icono opcional, nombre, para quién, precio grande +
+ * «COP al mes» + equivalencia, beneficios con ✓ verde (el primero en negrita),
+ * acción al pie.
+ * `recomendado` → tarjeta índigo intenso con etiqueta («Recomendado · de 4 a 10 propiedades»).
+ * `actual` → borde discontinuo violeta + «Tu plan actual ✓».
  *
- *   <TarjetaPlan nombre="Business" para="Para administradores en crecimiento" precio="299.900"
+ *   <TarjetaPlan nombre="Business" icono={Rocket} tono="violet" para="Para administradores en crecimiento" precio="299.900"
  *     equivalencia="aprox. USD 73 al mes" beneficios={["Hasta 10 propiedades", "40 generaciones al mes"]}
  *     recomendado="Recomendado · de 4 a 10 propiedades"
- *     accion={<Boton flecha="avanza" onClick={…}>Cambiar a Business</Boton>} />
+ *     accion={<Boton onClick={…}>Cambiar a Business</Boton>} />
  */
-export function TarjetaPlan({ nombre, para, precio, moneda = "COP", periodo = "al mes", equivalencia, beneficios, recomendado, actual, accion, nivel = 3, className, id }: {
+export function TarjetaPlan({ nombre, para, precio, moneda = "COP", periodo = "al mes", equivalencia, beneficios, recomendado, actual, accion, nivel = 3, className, id, icono, tono }: {
   nombre: string; para?: ReactNode; precio: ReactNode; moneda?: string; periodo?: string; equivalencia?: ReactNode;
+  icono?: LucideIcon; tono?: Tono;
   beneficios: ReactNode[]; recomendado?: string; actual?: boolean; accion?: ReactNode;
   /** Nivel del encabezado del nombre (3 por defecto). */
   nivel?: 2 | 3 | 4; className?: string; id?: string;
@@ -26,7 +29,7 @@ export function TarjetaPlan({ nombre, para, precio, moneda = "COP", periodo = "a
   return (
     <article id={id} aria-labelledby={idTitulo} className={unir("k-plan", recomendado && "k-neg", actual && !recomendado && "es-actual", className)}>
       {recomendado && <span className="tag">{recomendado}</span>}
-      <H id={idTitulo}>{nombre}</H>
+      <H id={idTitulo}>{icono && <Loseta icono={icono} tono={tono} />}{nombre}</H>
       {para && <div className="para">{para}</div>}
       <div className="precio"><b>{precio}</b><span>{moneda}<br />{periodo}</span></div>
       {equivalencia && <div className="equiv">{equivalencia}</div>}
@@ -38,7 +41,7 @@ export function TarjetaPlan({ nombre, para, precio, moneda = "COP", periodo = "a
   );
 }
 
-/** Leyenda de gráfica: series por VALOR (s1 tinta, s2 tinta-3, s3 trama, s4 contorno; «mal» = excedido/en mora). */
+/** Leyenda de gráfica: cada serie con su color (s1 violeta, s2 azul, s3 verde azulado, s4 ámbar; «mal» = excedido/en mora). */
 export function LeyendaGrafica({ series }: { series: Array<{ nombre: string; serie: "s1" | "s2" | "s3" | "s4" | "mal" }> }) {
   return (
     <div className="k-leyenda">

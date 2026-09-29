@@ -1,15 +1,23 @@
 import Link from "next/link";
+import { CalendarRange, CircleAlert, CircleCheck, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { Cuadro, type TipoEstado } from "./Estado";
+import { estiloDeEstado, type TipoEstado } from "./Estado";
 import { Flecha } from "./Iconos";
+import { Loseta } from "./Loseta";
+import { iconoDeAccion, type Tono } from "./modulos";
 import { unir } from "./util";
 
+const NIVELES: Record<"a" | "b" | "c", { Icono: LucideIcon; tono: Tono }> = {
+  a: { Icono: CircleAlert, tono: "red" },
+  b: { Icono: estiloDeEstado("semana").Icono, tono: "orange" },
+  c: { Icono: CalendarRange, tono: "blue" },
+};
+
 /**
- * Escala de urgencia de Inicio (SPEC §f.6, §i.4). EL TAMAÑO DEL NUMERAL
- * CODIFICA LA URGENCIA: a = vencidas (264 px, --signal) · b = esta semana
- * (184 px) · c = próximos 30 días (118 px). SOLO en Inicio 01.1.
- * Con n = 0 el numeral pasa a --ink-4; usa las leyendas «Nada vencido»,
- * «Semana libre», «Nada en 30 días».
+ * Tarjeta de urgencia de Inicio: ficha de color + número grande + qué significa.
+ * El color CODIFICA la urgencia: a = vencidas (rojo) · b = esta semana (naranja) ·
+ * c = próximos 30 días (azul). Con n = 0 la tarjeta se vuelve verde con ✓ («todo en orden»):
+ * usa leyendas como «Nada vencido», «Semana libre», «Nada en 30 días».
  *
  *   <Urgencias>
  *     <Urgencia nivel="a" n={3} titulo="Vencidas" detalle="Requieren acción hoy" />
@@ -18,15 +26,18 @@ import { unir } from "./util";
  *   </Urgencias>
  */
 export function Urgencia({ nivel, n, titulo, detalle }: { nivel: "a" | "b" | "c"; n: number; titulo: string; detalle?: ReactNode }) {
+  const libre = n === 0;
+  const { Icono, tono } = libre ? { Icono: CircleCheck, tono: "green" as Tono } : NIVELES[nivel];
   return (
-    <h3 className={`k-cubo k-cubo-${nivel}`}>
-      <span className={unir("k-num", n === 0 && "cero")}>{n}</span>
+    <h3 className={`k-cubo k-cubo-${nivel}`} data-h={tono}>
+      <Loseta icono={Icono} tono={tono} />
+      <span className={unir("k-num", libre && "cero")}>{n}</span>
       <span className="cap"><b>{titulo}</b>{detalle && <span>{detalle}</span>}</span>
     </h3>
   );
 }
 
-/** Rejilla de los tres cubos: columnas 5 + 4 + 3 (en móvil, 1,3fr · 1fr · 0,8fr en una fila). */
+/** Rejilla de las tres tarjetas de urgencia (en pantallas estrechas, una debajo de otra). */
 export function Urgencias({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={unir("k-urgencias", className)}>{children}</div>;
 }
@@ -42,8 +53,8 @@ export type DiaTira = {
 };
 
 /**
- * Tira semanal L–D (bajo «Esta semana» en Inicio). Pasados en --ink-3, hoy con
- * recuadro --signal, días con obligaciones en --day-mark con el evento rotulado.
+ * Tira semanal L–D (bajo «Esta semana» en Inicio). Días pasados atenuados, hoy en
+ * violeta, días con obligaciones en naranja con el evento rotulado.
  * Es decorativa (aria-hidden): la lista de debajo lleva la información.
  * Los días con evento se ensanchan (2,5fr) para que quepa el rótulo.
  * Dentro de <ListaObligaciones> pasa `comoItem` (se pinta como <li>).
@@ -63,8 +74,8 @@ export function TiraSemanal({ dias, className, comoItem }: { dias: DiaTira[]; cl
 }
 
 /**
- * Fila de obligación (listas del triaje): cuadro · título 18/650 · cuándo 15/600
- * · copropiedad 14 · verbo específico subrayado a la derecha (Convocar, Renovar…).
+ * Fila de obligación (listas del triaje): ficha de color por urgencia · qué · cuándo
+ * (con el color de su urgencia) · copropiedad · verbo con icono a la derecha (Convocar, Renovar…).
  * Sin `accion`, la fila no lleva verbo (las de 30 días).
  * El verbo necesita un nombre accesible que contenga el texto visible:
  * accion.etiquetaAccesible = «Convocar: Asamblea ordinaria 2026 · Los Pinos».
@@ -79,15 +90,17 @@ export function FilaObligacion({ tipo, que, cuando, donde, accion, href }: {
   /** Solo sin `accion`: la fila entera enlaza aquí (ruta existente). */
   href?: string;
 }) {
+  const { Icono, tono } = estiloDeEstado(tipo);
+  const IconoAccion = accion ? iconoDeAccion(accion.texto).Icono : null;
   return (
-    <li className={unir("k-ob", !accion && "sin-accion")}>
-      <Cuadro tipo={tipo} />
+    <li className={unir("k-ob", !accion && "sin-accion")} data-h={tono}>
+      <Loseta icono={Icono} tono={tono} />
       <span className="que">{!accion && href ? <Link className="k-ob-a" href={href}>{que}</Link> : que}</span>
       <span className="cuando">{cuando}</span>
       {donde && <span className="donde">{donde}</span>}
-      {accion && (
+      {accion && IconoAccion && (
         <Link className="acc" href={accion.href} aria-label={accion.etiquetaAccesible}>
-          {accion.texto} <Flecha />
+          <IconoAccion aria-hidden="true" focusable="false" /> {accion.texto}
         </Link>
       )}
     </li>
@@ -95,8 +108,8 @@ export function FilaObligacion({ tipo, que, cuando, donde, accion, href }: {
 }
 
 /**
- * Lista del triaje (Inicio): <ol> con filete de 2 px y, SOLO en móvil, su
- * encabezado repetido («Vencidas 3») porque los numerales quedan arriba como
+ * Lista del triaje (Inicio): <ol> de filas y, SOLO en móvil, su
+ * encabezado repetido («Vencidas 3») porque las tarjetas quedan arriba como
  * sumario. `etiquetaAccesible` es el nombre de la lista («3 obligaciones vencidas»).
  * Hijos: <FilaObligacion>, <TiraSemanal comoItem> y <MasEnLista>.
  */

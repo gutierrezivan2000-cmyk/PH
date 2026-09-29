@@ -1,10 +1,13 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import { useEffect, useRef, type ComponentProps, type ReactNode } from "react";
+import { Loseta } from "./Loseta";
+import type { Tono } from "./modulos";
 import { unir } from "./util";
 
 /**
- * Casilla (SPEC §f.4). Con `etiqueta`, se envuelve en un <label> de 44 px:
+ * Casilla. Con `etiqueta`, se envuelve en un <label> de 44 px:
  * toda la fila es el área táctil. Sin etiqueta, pasa `aria-label`.
  * `indeterminada` = «seleccionar todas» parcial.
  *
@@ -31,8 +34,8 @@ export function Casilla({
 }
 
 /**
- * Opción (radio). El único elemento redondo del sistema. Agrúpalas en un
- * <fieldset> o en un div con role="radiogroup" y aria-labelledby.
+ * Opción (radio). Agrúpalas en un <fieldset> o en un div con role="radiogroup"
+ * y aria-labelledby.
  */
 export function Opcion({
   etiqueta, detalle, className, ...rest
@@ -46,9 +49,9 @@ export function Opcion({
 }
 
 /**
- * Fila seleccionable de 64 px (SPEC §g 02, paso 1 de Generar): radio + nombre
- * 18/700 + apoyo 14 px (unidades) + dato a la derecha 14 px --ink-3 («último
- * informe: agosto»). La elegida en --hl con recuadro de 2 px; toda la fila es
+ * Fila seleccionable de 68 px (paso 1 de Generar): radio + ficha de icono opcional +
+ * nombre 17/800 + apoyo 14 px (unidades) + dato a la derecha 14 px («último
+ * informe: agosto»). La elegida en violeta con anillo; toda la fila es
  * el área de clic y lleva el anillo de foco. Agrúpalas en <OpcionesFila>.
  *
  *   <OpcionesFila etiquetaAccesible="Copropiedad">
@@ -58,18 +61,19 @@ export function Opcion({
  * Solo datos reales en `detalle` y `extra` (si la API no da unidades, no las pongas).
  */
 export function OpcionFila({
-  etiqueta, detalle, extra, className, ...rest
-}: { etiqueta: ReactNode; detalle?: ReactNode; extra?: ReactNode } & Omit<ComponentProps<"input">, "type">) {
+  etiqueta, detalle, extra, icono, tono, className, ...rest
+}: { etiqueta: ReactNode; detalle?: ReactNode; extra?: ReactNode; icono?: LucideIcon; tono?: Tono } & Omit<ComponentProps<"input">, "type">) {
   return (
-    <label className={unir("k-opfila", className)}>
+    <label className={unir("k-opfila", className)} data-h={tono}>
       <input type="radio" className="k-rad" {...rest} />
+      {icono && <Loseta icono={icono} tono={tono} />}
       <span className="t"><b>{etiqueta}</b>{detalle && <small>{detalle}</small>}</span>
       {extra && <span className="x">{extra}</span>}
     </label>
   );
 }
 
-/** Contenedor de <OpcionFila>: role="radiogroup" con filete de 2 px arriba. */
+/** Contenedor de <OpcionFila>: role="radiogroup". */
 export function OpcionesFila({ etiquetaAccesible, children, className }: { etiquetaAccesible: string; children: ReactNode; className?: string }) {
   return <div role="radiogroup" aria-label={etiquetaAccesible} className={unir("k-opfilas", className)}>{children}</div>;
 }

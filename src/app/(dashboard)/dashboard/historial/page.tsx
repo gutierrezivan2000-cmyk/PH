@@ -1,5 +1,6 @@
 "use client";
 
+import { FileSignature, FileText, Files, Presentation, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { pedirJSON, URL_CALENDARIO, URL_GENERACIONES } from "@/components/dashboard/datosIndice";
@@ -13,7 +14,6 @@ import {
   ErrorCarga,
   Esqueleto,
   Estado,
-  Flecha,
   MenuMas,
   Pagina,
   PieTabla,
@@ -27,6 +27,7 @@ import {
   nombreCorto,
   type ColumnaTabla,
   type ItemMenu,
+  type Tono,
   type TipoEstado,
 } from "@/components/kit";
 
@@ -65,7 +66,7 @@ const TYPE_LABELS: Record<string, string> = {
   presentacion: "Presentación",
 };
 
-// Estado = forma + color + palabra (SPEC §f.8). Los valores salen de Generation.status.
+// Estado = icono + color + palabra. Los valores salen de Generation.status.
 const STATUS_CONFIG: Record<string, { label: string; tipo: TipoEstado }> = {
   completed: { label: "Listo", tipo: "ok" },
   processing: { label: "Procesando", tipo: "enCurso" },
@@ -74,11 +75,11 @@ const STATUS_CONFIG: Record<string, { label: string; tipo: TipoEstado }> = {
 };
 
 type FiltroTipo = "all" | "informe" | "acta" | "presentacion";
-const FILTROS_TIPO: Array<{ id: FiltroTipo; etiqueta: string }> = [
-  { id: "all", etiqueta: "Todos" },
-  { id: "informe", etiqueta: "Con informe" },
-  { id: "acta", etiqueta: "Con acta" },
-  { id: "presentacion", etiqueta: "Con presentación" },
+const FILTROS_TIPO: Array<{ id: FiltroTipo; etiqueta: string; icono: LucideIcon; tono: Tono }> = [
+  { id: "all", etiqueta: "Todos", icono: Files, tono: "slate" },
+  { id: "informe", etiqueta: "Con informe", icono: FileText, tono: "blue" },
+  { id: "acta", etiqueta: "Con acta", icono: FileSignature, tono: "indigo" },
+  { id: "presentacion", etiqueta: "Con presentación", icono: Presentation, tono: "amber" },
 ];
 const ETIQUETA_ESTADO: Record<string, string> = {
   all: "Todos los estados",
@@ -137,12 +138,12 @@ const CSS = `
   .hist-fecha { font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--ink-2); }
   .hist-doc { display: grid; gap: 7px; min-width: 0; padding: 12px 0; }
   .hist-doc .tipos { display: flex; flex-wrap: wrap; gap: 6px; }
-  .hist-doc .t { font-size: 16px; font-weight: 650; line-height: 1.25; color: var(--ink); overflow-wrap: anywhere; }
+  .hist-doc .t { font-size: 16px; font-weight: 800; line-height: 1.25; color: var(--ink); overflow-wrap: anywhere; }
   .hist-prop { font-size: 15px; font-weight: 500; line-height: 1.3; color: var(--ink); overflow-wrap: anywhere; }
   .hist-per { font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--ink-2); }
   .hist-per .rot { display: none; }
   .hist-grupo { display: flex; align-items: baseline; gap: 10px; }
-  .hist-grupo small { font-size: 15px; font-weight: 600; font-stretch: 100%; letter-spacing: 0; color: var(--ink-3); }
+  .hist-grupo small { display: inline-grid; place-items: center; min-width: 28px; height: 26px; padding: 0 9px; border-radius: 999px; font-size: 13.5px; font-weight: 800; color: var(--ink); background: var(--surface-3); }
   .hist-nota { margin: 10px 0 0; font-size: 14px; color: var(--ink-3); }
   /* 861–1180 px: la acción de fila baja bajo el documento para que las columnas respiren (SPEC §e.1). */
   @media (min-width: 861px) and (max-width: 1180px) {
@@ -347,7 +348,6 @@ export default function HistorialPage() {
           <AccionesFila>
             <BotonFila href={`/dashboard/generar/${g.id}`} aria-label={`${verbo}: ${nombre}`}>
               {verbo}
-              <Flecha />
             </BotonFila>
             {items.length > 0 && <MenuMas etiquetaAccesible={`Más acciones · ${nombre}`} items={items} />}
           </AccionesFila>
@@ -441,7 +441,7 @@ export default function HistorialPage() {
       {cornisa.length > 0 && <Cornisa copropiedades={cornisa} valor={elegida ? alcance : "todas"} alCambiar={setAlcance} />}
       <Pagina>
         <Pieza>
-          <CabeceraPieza nn="13" titulo="Historial" subtitulo={subtitulo} />
+          <CabeceraPieza titulo="Historial" subtitulo={subtitulo} />
 
           {loading ? (
             <Esqueleto variante="tabla" filas={6} etiquetaAccesible="Cargando el historial…" />
@@ -466,6 +466,8 @@ export default function HistorialPage() {
                     items={FILTROS_TIPO.map((f) => ({
                       id: f.id,
                       etiqueta: f.etiqueta,
+                      icono: f.icono,
+                      tono: f.tono,
                       conteo: baseTipo.filter((g) => pasaTipo(g, f.id)).length,
                     }))}
                   />

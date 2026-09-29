@@ -6,7 +6,7 @@ export const metadata = {
   description: "Gestión de portafolio de propiedades para empresas administradoras",
 };
 
-// data-shell="app" activa los tokens y la tipografía «Índice» (globals.css, :root:has(…)).
+// data-shell="app" activa los tokens y la tipografía «Guía» (globals.css, :root:has(…)).
 export default function EmpresaRootLayout({ children }: { children: React.ReactNode }) {
   return (
     <div data-shell="app" className="min-h-screen bg-background text-foreground">

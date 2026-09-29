@@ -1,5 +1,6 @@
 "use client";
 
+import { Building2, CircleArrowUp, Crown, Rocket, type LucideIcon } from "lucide-react";
 import { useState, useCallback, useEffect, type ReactNode } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { UsageCard, estadoDelPlan, suscripcionNoVigente, type UsageData } from "@/components/dashboard/UsageCard";
@@ -16,6 +17,7 @@ import {
   Reticula,
   TarjetaPlan,
   type AgenteId,
+  type Tono,
 } from "@/components/kit";
 import Script from "next/script";
 
@@ -34,6 +36,13 @@ declare global {
 }
 
 type PlanId = "pro" | "business" | "elite";
+
+/** Cada plan con su icono y color: 🚀 Pro azul · 🏢 Business violeta · 👑 Élite ámbar. */
+const PLAN_VISUAL: Record<PlanId, { icono: LucideIcon; tono: Tono }> = {
+  pro: { icono: Rocket, tono: "blue" },
+  business: { icono: Building2, tono: "violet" },
+  elite: { icono: Crown, tono: "amber" },
+};
 
 const PLAN_CARDS: {
   id: PlanId;
@@ -242,7 +251,7 @@ export default function SuscripcionPage() {
 
       <Pagina>
         <Pieza>
-          <CabeceraPieza nn="14" titulo="Suscripción" subtitulo={subtitulo} />
+          <CabeceraPieza titulo="Suscripción" subtitulo={subtitulo} />
 
           {IS_DEMO && (
             <div style={{ marginBottom: 24 }}>
@@ -274,7 +283,8 @@ export default function SuscripcionPage() {
               const boton = (
                 <Boton
                   variante={plan.featured ? "primario" : "secundario"}
-                  flecha="avanza"
+                  icono={plan.id === "pro" ? undefined : CircleArrowUp}
+                  tono={plan.id === "pro" ? undefined : "violet"}
                   onClick={() => handleSubscribe(plan.id)}
                   disabled={IS_DEMO || (loadingPlan !== null && !isLoading)}
                   cargando={isLoading}
@@ -311,6 +321,8 @@ export default function SuscripcionPage() {
                   <TarjetaPlan
                     id={`plan-${plan.id}`}
                     nombre={plan.label}
+                    icono={PLAN_VISUAL[plan.id].icono}
+                    tono={PLAN_VISUAL[plan.id].tono}
                     para={plan.tagline}
                     precio={plan.priceCop}
                     equivalencia={plan.usd}

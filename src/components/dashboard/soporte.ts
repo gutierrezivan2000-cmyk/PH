@@ -4,8 +4,8 @@ import { useSyncExternalStore } from "react";
 
 /* ════════════════════════════════════════════════════════════════════
    Chat de soporte (ChatBot): quién lo abre y si está disponible.
-   El rediseño «Índice» no tiene botones flotantes (SPEC §f): el panel se
-   abre desde la entrada «Soporte» del índice (y del colofón de Inicio).
+   El rediseño «Guía» no tiene botones flotantes (SPEC §f): el panel se
+   abre desde la entrada «Ayuda y soporte» del menú (y del colofón de Inicio).
    El panel lo monta el layout del dashboard; si no está montado (chat de un
    agente, sin sesión), la entrada no se muestra.
    ════════════════════════════════════════════════════════════════════ */
@@ -29,7 +29,7 @@ export function abrirSoporte() {
   emitir();
 }
 
-/** Cierra el panel y devuelve el foco a quien lo abrió (o, si ya no se ve, al botón «Índice» del dock). */
+/** Cierra el panel y devuelve el foco a quien lo abrió (o, si ya no se ve, al botón «Guía» del dock). */
 export function cerrarSoporte() {
   if (!abierto) return;
   abierto = false;
@@ -38,7 +38,7 @@ export function cerrarSoporte() {
   origen = null;
   requestAnimationFrame(() => {
     // En móvil el origen suele quedar dentro del índice ya cerrado (oculto): ahí no
-    // se puede enfocar y el foco va al botón «Índice» del dock, que lo abre.
+    // se puede enfocar y el foco va al botón «Guía» del dock, que lo abre.
     if (destino?.isConnected) destino.focus();
     if (document.activeElement !== destino) document.querySelector<HTMLElement>(".k-dock button[aria-haspopup]")?.focus();
   });

@@ -1,24 +1,21 @@
 "use client";
 
+import { Mic } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Boton } from "@/components/kit";
 
-/* Estilos locales («Índice»): la grabadora vive en la fila de herramientas del
-   redactor del chat (`.k-redactor .herr`), cuyos botones ya son de texto a 40 px
-   (44 en móvil). Aquí solo el estado «grabando»: cuadro de tinta + tiempo con
-   cifras tabulares + onda en --ink. Nada de rojo: el naranja del sistema solo
-   significa vencido, error u hoy. */
+/* Estilos locales («Guía»): la grabadora vive en la fila de herramientas del
+   redactor del chat (`.k-redactor .herr`), cuyos botones ya llevan icono y texto.
+   Aquí solo el estado «grabando»: píldora roja con punto que late, onda y tiempo. */
 const CSS_GRABADORA = `
 .grab { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
-.grab-vivo { display: inline-flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px;
-  border: 1.5px solid var(--rule); font-size: 14px; font-weight: 700; color: var(--ink); }
-.grab-vivo > i { width: 10px; height: 10px; flex: none; background: var(--ink); }
-.grab-vivo canvas { width: 88px; height: 20px; color: var(--ink); }
-.grab-vivo time { font: 600 14px/1 var(--f-mono); font-feature-settings: "tnum" 1; }
-.grab-btn { display: inline-flex; align-items: center; min-height: 40px; padding: 0; font-size: 14px; font-weight: 700;
-  color: var(--ink); background: transparent; cursor: pointer; }
-.grab-btn:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
-.grab-btn:disabled { color: var(--ink-3); cursor: not-allowed; text-decoration: none; }
+.grab-vivo { display: inline-flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 16px 0 14px; border-radius: 999px;
+  border: 1.5px solid var(--c-red-line); background: var(--c-red-soft); font-size: 14px; font-weight: 800; color: var(--ink); }
+.grab-vivo > i { width: 10px; height: 10px; flex: none; border-radius: 50%; background: var(--danger); }
+.grab-vivo canvas { width: 88px; height: 20px; color: var(--danger-text); }
+.grab-vivo time { font: 800 14px/1 var(--f-sans); font-feature-settings: "tnum" 1; }
+.grab-btn svg { width: 18px; height: 18px; flex: none; }
+.grab-btn:disabled { color: var(--ink-3); cursor: not-allowed; }
 @media (prefers-reduced-motion: no-preference) {
   .grab-vivo > i { animation: grab-pulso 1.2s ease-in-out infinite alternate; }
 }
@@ -267,7 +264,7 @@ export function AudioRecorder({ onRecorded, disabled, maxSeconds = 300 }: AudioR
         <Boton variante="fantasma" tam={40} onClick={cancelRecording}>
           Cancelar
         </Boton>
-        <Boton variante="secundario" tam={40} onClick={stopRecording} aria-label="Terminar la grabación y adjuntarla">
+        <Boton variante="secundario" tam={40} tono="green" onClick={stopRecording} aria-label="Terminar la grabación y adjuntarla">
           Terminar
         </Boton>
       </span>
@@ -284,6 +281,7 @@ export function AudioRecorder({ onRecorded, disabled, maxSeconds = 300 }: AudioR
         title="Grabar una nota de voz"
         type="button"
       >
+        <Mic aria-hidden="true" focusable="false" />
         Grabar audio
       </button>
       {error && (

@@ -1,5 +1,6 @@
 "use client";
 
+import { CircleAlert, CircleCheck, LoaderCircle } from "lucide-react";
 import { useEffect, useState, useRef, useCallback, type ReactNode } from "react";
 import { useParams } from "next/navigation";
 import { Header } from "@/components/dashboard/Header";
@@ -132,7 +133,7 @@ const CSS_RESULTADO = `
 .res-doc.error .t > .d { color: var(--ink); }
 .res-doc.error > .k-tipo { color: var(--danger-text); }
 .res-cifra { margin: 0; display: flex; align-items: flex-end; gap: 12px; }
-.res-cifra > b { font-size: 48px; font-weight: 800; font-stretch: 62%; letter-spacing: -.03em; line-height: .8;
+.res-cifra > b { font-size: 48px; font-weight: 800; letter-spacing: -.03em; line-height: .8;
   font-feature-settings: "tnum" 0, "lnum" 1; }
 .res-cifra > span { font-size: 15px; line-height: 1.25; color: var(--ink-2); }
 .res-lado .k-aviso { margin-top: 20px; }
@@ -147,7 +148,7 @@ const CSS_RESULTADO = `
 .res-corr .enviar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 20px; }
 .res-corr .enviar p { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink-3); overflow-wrap: anywhere; }
 .res-corr .enviar p:empty { display: none; }
-.res-nav { display: flex; flex-wrap: wrap; gap: 10px; border-top: 2px solid var(--rule); padding-top: 20px; }
+.res-nav { display: flex; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--line-strong); padding-top: 20px; }
 @media (max-width: 860px) {
   .res-fila { margin-bottom: 40px; }
   .res-lado { margin-top: 28px; }
@@ -338,9 +339,10 @@ export default function JobResultPage() {
       <Pagina>
         <Pieza>
           <CabeceraPieza
-            nn="02"
             titulo={isCompleted ? "Documentos listos." : isFailed ? "Error en la generación" : "Generando…"}
             subtitulo={subtitulo}
+            icono={isCompleted ? CircleCheck : isFailed ? CircleAlert : LoaderCircle}
+            tono={isCompleted ? "green" : isFailed ? "red" : "blue"}
           />
 
           {/* ── Procesando ── */}

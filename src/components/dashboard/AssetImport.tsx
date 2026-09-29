@@ -38,15 +38,15 @@ function errorForStatus(status: number): string {
 
 /* Estilos locales (el kit no trae la revisión de filas importadas). Solo tokens. */
 const CSS_IMPORT = `
-.ai-leyendo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 14px 0 0; padding: 12px 0; border-top: 2px solid var(--rule); border-bottom: 1px solid var(--line); }
+.ai-leyendo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 14px 0 0; padding: 12px 0; border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line); }
 .ai-leyendo b { font-size: 15px; font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; min-width: 0; }
 .ai-err { margin: 12px 0 0; }
-.ai-prev { border-top: 2px solid var(--rule); padding-top: 12px; }
+.ai-prev { border-top: 1px solid var(--line-strong); padding-top: 12px; }
 .ai-prev-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
-.ai-prev-h h3 { margin: 0; font-size: 22px; font-weight: 800; font-stretch: 75%; letter-spacing: -.01em; line-height: 1.05; }
+.ai-prev-h h3 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.01em; line-height: 1.05; }
 .ai-prev-h p { margin: 0; font-size: 14px; line-height: 1.35; color: var(--ink-2); }
 .ai-cab, .ai-fila { display: grid; grid-template-columns: minmax(0, 1fr) 176px 188px auto; column-gap: 16px; }
-.ai-cab { margin-top: 14px; padding: 9px 8px 8px; border-top: 2px solid var(--rule); border-bottom: 2px solid var(--rule); font: 500 12px/1.2 var(--f-mono); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); }
+.ai-cab { margin-top: 14px; padding: 9px 8px 8px; border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); font: 500 12px/1.2 var(--f-mono); letter-spacing: .05em; color: var(--ink-2); }
 .ai-cab > span:last-child { min-width: 72px; }
 .ai-filas { list-style: none; margin: 0; padding: 0; max-height: 480px; overflow-y: auto; }
 .ai-fila { align-items: center; padding: 10px 8px; border-bottom: 1px solid var(--line); }

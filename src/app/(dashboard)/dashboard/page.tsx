@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarClock, CalendarDays, FileSignature, FileText, FolderCheck, MousePointerClick, Sparkles } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -9,6 +10,8 @@ import { pedirJSON, URL_CALENDARIO, URL_GENERACIONES } from "@/components/dashbo
 import { abrirSoporte, useSoporteDisponible } from "@/components/dashboard/soporte";
 import { AGENT_IDS, INCLUDED_AGENT_IDS, COMING_SOON_AGENT_IDS } from "@/lib/agents";
 import {
+  Acceso,
+  Accesos,
   Boton,
   Colofon,
   Cornisa,
@@ -20,6 +23,8 @@ import {
   FilaObligacion,
   FranjaPreparacion,
   ListaObligaciones,
+  Loseta,
+  MODULOS,
   MasEnLista,
   Pagina,
   RotuloIA,
@@ -310,107 +315,92 @@ const ocultarSugerencia = () => {
 };
 
 /* ════════════════════════════════════════════════════════════════════
-   Estilos locales de Inicio (el kit no trae saludo, sugerencia ni matriz)
+   Estilos locales de Inicio (el kit no trae saludo, sugerencia ni fichas por copropiedad)
    ════════════════════════════════════════════════════════════════════ */
 
 const CSS_INICIO = `
-.ini-saludo { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); align-items: end; padding: 26px 0; }
-.ini-saludo-t { grid-column: 1 / 8; min-width: 0; }
-.ini-fecha { margin: 0; font-size: 15px; font-weight: 500; line-height: 1.35; color: var(--ink-2); }
-.ini-fecha b { color: var(--ink); font-weight: 700; }
-.ini-saludo .k-h1 { margin-top: 8px; text-wrap: balance; }
-.ini-saludo .ini-h1-esq { margin-top: 12px; gap: 8px; max-width: 560px; }
-.ini-saludo .ini-h1-esq i { height: 48px; width: 88%; }
-.ini-saludo .ini-h1-esq i + i { width: 56%; }
-.ini-sug { grid-column: 8 / 13; min-width: 0; padding-bottom: 4px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; }
-.ini-sug > .p, .ini-sug > .acc, .ini-sug > .n { grid-column: 1 / -1; }
-.ini-sug p { margin: 0; font-size: 16px; line-height: 1.4; color: var(--ink-2); text-wrap: pretty; }
-.ini-sug p strong { color: var(--ink); font-weight: 700; }
-.ini-sug > .p { margin-top: 6px; }
-.ini-sug > .acc { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-top: 12px; }
-.ini-sug > .n { margin-top: 8px; font-size: 13px; color: var(--ink-3); }
-.ini-inicio sup { font-size: 12px; line-height: 0; font-weight: 600; }
+.ini-hero { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 430px); gap: 20px 32px; align-items: center; margin-bottom: 30px; padding: 30px 34px; overflow: hidden;
+  border-radius: 32px; border: 1px solid var(--line); box-shadow: var(--sh-1);
+  background: radial-gradient(90% 160% at 0% 0%, rgb(var(--accent-rgb) / .17), transparent 60%), radial-gradient(60% 120% at 100% 100%, rgb(var(--accent-rgb) / .08), transparent 70%), var(--surface-1); }
+.ini-hero:not(:has(.ini-sug)) { grid-template-columns: minmax(0, 1fr); }
+.ini-saludo-t { min-width: 0; }
+.ini-fecha { margin: 0; font-size: 16px; font-weight: 500; line-height: 1.4; color: var(--ink-2); }
+.ini-fecha b { color: var(--ink); font-weight: 800; }
+.ini-hero .k-h1 { margin-top: 10px; font-size: 38px; line-height: 1.1; letter-spacing: -.03em; text-wrap: balance; }
+.ini-hero .ini-h1-esq { margin-top: 14px; gap: 10px; max-width: 560px; }
+.ini-hero .ini-h1-esq i { height: 34px; width: 88%; }
+.ini-hero .ini-h1-esq i + i { width: 56%; }
+.ini-sug { min-width: 0; display: grid; gap: 10px; padding: 20px 22px 20px; border-radius: 24px; background: var(--surface-1); border: 1.5px solid var(--c-ai-line); box-shadow: var(--sh-1); }
+.ini-sug > .top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ini-sug p { margin: 0; font-size: 16px; line-height: 1.45; color: var(--ink-2); text-wrap: pretty; }
+.ini-sug p strong { color: var(--ink); font-weight: 800; }
+.ini-sug > .acc { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-top: 4px; }
+.ini-sug > .n { font-size: 13px; color: var(--ink-3); }
+.ini-inicio sup { font-size: 12px; line-height: 0; font-weight: 700; }
 
-.ini-listas { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); margin-top: 16px; align-items: start; }
-.ini-listas > .a { grid-column: 1 / 6; }
-.ini-listas > .b { grid-column: 6 / 10; }
-.ini-listas > .c { grid-column: 10 / 13; }
+.ini-tira { margin-top: 16px; padding: 18px 20px 20px; border-radius: 26px; background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.ini-tira > h3 { margin: 0 0 14px; display: flex; align-items: center; gap: 12px; font: 800 18px/1.2 var(--f-sans); letter-spacing: -.01em; }
+.ini-tira > h3 small { font: 500 14.5px/1.3 var(--f-sans); letter-spacing: 0; color: var(--ink-3); }
+.ini-listas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: var(--g); margin-top: 16px; align-items: start; }
+.ini-listas .k-ob { grid-template-columns: 44px minmax(0, 1fr); padding: 13px 14px; }
+.ini-listas .k-ob > .ico { --t: 44px; }
+.ini-listas .k-ob > .acc { grid-column: 2; grid-row: auto; justify-self: start; margin: 8px 0 0; }
 
-.ini-mes { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); align-items: end; margin-bottom: 22px; }
-.ini-mes-t { grid-column: 1 / 8; margin: 0; text-wrap: balance; }
-.ini-mes-t span { color: var(--ink-3); }
-.ini-mes-n { grid-column: 8 / 13; margin: 0; font-size: 15px; line-height: 1.4; color: var(--ink-2); text-wrap: pretty; }
-.ini-matriz { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); border-top: 2px solid var(--rule); }
-.ini-mf { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; min-height: 76px; padding: 12px 0; border-bottom: 1px solid var(--line); }
-.ini-mf > * { min-width: 0; }
-.ini-mf.h { min-height: 0; padding: 10px 0 9px; border-bottom: 2px solid var(--rule); font: 500 12px/1.2 var(--f-mono); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); }
-.ini-mf > .c { grid-column: 1 / 5; }
-.ini-mf > .i { grid-column: 5 / 8; }
-.ini-mf > .a { grid-column: 8 / 11; }
-.ini-mf > .x { grid-column: 11 / 13; justify-self: end; }
-.ini-mf > .c b { display: block; font-size: 18px; font-weight: 700; line-height: 1.2; letter-spacing: -.005em; }
-.ini-mf small { display: block; margin-top: 3px; font-size: 14px; line-height: 1.3; color: var(--ink-3); }
-.ini-mf .lbl { display: none; }
-.ini-mf:not(.h):hover { background: var(--hl); box-shadow: calc(var(--g) / -2) 0 0 var(--hl), calc(var(--g) / 2) 0 0 var(--hl); }
-.ini-mpie { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px 20px; padding: 18px 0 0; }
-.ini-mpie .tot { margin: 0; display: flex; align-items: flex-end; gap: 14px; min-width: 0; }
-.ini-mpie .tot > b { font-size: 48px; font-weight: 800; font-stretch: 62%; line-height: .8; letter-spacing: -.03em; }
-.ini-mpie .tot > span { font-size: 15px; line-height: 1.3; color: var(--ink-2); }
-.ini-mpie .tot strong { color: var(--ink); font-weight: 700; }
-.ini-mpie .tot a { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
-.ini-mpie .tot a:hover { background: var(--hl); }
-.ini-mpie .fallo { font-size: 15px; color: var(--ink-2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ini-mes { display: grid; gap: 8px; margin-bottom: 20px; }
+.ini-mes-t { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -.025em; line-height: 1.15; text-wrap: balance; }
+.ini-mes-t span { color: var(--accent-text); }
+.ini-mes-n { margin: 0; max-width: 70ch; font-size: 15.5px; line-height: 1.45; color: var(--ink-2); text-wrap: pretty; }
+.ini-props { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 430px), 1fr)); gap: var(--g); }
+.ini-prop { display: flex; flex-direction: column; min-width: 0; padding: 20px 22px 18px; border-radius: 28px; background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.ini-prop > .cab { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.ini-prop > .cab b { display: block; font-size: 18px; font-weight: 800; line-height: 1.25; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.ini-prop > .cab small { display: block; margin-top: 2px; font-size: 14px; color: var(--ink-3); }
+.ini-doc { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; column-gap: 14px; padding: 14px 0; border-top: 1px solid var(--line); }
+.ini-doc:first-of-type { margin-top: 16px; }
+.ini-doc > .n { min-width: 0; }
+.ini-doc > .n b { display: block; font-size: 15.5px; font-weight: 800; line-height: 1.25; }
+.ini-doc > .n small { display: block; margin-top: 3px; font-size: 13.5px; line-height: 1.3; color: var(--ink-3); }
+.ini-prop > .pie { margin-top: auto; padding-top: 16px; display: flex; justify-content: flex-end; border-top: 1px solid var(--line); }
+.ini-mpie { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px 20px; margin-top: 22px; padding: 16px 20px; border-radius: 24px; background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.ini-mpie .tot { margin: 0; display: flex; align-items: center; gap: 16px; min-width: 0; }
+.ini-mpie .tot > b { font-size: 40px; font-weight: 800; line-height: 1; letter-spacing: -.03em; font-feature-settings: "tnum" 1; }
+.ini-mpie .tot > span { font-size: 15px; line-height: 1.35; color: var(--ink-2); }
+.ini-mpie .tot strong { color: var(--ink); font-weight: 800; }
+.ini-mpie .tot a { color: var(--accent-text); font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.ini-mpie .fallo { margin: 0; font-size: 15px; color: var(--ink-2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ini-mpie .k-esq { width: 320px; max-width: 100%; }
 .ini-mpie .k-esq i { height: 18px; }
 
-.ini-agentes { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); row-gap: 12px; }
-.ini-agentes > * { grid-column: span 6; }
+.ini-agentes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g); }
 .ini-inicio .k-prep { margin-top: 16px; }
 .ini-vacio { margin-bottom: 56px; }
 .ini-inicio .k-colofon button { position: relative; padding: 0; font: inherit; color: var(--ink-2); background: none; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .ini-inicio .k-colofon button::after { content: ""; position: absolute; inset: -10px -4px; }
 
 @media (max-width: 1180px) {
-  .ini-mes-t { grid-column: 1 / -1; font-size: 36px; }
-  .ini-mes-n { grid-column: 1 / -1; margin-top: 10px; }
-  .ini-mf { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr) 136px; column-gap: 16px; }
-  .ini-mf > * { grid-column: auto !important; }
-}
-@media (max-width: 1060px) and (min-width: 861px) {
-  .ini-saludo-t { grid-column: 1 / -1; }
-  .ini-sug { grid-column: 1 / -1; margin-top: 18px; padding: 14px 0 0; border-top: 1px solid var(--line); }
+  .ini-hero { grid-template-columns: minmax(0, 1fr); }
+  .ini-listas { grid-template-columns: minmax(0, 1fr); row-gap: 22px; }
+  .ini-agentes { grid-template-columns: minmax(0, 1fr); }
 }
 @media (min-width: 861px) and (max-height: 820px) {
-  .ini-saludo { padding: 16px 0 18px; }
-  .ini-saludo-t { grid-column: 1 / -1; }
-  .ini-sug { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 12px; padding-bottom: 0; }
-  .ini-sug > .p, .ini-sug > .n { display: none; }
-  .ini-sug > .acc { order: 2; margin: 0; }
-  .ini-sug > .k-fan { order: 3; }
-  .ini-listas { margin-top: 12px; }
+  .ini-hero { padding: 22px 28px; margin-bottom: 22px; }
+  .ini-hero .k-h1 { font-size: 32px; }
 }
 @media (max-width: 860px) {
-  .ini-saludo { display: block; padding: 22px 0 24px; }
-  .ini-fecha { font-size: 14px; }
-  .ini-sug { margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--line); }
-  .ini-sug > .p, .ini-sug > .n { display: none; }
-  .ini-sug > .acc { margin-top: 6px; }
+  .ini-hero { padding: 20px 18px 22px; border-radius: 26px; margin-bottom: 22px; }
+  .ini-hero .k-h1 { font-size: 27px; }
+  .ini-fecha { font-size: 14.5px; }
+  .ini-sug { padding: 16px 16px 18px; border-radius: 20px; }
   .ini-sug > .acc .k-btn { flex: 1 1 100%; min-height: 48px; }
-  .ini-listas { display: block; margin-top: 8px; }
-  .ini-listas > .k-obs { margin-top: 26px; }
-  .ini-mes { display: block; }
-  .ini-mes-t { font-size: 32px; }
-  .ini-matriz { display: block; }
-  .ini-mf.h { display: none; }
-  .ini-mf { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; padding: 16px 0; align-items: start; }
-  .ini-mf > .c, .ini-mf > .x { grid-column: 1 / -1 !important; }
-  .ini-mf > .x { justify-self: stretch; }
-  .ini-mf > .x .k-btn { width: 100%; min-height: 48px; }
-  .ini-mf:not(.h):hover { box-shadow: -8px 0 0 var(--hl), 8px 0 0 var(--hl); }
-  .ini-mf .lbl { display: block; margin-bottom: 4px; font-size: 13px; color: var(--ink-3); }
-  .ini-mpie { flex-direction: column; align-items: flex-start; gap: 12px; }
-  .ini-agentes { display: block; }
-  .ini-agentes > * + * { margin-top: 12px; }
+  .ini-listas { margin-top: 12px; }
+  .ini-mes-t { font-size: 23px; }
+  .ini-props { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .ini-prop { padding: 16px 16px 14px; border-radius: 24px; }
+  .ini-doc { grid-template-columns: 40px minmax(0, 1fr); row-gap: 8px; }
+  .ini-doc > .k-estado { grid-column: 2; justify-self: start; }
+  .ini-prop > .pie .k-btn { width: 100%; min-height: 48px; }
+  .ini-mpie { flex-direction: column; align-items: flex-start; gap: 12px; padding: 16px; }
+  .ini-tira { padding: 14px 12px 16px; }
   .ini-inicio .k-colofon button { padding: 12px 0; }
 }
 `;
@@ -676,7 +666,7 @@ export default function DashboardPage() {
     } else if (enCurso) {
       informe = { tipo: "enCurso", palabra: "En curso", detalle: `Iniciado el ${fecha(enCurso)}` };
       accion = (
-        <Boton variante="secundario" flecha="avanza" href={`/dashboard/generar/${enCurso.id}`} ancho="movil"
+        <Boton variante="secundario" href={`/dashboard/generar/${enCurso.id}`} ancho="movil"
           aria-label={`Ver progreso de la generación de ${p.name}`}>
           Ver progreso
         </Boton>
@@ -687,7 +677,7 @@ export default function DashboardPage() {
     } else if (fallida) {
       informe = { tipo: "vencido", palabra: "Error", detalle: `Falló el ${fecha(fallida)}` };
       accion = (
-        <Boton variante="secundario" flecha="avanza" href={`/dashboard/generar/${fallida.id}`} ancho="movil"
+        <Boton variante="secundario" href={`/dashboard/generar/${fallida.id}`} ancho="movil"
           aria-label={`Ver el error de la generación de ${p.name}`}>
           Ver el error
         </Boton>
@@ -696,8 +686,8 @@ export default function DashboardPage() {
       const vence = itemInforme && hoy ? `Vence el ${fechaCorta(aFecha(itemInforme.dueDate), hoy)}` : "Sin generar";
       informe = { tipo: "pendiente", palabra: "Pendiente", detalle: vence };
       accion = (
-        <Boton flecha="avanza" href="/dashboard/generar" ancho="movil" aria-label={`Generar el informe de ${mes} de ${p.name}`}>
-          Generar
+        <Boton href="/dashboard/generar" ancho="movil" aria-label={`Generar el informe de ${mes} de ${p.name}`}>
+          Generar informe
         </Boton>
       );
     }
@@ -749,7 +739,7 @@ export default function DashboardPage() {
 
       <Pagina>
         {/* ── saludo: el titular RESPONDE la pregunta del día ─────────── */}
-        <section className="ini-saludo" aria-label="Resumen del día">
+        <section className="ini-hero" aria-label="Resumen del día">
           <div className="ini-saludo-t">
             <p className="ini-fecha">
               <b>{firstName ? `${saludo}, ${firstName}.` : `${saludo}.`}</b> {lineaFecha}
@@ -763,15 +753,17 @@ export default function DashboardPage() {
 
           {mostrarSugerencia && gemelas && (
             <div className="ini-sug">
-              <RotuloIA>Pídeselo a Themis</RotuloIA>
-              <Boton variante="fantasma" onClick={ocultarSugerencia}>Ahora no</Boton>
-              <p className="p">
+              <div className="top">
+                <RotuloIA>Pídeselo a Themis</RotuloIA>
+                <Boton variante="fantasma" tam={40} onClick={ocultarSugerencia}>Ahora no</Boton>
+              </div>
+              <p>
                 Themis puede redactar las convocatorias de{" "}
                 {enumerar(gemelas.map((it) => <strong key={it.propertyId + it.key}>{nombreCorto(it.propertyName)}</strong>))}
                 . Deben enviarse con al menos 15 días calendario de antelación<sup>1</sup>.
               </p>
               <div className="acc">
-                <Boton href={THEMIS} flecha="avanza">Redactar con Themis</Boton>
+                <Boton href={THEMIS} icono={Sparkles} tono="ai">Redactar con Themis</Boton>
               </div>
               <p className="n"><sup>1</sup> Ley 675 de 2001, art. 39.</p>
             </div>
@@ -783,17 +775,32 @@ export default function DashboardPage() {
             className="ini-vacio"
             titulo="Aún no tienes copropiedades."
             texto="Agrega la primera con su nombre y dirección: con ella SOPH.IA arma tu bitácora de obligaciones y los informes de cada mes."
-            acciones={<Boton href="/dashboard/propiedades" flecha="avanza">Agregar copropiedad</Boton>}
+            acciones={<Boton href="/dashboard/propiedades" flecha="crea">Agregar copropiedad</Boton>}
           />
         ) : (
           <>
-            {/* ── 01.1 VENCIMIENTOS: la escala del numeral codifica la urgencia ── */}
+            {/* ── ¿QUÉ QUIERES HACER?: las cuatro tareas de siempre, a un clic ── */}
+            <Seccion id="s0" titulo="¿Qué quieres hacer?" icono={MousePointerClick} tono="violet">
+              <Accesos>
+                <Acceso href={MODULOS.generar.href} icono={MODULOS.generar.icono} tono={MODULOS.generar.tono}
+                  titulo="Generar informe o acta" texto="En cinco pasos." />
+                <Acceso href={MODULOS.bitacora.href} icono={MODULOS.bitacora.icono} tono={MODULOS.bitacora.tono}
+                  titulo="Ver mis vencimientos" texto="Pólizas y plazos legales." />
+                <Acceso href={MODULOS.asistente.href} icono={MODULOS.asistente.icono} tono={MODULOS.asistente.tono}
+                  titulo="Preguntar a un agente" texto="Themis y Chronos." />
+                <Acceso href={MODULOS.historial.href} icono={MODULOS.historial.icono} tono={MODULOS.historial.tono}
+                  titulo="Ver mis documentos" texto="Lo que ya generaste." />
+              </Accesos>
+            </Seccion>
+
+            {/* ── VENCIMIENTOS: el color de cada tarjeta dice la urgencia ── */}
             <Seccion
               id="s11"
-              numero="01.1"
               titulo="Vencimientos"
-              nota="ordenados por urgencia"
-              enlace={{ href: BITACORA, texto: "Abrir bitácora", refIndice: "03" }}
+              nota="lo más urgente primero"
+              icono={CalendarClock}
+              tono="orange"
+              enlace={{ href: BITACORA, texto: "Abrir bitácora" }}
             >
               {errorCalendario ? (
                 <ErrorCarga
@@ -822,6 +829,11 @@ export default function DashboardPage() {
                     />
                   </Urgencias>
 
+                  <div className="ini-tira">
+                    <h3><Loseta icono={CalendarDays} tono="violet" tam={36} />Tu semana</h3>
+                    <TiraSemanal dias={dias} />
+                  </div>
+
                   <div className="ini-listas">
                     <ListaObligaciones
                       className="a"
@@ -841,7 +853,6 @@ export default function DashboardPage() {
                       conteo={semana.length}
                       etiquetaAccesible={semana.length === 1 ? "1 obligación esta semana" : `${semana.length} obligaciones esta semana`}
                     >
-                      <TiraSemanal comoItem dias={dias} />
                       {semana.slice(0, 3).map((x) => fila(x, "semana"))}
                       {semana.length > 3 && (
                         <MasEnLista href={BITACORA}>{semana.length - 3} más en la bitácora</MasEnLista>
@@ -877,13 +888,14 @@ export default function DashboardPage() {
               )}
             </Seccion>
 
-            {/* ── 01.2 INFORMES Y ACTAS DEL MES: copropiedad × documento ── */}
+            {/* ── INFORMES Y ACTAS DEL MES: una tarjeta por copropiedad ── */}
             <Seccion
               id="s12"
-              numero="01.2"
               titulo={mes ? `Informes y actas de ${mes}` : "Informes y actas del mes"}
-              nota="flujo principal"
-              enlace={{ href: "/dashboard/generar", texto: "Ir a Generar", refIndice: "02" }}
+              nota="lo que toca cada mes"
+              icono={FileText}
+              tono="blue"
+              enlace={{ href: "/dashboard/generar", texto: "Ir a Generar" }}
             >
               {errorCalendario ? (
                 <ErrorCarga
@@ -897,7 +909,7 @@ export default function DashboardPage() {
               ) : (
                 <>
                   <div className="ini-mes">
-                    <p className="ini-mes-t k-t40">
+                    <p className="ini-mes-t">
                       {frasesMes.a}
                       <span>{frasesMes.b}</span>
                     </p>
@@ -909,33 +921,30 @@ export default function DashboardPage() {
                     </p>
                   </div>
 
-                  <div className="ini-matriz" role="table" aria-label={`Informes y actas de ${mes} por copropiedad`}>
-                    <div className="ini-mf h" role="row">
-                      <span className="c" role="columnheader">Copropiedad</span>
-                      <span className="i" role="columnheader">Informe de gestión</span>
-                      <span className="a" role="columnheader">Acta del consejo</span>
-                      <span className="x" role="columnheader"><span className="k-sr">Acción</span></span>
-                    </div>
+                  <ul className="ini-props" aria-label={`Informes y actas de ${mes} por copropiedad`} style={{ listStyle: "none", margin: 0, padding: 0 }}>
                     {filasMatriz.map((f) => (
-                      <div key={f.p.id} className="ini-mf" role="row">
-                        <span className="c" role="cell">
-                          <b>{f.p.name}</b>
-                          {f.apoyo && <small>{f.apoyo}</small>}
-                        </span>
-                        <span className="i" role="cell">
-                          <span className="lbl" aria-hidden="true">Informe de gestión</span>
-                          <Estado tipo={f.informe.tipo} tamLetra={16} neutro>{f.informe.palabra}</Estado>
-                          {f.informe.detalle && <small>{f.informe.detalle}</small>}
-                        </span>
-                        <span className="a" role="cell">
-                          <span className="lbl" aria-hidden="true">Acta del consejo</span>
-                          <Estado tipo={f.acta.tipo} tamLetra={16} neutro>{f.acta.palabra}</Estado>
-                          {f.acta.detalle && <small>{f.acta.detalle}</small>}
-                        </span>
-                        <span className="x" role="cell">{f.accion}</span>
-                      </div>
+                      <li key={f.p.id} className="ini-prop">
+                        <div className="cab">
+                          <Loseta icono={MODULOS.propiedades.icono} tono={MODULOS.propiedades.tono} />
+                          <span style={{ minWidth: 0 }}>
+                            <b>{f.p.name}</b>
+                            {f.apoyo && <small>{f.apoyo}</small>}
+                          </span>
+                        </div>
+                        <div className="ini-doc">
+                          <Loseta icono={FileText} tono="blue" tam={40} suave />
+                          <span className="n"><b>Informe de gestión</b>{f.informe.detalle && <small>{f.informe.detalle}</small>}</span>
+                          <Estado tipo={f.informe.tipo}>{f.informe.palabra}</Estado>
+                        </div>
+                        <div className="ini-doc">
+                          <Loseta icono={FileSignature} tono="indigo" tam={40} suave />
+                          <span className="n"><b>Acta del consejo</b>{f.acta.detalle && <small>{f.acta.detalle}</small>}</span>
+                          <Estado tipo={f.acta.tipo}>{f.acta.palabra}</Estado>
+                        </div>
+                        <div className="pie">{f.accion}</div>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
 
                   <div className="ini-mpie">
                     {errorGeneraciones ? (
@@ -949,7 +958,8 @@ export default function DashboardPage() {
                         <span className="k-sr">Cargando documentos…</span>
                       </span>
                     ) : (
-                      <p className="tot">
+                      <div className="tot">
+                        <Loseta icono={FolderCheck} tono="green" tam={52} />
                         <b>
                           {delAnio.length}
                           {tope ? "+" : ""}
@@ -968,9 +978,9 @@ export default function DashboardPage() {
                             "Aún no has generado documentos."
                           )}
                         </span>
-                      </p>
+                      </div>
                     )}
-                    <EnlaceVer href="/dashboard/historial" refIndice="13">Historial completo</EnlaceVer>
+                    <EnlaceVer href="/dashboard/historial">Historial completo</EnlaceVer>
                   </div>
                 </>
               )}
@@ -978,13 +988,14 @@ export default function DashboardPage() {
           </>
         )}
 
-        {/* ── 01.3 AGENTES: sigilos, sin citas inventadas ─────────────── */}
+        {/* ── AGENTES: cada uno con su icono y su color, sin citas inventadas ── */}
         <Seccion
           id="s13"
-          numero={sinPropiedades ? undefined : "01.3"}
           titulo="Tus agentes"
           nota={`${activos.length} ${activos.length === 1 ? "activo" : "activos"} · ${enPreparacion.length} en preparación`}
-          enlace={{ href: "/dashboard/asistente", texto: "Asistente IA", refIndice: "04" }}
+          icono={Sparkles}
+          tono="ai"
+          enlace={{ href: "/dashboard/asistente", texto: "Asistente IA" }}
         >
           <div className="ini-agentes">
             {activos.map((id) => (

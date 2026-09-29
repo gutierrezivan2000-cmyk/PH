@@ -133,7 +133,7 @@ const CSS_CONFIGURACION = `
 .cfg-dos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--g); }
 .cfg-cuenta { display: flex; gap: 16px; align-items: center; min-width: 0; }
 .cfg-cuenta > .a { width: 56px; height: 56px; flex: none; display: grid; place-items: center; background: var(--surface-3);
-  font: 700 20px/1 var(--f-sans); font-stretch: 125%; }
+  font: 700 20px/1 var(--f-sans); }
 .cfg-cuenta > div { min-width: 0; }
 .cfg-cuenta b { display: block; font-size: 18px; font-weight: 650; line-height: 1.2; overflow-wrap: anywhere; }
 .cfg-cuenta .k-mono { display: block; margin-top: 4px; font-size: 14px; line-height: 1.3; color: var(--ink-2); overflow-wrap: anywhere; }
@@ -165,7 +165,7 @@ const CSS_CONFIGURACION = `
    pinta la cabecera con el color de marca y texto blanco. */
 .cfg-lam.papel > div { background: #fff; color: #4b5563; }
 .cfg-lam.portal > div { color: #fff; }
-.cfg-lam .emp.pdf { font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.cfg-lam .emp.pdf { font-size: 13px; font-weight: 600; letter-spacing: .04em; }
 .cfg-lam > div > i { position: absolute; left: 0; right: 0; top: 0; height: 6px; }
 .cfg-lam img { display: block; max-width: 80%; max-height: 56px; object-fit: contain; }
 .cfg-lam .emp { font-size: 16px; font-weight: 700; line-height: 1.2; text-align: center; text-wrap: balance; overflow-wrap: break-word; hyphens: auto; }
@@ -173,7 +173,7 @@ const CSS_CONFIGURACION = `
 .cfg-lam figcaption { margin-top: 8px; font-size: 14px; line-height: 1.3; color: var(--ink-3); }
 
 .cfg-guardar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 8px; padding-top: 16px;
-  border-top: 2px solid var(--rule); }
+  border-top: 1px solid var(--line-strong); }
 .cfg-guardar > p { margin: 0; }
 .cfg-guardar > .k-err { flex-basis: 100%; }
 
@@ -233,7 +233,7 @@ export default function ConfiguracionPage() {
   // Solo presentación: dónde mostrar `saveError` (lo activan tanto guardar como subir
   // el logo), nombre del logo que se está subiendo, formato rechazado al soltar y
   // si el campo de color ya perdió el foco (para no marcar error mientras se escribe).
-  // Dónde se pinta el error de guardado: junto al botón que se pulsó (15.1 o 15.2) o al logo.
+  // Dónde se pinta el error de guardado: junto al botón que se pulsó (perfil o marca) o al logo.
   const [errorEn, setErrorEn] = useState<"guardar" | "guardar-perfil" | "logo">("guardar");
   const [logoNombre, setLogoNombre] = useState("");
   const [logoFormato, setLogoFormato] = useState(false);
@@ -474,7 +474,7 @@ export default function ConfiguracionPage() {
           )}
 
           {/* ── 15.1 PERFIL ─────────────────────────────────────────── */}
-          <Seccion id="cfg-perfil" numero="15.1" titulo="Perfil" nota="tus datos de contacto">
+          <Seccion id="cfg-perfil" titulo="Perfil" nota="tus datos de contacto">
             {loading ? (
               <Esqueleto variante="bloque" etiquetaAccesible="Cargando tu perfil…" />
             ) : (
@@ -555,7 +555,7 @@ export default function ConfiguracionPage() {
                 <Boton variante="secundario" onClick={() => guardar("guardar-perfil")} cargando={saving} textoCargando="Guardando…" ancho="movil">
                   Guardar cambios
                 </Boton>
-                <p className="k-apoyo">Guarda 15.1 y 15.2 a la vez.</p>
+                <p className="k-apoyo">Guarda tu perfil y la marca de tus documentos a la vez.</p>
                 {saveError && errorEn === "guardar-perfil" && (
                   <p className="k-err" role="alert">
                     No pudimos guardar tus cambios. Revisa tu conexión e inténtalo de nuevo.
@@ -567,7 +567,7 @@ export default function ConfiguracionPage() {
           </Seccion>
 
           {/* ── 15.2 MARCA DE TUS DOCUMENTOS (se guarda junto con el perfil) ── */}
-          <Seccion id="cfg-marca" numero="15.2" titulo="Marca de tus documentos" nota="informes, actas y portal de residentes">
+          <Seccion id="cfg-marca" titulo="Marca de tus documentos" nota="informes, actas y portal de residentes">
             {loading ? (
               <Esqueleto variante="bloque" etiquetaAccesible="Cargando la marca de tus documentos…" />
             ) : (
@@ -652,7 +652,7 @@ export default function ConfiguracionPage() {
                           ? "Revisa que tu logo se lea bien sobre el papel y sobre el color del portal."
                           : empresa
                             ? `Sin logo: tus documentos llevarán el nombre de la empresa, «${empresa}».`
-                            : "Sin logo: escribe el nombre de tu empresa en 15.1 para que tus documentos lo lleven."}
+                            : "Sin logo: escribe el nombre de tu empresa en «Perfil» para que tus documentos lo lleven."}
                       </p>
                     </Panel>
                   </aside>
@@ -662,7 +662,7 @@ export default function ConfiguracionPage() {
                   <Boton onClick={() => guardar()} cargando={saving} textoCargando="Guardando…" ancho="movil">
                     Guardar cambios
                   </Boton>
-                  <p className="k-apoyo">Guarda tu perfil (15.1) y la marca de tus documentos (15.2).</p>
+                  <p className="k-apoyo">Guarda tu perfil y la marca de tus documentos.</p>
                   {saveError && errorEn === "guardar" && (
                     <p className="k-err" role="alert">
                       No pudimos guardar tus cambios. Revisa tu conexión e inténtalo de nuevo.
@@ -674,14 +674,14 @@ export default function ConfiguracionPage() {
           </Seccion>
 
           {/* ── 15.3 APARIENCIA ─────────────────────────────────────── */}
-          <Seccion id="cfg-apariencia" numero="15.3" titulo="Apariencia" nota="tema de la interfaz">
+          <Seccion id="cfg-apariencia" titulo="Apariencia" nota="tema de la interfaz">
             <div className="k-r12">
               <div className="k-fld" style={{ gridColumn: "1 / 8" }}>
                 <span className="lb" id="cfg-tema-lb">Tema</span>
                 <SelectorTema grande className="cfg-tema" />
                 <span className="k-ayuda">
                   Auto sigue a tu dispositivo: claro si lo pide, oscuro en cualquier otro caso. El cambio se aplica al
-                  momento, este navegador lo recuerda y también puedes hacerlo al pie del índice.
+                  momento, este navegador lo recuerda y también puedes hacerlo al pie del menú.
                 </span>
               </div>
             </div>
@@ -690,7 +690,6 @@ export default function ConfiguracionPage() {
           {/* ── 15.4 SOPORTE ────────────────────────────────────────── */}
           <Seccion
             id="cfg-soporte"
-            numero="15.4"
             titulo="Soporte"
             nota="tus tickets"
             acciones={

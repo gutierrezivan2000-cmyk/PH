@@ -1,5 +1,6 @@
 "use client";
 
+import { CircleAlert, CircleCheck, Clock, CreditCard, House, LoaderCircle } from "lucide-react";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { Header } from "@/components/dashboard/Header";
@@ -9,7 +10,6 @@ import {
   CabeceraPieza,
   Esqueleto,
   Estado,
-  Flecha,
   Pagina,
   Panel,
   Pieza,
@@ -71,7 +71,7 @@ const TITULOS: Record<EstadoPago, string> = {
   error: "No pudimos verificar el pago",
 };
 
-/* Estado = forma + color + palabra (SPEC §f.8) y aviso con borde de 8 px (§f.14). */
+/* Estado = icono + color + palabra, y un aviso del mismo color. */
 const ESTADO: Record<EstadoPago, { tipo: TipoEstado; palabra: string; aviso: TipoAviso }> = {
   loading: { tipo: "enCurso", palabra: "Verificando", aviso: "info" },
   approved: { tipo: "ok", palabra: "Aprobado", aviso: "ok" },
@@ -80,7 +80,7 @@ const ESTADO: Record<EstadoPago, { tipo: TipoEstado; palabra: string; aviso: Tip
   error: { tipo: "vencido", palabra: "Error", aviso: "error" },
 };
 
-/* Resumen a la izquierda (7 columnas) y estado a la derecha (5), SPEC §g 14 «Pago ePayco».
+/* Resumen a la izquierda (7 columnas) y estado a la derecha (5).
    En el DOM va primero el estado: en móvil (una columna) es lo primero que se lee. */
 const CSS_PAGO = `
 .k-pago { row-gap: 32px; }
@@ -126,7 +126,12 @@ function VistaPago({
       <style href="k-pago-local" precedence="default">
         {CSS_PAGO}
       </style>
-      <CabeceraPieza nn="14" titulo={TITULOS[status]} subtitulo="Resultado del pago con ePayco" />
+      <CabeceraPieza
+        titulo={TITULOS[status]}
+        subtitulo="Resultado del pago con ePayco"
+        icono={status === "approved" ? CircleCheck : status === "loading" ? LoaderCircle : status === "pending" ? Clock : CircleAlert}
+        tono={status === "approved" ? "green" : status === "loading" ? "blue" : status === "pending" ? "slate" : "red"}
+      />
       <Reticula className="k-pago">
         <div className="estado">
           <Panel titulo="Estado del pago" nivel={2}>
@@ -139,11 +144,12 @@ function VistaPago({
             </div>
             <div className="acc k-btns">
               {/* Enlaces completos (no navegación de cliente): al volver, todo se relee con el plan nuevo. */}
-              <a href="/dashboard" className="k-btn">
+              <a href="/dashboard" className="k-btn" data-h="violet">
+                <House aria-hidden="true" focusable="false" />
                 <span>Ir al inicio</span>
-                <Flecha tipo="avanza" />
               </a>
-              <a href="/dashboard/suscripcion" className="k-btn k-sec">
+              <a href="/dashboard/suscripcion" className="k-btn k-sec" data-h="teal">
+                <CreditCard aria-hidden="true" focusable="false" />
                 <span>Ir a Suscripción</span>
               </a>
             </div>

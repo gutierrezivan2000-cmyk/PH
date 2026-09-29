@@ -1,5 +1,6 @@
 "use client";
 
+import { Building2, FileText, Lightbulb, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
@@ -42,7 +43,7 @@ const CSS_ONB = `
 :root:has([data-onb]) .k-col-indice,
 :root:has([data-onb]) .k-principal > .k-dock { display: none; }
 
-.onb-cab { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: var(--cab-h); padding: 0 var(--pad); border-bottom: 2px solid var(--rule); }
+.onb-cab { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: var(--cab-h); padding: 0 var(--pad); border-bottom: 1px solid var(--line-strong); }
 .onb-cab .marca { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .onb-cab .der { display: flex; align-items: center; gap: 18px; min-width: 0; }
 .onb-cab .der > span { font-size: 14px; color: var(--ink-3); white-space: nowrap; }
@@ -75,11 +76,11 @@ const CSS_ONB = `
 .onb-avisos { display: grid; gap: 12px; margin-top: 28px; }
 .onb-resumen-movil { display: none; }
 
-.onb-filas { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--rule); }
+.onb-filas { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-strong); }
 .onb-fila { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; padding: 18px 0 20px; border-bottom: 1px solid var(--line); }
-.onb-fila .ref { padding-top: 9px; font: 400 13px/1 var(--f-mono); color: var(--ink-3); }
+.onb-fila .ref { padding-top: 9px; font: 700 13px/1 var(--f-sans); color: var(--ink-3); }
 .onb-fila .cab { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
-.onb-fila h2 { margin: 0; font-size: 28px; font-weight: 800; font-stretch: 85%; letter-spacing: -.02em; line-height: 1; white-space: nowrap; }
+.onb-fila h2 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -.02em; line-height: 1; white-space: nowrap; }
 .onb-fila .dots { flex: 1; min-width: 16px; border-bottom: 2px dotted rgb(var(--veil-rgb) / .28); transform: translateY(-4px); }
 .onb-fila .dato { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
 .onb-fila p { grid-column: 2; margin: 10px 0 0; max-width: 62ch; font-size: 16px; line-height: 1.45; color: var(--ink-2); text-wrap: pretty; }
@@ -271,11 +272,13 @@ export default function OnboardingPage() {
   const pasos = [
     {
       nombre: NOMBRES_PASOS[0],
+      icono: UserRound,
       valor: step > 1 ? name.trim() : "Nombre y cargo",
       alVolver: () => setStep(1),
     },
     {
       nombre: NOMBRES_PASOS[1],
+      icono: Building2,
       valor: step > 2
         ? (skipped || !propiedad ? "Omitida" : nombreCorto(propiedad))
         : step === 2 ? "Nombre, dirección y unidades" : undefined,
@@ -284,11 +287,12 @@ export default function OnboardingPage() {
     },
     {
       nombre: NOMBRES_PASOS[2],
+      icono: FileText,
       valor: step > 3 ? (skipped ? "Omitido" : textoDocs) : step === 3 ? "Manual y reglamento · opcional" : "Opcional",
       alVolver: skipped ? undefined : () => setStep(3),
       omitido: skipped,
     },
-    { nombre: NOMBRES_PASOS[3], valor: step === 4 ? "Resumen y entrada" : undefined },
+    { nombre: NOMBRES_PASOS[3], icono: Lightbulb, valor: step === 4 ? "Resumen y entrada" : undefined },
   ];
 
   const titulares = [

@@ -6,10 +6,9 @@ const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "
 const CORTOS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
 /**
- * Rejilla de 12 meses (4 × 3) de celdas de 56 px, 15 px/700 (SPEC §g 02, paso 2
- * de Generar). Radios nativos (flechas ← → ↑ ↓ entre meses, Espacio elige), el
- * elegido en negativo (--accent) y los que no se pueden elegir (futuros) con
- * borde discontinuo. En móvil el rótulo se abrevia («Sep»); el nombre accesible
+ * Rejilla de 12 meses (4 × 3) de celdas de 56 px, 15,5 px/700 (paso 2 de Generar).
+ * Radios nativos (flechas ← → ↑ ↓ entre meses, Espacio elige), el elegido en
+ * violeta y los que no se pueden elegir (futuros) con borde discontinuo. En móvil el rótulo se abrevia («Sep»); el nombre accesible
  * es siempre el mes completo. El año va aparte, con <Segmentos>.
  *
  *   <RejillaMeses nombre="mes" etiquetaAccesible={`Mes del informe · ${anio}`} valor={mes}

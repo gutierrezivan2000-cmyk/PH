@@ -86,13 +86,14 @@ function fechaCorta(f: Date): string {
 /* Ajustes locales de la tabla y los paneles (lo que el kit no trae hecho). */
 const estilos = (
   <style>{`
-    .prop-nom { display: block; font-size: 18px; font-weight: 700; line-height: 1.2; letter-spacing: -.005em; overflow-wrap: anywhere; }
+    .prop-nom { display: block; font-size: 18px; font-weight: 800; line-height: 1.2; letter-spacing: -.005em; overflow-wrap: anywhere; }
     .prop-nom + .k-apoyo { display: block; margin-top: 4px; }
     .prop-u { display: grid; gap: 4px; justify-items: start; }
     .prop-u .k-cifra { line-height: .85; }
-    .prop-docs { display: grid; gap: 6px; }
+    .prop-docs { display: grid; gap: 6px; justify-items: start; min-width: 0; }
+    .prop-docs .k-estado { max-width: 100%; white-space: normal; }
     .prop-inf { display: grid; gap: 3px; }
-    .prop-inf b { font-size: 15px; font-weight: 600; color: var(--ink-2); }
+    .prop-inf b { font-size: 15px; font-weight: 800; color: var(--ink); }
     .prop-ficha { scroll-margin-top: calc(var(--cab-h) + 16px); }
     .prop-ficha:focus { outline: none; }
     .prop-dos { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; }
@@ -105,7 +106,7 @@ const estilos = (
     .prop-doc .k-arch { grid-template-columns: 52px minmax(0, 1fr) 44px; grid-template-areas: "tipo nom x"; }
     .prop-doc .k-arch > .k-barra, .prop-doc .k-arch > .est { display: none; }
     .prop-nota { margin: 16px 0 0; font-size: 14px; color: var(--ink-3); max-width: 68ch; }
-    .prop-doc-falla { display: grid; justify-items: start; gap: 10px; padding-top: 12px; border-top: 2px solid var(--rule); }
+    .prop-doc-falla { display: grid; justify-items: start; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line-strong); }
     .prop-doc-falla p { margin: 0; }
     @media (max-width: 860px) { .prop-col-docs { margin-top: 36px; } .prop-col-docs + .prop-col-docs { margin-top: 28px; } }
     @media (max-width: 600px) { .prop-dos { grid-template-columns: minmax(0, 1fr); } }
@@ -448,7 +449,7 @@ export default function PropiedadesPage() {
     {
       id: "docs",
       titulo: "Documentos base",
-      ancho: "minmax(0, 2.2fr)",
+      ancho: "minmax(0, 2.6fr)",
       celda: (p) => {
         if (!docs[p.id]) {
           return <span className="k-meta">{docsFallidos[p.id] ? "No se pudieron consultar" : "Consultando…"}</span>;
@@ -469,7 +470,7 @@ export default function PropiedadesPage() {
     {
       id: "informe",
       titulo: "Último informe",
-      ancho: "minmax(0, 1.6fr)",
+      ancho: "minmax(0, 1.5fr)",
       celda: (p) => {
         if (generaciones === undefined) return <span className="k-meta">Consultando…</span>;
         if (generaciones === null) return <span className="k-meta">Sin dato</span>;

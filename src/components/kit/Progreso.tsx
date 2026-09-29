@@ -3,8 +3,8 @@ import { Cuadro } from "./Estado";
 import { unir } from "./util";
 
 /**
- * Barra de progreso plana: pista --surface-3 + relleno --ink (8 px; 10 con alto={10}).
- * `excede` pinta el relleno en --danger (presupuesto > 100 %).
+ * Barra de progreso: pista gris + relleno en degradado violeta (9 px; 11 con alto={10}).
+ * `excede` pinta el relleno en rojo (presupuesto > 100 %).
  * `decorativa` la oculta a lectores cuando el porcentaje ya está en texto al lado.
  */
 export function BarraProgreso({ valor, alto = 8, excede, etiquetaAccesible, decorativa, className }: {
@@ -36,9 +36,9 @@ export type EtapaGeneracion = {
 };
 
 /**
- * Progreso de generación (SPEC §f.20): recuadro de 2 px, título 22 px + copropiedad,
- * barra de 10 px con % en mono, lista de ETAPAS REALES del job con estado
- * (■ listo · ◧ en curso · □ en espera · ■ naranja error), nota y acciones.
+ * Progreso de generación: tarjeta con título + copropiedad, barra con el porcentaje,
+ * lista de ETAPAS REALES del job con estado (✓ verde listo · ◌ azul en curso ·
+ * ⏱ gris en espera · ! rojo error), nota y acciones.
  * role="status" aria-live="polite".
  *
  *   <ProgresoGeneracion titulo="Informe de gestión · septiembre 2026" subtitulo="Conjunto Residencial Los Pinos"

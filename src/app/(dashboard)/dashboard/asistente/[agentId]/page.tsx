@@ -1,5 +1,6 @@
 "use client";
 
+import { MessagesSquare, Paperclip, X } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -22,12 +23,10 @@ import {
   Buscador,
   CabeceraPieza,
   Chevron,
-  Cruz,
   ErrorCarga,
   Escribiendo,
   Esqueleto,
   FichaAgente,
-  Flecha,
   MensajeUsuario,
   MenuMas,
   Modal,
@@ -157,36 +156,27 @@ const CSS_CHAT = `
 .asis-cuerpo[data-carril="no"] .asis-conv { grid-column: 2 / 12; }
 .asis-velo, .asis-cerrar, .asis-solo-movil { display: none; }
 
-.asis-agente { display: flex; align-items: flex-end; gap: 16px; padding: 18px 0 16px; border-bottom: 2px solid var(--rule); }
+.asis-agente { display: flex; align-items: flex-end; gap: 16px; padding: 18px 0 16px; border-bottom: 1px solid var(--line-strong); }
 .asis-agente > div { min-width: 0; }
-.asis-agente .nom { display: block; font: 800 32px/.9 var(--f-sans); font-stretch: 72%; letter-spacing: -.02em; }
+.asis-agente .nom { display: block; font: 800 32px/.9 var(--f-sans); letter-spacing: -.02em; }
 .asis-agente .of { display: block; margin-top: 6px; font-size: 14px; line-height: 1.3; color: var(--ink-2); }
 .asis-carril > * { flex: none; }
 .asis-carril > .k-btn { margin-top: 14px; }
 .asis-carril > .k-campo { margin-top: 10px; }
 .asis-carril > .asis-hilos { position: relative; flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  margin: 4px calc(var(--g) / -2 - 6px) 0; padding: 0 calc(var(--g) / 2 + 6px) 16px; }
-.asis-hilos-t { margin: 16px 0 4px; font-size: 13px; font-weight: 600; color: var(--ink-3); }
-.asis-hilos ul { list-style: none; margin: 0; padding: 0; }
-/* Lo resaltado (hover, hilo activo) sangra medio medianil a cada lado: la fila
-   se sale con márgenes negativos y el filete entre filas (::after) se queda en la
-   columna. El activo lleva además la marca de 4 px en el margen. */
-.asis-hilo { position: relative; display: block; width: calc(100% + var(--g)); margin: 0 calc(var(--g) / -2);
-  padding: 11px calc(var(--g) / 2); text-align: left; font-size: 15px; font-weight: 500; line-height: 1.3;
+  margin: 4px -8px 0; padding: 0 8px 16px; }
+.asis-hilos-t { margin: 16px 0 6px; font-size: 13.5px; font-weight: 800; color: var(--ink-3); }
+.asis-hilos ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.asis-hilo { position: relative; display: block; width: 100%; padding: 11px 14px; border-radius: 16px; text-align: left; font-size: 15px; font-weight: 600; line-height: 1.3;
   color: var(--ink); background: transparent; cursor: pointer; overflow-wrap: anywhere; }
-.asis-hilo::after { content: ""; position: absolute; left: calc(var(--g) / 2); right: calc(var(--g) / 2); bottom: 0; height: 1px; background: var(--line); }
-.asis-hilo small { display: block; margin-top: 3px; font-size: 13px; font-weight: 400; color: var(--ink-3); }
+.asis-hilo small { display: block; margin-top: 3px; font-size: 13px; font-weight: 500; color: var(--ink-3); }
 .asis-hilo:hover { background: var(--hl); }
-.asis-hilo[aria-current="true"] { background: var(--neg-area); color: var(--on-neg-area); font-weight: 600; box-shadow: -4px 0 0 var(--neg-area-edge); }
-.asis-hilo[aria-current="true"]::after { background: transparent; }
-.asis-hilo[aria-current="true"] small { color: var(--on-neg-area-2); }
+.asis-hilo[aria-current="true"] { background: rgb(var(--accent-rgb) / .13); box-shadow: inset 0 0 0 1.5px rgb(var(--accent-rgb) / .5); font-weight: 800; }
 :root .asis-hilo:focus-visible { outline-offset: -3px; }
-/* Sobre el área negativa el anillo va en papel y más adentro: a -3 px se fundía con el lienzo. */
-:root .asis-hilo[aria-current="true"]:focus-visible { outline-color: var(--on-neg-area); outline-offset: -6px; }
 .asis-hilos-vacio { margin: 16px 0 0; font-size: 14px; line-height: 1.45; color: var(--ink-3); }
 .asis-hilos-vacio + .k-btn { margin-top: 8px; }
 .asis-hilos .k-esq { margin-top: 16px; }
-.asis-memoria { border-top: 2px solid var(--rule); padding: 4px 0 14px; }
+.asis-memoria { border-top: 1px solid var(--line); padding: 4px 0 14px; }
 .asis-memoria > button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px;
   font-size: 15px; font-weight: 700; color: var(--ink); background: transparent; cursor: pointer; }
 .asis-memoria > button svg { width: 14px; height: 14px; flex: none; }
@@ -196,10 +186,9 @@ const CSS_CHAT = `
 .asis-memoria .k-btn { margin-top: 8px; }
 
 .asis-barra { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.asis-barra h2 { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 18px; font-weight: 650; line-height: 1.25;
+.asis-barra h2 { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 18px; font-weight: 800; line-height: 1.25;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .asis-barra .k-btn { gap: 10px; }
-.asis-barra .k-btn svg { width: 12px; height: 12px; }
 .asis-barra .k-menu > .peligro small { white-space: nowrap; }
 .asis-aviso { padding-top: 12px; }
 .asis-conv > * { flex: none; }
@@ -214,30 +203,30 @@ const CSS_CHAT = `
 .asis-fichas { list-style: none; margin: 2px 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .k-msg-u > .asis-fichas { margin: 0 0 10px; justify-content: flex-end; }
 .asis-ficha { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; max-width: 100%; padding: 6px 12px 6px 8px;
-  border: 1.5px solid var(--line-strong); color: var(--ink); background: transparent; }
-.asis-ficha .n { min-width: 0; font-size: 15px; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; }
+  border: 1.5px solid var(--line-strong); border-radius: 14px; color: var(--ink); background: var(--surface-1); }
+.asis-ficha .n { min-width: 0; font-size: 15px; font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
 .asis-ficha .p { font-size: 13px; color: var(--ink-3); white-space: nowrap; }
-.asis-ficha .d { font-size: 14px; font-weight: 700; white-space: nowrap; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
-.asis-ficha img { width: 28px; height: 28px; flex: none; object-fit: cover; }
+.asis-ficha .d { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; font-weight: 800; white-space: nowrap; color: var(--accent-text); }
+.asis-ficha img { width: 30px; height: 30px; flex: none; object-fit: cover; border-radius: 8px; }
 a.asis-ficha { border-color: var(--rule); }
-a.asis-ficha:hover { background: var(--hl); }
+a.asis-ficha:hover { background: var(--hl); border-color: var(--accent); }
 .asis-escribe .cuerpo { display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 56px; }
 .asis-escribe .asis-herr { margin: 0; font-size: 14px; color: var(--ink-2); }
 .asis-herr-en { margin: 0 0 14px; min-height: 24px; color: var(--ink-2); }
-.asis-bloq { max-width: 560px; margin-top: 4px; padding: 16px 18px 18px; border: 2px solid var(--rule); }
-.asis-bloq h3 { margin: 0; font: 800 22px/1.05 var(--f-sans); font-stretch: 75%; letter-spacing: -.01em; }
+.asis-bloq { max-width: 560px; margin-top: 4px; padding: 18px 20px 20px; border: 1px solid var(--line-strong); border-radius: 24px; background: var(--surface-1); box-shadow: var(--sh-1); }
+.asis-bloq h3 { margin: 0; font: 800 21px/1.15 var(--f-sans); letter-spacing: -.015em; }
 .asis-bloq p { margin: 8px 0 14px; font-size: 15px; line-height: 1.45; color: var(--ink-2); }
 
 .asis-bienv { padding: 40px 0 24px; max-width: 780px; }
-.asis-bienv h3 { margin: 20px 0 0; font: 800 40px/.95 var(--f-sans); font-stretch: 72%; letter-spacing: -.03em; }
+.asis-bienv h3 { margin: 18px 0 0; font: 800 36px/1.05 var(--f-sans); letter-spacing: -.03em; }
 .asis-bienv > p { margin: 12px 0 0; max-width: 60ch; font-size: 17px; line-height: 1.5; color: var(--ink-2); }
-.asis-bienv > p.asis-rot { margin-top: 28px; font-size: 13px; font-weight: 600; color: var(--ink-3); }
+.asis-bienv > p.asis-rot { margin-top: 26px; font-size: 14px; font-weight: 800; color: var(--ink-2); }
 .asis-bienv > p.asis-nota { margin-top: 18px; font-size: 14px; line-height: 1.45; color: var(--ink-3); }
 .asis-sugs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
-.asis-sug { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 44px; padding: 12px 14px;
-  border: 1.5px solid var(--line-strong); background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
-.asis-sug:hover { border-color: var(--rule); background: var(--hl); }
-.asis-sug b { font-size: 15px; font-weight: 700; line-height: 1.25; }
+.asis-sug { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 44px; padding: 14px 16px;
+  border: 1px solid var(--line); border-radius: 20px; background: var(--surface-1); box-shadow: var(--sh-1); color: var(--ink); text-align: left; cursor: pointer; }
+.asis-sug:hover { border-color: var(--h-line); background: linear-gradient(120deg, var(--h-soft), transparent 80%), var(--surface-1); }
+.asis-sug b { font-size: 15px; font-weight: 800; line-height: 1.25; }
 .asis-sug span { font-size: 14px; line-height: 1.4; color: var(--ink-3);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
@@ -245,7 +234,7 @@ a.asis-ficha:hover { background: var(--hl); }
 .asis-redactar .k-redactor textarea { max-height: 160px; overflow-y: auto; }
 .asis-redactar .k-redactor .herr { gap: 20px; }
 .asis-subiendo { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
-.asis-conteo { font: 500 13px/1 var(--f-mono); color: var(--ink-3); }
+.asis-conteo { font: 700 13px/1 var(--f-sans); color: var(--ink-3); }
 .asis-conteo[data-alto] { color: var(--warn-text); }
 /* Adjuntos por enviar (hasta 5). En un teléfono bajo, cinco fichas con nombres de
    dos líneas empujaban el redactor bajo el dock y la conversación desaparecía: la
@@ -271,7 +260,7 @@ a.asis-ficha:hover { background: var(--hl); }
   .asis-carril { display: none; }
   .asis-carril[data-movil] { display: flex; position: fixed; top: 0; bottom: 0; left: 0; z-index: 41;
     width: min(380px, calc(100vw - 32px)); padding: 0 16px; background: var(--surface-0);
-    border-right: 2px solid var(--rule); box-shadow: var(--shadow-pop); }
+    border-right: 1px solid var(--line-strong); box-shadow: var(--shadow-pop); }
   .asis-velo { display: block; position: fixed; inset: 0; z-index: 40; background: var(--scrim); }
   .asis-cerrar { display: inline-flex; margin-left: auto; align-self: flex-start; }
   .asis-solo-movil { display: inline-flex; }
@@ -287,8 +276,8 @@ a.asis-ficha:hover { background: var(--hl); }
      de la barra queda solo para lectores y la bienvenida se compacta. */
   .asis-barra[data-nueva] h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .asis-bienv { padding-top: 16px; }
-  .asis-bienv > svg { width: 40px; height: 54px; }
-  .asis-bienv h3 { margin-top: 12px; font-size: 30px; }
+  .asis-bienv > .k-sg { --t: 48px; }
+  .asis-bienv h3 { margin-top: 12px; font-size: 28px; }
   .asis-bienv > p { font-size: 15px; }
   .asis-bienv > p.asis-rot { margin-top: 18px; }
   .asis-sugs { grid-template-columns: minmax(0, 1fr); }
@@ -297,9 +286,8 @@ a.asis-ficha:hover { background: var(--hl); }
   .asis-redactar .k-redactor textarea { min-height: 52px; padding: 12px 12px 4px; font-size: 16px; }
   .asis-redactar .k-redactor .herr { gap: 16px; padding: 0 12px 4px; }
   .asis-redactar .k-redactor > .k-btn { margin: 0 8px 8px 0; }
-  /* «Enviando…» es más largo que «Enviar»: sin la flecha no empuja las herramientas a otra línea. */
+  /* «Enviando…» es más largo que «Enviar»: sin el icono no empuja las herramientas a otra línea. */
   .asis-redactar .k-redactor > .k-btn[aria-busy="true"] svg { display: none; }
-  /* 13 px como en escritorio (SPEC: 12 px solo para cabeceras mono y notas al pie). */
   .asis-redactar .k-aviso-ia { margin-top: 6px; }
   /* Objetivo táctil de 44 px para «Quitar» (el kit deja el BotonIcono de 40 en 40). */
   .asis-pend .k-ic { width: 44px; height: 44px; }
@@ -1200,11 +1188,13 @@ export default function AgentPage() {
               ref={botonListaRef}
               type="button"
               className="k-btn k-sec k-40 asis-solo-movil"
+              data-h="violet"
               aria-haspopup="dialog"
               aria-expanded={listaMovil}
               aria-controls="asis-carril"
               onClick={alternarLista}
             >
+              <MessagesSquare aria-hidden="true" focusable="false" />
               Conversaciones
               <Chevron dir="abajo" />
             </button>
@@ -1232,7 +1222,7 @@ export default function AgentPage() {
                  descripción: el usuario se quedaba ante un cursor sin saber qué
                  pedir. Arranca con preguntas concretas de su oficio, que de paso
                  enseñan lo que el agente sabe hacer. */
-              <div className="asis-bienv">
+              <div className="asis-bienv" data-h={AGENTES[idKit].tono}>
                 <Sigilo agente={idKit} ancho={60} />
                 <h3>Pregúntale a {agent.name}</h3>
                 <p>{agent.description}</p>
@@ -1366,9 +1356,7 @@ export default function AgentPage() {
                 {/* Escribiendo… */}
                 {isLoading && (messages.length === 0 || messages[messages.length - 1]?.role === "user") && (
                   <div className="k-msg-a asis-escribe">
-                    <div className="av" aria-hidden="true">
-                      <Sigilo agente={idKit} ancho={22} />
-                    </div>
+                    <Sigilo agente={idKit} className="av" />
                     <div className="cuerpo">
                       <Escribiendo agente={idKit} />
                       {/* Construir y subir un archivo tarda varios segundos: sin
@@ -1412,7 +1400,7 @@ export default function AgentPage() {
                     sinBorde
                     onClick={() => removeAttachment(i)}
                   >
-                    <Cruz />
+                    <X />
                   </BotonIcono>
                 </li>
               ))}
@@ -1448,7 +1436,7 @@ export default function AgentPage() {
                   accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.m4a,.webm"
                 />
                 <button type="button" onClick={() => fileInputRef.current?.click()} title="Adjuntar archivo">
-                  <Flecha tipo="crea" />
+                  <Paperclip aria-hidden="true" focusable="false" />
                   Adjuntar
                 </button>
                 <AudioRecorder onRecorded={handleAudioRecorded} disabled={isLoading} />
@@ -1466,7 +1454,7 @@ export default function AgentPage() {
                 disabled={isLoading || (!input.trim() && attachments.length === 0)}
                 cargando={isLoading}
                 textoCargando="Enviando…"
-                flecha="avanza"
+                tono="violet"
               >
                 Enviar
               </Boton>

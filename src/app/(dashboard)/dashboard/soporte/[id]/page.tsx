@@ -1,5 +1,6 @@
 "use client";
 
+import { LifeBuoy } from "lucide-react";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
@@ -12,6 +13,7 @@ import {
   ErrorCarga,
   Esqueleto,
   Estado,
+  Loseta,
   MensajeUsuario,
   Pagina,
   Panel,
@@ -132,25 +134,25 @@ function haceDias(date: string) {
 const CSS_TICKET = `
 .tk-hilo { display: flex; flex-direction: column; }
 .tk-hilo > .k-msg-u:first-child { margin-top: 4px; }
-.tk-equipo > .av { font: 900 24px/1 var(--f-sans); color: var(--ink); background: var(--surface-0); }
+.tk-equipo > .av { --t: 48px; }
 .tk-equipo .k-msg-meta .rol { color: var(--ink-3); }
 .tk-texto { margin: 0; font-size: 17px; line-height: 1.5; max-width: 68ch; white-space: pre-wrap; overflow-wrap: anywhere; text-wrap: pretty; }
 .k-msg-u > .tk-texto { line-height: 1.4; }
 .tk-adjuntos { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .tk-adjuntos li { min-width: 0; max-width: 100%; }
-/* El nombre del archivo se parte, no se trunca (SPEC §f.11): la ficha crece en alto. */
+/* El nombre del archivo se parte, no se trunca: la ficha crece en alto. */
 .tk-adjuntos a { max-width: 100%; padding-top: 8px; padding-bottom: 8px; white-space: normal; line-height: 1.3; text-align: left; }
 .tk-adjuntos a .k-tipo, .tk-adjuntos a .p { flex: none; white-space: nowrap; }
-.tk-adjuntos a .n { min-width: 0; overflow-wrap: anywhere; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
-.tk-adjuntos a .p { font-weight: 400; color: var(--ink-3); }
+.tk-adjuntos a .n { min-width: 0; overflow-wrap: anywhere; font-weight: 800; }
+.tk-adjuntos a .p { font-weight: 500; color: var(--ink-3); }
 .tk-adjuntos a:hover { background: var(--hl); }
 .tk-respuesta { margin-top: 8px; }
-.tk-respuesta .herr kbd { font: 400 12px/1 var(--f-mono); padding: 3px 5px 2px; border: 1.5px solid var(--line-strong); color: var(--ink-2); }
+.tk-respuesta .herr kbd { font: 700 12px/1 var(--f-sans); padding: 4px 7px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface-2); color: var(--ink-2); }
 .tk-respuesta .k-err { margin: 10px 0 0; }
 .tk-nota { margin: 8px 0 0; font-size: 13px; color: var(--ink-3); }
 .tk-sub { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .tk-sub .k-estado { font-size: 15px; }
-.tk-aside .k-panel + .k-panel { margin-top: 40px; }
+.tk-aside .k-panel + .k-panel { margin-top: 24px; }
 .tk-aside .tk-ayuda { margin: 12px 0 0; font-size: 14px; line-height: 1.4; color: var(--ink-3); }
 .tk-aside .k-btns { margin-top: 12px; }
 @media (min-width: 861px) {
@@ -342,9 +344,7 @@ export default function SoporteTicketPage() {
                             className="k-msg-a tk-equipo"
                             aria-label="Respuesta del equipo de soporte"
                           >
-                            <div className="av" aria-hidden="true">
-                              S
-                            </div>
+                            <Loseta icono={LifeBuoy} tono="sky" className="av" />
                             <div className="cuerpo">
                               <div className="k-msg-meta">
                                 <b>Equipo SOPH.IA</b>

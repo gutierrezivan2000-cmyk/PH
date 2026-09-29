@@ -3,7 +3,7 @@ import { Chevron, Lupa } from "./Iconos";
 import { unir } from "./util";
 
 /**
- * Campo con etiqueta SIEMPRE visible encima (SPEC §f.3). Envuelve un control
+ * Campo con etiqueta SIEMPRE visible encima. Envuelve un control
  * del kit (<Entrada>, <AreaTexto>, <Selector>) y le da ayuda y error.
  *
  *   <Campo id="nit" etiqueta="NIT" ayuda="Con dígito de verificación.">
@@ -16,7 +16,7 @@ import { unir } from "./util";
  * Asocia solo la ayuda y el error: si el hijo es el control con el mismo `id`
  * (Entrada, AreaTexto, Selector o un control nativo), le añade
  * aria-describedby (`${id}-ayuda`, `${id}-err`, conservando el que ya traiga)
- * y, con error, aria-invalid (borde de error de 2 px). No hace falta escribirlos.
+ * y, con error, aria-invalid (borde rojo de 2 px). No hace falta escribirlos.
  */
 export function Campo({
   id, etiqueta, opcional, ayuda, error, children, className, sinEtiqueta,
@@ -26,7 +26,7 @@ export function Campo({
   /** Añade «(opcional)» en --ink-3. */
   opcional?: boolean;
   ayuda?: ReactNode;
-  /** Mensaje concreto y accionable. Muestra ■ naranja + texto. */
+  /** Mensaje concreto y accionable. Muestra «!» rojo + texto. */
   error?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -59,7 +59,7 @@ export function Campo({
   );
 }
 
-/** Texto de una línea (48 px, 16 px de letra). `invalido` pinta el borde de error de 2 px. */
+/** Texto de una línea (50 px, 16 px de letra). `invalido` pinta el borde rojo de 2 px. */
 export function Entrada({ invalido, className, ...rest }: { invalido?: boolean } & ComponentProps<"input">) {
   return <input className={unir("k-in", className)} aria-invalid={invalido || undefined} {...rest} />;
 }
@@ -100,7 +100,7 @@ export function Buscador({
 }
 
 /**
- * Bloque de un formulario largo: filete de 2 px + título de 22 px
+ * Bloque de un formulario largo: tarjeta con título
  * («Datos de la copropiedad», «Documentos»). Es un <fieldset> con <legend>.
  */
 export function GrupoCampos({ titulo, nota, children, className }:

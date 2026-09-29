@@ -328,6 +328,6 @@ const estilos = `
   .ui-import .ui-vista-h p { margin: 0; max-width: 62ch; }
   .ui-import .ui-nota { margin-bottom: 18px; }
   @media (max-width: 860px) {
-    .ui-import .ui-pre { display: block; margin-bottom: 4px; font: 500 12px/1 var(--f-mono); color: var(--ink-3); }
+    .ui-import .ui-pre { display: block; margin-bottom: 4px; font: 700 12px/1 var(--f-sans); color: var(--ink-3); }
   }
 `;

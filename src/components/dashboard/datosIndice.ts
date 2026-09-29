@@ -4,7 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { AGENT_IDS, isComingSoonAgent } from "@/lib/agents";
 
 /* ════════════════════════════════════════════════════════════════════
-   Datos vivos del índice y del dock (SPEC «Índice» §f.1).
+   Datos vivos del índice y del dock (SPEC «Guía» §f.1).
    Salen SOLO de rutas GET que ya existen (IMPL §8): /api/calendar,
    /api/generations y /api/usage. Si una falla, su dato queda en null y el
    índice no muestra nada.

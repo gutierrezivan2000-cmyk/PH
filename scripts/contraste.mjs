@@ -32,30 +32,39 @@ const AUDIT = `(() => {
   const ratio = (a, b) => { const l1 = lum(a), l2 = lum(b); return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05); };
 
   // Fondo real: se apilan los fondos de los ancestros hasta encontrar uno opaco.
+  // Devuelve una LISTA de fondos posibles: uno solo, o —si hay un degradado— uno por cada
+  // parada del degradado (se audita la peor). Un degradado sin colores legibles se excluye (null).
   const bgOf = (el) => {
     const capas = [];
     let n = el;
-    let degradado = false;
+    let paradas = null;
+    let cerca = 0; // capas de color más cercanas al elemento que el degradado
     while (n && n.nodeType === 1) {
       const cs2 = getComputedStyle(n);
-      // Un degradado no se puede componer con este método: se marca y el texto
-      // se excluye en vez de reportarlo como ilegible. Sin esto, un botón con
-      // fondo degradado se leía como blanco sobre blanco (falso positivo).
-      if (cs2.backgroundImage && cs2.backgroundImage.indexOf("gradient") !== -1) degradado = true;
+      if (!paradas && cs2.backgroundImage && cs2.backgroundImage.indexOf("gradient") !== -1) {
+        const cols = (cs2.backgroundImage.match(/rgba?\([^)]*\)|color\(srgb[^)]*\)/g) || []).map(parse).filter(Boolean);
+        if (!cols.length) return null;
+        paradas = cols;
+        cerca = capas.length;
+      }
       const bg = parse(cs2.backgroundColor);
       if (bg && bg.a > 0) { capas.push(bg); if (bg.a === 1) break; }
       n = n.parentElement;
     }
-    if (degradado) return null;
     let base = { r: 255, g: 255, b: 255, a: 1 };
     const ultima = capas[capas.length - 1];
     if (!ultima || ultima.a < 1) {
       const body = parse(getComputedStyle(document.body).backgroundColor);
       base = body && body.a === 1 ? body : base;
     }
-    let acc = base;
-    for (let i = capas.length - 1; i >= 0; i--) acc = over(capas[i], acc);
-    return acc;
+    const componer = (desde, hasta, inicio) => {
+      let acc = inicio;
+      for (let i = hasta - 1; i >= desde; i--) acc = over(capas[i], acc);
+      return acc;
+    };
+    if (!paradas) return [componer(0, capas.length, base)];
+    const debajo = componer(cerca, capas.length, base);
+    return paradas.map((s) => componer(0, cerca, over(s, debajo)));
   };
 
   const fallos = [];
@@ -68,10 +77,9 @@ const AUDIT = `(() => {
     const r = el.getBoundingClientRect();
     if (r.width < 4 || r.height < 4) continue;
     const fg = parse(cs.color); if (!fg || fg.a === 0) continue;
-    const bg = bgOf(el);
-    if (!bg) continue;
-    const efectivo = fg.a < 1 ? over(fg, bg) : fg;
-    const c = ratio(efectivo, bg);
+    const fondos = bgOf(el);
+    if (!fondos) continue;
+    const c = Math.min(...fondos.map((bg) => ratio(fg.a < 1 ? over(fg, bg) : fg, bg)));
     const size = parseFloat(cs.fontSize);
     const peso = parseInt(cs.fontWeight) || 400;
     const grande = size >= 24 || (size >= 18.66 && peso >= 700);
@@ -85,6 +93,10 @@ const AUDIT = `(() => {
   }
   return fallos.sort((a, b) => a.ratio - b.ratio);
 })()`;
+
+// Umbral opcional para ver los casi-fallos: node scripts/contraste.mjs dark 5.2
+const UMBRAL = Number(process.argv[3] || 4.5);
+const AUDIT_UMBRAL = AUDIT.replace("const minimo = grande ? 3 : 4.5;", `const minimo = grande ? 3 : ${UMBRAL};`);
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
 const tema = process.argv[2] || "dark";
@@ -103,7 +115,7 @@ for (const [nombre, url, auth] of PAGES) {
   await page.goto(`${BASE}${url}`, { waitUntil: "domcontentloaded" }).catch(()=>{});
   await page.waitForTimeout(2200);
   const aplicado = await page.evaluate(() => document.documentElement.dataset.theme);
-  const fallos = await page.evaluate(AUDIT);
+  const fallos = await page.evaluate(AUDIT_UMBRAL);
   totalFallos += fallos.length;
   if (fallos.length) {
     console.log(`\n[${tema}] ${nombre} (tema aplicado: ${aplicado}) — ${fallos.length} textos por debajo del mínimo`);

@@ -1,12 +1,11 @@
 import { unir } from "./util";
 
 /**
- * Esqueleto de carga (SPEC §f.15): bloques planos --surface-4 con LA FORMA
- * REAL del contenido; pulso a --surface-5 solo sin «reducir movimiento».
- * Nada de brillos que barren. Lleva «Cargando…» para lectores.
+ * Esqueleto de carga: bloques redondeados grises con LA FORMA REAL del contenido;
+ * pulso suave solo sin «reducir movimiento». Lleva «Cargando…» para lectores.
  *
- * variante "bloque": título 28 px al 60 % + líneas al 80 % y 45 %.
- * variante "tabla": `filas` filas de 56 px | 1fr | 90 px separadas por --line.
+ * variante "bloque": título al 60 % + líneas al 80 % y 45 %.
+ * variante "tabla": `filas` filas de 56 px | 1fr | 90 px separadas por un filete.
  * variante "completo": las dos cosas (pantalla de tabla).
  *
  *   {cargando ? <Esqueleto variante="tabla" filas={6} /> : <Tabla … />}

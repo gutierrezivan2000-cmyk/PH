@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
   type SetStateAction,
 } from "react";
+import { CalendarClock, CalendarDays, CalendarRange, CircleAlert, History, ShieldCheck } from "lucide-react";
 import { Header } from "@/components/dashboard/Header";
 import { publicarJSON } from "@/components/dashboard/datosIndice";
 import { AssetImport } from "@/components/dashboard/AssetImport";
@@ -31,6 +32,7 @@ import {
   Entrada,
   ErrorCarga,
   Esqueleto,
+  Loseta,
   MenuMas,
   Modal,
   Pagina,
@@ -45,11 +47,13 @@ import {
   Urgencias,
   Vacio,
   avisar,
+  estiloDeEstado,
   nombreCorto,
   unir,
   type ColumnaTabla,
   type DiaTira,
   type ItemMenu,
+  type Tono,
   type TipoEstado,
 } from "@/components/kit";
 
@@ -92,9 +96,13 @@ interface PropertyInfo {
 }
 
 /*
- * La categoría es una PALABRA (SPEC §f.8): sin color ni forma propia. Antes cada
- * categoría llevaba su color (CATEGORY_CONFIG); ahora solo queda su rótulo.
+ * La categoría es una etiqueta con su color (siempre el mismo): la palabra dice qué es
+ * y el color ayuda a reconocerla de un vistazo.
  */
+const CATEGORIA_TONO: Record<string, Tono> = {
+  legal: "violet", poliza: "teal", mantenimiento: "amber", sgsst: "lime",
+  finanzas: "green", informe: "blue", asamblea: "fuchsia", custom: "slate",
+};
 const CATEGORIA: Record<string, string> = {
   legal: "Legal",
   poliza: "Póliza",
@@ -157,14 +165,6 @@ function hoySinHora(): Date {
 /** Lunes de la semana ISO de la fecha. */
 function lunesDe(f: Date): Date {
   return sumarDias(f, -((f.getDay() || 7) - 1));
-}
-/** Semana ISO 8601 («S39»). */
-function semanaIso(f: Date): number {
-  const d = new Date(Date.UTC(f.getFullYear(), f.getMonth(), f.getDate()));
-  const dia = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dia);
-  const inicio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - inicio.getTime()) / 86_400_000 + 1) / 7);
 }
 /** «21 al 27 de septiembre», «28 de septiembre al 4 de octubre», con año si no es el actual. */
 function rangoSemana(lunes: Date, hoy: Date): string {
@@ -240,105 +240,85 @@ function siglaDe(nombre: string): string {
    ════════════════════════════════════════════════════════════════════ */
 
 const CSS_BITACORA = `
-@media (min-width: 1181px) {
-  .bit .k-pieza-h .tt { grid-column: 2 / 8; }
-  .bit .k-pieza-h .acc { grid-column: 8 / 13; flex-wrap: nowrap; }
-}
-.bit-tabs { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; border-bottom: 2px solid var(--rule); margin-bottom: 28px; }
-.bit-tabs > .k-seg { border-bottom: 0; min-width: 0; }
-.bit-tabs > .fin { margin-left: auto; padding-bottom: 2px; }
+.bit-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 26px; }
+.bit-tabs > .k-seg { min-width: 0; }
+.bit-tabs > .fin { margin-left: auto; }
 
-.bit-urg { margin: 0 0 34px; }
-@media (min-width: 1181px) {
-  .bit-urg .k-cubo-a .k-num { font-size: 176px; }
-  .bit-urg .k-cubo-b .k-num { font-size: 124px; }
-  .bit-urg .k-cubo-c .k-num { font-size: 84px; }
-  .bit-urg .k-cubo-a .cap b { font-size: 32px; }
-  .bit-urg .k-cubo-b .cap b { font-size: 26px; }
-  .bit-urg .k-cubo-c .cap b { font-size: 22px; }
-}
-@media (min-width: 861px) and (max-width: 1180px) {
-  .bit-urg .k-cubo { flex-direction: row; align-items: flex-end; gap: 12px; }
-  .bit-urg .k-cubo-a .k-num { font-size: 150px; }
-  .bit-urg .k-cubo-b .k-num { font-size: 104px; }
-  .bit-urg .k-cubo-c .k-num { font-size: 72px; }
-  .bit-urg .k-cubo-a .cap b { font-size: 26px; }
-  .bit-urg .k-cubo-b .cap b { font-size: 21px; }
-  .bit-urg .k-cubo-c .cap b { font-size: 18px; }
-}
+.bit-urg { margin: 0 0 30px; }
 .bit-aviso { margin: 0 0 24px; }
 
 /* ── lista por semanas ── */
 .bit-grupo { margin: 0 0 30px; }
-.bit-gh { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 12px 0 10px; border-top: 2px solid var(--rule); font-weight: 400; }
-.bit-gh b { font-size: 32px; font-weight: 800; font-stretch: 62%; letter-spacing: -.02em; line-height: .9; }
-.bit-gh.venc b { color: var(--signal); }
-.bit-gh .r { font-size: 14px; line-height: 1.3; color: var(--ink-2); }
-.bit-gh em { margin-left: auto; font-style: normal; font-size: 14px; font-weight: 700; }
-.bit-tira { margin: 0; }
-.bit-tira + .bit-nada, .bit-tira + .bit-lista > .bit-fila:first-child { border-top: 0; }
-.bit-nada { margin: 0; padding: 12px 0; border-top: 1px solid var(--line); font-size: 15px; color: var(--ink-2); }
-.bit-lista { list-style: none; margin: 0; padding: 0; }
-.bit-fila { position: relative; display: grid; grid-template-columns: 20px 104px minmax(0, 1fr) 128px auto; column-gap: 12px; align-items: start; padding: 13px 0 14px; border-top: 1px solid var(--line); }
-.bit-fila:hover { background: var(--hl); box-shadow: calc(var(--g) / -2) 0 0 var(--hl), calc(var(--g) / 2) 0 0 var(--hl); }
-.bit-fila > .k-cuadro { margin-top: 5px; }
-.bit-fila > .d { font-size: 15px; font-weight: 700; line-height: 1.3; white-space: nowrap; }
+.bit-gh { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin: 0 0 14px; font-weight: 400; }
+.bit-gh > .ico { flex: none; }
+.bit-gh b { font-size: 22px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; }
+.bit-gh .r { font-size: 14.5px; line-height: 1.3; color: var(--ink-2); }
+.bit-gh em { margin-left: auto; display: inline-grid; place-items: center; min-width: 30px; height: 28px; padding: 0 10px; border-radius: 999px; font-style: normal; font-size: 14px; font-weight: 800; color: var(--h-ink); background: var(--h-soft); box-shadow: inset 0 0 0 1px var(--h-line); }
+.bit-tira { margin: 0 0 12px; }
+.bit-nada { margin: 0; padding: 16px 18px; border-radius: 18px; border: 1.5px dashed var(--line-strong); font-size: 15px; color: var(--ink-2); }
+.bit-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.bit-fila { position: relative; display: grid; grid-template-columns: 44px 92px minmax(0, 1fr) auto auto; column-gap: 14px; align-items: center; padding: 14px 16px; border-radius: 22px; background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.bit-fila:hover { border-color: var(--line-strong); }
+.bit-fila > .ico { --t: 44px; }
+.bit-fila > .d { font-size: 15px; font-weight: 800; line-height: 1.25; white-space: nowrap; }
 .bit-fila > .t { min-width: 0; }
-.bit-fila > .t b { display: block; font-size: 16px; font-weight: 650; line-height: 1.25; letter-spacing: -.005em; overflow-wrap: anywhere; }
+.bit-fila > .t b { display: block; font-size: 16.5px; font-weight: 800; line-height: 1.25; letter-spacing: -.01em; overflow-wrap: anywhere; }
 .bit-fila > .t small { display: block; margin-top: 3px; font-size: 14px; line-height: 1.3; color: var(--ink-3); }
-.bit-fila > .t small .v { color: var(--danger-text); font-weight: 600; }
+.bit-fila > .t small .v { color: var(--danger-text); font-weight: 800; }
 .bit-fila > .t p { margin: 6px 0 0; max-width: 72ch; font-size: 14px; line-height: 1.4; color: var(--ink-3); text-wrap: pretty; }
-.bit-fila > .k-cat { padding-top: 2px; white-space: normal; }
-.bit-fila > .acc { margin-top: -10px; display: flex; justify-content: flex-end; }
-.bit-fila.hecha > .d, .bit-fila.hecha > .t b { color: var(--ink-3); }
+.bit-fila > .acc { display: flex; justify-content: flex-end; }
+.bit-fila.hecha { background: transparent; box-shadow: none; border-style: dashed; border-color: var(--line-strong); }
+.bit-fila.hecha > .d, .bit-fila.hecha > .t b { color: var(--ink-2); }
 /* En la lista la descripción legal se recorta a una línea (se repite igual en
    las filas gemelas); completa en el panel del día abierto y en el title. */
 .bit-grupo .bit-fila > .t p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
 @media (min-width: 861px) and (max-width: 1180px) {
-  /* SPEC §e.1: verbos de fila bajo el texto en este rango. */
-  .bit-fila { grid-template-columns: 20px 104px minmax(0, 1fr) 128px; }
+  /* Entre 861 y 1180 px los verbos de fila van bajo el texto. */
+  .bit-fila { grid-template-columns: 44px 92px minmax(0, 1fr) auto; }
   .bit-fila > .acc { grid-column: 3 / -1; margin-top: 8px; justify-content: flex-start; }
 }
-.bit-plegable { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 0; border: 0; border-top: 2px solid var(--rule); background: transparent; color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
+.bit-plegable { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 0 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface-1); box-shadow: var(--sh-1); color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
 .bit-plegable:hover { background: var(--hl); }
-.bit-plegable b { font-size: 22px; font-weight: 800; font-stretch: 75%; letter-spacing: -.01em; line-height: 1.05; }
-.bit-plegable .n { font-size: 14px; font-weight: 700; color: var(--ink-2); }
-.bit-plegable .k-ar { margin-left: auto; width: 14px; height: 14px; }
+.bit-plegable b { font-size: 17px; font-weight: 800; letter-spacing: -.01em; line-height: 1.2; }
+.bit-plegable .n { display: inline-grid; place-items: center; min-width: 28px; height: 26px; padding: 0 9px; border-radius: 999px; font-size: 13.5px; font-weight: 800; color: var(--ink); background: var(--surface-3); }
+.bit-plegable .k-ar { margin-left: auto; width: 18px; height: 18px; }
+.bit-plegable + .bit-lista { margin-top: 12px; }
 
 /* ── mes ── */
-.bit-mes-cab { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 0 12px; border-top: 2px solid var(--rule); }
-.bit-mes-cab h2 { margin: 0; font-size: 32px; font-weight: 800; font-stretch: 72%; letter-spacing: -.02em; line-height: .9; }
+.bit-mes-cab { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.bit-mes-cab h2 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
 .bit-mes-cab .pg { display: flex; align-items: center; gap: 10px; }
 .bit-mes-cab .pg > span { display: flex; }
-.bit-mesg { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 2px solid var(--rule); border-left: 1px solid var(--line); }
-.bit-dh { padding: 8px 8px 7px; border-bottom: 2px solid var(--rule); border-right: 1px solid var(--line); font-size: 13px; font-weight: 700; line-height: 1.2; color: var(--ink-2); }
-.bit-dia { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; min-height: 108px; margin: 0; padding: 6px 6px 8px; border: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.bit-mesg { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--line); border-radius: 26px; background: var(--surface-1); box-shadow: var(--sh-1); }
+.bit-mesg > :nth-child(7n) { border-right: 0; }
+.bit-dh { padding: 11px 10px 10px; border-bottom: 1px solid var(--line-strong); border-right: 1px solid var(--line); background: var(--surface-2); font-size: 13px; font-weight: 800; line-height: 1.2; color: var(--ink-2); }
+.bit-dia { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 5px; min-width: 0; min-height: 108px; margin: 0; padding: 8px 8px 10px; border: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .bit-dia:hover { background: var(--hl); }
-.bit-dia[aria-pressed="true"] { background: var(--hl); box-shadow: inset 0 0 0 2px var(--rule); }
-.bit-dia .dn { align-self: flex-start; padding: 2px 4px; font-size: 22px; font-weight: 800; font-stretch: 62%; line-height: 1; }
+.bit-dia[aria-pressed="true"] { background: rgb(var(--accent-rgb) / .10); box-shadow: inset 0 0 0 2px var(--accent); }
+.bit-dia .dn { align-self: flex-start; display: grid; place-items: center; min-width: 30px; height: 30px; padding: 0 6px; border-radius: 999px; font-size: 16px; font-weight: 800; line-height: 1; }
 .bit-dia.fuera .dn { color: var(--ink-4); font-weight: 600; }
 .bit-dia.pas .dn { color: var(--ink-3); }
-.bit-dia.con .dn { background: var(--day-mark); color: var(--ink); }
-.bit-dia.hoy, .bit-dia.hoy[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--signal); }
-.bit-dia .hoy-l { position: absolute; top: 8px; right: 8px; font-size: 12px; font-weight: 800; line-height: 1; color: var(--danger-text); }
-.bit-ev { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; padding: 3px 5px 0 7px; border-bottom: 3px solid var(--surface-2); border-left: 4px solid var(--ink); background: var(--surface-2); color: var(--ink); font-size: 13px; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
+.bit-dia.con .dn { color: var(--c-orange-ink); background: var(--c-orange-soft); box-shadow: inset 0 0 0 1.5px var(--c-orange-line); }
+.bit-dia.hoy .dn { color: #fff; background: linear-gradient(140deg, var(--c-violet-a), var(--c-violet-b)); box-shadow: none; }
+.bit-dia .hoy-l { position: absolute; top: 14px; right: 10px; font-size: 12px; font-weight: 800; line-height: 1; color: var(--accent-text); }
+.bit-ev { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; padding: 4px 7px 4px 8px; border-radius: 9px; border-left: 4px solid var(--c-blue-a); background: var(--c-blue-soft); color: var(--ink); font-size: 12.5px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .bit-ev b { font-weight: 800; }
-.bit-ev.venc { border-left-color: var(--danger); }
-.bit-ev.hecha { border-left-color: var(--ok); color: var(--ink-2); font-weight: 500; }
-.bit-mas-ev { align-self: flex-start; font-size: 13px; font-weight: 700; line-height: 1.2; text-decoration: underline; text-underline-offset: 3px; }
+.bit-ev.venc { border-left-color: var(--danger); background: var(--c-red-soft); }
+.bit-ev.hecha { border-left-color: var(--ok); background: var(--c-green-soft); color: var(--ink-2); font-weight: 500; }
+.bit-mas-ev { align-self: flex-start; font-size: 13px; font-weight: 800; line-height: 1.2; color: var(--accent-text); }
 .bit-rayas { display: none; }
-.bit-leyenda { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0 0; font-size: 14px; line-height: 1.3; color: var(--ink-2); }
+.bit-leyenda { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 14px 0 0; font-size: 14px; line-height: 1.3; color: var(--ink-2); }
 .bit-leyenda span { display: inline-flex; align-items: center; gap: 8px; }
-.bit-leyenda i { width: 4px; height: 16px; background: var(--ink); }
+.bit-leyenda i { width: 16px; height: 10px; border-radius: 4px; background: var(--c-blue-a); }
 .bit-leyenda i.venc { background: var(--danger); }
 .bit-leyenda i.hecha { background: var(--ok); }
 .bit-leyenda b { font-weight: 800; color: var(--ink); }
-.bit-dpanel { margin-top: 28px; }
-.bit-dpanel h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0; padding: 12px 0 10px; border-top: 2px solid var(--rule); font-size: 22px; font-weight: 800; font-stretch: 75%; letter-spacing: -.01em; line-height: 1.05; }
-.bit-dpanel h3 small { font-size: 14px; font-weight: 400; font-stretch: 100%; letter-spacing: 0; color: var(--ink-2); }
-.bit-dvacio { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; padding: 14px 0; border-top: 1px solid var(--line); }
+.bit-dpanel { margin-top: 26px; }
+.bit-dpanel h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 14px; font-size: 20px; font-weight: 800; letter-spacing: -.015em; line-height: 1.2; }
+.bit-dpanel h3 small { font-size: 14.5px; font-weight: 500; letter-spacing: 0; color: var(--ink-2); }
+.bit-dvacio { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; padding: 16px 18px; border-radius: 18px; border: 1.5px dashed var(--line-strong); }
 .bit-dvacio p { margin: 0; font-size: 15px; color: var(--ink-2); }
-.bit-pista { margin: 0; padding: 14px 0; border-top: 2px solid var(--rule); font-size: 15px; color: var(--ink-2); }
+.bit-pista { margin: 0; padding: 16px 18px; border-radius: 18px; background: var(--surface-2); font-size: 15px; color: var(--ink-2); }
 
 /* ── registro de zonas comunes y pólizas ── */
 .bit-reg { align-items: start; row-gap: 36px; }
@@ -347,14 +327,14 @@ const CSS_BITACORA = `
 .bit-reg:has(.ai-prev) > .imp { grid-column: 1 / -1; order: -1; }
 .bit-reg .imp .k-panel-h { margin-bottom: 10px; }
 .bit-imp-t { margin: 0 0 14px; font-size: 15px; line-height: 1.45; color: var(--ink-2); text-wrap: pretty; }
-.bit-fa { display: grid; grid-template-columns: 10px auto; column-gap: 8px; row-gap: 2px; align-items: baseline; }
+.bit-fa { display: grid; grid-template-columns: 18px auto; column-gap: 8px; row-gap: 2px; align-items: center; }
 .bit-fa > .k-cuadro { align-self: center; }
-.bit-fa b { font-size: 15px; font-weight: 700; line-height: 1.3; white-space: nowrap; }
+.bit-fa b { font-size: 15px; font-weight: 800; line-height: 1.3; white-space: nowrap; }
 .bit-fa small { grid-column: 2; font-size: 14px; line-height: 1.3; color: var(--ink-2); }
-.bit-fa small.v { color: var(--danger-text); font-weight: 600; }
+.bit-fa small.v { color: var(--danger-text); font-weight: 700; }
 .bit-arch-l { list-style: none; margin: 0; padding: 0; }
 .bit-arch { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 16px; min-height: 60px; padding: 8px 0; border-bottom: 1px solid var(--line); }
-.bit-arch b { display: block; font-size: 15px; font-weight: 650; line-height: 1.3; color: var(--ink-2); }
+.bit-arch b { display: block; font-size: 15px; font-weight: 700; line-height: 1.3; color: var(--ink-2); }
 .bit-arch small { display: block; font-size: 14px; line-height: 1.3; color: var(--ink-3); }
 .bit-reg .bit-plegable { margin-top: 28px; }
 @media (min-width: 861px) {
@@ -370,26 +350,29 @@ const CSS_BITACORA = `
 
 @media (max-width: 860px) {
   .bit-tabs { margin-bottom: 22px; }
-  .bit-tabs > .fin { margin-left: 0; flex-basis: 100%; padding-bottom: 8px; }
-  .bit-urg { margin-bottom: 28px; }
-  .bit-gh b { font-size: 28px; }
-  .bit-fila { grid-template-columns: 20px 84px minmax(0, 1fr); row-gap: 6px; column-gap: 10px; }
+  .bit-tabs > .fin { margin-left: 0; flex-basis: 100%; }
+  .bit-urg { margin-bottom: 26px; }
+  .bit-gh b { font-size: 20px; }
+  .bit-fila { grid-template-columns: 44px minmax(0, 1fr); row-gap: 8px; column-gap: 12px; padding: 12px 14px; border-radius: 20px; }
+  .bit-fila > .ico { grid-row: 1 / span 2; align-self: start; }
+  .bit-fila > .d { grid-column: 2; grid-row: 1; }
+  .bit-fila > .t { grid-column: 2; grid-row: 2; }
+  .bit-fila > .k-cat { grid-column: 2; justify-self: start; }
+  .bit-fila > .acc { grid-column: 1 / -1; margin: 2px 0 0; justify-content: flex-start; }
   .bit-grupo .bit-fila > .t p { -webkit-line-clamp: 2; }
-  .bit-fila:hover { box-shadow: -8px 0 0 var(--hl), 8px 0 0 var(--hl); }
-  .bit-fila > .k-cat { grid-column: 3; grid-row: 2; padding: 0; }
-  .bit-fila > .acc { grid-column: 3; margin: 4px 0 0; justify-content: flex-start; }
-  .bit-mes-cab h2 { font-size: 28px; }
+  .bit-mes-cab h2 { font-size: 22px; }
   .bit-mes-cab .k-ic { width: 44px; height: 44px; }
   .bit-mes-cab .k-btn { min-height: 44px; }
-  .bit-dh { padding: 7px 2px 6px; text-align: center; }
-  .bit-dia { min-height: 64px; padding: 4px 3px 6px; gap: 4px; }
-  .bit-dia .dn { font-size: 18px; padding: 2px 3px; }
+  .bit-mesg { border-radius: 20px; }
+  .bit-dh { padding: 8px 2px 7px; text-align: center; }
+  .bit-dia { min-height: 64px; padding: 4px 3px 6px; gap: 4px; align-items: center; }
+  .bit-dia .dn { align-self: center; min-width: 28px; height: 28px; font-size: 15px; padding: 0 4px; }
   .bit-dia .hoy-l, .bit-ev, .bit-mas-ev { display: none; }
-  .bit-rayas { display: grid; gap: 3px; }
-  .bit-rayas i { display: block; height: 4px; background: var(--ink); }
+  .bit-rayas { display: grid; gap: 3px; width: 100%; }
+  .bit-rayas i { display: block; height: 5px; border-radius: 3px; background: var(--c-blue-a); }
   .bit-rayas i.venc { background: var(--danger); }
   .bit-rayas i.hecha { background: var(--ok); }
-  .bit-rayas small { font-size: 12px; font-weight: 700; line-height: 1; }
+  .bit-rayas small { font-size: 12px; font-weight: 800; line-height: 1; }
   .bit-dvacio .k-btn { flex: 1 1 100%; }
   .bit-arch { grid-template-columns: minmax(0, 1fr); row-gap: 8px; }
   .bit-form, .bit-perfil { grid-template-columns: minmax(0, 1fr); }
@@ -408,9 +391,9 @@ const CSS_BITACORA = `
 type AccionItem = "done" | "undo" | "dismiss";
 
 /**
- * Fila de la bitácora (secundarias.html §e): estado · fecha 15/700 · título
- * 16/650 + copropiedad y plazo 14 · categoría como palabra · acción principal
- * con texto + «Más». Pasados/hechos en --ink-3 con ■ ok.
+ * Fila de la bitácora: ficha de estado (✓ hecha · ! vencida · ⏱ pendiente) · fecha ·
+ * título + copropiedad y plazo · categoría con su color · acción principal con icono
+ * + «Más».
  */
 function FilaEvento({
   item,
@@ -431,6 +414,7 @@ function FilaEvento({
   const hecha = item.status === "done";
   const titulo = tituloDe(item);
   const tipo: TipoEstado = hecha ? "ok" : d < 0 ? "vencido" : "pendiente";
+  const { Icono: IconoEstado, tono: tonoEstado } = estiloDeEstado(tipo);
   const menu: ItemMenu[] = hecha
     ? []
     : item.source === "custom"
@@ -442,7 +426,7 @@ function FilaEvento({
 
   return (
     <li className={unir("bit-fila", hecha && "hecha")}>
-      <Cuadro tipo={tipo} />
+      <Loseta icono={IconoEstado} tono={tonoEstado} suave={hecha} />
       <span className="d">{fecha}</span>
       <div className="t">
         <b>{titulo}</b>
@@ -452,7 +436,7 @@ function FilaEvento({
         </small>
         {item.description && !hecha && <p title={item.description}>{item.description}</p>}
       </div>
-      <Categoria>{CATEGORIA[item.category] ?? CATEGORIA.custom}</Categoria>
+      <Categoria tono={CATEGORIA_TONO[item.category] ?? "slate"}>{CATEGORIA[item.category] ?? CATEGORIA.custom}</Categoria>
       <div className="acc">
         <AccionesFila>
           <BotonFila
@@ -1018,7 +1002,8 @@ function RegistroTab({
   return (
     <div className="k-r12 bit-reg">
       <section className="lst" aria-labelledby="bit-reg-h">
-        <h2 id="bit-reg-h" className="bit-gh">
+        <h2 id="bit-reg-h" className="bit-gh" data-h="teal">
+          <Loseta icono={ShieldCheck} tono="teal" tam={36} />
           <b>Registro</b>
           <span className="r">Zonas comunes y pólizas{alcance ? ` · ${alcance}` : ""}</span>
           {!assetsLoading && (
@@ -1729,7 +1714,8 @@ export default function CalendarioPage() {
                     <>
                       {vencidas.length > 0 && (
                         <section className="bit-grupo" aria-labelledby="bit-g-venc">
-                          <h2 id="bit-g-venc" className="bit-gh venc">
+                          <h2 id="bit-g-venc" className="bit-gh" data-h="red">
+                            <Loseta icono={CircleAlert} tono="red" tam={36} />
                             <b>Vencidas</b>
                             <span className="r">primero lo que ya pasó</span>
                             <em>
@@ -1747,14 +1733,16 @@ export default function CalendarioPage() {
                         const id = `bit-g-${g.clave}`;
                         return (
                           <section key={g.clave} className="bit-grupo" aria-labelledby={id}>
-                            <h2 id={id} className="bit-gh">
+                            <h2 id={id} className="bit-gh" data-h={actual ? "orange" : siguiente ? "blue" : "slate"}>
+                              <Loseta
+                                icono={g.tipo === "semana" ? (actual ? CalendarClock : CalendarDays) : CalendarRange}
+                                tono={actual ? "orange" : siguiente ? "blue" : "slate"}
+                                tam={36}
+                              />
                               {g.tipo === "semana" ? (
                                 <>
-                                  <b>S{semanaIso(g.fecha)}</b>
-                                  <span className="r">
-                                    {rangoSemana(g.fecha, hoy)}
-                                    {actual ? " · esta semana" : siguiente ? " · la próxima semana" : ""}
-                                  </span>
+                                  <b>{actual ? "Esta semana" : siguiente ? "La próxima semana" : `Del ${rangoSemana(g.fecha, hoy)}`}</b>
+                                  {(actual || siguiente) && <span className="r">{rangoSemana(g.fecha, hoy)}</span>}
                                 </>
                               ) : (
                                 <>
@@ -1838,10 +1826,12 @@ export default function CalendarioPage() {
                       <button
                         type="button"
                         className="bit-plegable"
+                        data-h="green"
                         aria-expanded={showDone}
                         aria-controls="bit-hechas"
                         onClick={() => setShowDone((v) => !v)}
                       >
+                        <Loseta icono={History} tono="green" tam={36} suave />
                         <b>Completadas</b>
                         <span className="n">
                           {done.length}

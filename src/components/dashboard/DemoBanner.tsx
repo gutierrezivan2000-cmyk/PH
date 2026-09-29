@@ -1,11 +1,12 @@
 "use client";
 
+import { FlaskConical } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 /**
- * Banner de modo demo del armazón «Índice» (dashboard). Vive aquí y no en
- * src/components/ui, que no se toca: esa carpeta la comparte /admin (IMPL §4).
- * `data-demo-banner` lo usa el índice para compactarse cuando el banner le
+ * Banner de modo demo del armazón «Guía» (dashboard). Vive aquí y no en
+ * src/components/ui, que no se toca: esa carpeta la comparte /admin.
+ * `data-demo-banner` lo usa el menú lateral para compactarse cuando el banner le
  * quita alto a la ventana.
  */
 export function DemoBanner() {
@@ -41,36 +42,27 @@ export function DemoBanner() {
 
   if (process.env.NEXT_PUBLIC_DEMO_MODE !== "true") return null;
 
-  // Aspecto «Índice»: una línea de cornisa, tinta sobre el lienzo y filete fino.
-  // Rótulo en MAYÚSCULAS a 125 % (1–2 palabras) y el resto en frase normal.
+  // Aspecto «Guía»: una franja azul suave con un matraz («de prueba») y la frase en llano.
   return (
     <div
       ref={ref}
       role="note"
       data-demo-banner=""
-      className="flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-center"
+      className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-0.5 text-center"
       style={{
-        minHeight: 30,
+        minHeight: 32,
         padding: "5px var(--pad, 16px)",
-        background: "var(--surface-0)",
-        borderBottom: "1px solid var(--line)",
+        background: "linear-gradient(var(--c-blue-soft), var(--c-blue-soft)), var(--surface-0)",
+        borderBottom: "1px solid var(--c-blue-line)",
         color: "var(--ink-2)",
-        fontSize: 13,
+        fontSize: 13.5,
         lineHeight: 1.3,
       }}
     >
-      <b
-        style={{
-          color: "var(--ink)",
-          fontSize: 12,
-          fontWeight: 800,
-          fontStretch: "125%",
-          letterSpacing: ".06em",
-          textTransform: "uppercase",
-        }}
-      >
+      <span className="inline-flex items-center gap-1.5" style={{ color: "var(--ink)", fontWeight: 800 }}>
+        <FlaskConical aria-hidden="true" focusable="false" style={{ width: 16, height: 16, color: "var(--c-blue-ink)" }} />
         Modo demo
-      </b>
+      </span>
       <span>Datos simulados · documentos reales descargables</span>
     </div>
   );

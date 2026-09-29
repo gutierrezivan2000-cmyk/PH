@@ -1,9 +1,12 @@
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { unir } from "./util";
 
 export type PasoAsistente = {
   nombre: string;
+  /** Icono del paso, junto al nombre (Propiedad → 🏢, Periodo → 📅…). */
+  icono?: LucideIcon;
   /** Valor elegido o estado: «Los Pinos», «Sep 2026», «4 listos · 1 con error», «Opcional». */
   valor?: ReactNode;
   /** Solo pasos hechos: enlace para volver a ese paso. */
@@ -18,11 +21,10 @@ export type PasoAsistente = {
 };
 
 /**
- * Pasos del asistente (SPEC §f.10): 1–5 numerados. Hechos con numeral --ink-3 y
- * ✓ antes del valor (son enlaces para volver); el actual en área negativa
- * (--neg-area) con marca de 6 px; los futuros con numeral hueco.
- * Retícula de 12: cada paso 2 columnas, el actual el resto. En móvil, fila de
- * celdas (1fr… 2.6fr la actual) y solo la actual muestra su nombre.
+ * Pasos del asistente: 1–5 en círculos numerados. Los hechos van en verde con ✓
+ * (son enlaces para volver); el actual, en una tarjeta índigo intensa; los futuros,
+ * punteados. Retícula de 12: cada paso 2 columnas, el actual el resto. En móvil,
+ * fila de celdas (1fr… 2.6fr la actual) y solo la actual muestra su nombre.
  *
  *   <Pasos actual={4} pasos={[
  *     { nombre: "Propiedad", valor: "Los Pinos", alVolver: () => ir(1) },
@@ -51,6 +53,7 @@ export function Pasos({ pasos, actual, etiquetaAccesible = "Pasos del asistente"
             <b aria-hidden="true">{num}</b>
             <span>
               <span className="k-sr">Paso {num}: </span>
+              {p.icono && <p.icono className="pi" aria-hidden="true" focusable="false" />}
               {p.nombre}
               {estado === "actual" && <span className="k-sr"> (paso actual)</span>}
               {estado === "hecho" && <span className="k-sr">{omitido ? " (omitido)" : " (hecho)"}</span>}
@@ -78,7 +81,7 @@ export function Pasos({ pasos, actual, etiquetaAccesible = "Pasos del asistente"
 
 /**
  * Navegación al pie del asistente: «← {anterior}» (secundario) + «Continuar a
- * {siguiente} →» (primario de 56 px). Por debajo de 1100 px, a ancho completo y
+ * {siguiente}» (primario de 56 px). Por debajo de 1100 px, a ancho completo y
  * el primario primero. Pasa los dos <Boton> como hijos.
  */
 export function NavPasos({ children }: { children: ReactNode }) {
