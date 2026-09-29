@@ -136,11 +136,25 @@ const MESES = [
 ];
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-/** «29 ago» (o «29 ago 2025» si no es de este año). */
+/** Día, mes (0–11) y año de una fecha EN HORA DE COLOMBIA. */
+const PARTES_BOGOTA = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Bogota", year: "numeric", month: "numeric", day: "numeric",
+});
+function partesBogota(d: Date) {
+  const p = Object.fromEntries(PARTES_BOGOTA.formatToParts(d).map((x) => [x.type, x.value]));
+  return { dia: Number(p.day), mes: Number(p.month) - 1, anio: Number(p.year) };
+}
+
+/**
+ * «29 ago» (o «29 ago 2025» si no es de este año).
+ * En hora de Colombia, como las páginas imprimibles: /empresa se renderiza en el
+ * servidor (UTC en Vercel) y con la hora local una generación de las 9 p. m.
+ * salía con la fecha del día siguiente (y el navegador la corregía al hidratar).
+ */
 export function fechaCorta(valor: Date | string, conAnio?: boolean) {
-  const d = new Date(valor);
-  const anio = conAnio ?? d.getFullYear() !== new Date().getFullYear();
-  return `${d.getDate()} ${MESES_CORTOS[d.getMonth()]}${anio ? ` ${d.getFullYear()}` : ""}`;
+  const f = partesBogota(new Date(valor));
+  const anio = conAnio ?? f.anio !== partesBogota(new Date()).anio;
+  return `${f.dia} ${MESES_CORTOS[f.mes]}${anio ? ` ${f.anio}` : ""}`;
 }
 
 /** «Febrero 2026». */

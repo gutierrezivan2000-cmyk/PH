@@ -663,6 +663,19 @@ const seededTickets = [
     updatedAt: daysAgo(8),
     _count: { messages: 2 },
     messages: [
+      // La pregunta del administrador: sin ella el ticket mostraba solo la
+      // respuesta, y el conteo de arriba (2) no cuadraba con lo pintado.
+      {
+        id: "tktm-demo-1a",
+        ticketId: "tkt-demo-1",
+        fromAdmin: false,
+        authorId: DEMO_USER.id,
+        content:
+          "Tengo el listado de unidades de Los Pinos en Excel. ¿Cómo lo subo sin tener que escribir unidad por unidad?",
+        attachments: null,
+        internal: false,
+        createdAt: daysAgo(9),
+      },
       {
         id: "tktm-demo-1b",
         ticketId: "tkt-demo-1",
