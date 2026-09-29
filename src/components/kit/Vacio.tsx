@@ -1,24 +1,35 @@
+"use client";
+
+import { Inbox, Search, TriangleAlert, type LucideIcon } from "lucide-react";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { Lupa } from "./Iconos";
+import { Loseta } from "./Loseta";
+import { moduloDe, type Tono } from "./modulos";
 import { unir } from "./util";
 
+/** Icono y color por defecto de un estado vacío: los de la función donde está (Residentes → 👥 celeste). */
+function porDefecto(pathname: string | null): { icono: LucideIcon; tono: Tono } {
+  const m = moduloDe(pathname);
+  return m ? { icono: m.icono, tono: m.tono } : { icono: Inbox, tono: "violet" };
+}
+
 /**
- * Estado vacío (SPEC §f.12): el «0» gigante ES la ilustración (nada de iconos
- * ni emojis). Titular con la situación CONCRETA, párrafo con el siguiente paso,
- * primario + secundario. Filete de 2 px arriba.
+ * Estado vacío: una ficha de color con el icono de la función, un titular con la
+ * situación CONCRETA, un párrafo con el siguiente paso y las acciones (primaria + secundaria).
  *
  *   <Vacio titulo="Edificio Parque Central 127 aún no tiene unidades."
  *     texto="Sube el listado de copropietarios en Excel o PDF y la IA arma la tabla por ti."
- *     acciones={<><Boton flecha="avanza" onClick={importar}>Importar Excel con IA</Boton>
+ *     acciones={<><Boton onClick={importar}>Importar Excel con IA</Boton>
  *                 <Boton variante="secundario" onClick={agregar}>Agregar a mano</Boton></>} />
  */
-export function Vacio({ titulo, texto, acciones, nivel = 2, className }: {
-  titulo: ReactNode; texto?: ReactNode; acciones?: ReactNode; nivel?: 2 | 3; className?: string;
+export function Vacio({ titulo, texto, acciones, nivel = 2, icono, tono, className }: {
+  titulo: ReactNode; texto?: ReactNode; acciones?: ReactNode; nivel?: 2 | 3; icono?: LucideIcon; tono?: Tono; className?: string;
 }) {
+  const base = porDefecto(usePathname());
   const H = nivel === 2 ? "h2" : "h3";
   return (
     <div className={unir("k-vacio", className)}>
-      <span className="cero" aria-hidden="true">0</span>
+      <Loseta icono={icono ?? base.icono} tono={tono ?? base.tono} />
       <H>{titulo}</H>
       {texto && <p>{texto}</p>}
       {acciones && <div className="acc">{acciones}</div>}
@@ -27,10 +38,9 @@ export function Vacio({ titulo, texto, acciones, nivel = 2, className }: {
 }
 
 /**
- * Sin resultados: la consulta repetida en un cuadro, titular «No encontramos
+ * Sin resultados: la consulta repetida junto a una lupa, titular «No encontramos
  * «905» en Los Pinos.», párrafo y acciones DERIVADAS de la consulta
- * (primario «Agregar la unidad 905 +», secundario, fantasma «Limpiar búsqueda»).
- * Sin «0» gigante.
+ * (primaria «Agregar la unidad 905», secundaria, fantasma «Limpiar búsqueda»).
  */
 export function SinResultados({ consulta, titulo, texto, acciones, nivel = 2, className }: {
   consulta: string; titulo: ReactNode; texto?: ReactNode; acciones?: ReactNode; nivel?: 2 | 3; className?: string;
@@ -38,7 +48,8 @@ export function SinResultados({ consulta, titulo, texto, acciones, nivel = 2, cl
   const H = nivel === 2 ? "h2" : "h3";
   return (
     <div className={unir("k-vacio", className)} role="status">
-      <div className="q"><Lupa /><span><span className="k-sr">Búsqueda: </span>{consulta}</span></div>
+      <Loseta icono={Search} tono="slate" />
+      <div className="q"><span className="k-sr">Búsqueda: </span><span>{consulta}</span></div>
       <H>{titulo}</H>
       {texto && <p>{texto}</p>}
       {acciones && <div className="acc">{acciones}</div>}
@@ -47,8 +58,8 @@ export function SinResultados({ consulta, titulo, texto, acciones, nivel = 2, cl
 }
 
 /**
- * Error de carga: ■ naranja + «No pudimos cargar las unidades.» + causa +
- * «Reintentar» (secundario). Nunca una pantalla en blanco.
+ * Error de carga: ficha roja con ⚠ + «No pudimos cargar las unidades.» + causa +
+ * «Reintentar». Nunca una pantalla en blanco.
  */
 export function ErrorCarga({ titulo, texto, acciones, nivel = 2, className }: {
   titulo: ReactNode; texto?: ReactNode; acciones?: ReactNode; nivel?: 2 | 3; className?: string;
@@ -56,7 +67,7 @@ export function ErrorCarga({ titulo, texto, acciones, nivel = 2, className }: {
   const H = nivel === 2 ? "h2" : "h3";
   return (
     <div className={unir("k-vacio", className)} role="alert">
-      <span className="falla">Error</span>
+      <Loseta icono={TriangleAlert} tono="red" />
       <H>{titulo}</H>
       {texto && <p>{texto}</p>}
       {acciones && <div className="acc">{acciones}</div>}

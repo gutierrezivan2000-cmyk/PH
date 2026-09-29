@@ -1,19 +1,22 @@
 /**
- * Kit «Índice» del dashboard de SOPH.IA (design/final/SPEC.md §f).
- * Documentación y patrones de página: design/final/KIT.md.
+ * Kit «Guía» del dashboard de SOPH.IA: cada función con su icono y su color,
+ * cada botón con icono + verbo, cada estado con icono + color + palabra.
  *
  * Requisitos del armazón (una sola vez):
  *   - un ancestro con data-shell="app" (activa los tokens; <Armazon> lo pone),
- *   - import "@/components/kit/fuentes" (Archivo + IBM Plex Mono autoalojadas),
+ *   - import "@/components/kit/fuentes" (Figtree autoalojada),
  *   - <RegionAvisos /> montado para que avisar() se vea.
  * Las clases k-* viven al final de src/app/globals.css (no hay kit.css que importar).
  */
+export { Loseta, type TamLoseta } from "./Loseta";
+export { Accesos, Acceso } from "./Accesos";
+export { MODULOS, moduloDe, iconoDeAccion, textoDe, type Tono, type Modulo, type ClaveModulo } from "./modulos";
 export { Boton, BotonIcono, BotonFila, EnlaceVer, type VarianteBoton } from "./Boton";
 export { Flecha, Chevron, Lupa, Cruz, Visto } from "./Iconos";
 export { Campo, Entrada, AreaTexto, Selector, Buscador, GrupoCampos } from "./Campo";
 export { Casilla, Opcion, OpcionFila, OpcionesFila, Interruptor } from "./Casilla";
 export { RejillaMeses } from "./Periodo";
-export { Estado, Cuadro, Insignia, Categoria, TipoArchivo, type TipoEstado } from "./Estado";
+export { Estado, Cuadro, Insignia, Categoria, TipoArchivo, estiloDeEstado, type TipoEstado } from "./Estado";
 export { Pagina, Pieza, CabeceraPieza, Seccion, Panel, Reticula, Resumen, Colofon } from "./Pagina";
 export {
   Urgencia, Urgencias, TiraSemanal, FilaObligacion, ListaObligaciones, MasEnLista, type DiaTira,

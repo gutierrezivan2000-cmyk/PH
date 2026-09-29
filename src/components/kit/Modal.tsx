@@ -1,19 +1,21 @@
 "use client";
 
+import { CircleHelp, type LucideIcon } from "lucide-react";
 import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { Loseta } from "./Loseta";
+import type { Tono } from "./modulos";
 import { unir } from "./util";
 
 const FOCUSABLES = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const suscribirNada = () => () => {};
 
 /**
- * Modal (SPEC §f.13): velo --scrim, caja --surface-0 con borde 2 px y
- * --shadow-pop, ancho máx. 440 px (560 con `ancho={560}` para formularios).
- * Título de 28 px = una PREGUNTA concreta; párrafo con la consecuencia;
- * acciones a la derecha: «Cancelar» (secundario) + la acción (primario, o
- * peligro lleno si destruye). Sin «×» suelto: se cierra con «Cancelar»,
- * Escape o clic en el velo.
+ * Modal: velo oscuro, tarjeta redondeada con una ficha de icono de color (`icono`, `tono`;
+ * por defecto «?» violeta; usa 🗑 rojo cuando destruye algo), ancho máx. 480 px (580 con
+ * `ancho={560}` para formularios). Título = una PREGUNTA concreta; párrafo con la
+ * consecuencia; acciones a la derecha: «Cancelar» (secundario) + la acción (primario, o
+ * peligro lleno si destruye). Sin «×» suelto: se cierra con «Cancelar», Escape o clic en el velo.
  *
  * Accesible: role="dialog" aria-modal, foco inicial al primer control (o al
  * elemento con data-autofocus), foco atrapado (el resto de <body> queda
@@ -29,10 +31,12 @@ const suscribirNada = () => () => {};
  *     <p>Juan Cárdenas dejará de ver sus documentos…</p>
  *   </Modal>
  */
-export function Modal({ abierto, alCerrar, titulo, children, acciones, ancho = 440, cerrarConVelo = true, className }: {
+export function Modal({ abierto, alCerrar, titulo, children, acciones, ancho = 440, cerrarConVelo = true, className, icono, tono }: {
   abierto: boolean;
   alCerrar: () => void;
   titulo: ReactNode;
+  icono?: LucideIcon;
+  tono?: Tono;
   children?: ReactNode;
   acciones?: ReactNode;
   ancho?: 440 | 560;
@@ -87,6 +91,7 @@ export function Modal({ abierto, alCerrar, titulo, children, acciones, ancho = 4
     <div ref={raiz} className="k-scrim" onMouseDown={(e) => { if (cerrarConVelo && e.target === e.currentTarget) alCerrar(); }}>
       <div ref={caja} role="dialog" aria-modal="true" aria-labelledby={idTitulo} tabIndex={-1}
         className={unir("k-modal", ancho === 560 && "k-560", className)}>
+        <Loseta icono={icono ?? CircleHelp} tono={tono ?? "violet"} tam={52} />
         <h2 id={idTitulo}>{titulo}</h2>
         {children && <div className="cuerpo">{children}</div>}
         {acciones && <div className="acc">{acciones}</div>}

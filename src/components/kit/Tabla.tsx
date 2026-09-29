@@ -1,13 +1,14 @@
 "use client";
 
+import { CheckCheck, ChevronLeft, ChevronRight, X, type LucideIcon } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { Casilla } from "./Casilla";
-import { Chevron } from "./Iconos";
+import { iconoDeAccion, textoDe } from "./modulos";
 import { unir } from "./util";
 
 export type ColumnaTabla<T> = {
   id: string;
-  /** Cabecera (mono 12 px MAYÚSCULAS). Siempre presente para lectores; `tituloOculto` la oculta a la vista. */
+  /** Cabecera de la columna. Siempre presente para lectores; `tituloOculto` la oculta a la vista. */
   titulo: ReactNode;
   tituloOculto?: boolean;
   /** Pista de la rejilla: "minmax(0, 1fr)" (por defecto), "minmax(0, 2fr)", "120px", "auto"… */
@@ -17,7 +18,7 @@ export type ColumnaTabla<T> = {
   celda: (fila: T) => ReactNode;
   /** En móvil (ficha) va a la columna izquierda de 76 px: el identificador (unidad, fecha). */
   principal?: boolean;
-  /** Clases de la celda: k-c-id (unidad mono 18), k-c-nom (nombre + rol), k-c-correo, k-td-cifra, k-td-acc. */
+  /** Clases de la celda: k-c-id (unidad, en negrita), k-c-nom (nombre + rol), k-c-correo, k-td-cifra, k-td-acc. */
   claseCelda?: string;
 };
 
@@ -36,8 +37,8 @@ export type Agrupacion<T> = {
   clave: (fila: T) => string;
   /** Contenido del grupo: el numeral («1») o el título («Septiembre 2026»). */
   titulo: (clave: string, filas: T[]) => ReactNode;
-  /** «numeral» (por defecto): cifra de 48 px en la columna 1 que abarca sus filas (piso).
-   *  «fila»: una fila-título de 22 px sobre sus filas (mes, copropiedad). */
+  /** «numeral» (por defecto): cifra grande en la columna 1 que abarca sus filas (piso).
+   *  «fila»: una fila-título sobre sus filas (mes, copropiedad). */
   estilo?: "numeral" | "fila";
   /** Texto bajo el numeral («Piso»). */
   nota?: ReactNode;
@@ -46,9 +47,9 @@ export type Agrupacion<T> = {
 };
 
 /**
- * Tabla del kit (SPEC §f.7): rejilla con subgrid y roles ARIA completos
- * (table/rowgroup/row/columnheader/cell). Cabecera mono entre filetes de 2 px,
- * filas de 60 px (76 con `alta`), hover y selección que sangran medio medianil.
+ * Tabla del kit: tarjeta con rejilla subgrid y roles ARIA completos
+ * (table/rowgroup/row/columnheader/cell). Cabecera de columnas en gris, filas de 64 px
+ * (80 con `alta`), hover y selección que sangran medio medianil.
  * En ≤ 860 px cada fila pasa a FICHA: columna `principal` a la izquierda (76 px),
  * el resto apilado; la cabecera se oculta a la vista pero sigue para lectores.
  *
@@ -144,7 +145,7 @@ export function Tabla<T>({
     }
   }
 
-  // Sin filas y con estado vacío: el vacío sustituye a la tabla entera (SPEC §f.12).
+  // Sin filas y con estado vacío: el vacío sustituye a la tabla entera.
   if (filas.length === 0 && vacio) return <>{vacio}</>;
 
   const textoTodas = seleccion?.etiquetaTodas ?? "Seleccionar todas";
@@ -218,8 +219,8 @@ export function AccionesFila({ children }: { children: ReactNode }) {
 }
 
 /**
- * Barra de lote (SPEC §f.7): aparece SOBRE la tabla cuando hay ≥ 1 fila
- * seleccionada. Área negativa (--neg-area) con marca de 6 px.
+ * Barra de lote: aparece SOBRE la tabla cuando hay ≥ 1 fila seleccionada.
+ * Tarjeta índigo intensa con ✓✓ y el conteo; los botones llevan su icono.
  *
  *   {sel.size > 0 && (
  *     <BarraLote n={sel.size} unidad={["seleccionada", "seleccionadas"]} alQuitar={() => setSel(new Set())}>
@@ -232,15 +233,17 @@ export function BarraLote({ n, unidad = ["seleccionada", "seleccionadas"], alQui
 }) {
   return (
     <div className="k-lote" role="region" aria-label="Acciones en lote">
-      <b aria-live="polite">{n} {n === 1 ? unidad[0] : unidad[1]}</b>
+      <b aria-live="polite"><CheckCheck aria-hidden="true" focusable="false" />{n} {n === 1 ? unidad[0] : unidad[1]}</b>
       {children}
-      <button type="button" className="quitar" onClick={alQuitar}>Quitar selección</button>
+      <button type="button" className="quitar" onClick={alQuitar}><X aria-hidden="true" focusable="false" />Quitar selección</button>
     </div>
   );
 }
 
-export function BotonLote({ children, onClick, disabled }: { children: ReactNode; onClick?: () => void; disabled?: boolean }) {
-  return <button type="button" className="bl" onClick={onClick} disabled={disabled}>{children}</button>;
+/** Botón de la barra de lote: icono (deducido del verbo, o `icono`) + texto. */
+export function BotonLote({ children, onClick, disabled, icono }: { children: ReactNode; onClick?: () => void; disabled?: boolean; icono?: LucideIcon }) {
+  const Icono = icono ?? iconoDeAccion(textoDe(children)).Icono;
+  return <button type="button" className="bl" onClick={onClick} disabled={disabled}><Icono aria-hidden="true" focusable="false" />{children}</button>;
 }
 
 /** Pie de tabla: «Mostrando 9 de 48 unidades» + paginación. */
@@ -249,7 +252,7 @@ export function PieTabla({ texto, children }: { texto: ReactNode; children?: Rea
 }
 
 /**
- * Paginación en celdas cuadradas de 40 px unidas (44 en móvil); la actual en --accent.
+ * Paginación en botones cuadrados de 42 px (44 en móvil); la actual en violeta.
  * Con muchas páginas: 1 … 4 5 6 … 12.
  */
 export function Paginacion({ pagina, total, alCambiar }: { pagina: number; total: number; alCambiar: (p: number) => void }) {
@@ -262,7 +265,7 @@ export function Paginacion({ pagina, total, alCambiar }: { pagina: number; total
   return (
     <nav className="k-pag" aria-label="Páginas">
       <button type="button" aria-label="Página anterior" disabled={pagina <= 1} onClick={() => alCambiar(pagina - 1)}>
-        <Chevron dir="izq" />
+        <ChevronLeft aria-hidden="true" focusable="false" />
       </button>
       {nums.map((p, i) =>
         p === "…" ? (
@@ -273,7 +276,7 @@ export function Paginacion({ pagina, total, alCambiar }: { pagina: number; total
         ),
       )}
       <button type="button" aria-label="Página siguiente" disabled={pagina >= total} onClick={() => alCambiar(pagina + 1)}>
-        <Chevron />
+        <ChevronRight aria-hidden="true" focusable="false" />
       </button>
     </nav>
   );

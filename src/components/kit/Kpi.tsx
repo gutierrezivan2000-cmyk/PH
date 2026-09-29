@@ -1,26 +1,29 @@
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { Loseta } from "./Loseta";
+import type { Tono } from "./modulos";
 import { unir } from "./util";
 
 /**
- * KPI (SPEC §f.6): filete de 2 px arriba, cifra 48 px/62 % (32 con tamLetra={32}),
- * etiqueta 15 px y variación 14 px CON PALABRA («+4 este mes»). Nunca más de
- * 4 por fila. Cifras monetarias: «$ 12.480.000» (Archivo con cifras tabulares).
- * `alerta` pinta la cifra en --danger-text (en mora, excedido).
+ * KPI: tarjeta con ficha de icono (opcional), cifra grande, etiqueta de 15 px y variación
+ * de 14 px CON PALABRA («+4 este mes»). Nunca más de 4 por fila. Cifras monetarias:
+ * «$ 12.480.000» (Figtree con cifras tabulares). `alerta` pinta la cifra en rojo (en mora, excedido).
  *
  *   <Kpis>
- *     <Kpi cifra="38" etiqueta="Documentos generados en 2026" variacion="4 este mes" />
+ *     <Kpi icono={FileText} tono="blue" cifra="38" etiqueta="Documentos generados en 2026" variacion="4 este mes" />
  *     <Kpi cifra="$ 12.480.000" etiqueta="Recaudo del mes" tamLetra={32} />
  *   </Kpis>
  */
-export function Kpi({ cifra, unidad, etiqueta, variacion, malo, alerta, tamLetra = 48, className }: {
+export function Kpi({ cifra, unidad, etiqueta, variacion, malo, alerta, tamLetra = 48, icono, tono, className }: {
   cifra: ReactNode; unidad?: ReactNode; etiqueta: ReactNode; variacion?: ReactNode;
-  /** La variación es mala noticia (--danger-text). */
+  /** La variación es mala noticia (rojo). */
   malo?: boolean; alerta?: boolean;
   /** Tamaño de letra de la cifra: 48 (por defecto) o 32 (en fila). */
-  tamLetra?: 32 | 48; className?: string;
+  tamLetra?: 32 | 48; icono?: LucideIcon; tono?: Tono; className?: string;
 }) {
   return (
-    <div className={unir("k-kpi", tamLetra === 32 && "k-32", alerta && "alerta", className)}>
+    <div className={unir("k-kpi", tamLetra === 32 && "k-32", alerta && "alerta", className)} data-h={tono}>
+      {icono && <Loseta icono={icono} tono={tono} />}
       <b>{cifra}{unidad && <small> {unidad}</small>}</b>
       <span>{etiqueta}</span>
       {variacion && <em className={malo ? "malo" : undefined}>{variacion}</em>}
@@ -35,8 +38,8 @@ export function Kpis({ children, className }: { children: ReactNode; className?:
 
 /**
  * Medidor de uso (UsageCard, Suscripción, /empresa): una fila por límite, cada
- * una con su rótulo y sus celdas (llenas = usadas en --ink, vacías en contorno).
- * Sin escala de fechas. `libres` añade la cifra de 48 px a la derecha («3 libres»):
+ * una con su rótulo y sus celdas (llenas = usadas en degradado violeta, vacías en gris).
+ * `libres` añade la cifra de 48 px a la derecha («3 libres»):
  * pásala calculada de los MISMOS datos (p. ej. total − usado del límite que manda).
  *
  *   <Medidor filas={[{ etiqueta: "Este mes", usado: 12, total: 15 }, { etiqueta: "Hoy", usado: 1, total: 3 }]}

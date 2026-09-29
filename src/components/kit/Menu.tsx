@@ -1,8 +1,9 @@
 "use client";
 
+import { ChevronDown, Trash2, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Chevron } from "./Iconos";
+import { iconoDeAccion, textoDe, type Tono } from "./modulos";
 import { unir } from "./util";
 
 export type ItemMenu = {
@@ -14,15 +15,18 @@ export type ItemMenu = {
   href?: string;
   /** Con `href`: abre en otra pestaña (<a target="_blank" rel="noopener noreferrer">), p. ej. el portal /u/… o wa.me. */
   nuevaPestana?: boolean;
-  /** Destructivo: va al final, tras filete de 2 px, en --danger-text. Debe abrir un modal de confirmación. */
+  /** Destructivo: va al final, tras un filete, en rojo y con 🗑. Debe abrir un modal de confirmación. */
   peligro?: boolean;
   /** Nota de 13 px a la derecha («pide confirmación»). */
   nota?: ReactNode;
   deshabilitado?: boolean;
+  /** Icono y color propios. Sin ellos se deducen del verbo («Enviar enlace por correo» → ✉ teal). */
+  icono?: LucideIcon;
+  tono?: Tono;
 };
 
 /**
- * Menú «Más ▾» (SPEC §f.19, §f.7): acompaña a la acción principal de una fila.
+ * Menú «Más ▾»: acompaña a la acción principal de una fila; cada opción lleva su icono de color.
  * role="menu", flechas ↑ ↓, Inicio/Fin, Escape devuelve el foco al disparador,
  * clic fuera cierra. En móvil se despliega en el flujo, a ancho completo
  * (el contenedor de acciones debe permitir salto de línea: <AccionesFila>).
@@ -87,30 +91,33 @@ export function MenuMas({ items, etiqueta = "Más", etiquetaAccesible, className
         onClick={() => setAbierto((v) => !v)}
         onKeyDown={(e) => { if (e.key === "ArrowDown" && !abierto) { e.preventDefault(); setAbierto(true); } }}
       >
-        {etiqueta}<Chevron />
+        {etiqueta}<ChevronDown aria-hidden="true" focusable="false" />
       </button>
       {abierto && (
         <span className="k-menu" id={id} role="menu" ref={menu} onKeyDown={teclado} aria-label={etiquetaAccesible}>
           {ordenados.map((it, n) => {
             const cls = it.peligro ? "peligro" : undefined;
-            const cont = <>{it.etiqueta}{it.nota && <small>{it.nota}</small>}</>;
+            const d = iconoDeAccion(textoDe(it.etiqueta));
+            const Icono = it.icono ?? (it.peligro ? Trash2 : d.Icono);
+            const tono = it.tono ?? (it.peligro ? "red" : d.tono);
+            const cont = <><Icono aria-hidden="true" focusable="false" />{it.etiqueta}{it.nota && <small>{it.nota}</small>}</>;
             if (it.href && !it.deshabilitado) {
               if (it.nuevaPestana) {
                 return (
                   <a key={n} href={it.href} target="_blank" rel="noopener noreferrer" role="menuitem" tabIndex={-1}
-                    className={cls} onClick={() => cerrar()}>
+                    data-h={tono} className={cls} onClick={() => cerrar()}>
                     {cont}
                   </a>
                 );
               }
               return (
-                <Link key={n} href={it.href} role="menuitem" tabIndex={-1} className={cls} onClick={() => setAbierto(false)}>
+                <Link key={n} href={it.href} role="menuitem" tabIndex={-1} data-h={tono} className={cls} onClick={() => setAbierto(false)}>
                   {cont}
                 </Link>
               );
             }
             return (
-              <button key={n} type="button" role="menuitem" tabIndex={-1} className={cls}
+              <button key={n} type="button" role="menuitem" tabIndex={-1} data-h={tono} className={cls}
                 aria-disabled={it.deshabilitado || undefined}
                 onClick={() => {
                   if (it.deshabilitado) return;

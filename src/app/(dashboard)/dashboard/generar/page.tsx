@@ -1,5 +1,6 @@
 "use client";
 
+import { Building2, CalendarDays, FileSignature, FileText, PenLine, Upload, type LucideIcon } from "lucide-react";
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
@@ -27,6 +28,7 @@ import {
   Estado,
   FilaArchivo,
   ListaArchivos,
+  Loseta,
   Medidor,
   OpcionFila,
   OpcionesFila,
@@ -42,6 +44,7 @@ import {
   nombreCorto,
   pesoLegible,
   type PasoAsistente,
+  type Tono,
 } from "@/components/kit";
 
 // Topes por defecto hasta que /api/usage responda con los del plan. El 500 MB
@@ -118,38 +121,33 @@ const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno
    ════════════════════════════════════════════════════════════════════ */
 
 const CSS_GENERAR = `
-.gen-bloque { position: relative; padding-bottom: 56px; min-width: 0; scroll-margin-top: calc(var(--cab-h) + 12px); }
-.gen-bloque-h { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); align-items: end;
-  border-top: 4px solid var(--rule); padding-top: 16px; margin-bottom: 24px; }
-.gen-bloque-h > b { grid-column: 1 / 2; font: 800 40px/.8 var(--f-sans); font-stretch: 62%; letter-spacing: -.03em;
-  font-feature-settings: "tnum" 0, "lnum" 1; }
-.gen-bloque-h.hecho > b { color: var(--ink-3); }
-.gen-bloque-h.futuro > b { color: transparent; -webkit-text-stroke: 1.5px var(--ink-3); }
-.gen-bloque-h > div { grid-column: 2 / 13; min-width: 0; }
-.gen-bloque-h h2 { margin: 0; font-size: 26px; font-weight: 800; font-stretch: 75%; letter-spacing: -.02em; line-height: 1.05; }
-.gen-bloque-h p { margin: 8px 0 0; font-size: 14px; line-height: 1.35; color: var(--ink-3); }
-.gen-lb { display: block; margin: 0 0 8px; font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--ink-2); }
+.gen-bloque { position: relative; margin-bottom: 24px; padding: 24px 28px 28px; min-width: 0; scroll-margin-top: calc(var(--cab-h) + 12px);
+  border-radius: 30px; border: 1px solid var(--line); background: var(--surface-1); box-shadow: var(--sh-1); }
+.gen-bloque.futuro { background: transparent; border-style: dashed; border-color: var(--line-strong); box-shadow: none; }
+.gen-bloque-h { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
+.gen-bloque-h > div { flex: 1 1 auto; min-width: 0; }
+.gen-bloque-h .paso { display: block; margin-bottom: 2px; font-size: 13.5px; font-weight: 800; color: var(--h-ink); }
+.gen-bloque-h h2 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; }
+.gen-bloque-h p { margin: 6px 0 0; font-size: 14.5px; line-height: 1.4; color: var(--ink-2); }
+.gen-lb { display: block; margin: 0 0 8px; font-size: 14.5px; font-weight: 800; line-height: 1.3; color: var(--ink-2); }
 .gen-lb.sep { margin-top: 24px; }
-.gen-anios > button { padding: 0 11px; }
-.gen-pptx { padding: 6px 14px; border-bottom: 1px solid var(--line); }
+.gen-anios > button { padding: 0 12px; }
+.gen-pptx { margin-top: 10px; padding: 6px 16px; border-radius: 18px; background: var(--surface-2); }
 .gen-pptx .k-ctl { align-items: flex-start; padding: 6px 0; }
 .gen-pptx .k-ctl > .k-chk { margin-top: 1px; flex: none; }
-.gen-pptx .k-ctl > span { font-weight: 700; }
-.gen-pptx .k-ctl small { font-weight: 400; margin-top: 3px; }
-.gen-ayuda { margin: 0; font-size: 15px; line-height: 1.4; color: var(--ink-2); }
-.gen-ayuda + .k-ver { margin-top: 4px; }
+.gen-pptx .k-ctl > span { font-weight: 800; }
+.gen-pptx .k-ctl small { font-weight: 500; margin-top: 3px; }
+.gen-ayuda { margin: 0; font-size: 15px; line-height: 1.45; color: var(--ink-2); }
+.gen-ayuda + .k-ver { margin-top: 8px; }
 .gen-lado { min-width: 0; }
+.gen-guia { background: var(--surface-2); box-shadow: none; }
 .gen-guia p { margin: 0; font-size: 15px; line-height: 1.45; color: var(--ink-2); }
-.gen-guia h4 { margin: 20px 0 0; padding-bottom: 10px; border-bottom: 2px solid var(--rule); font: 800 14px/1.1 var(--f-sans);
-  font-stretch: 125%; text-transform: uppercase; letter-spacing: .03em; }
-.gen-guia ul { list-style: none; margin: 0; padding: 0; }
-.gen-guia li { display: grid; grid-template-columns: 22px minmax(0, 1fr); padding: 10px 0; border-bottom: 1px solid var(--line);
-  font-size: 15px; line-height: 1.35; }
-.gen-guia li::before { content: ""; width: 8px; height: 2px; margin-top: .6em; background: var(--ink-3); }
-.gen-guia .mas { margin-top: 14px; font-size: 14px; color: var(--ink-3); }
+.gen-guia h4 { display: flex; align-items: center; gap: 8px; margin: 18px 0 4px; font: 800 15px/1.2 var(--f-sans); color: var(--ink); }
+.gen-guia h4::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c-sky-a); }
+.gen-guia .mas { margin-top: 12px; font-size: 14px; color: var(--ink-3); }
 .gen-aviso { margin-top: 16px; }
-/* En 7 columnas junto al índice lateral, la barra y el estado de la fila de
-   archivo ceden ancho al nombre (de 120/128 a 72/124 px). En ≤ 1180 manda el kit. */
+/* En 7 columnas junto al menú lateral, la barra y el estado de la fila de
+   archivo ceden ancho al nombre. En ≤ 1180 manda el kit. */
 @media (min-width: 1181px) {
   .gen-tray .k-arch { grid-template-columns: 52px minmax(0, 1fr) 72px 124px 44px; column-gap: 12px; }
 }
@@ -162,34 +160,36 @@ const CSS_GENERAR = `
   .gen-envio .k-medidor-c { grid-template-columns: minmax(0, 1fr); row-gap: 16px; }
 }
 @media (max-width: 860px) {
-  .gen-bloque { padding-bottom: 40px; }
-  .gen-bloque-h { display: flex; align-items: baseline; gap: 14px; margin-bottom: 20px; }
-  .gen-bloque-h > b { font-size: 34px; flex: none; }
-  .gen-bloque-h h2 { font-size: 22px; }
-  .gen-lado { margin-top: 28px; }
+  .gen-bloque { padding: 18px 16px 22px; border-radius: 24px; margin-bottom: 18px; }
+  .gen-bloque-h { gap: 12px; margin-bottom: 16px; }
+  .gen-bloque-h h2 { font-size: 20px; }
+  .gen-lado { margin-top: 24px; }
   .gen-envio { margin-top: 8px; }
 }
 `;
 
 /**
- * Bloque del asistente: filete de 4 px, numeral del paso con la misma gramática
- * que <Pasos> (hecho en --ink-3, actual en --ink, futuro hueco) y titular.
+ * Bloque del asistente: tarjeta con la ficha de icono del paso, «Paso N», titular y,
+ * si ya está hecho, un ✓ verde. Los pasos por venir van punteados.
  * `id` es el ancla a la que saltan los pasos hechos.
  */
-function Bloque({ id, n, estado, titulo, nota, children }: {
-  id: string; n: number; estado: "hecho" | "actual" | "futuro"; titulo: ReactNode; nota?: ReactNode; children: ReactNode;
+function Bloque({ id, n, estado, titulo, nota, icono, tono, children }: {
+  id: string; n: number; estado: "hecho" | "actual" | "futuro"; titulo: ReactNode; nota?: ReactNode;
+  icono: LucideIcon; tono: Tono; children: ReactNode;
 }) {
   return (
-    <section id={id} className="gen-bloque" aria-labelledby={`${id}-t`}>
-      <div className={`gen-bloque-h k-ticks ${estado}`}>
-        <b aria-hidden="true">{n}</b>
+    <section id={id} className={`gen-bloque ${estado}`} data-h={tono} aria-labelledby={`${id}-t`}>
+      <div className="gen-bloque-h">
+        <Loseta icono={icono} tono={tono} tam={52} suave={estado === "futuro"} />
         <div>
+          <span className="paso" aria-hidden="true">Paso {n} de 5</span>
           <h2 id={`${id}-t`}>
             <span className="k-sr">Paso {n}: </span>
             {titulo}
           </h2>
           {nota && <p>{nota}</p>}
         </div>
+        {estado === "hecho" && <Estado tipo="ok">Listo</Estado>}
       </div>
       {children}
     </section>
@@ -499,15 +499,16 @@ export default function GenerarPage() {
   const estadoDe = (n: number) => (n < actual ? "hecho" : n === actual ? "actual" : "futuro");
 
   const pasos: PasoAsistente[] = [
-    { nombre: "Propiedad", valor: prop ? nombreCorto(prop.name) : "Sin elegir", href: "#g-propiedad" },
-    { nombre: "Periodo", valor: `${MESES_CORTOS[month - 1]} ${year}`, href: "#g-periodo" },
+    { nombre: "Propiedad", icono: Building2, valor: prop ? nombreCorto(prop.name) : "Sin elegir", href: "#g-propiedad" },
+    { nombre: "Periodo", icono: CalendarDays, valor: `${MESES_CORTOS[month - 1]} ${year}`, href: "#g-periodo" },
     {
       nombre: "Documentos",
+      icono: FileText,
       valor: docKind === "acta" ? "Acta" : includePptx ? "Informe y PPTX" : "Informe",
       href: "#g-documentos",
     },
-    { nombre: "Archivos", valor: files.length ? plural(files.length, "archivo", "archivos") : "Opcional", href: "#g-archivos" },
-    { nombre: "Notas", valor: additionalText.trim() ? "Con notas" : "Opcional", href: "#g-notas" },
+    { nombre: "Archivos", icono: Upload, valor: files.length ? plural(files.length, "archivo", "archivos") : "Opcional", href: "#g-archivos" },
+    { nombre: "Notas", icono: PenLine, valor: additionalText.trim() ? "Con notas" : "Opcional", href: "#g-notas" },
   ];
 
   const pesoTotal = files.reduce((s, f) => s + f.size, 0);
@@ -557,7 +558,7 @@ export default function GenerarPage() {
 
           <form onSubmit={handleSubmit}>
             {/* ── 1 · Propiedad ── */}
-            <Bloque id="g-propiedad" n={1} estado={estadoDe(1)} titulo="Selecciona tu propiedad">
+            <Bloque id="g-propiedad" n={1} estado={estadoDe(1)} titulo="Selecciona tu propiedad" icono={Building2} tono="blue">
               <div className="k-r12">
                 <div style={{ gridColumn: "1 / 8", minWidth: 0 }}>
                   {cargandoProps ? (
@@ -579,7 +580,7 @@ export default function GenerarPage() {
                       titulo="No tienes propiedades registradas."
                       texto="Agrega una primero: los documentos se generan para una copropiedad."
                       acciones={
-                        <Boton href="/dashboard/propiedades" flecha="avanza">
+                        <Boton href="/dashboard/propiedades" flecha="crea">
                           Agregar una propiedad
                         </Boton>
                       }
@@ -598,6 +599,8 @@ export default function GenerarPage() {
                         return (
                           <OpcionFila
                             key={p.id}
+                            icono={Building2}
+                            tono="blue"
                             name="g-propiedad"
                             value={p.id}
                             etiqueta={p.name}
@@ -618,7 +621,7 @@ export default function GenerarPage() {
                 {!cargandoProps && !errorProps && properties.length > 0 && (
                   <div className="gen-lado" style={{ gridColumn: "8 / 13" }}>
                     <p className="gen-ayuda">¿Falta una copropiedad?</p>
-                    <EnlaceVer href="/dashboard/propiedades" refIndice="12">
+                    <EnlaceVer href="/dashboard/propiedades">
                       Agregarla en Propiedades
                     </EnlaceVer>
                   </div>
@@ -627,7 +630,7 @@ export default function GenerarPage() {
             </Bloque>
 
             {/* ── 2 · Periodo ── */}
-            <Bloque id="g-periodo" n={2} estado={estadoDe(2)} titulo="Periodo del documento">
+            <Bloque id="g-periodo" n={2} estado={estadoDe(2)} titulo="Periodo del documento" icono={CalendarDays} tono="orange">
               <div className="k-r12">
                 <div style={{ gridColumn: "1 / 8", minWidth: 0 }}>
                   <span className="gen-lb" aria-hidden="true">
@@ -654,7 +657,7 @@ export default function GenerarPage() {
             </Bloque>
 
             {/* ── 3 · Documentos ── */}
-            <Bloque id="g-documentos" n={3} estado={estadoDe(3)} titulo="¿Qué documentos necesitas?">
+            <Bloque id="g-documentos" n={3} estado={estadoDe(3)} titulo="¿Qué documentos necesitas?" icono={FileText} tono="indigo">
               <div className="k-r12">
                 <div style={{ gridColumn: "1 / 8", minWidth: 0 }}>
                   <OpcionesFila etiquetaAccesible="Documento que se genera">
@@ -663,6 +666,8 @@ export default function GenerarPage() {
                       return (
                         <OpcionFila
                           key={kind}
+                          icono={kind === "acta" ? FileSignature : FileText}
+                          tono={kind === "acta" ? "indigo" : "blue"}
                           name="docKind"
                           value={kind}
                           etiqueta={DOC_KIND_LABELS[kind]}
@@ -706,6 +711,8 @@ export default function GenerarPage() {
               id="g-archivos"
               n={4}
               estado={estadoDe(4)}
+              icono={Upload}
+              tono="sky"
               titulo={`Archivos para el ${docLabelMin}`}
               nota={
                 // Cada documento tiene su propia bandeja: los archivos del otro no
@@ -759,7 +766,7 @@ export default function GenerarPage() {
                       documentos.
                     </p>
                     <h4>Para el {docLabelMin}</h4>
-                    <ul>
+                    <ul className="k-checks">
                       {QUE_SUBIR[docKind].map((item) => (
                         <li key={item}>{item}</li>
                       ))}
@@ -773,7 +780,7 @@ export default function GenerarPage() {
             </Bloque>
 
             {/* ── 5 · Notas y envío ── */}
-            <Bloque id="g-notas" n={5} estado={estadoDe(5)} titulo="Información adicional">
+            <Bloque id="g-notas" n={5} estado={estadoDe(5)} titulo="Información adicional" icono={PenLine} tono="violet">
               <div className="k-r12">
                 <div style={{ gridColumn: "1 / 8", minWidth: 0 }}>
                   <Campo
@@ -838,7 +845,6 @@ export default function GenerarPage() {
                   <Boton
                     type="submit"
                     tam={56}
-                    flecha="avanza"
                     ancho
                     cargando={loading}
                     textoCargando="Enviando…"

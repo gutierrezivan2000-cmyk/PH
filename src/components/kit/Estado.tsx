@@ -1,65 +1,88 @@
+import {
+  CalendarClock, CircleAlert, CircleCheck, CircleMinus, Clock, Hourglass, LoaderCircle, TriangleAlert, type LucideIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
+import type { Tono } from "./modulos";
 import { unir } from "./util";
 
 /**
- * Tipos de estado (SPEC §f.8): SIEMPRE forma + color + palabra.
- * ok ■ verde (hecho, activo, listo, subido) · pendiente □ (pendiente, falta, en espera)
- * · falta □ ámbar (falta un dato: sin correo) · vencido ■ naranja (vencido, error)
- * · enCurso ◧ (en curso, procesando) · sin □ tenue (sin enlace, inactivo)
- * · enObra ▨ achurado (en obra, próximamente) · semana ■ gris (obligación de esta semana).
+ * Tipos de estado: SIEMPRE icono + color + palabra (nunca solo color).
+ * ok ✓ verde (hecho, activo, listo, subido) · pendiente ⏱ gris (pendiente, en espera)
+ * · falta ⚠ ámbar (falta un dato: sin correo) · vencido ! rojo (vencido, error)
+ * · enCurso ◌ azul giratorio (en curso, procesando) · sin – gris (sin enlace, inactivo)
+ * · enObra ⌛ gris (en obra, próximamente) · semana 📅 naranja (obligación de esta semana).
  */
 export type TipoEstado = "ok" | "pendiente" | "falta" | "vencido" | "enCurso" | "sin" | "enObra" | "semana";
 
-const CUADRO: Record<TipoEstado, string> = {
-  ok: "ok", pendiente: "pend", falta: "warn", vencido: "venc", enCurso: "curso", sin: "sin", enObra: "trama", semana: "semana",
-};
-const TINTA: Record<TipoEstado, string> = {
-  ok: "var(--ok-text)", pendiente: "var(--ink-2)", falta: "var(--warn-text)", vencido: "var(--danger-text)",
-  enCurso: "var(--ink)", sin: "var(--ink-2)", enObra: "var(--ink-3)", semana: "var(--ink-2)",
+const ESTADOS: Record<TipoEstado, { Icono: LucideIcon; tono: Tono; gira?: boolean }> = {
+  ok: { Icono: CircleCheck, tono: "green" },
+  pendiente: { Icono: Clock, tono: "slate" },
+  falta: { Icono: TriangleAlert, tono: "amber" },
+  vencido: { Icono: CircleAlert, tono: "red" },
+  enCurso: { Icono: LoaderCircle, tono: "blue", gira: true },
+  sin: { Icono: CircleMinus, tono: "slate" },
+  enObra: { Icono: Hourglass, tono: "slate" },
+  semana: { Icono: CalendarClock, tono: "orange" },
 };
 
-/** Solo el cuadro de 10 px (decorativo). Úsalo cuando la palabra ya está al lado. */
+/** Icono y tono de un tipo de estado (para tarjetas y filas que pintan su propia ficha). */
+export function estiloDeEstado(tipo: TipoEstado): { Icono: LucideIcon; tono: Tono } {
+  const { Icono, tono } = ESTADOS[tipo];
+  return { Icono, tono };
+}
+
+/** Solo el icono de color (decorativo). Úsalo cuando la palabra ya está al lado. */
 export function Cuadro({ tipo, className }: { tipo: TipoEstado; className?: string }) {
-  return <i aria-hidden="true" className={unir("k-cuadro", CUADRO[tipo], className)} />;
+  const { Icono, tono, gira } = ESTADOS[tipo];
+  return <Icono aria-hidden="true" focusable="false" data-h={tono} className={unir("k-cuadro", gira && "k-spin", className)} />;
 }
 
 /**
- * Estado = cuadro + palabra (15 px/600).
+ * Estado = icono + palabra, en una píldora del color de su significado.
  *   <Estado tipo="ok">Activo</Estado>  <Estado tipo="falta">Sin correo</Estado>  <Estado tipo="vencido">Error</Estado>
- * `neutro`: la palabra en --ink (matrices densas); el cuadro conserva su color.
- * `tamLetra={14}` para celdas y listas compactas (tamaño de letra; por defecto 15).
+ * `neutro`: la palabra en tinta normal, sin píldora (matrices densas); el icono conserva su color.
+ * `tamLetra={14}` para celdas y listas compactas (tamaño de letra; por defecto 14,5).
  */
 export function Estado({ tipo, children, neutro, tamLetra, className }:
   { tipo: TipoEstado; children: ReactNode; neutro?: boolean; tamLetra?: 14 | 15 | 16; className?: string }) {
+  const { Icono, tono, gira } = ESTADOS[tipo];
   return (
-    <span className={unir("k-estado", className)} style={{ color: neutro ? "var(--ink)" : TINTA[tipo], fontSize: tamLetra }}>
-      <Cuadro tipo={tipo} />
+    <span className={unir("k-estado", neutro && "neutro", className)} data-h={tono} data-spin={gira || undefined} style={tamLetra ? { fontSize: tamLetra } : undefined}>
+      <Icono aria-hidden="true" focusable="false" />
       {children}
     </span>
   );
 }
 
 /**
- * Insignia = un número en un cuadro (nunca una pastilla). `alerta` = conteo de
- * vencidas (naranja). `unidad` va en texto solo para lectores de pantalla.
+ * Insignia = un número en una píldora. `alerta` = conteo de vencidas (rojo).
+ * `unidad` va en texto solo para lectores de pantalla.
  *   <Insignia alerta unidad="vencidas">3</Insignia>
  */
-export function Insignia({ children, alerta, unidad, className }:
-  { children: ReactNode; alerta?: boolean; unidad?: string; className?: string }) {
+export function Insignia({ children, alerta, unidad, tono, className }:
+  { children: ReactNode; alerta?: boolean; unidad?: string; tono?: Tono; className?: string }) {
   return (
-    <span className={unir("k-bdg", alerta && "alerta", className)}>
+    <span className={unir("k-bdg", alerta && "alerta", className)} data-h={tono}>
       {children}
       {unidad && <span className="k-sr"> {unidad}</span>}
     </span>
   );
 }
 
-/** Categoría como PALABRA (14 px, --ink-2): legal, póliza, mantenimiento, SG-SST… Sin color ni forma propia. */
-export function Categoria({ children, className }: { children: ReactNode; className?: string }) {
-  return <span className={unir("k-cat", className)}>{children}</span>;
+/** Categoría: etiqueta con su color (siempre el mismo por categoría): legal, póliza, mantenimiento, SG-SST… */
+export function Categoria({ children, tono, className }: { children: ReactNode; tono?: Tono; className?: string }) {
+  return <span className={unir("k-cat", className)} data-h={tono ?? "slate"}>{children}</span>;
 }
 
-/** Tipo de archivo/documento en mono con borde: XLS, PDF, DOC, INF, ACTA, PRES. */
-export function TipoArchivo({ children, className }: { children: ReactNode; className?: string }) {
-  return <span className={unir("k-tipo", className)}>{children}</span>;
+/** Color de cada tipo de archivo: PDF rojo, hojas de cálculo verde, Word azul, imágenes rosa, audio fucsia… */
+const TONO_ARCHIVO: Record<string, Tono> = {
+  PDF: "red", XLS: "green", CSV: "green", DOC: "blue", INF: "violet", ACTA: "indigo", PRES: "amber", PPT: "orange",
+  JPG: "pink", PNG: "pink", IMG: "pink", HEIC: "pink", M4A: "fuchsia", MP3: "fuchsia", WAV: "fuchsia", OGG: "fuchsia",
+  WEBM: "fuchsia", MP4: "fuchsia", TXT: "slate",
+};
+
+/** Tipo de archivo/documento en una etiqueta de su color: XLS, PDF, DOC, INF, ACTA, PRES. */
+export function TipoArchivo({ children, tono, className }: { children: ReactNode; tono?: Tono; className?: string }) {
+  const clave = typeof children === "string" ? children.trim().toUpperCase() : "";
+  return <span className={unir("k-tipo", className)} data-h={tono ?? TONO_ARCHIVO[clave] ?? "slate"}>{children}</span>;
 }

@@ -1,25 +1,32 @@
+import { Construction, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { Estado } from "./Estado";
+import { Loseta } from "./Loseta";
+import type { Tono } from "./modulos";
 import { unir } from "./util";
 
 /**
- * Pantalla pausada (SPEC §f.18, ComingSoon): el lienzo entero achurado con
- * borde 1,5 px --line-strong y, abajo a la izquierda, una PLACA SÓLIDA:
- * «05 Cartera · próximamente» + «Esta sección está en obra.» (40 px) + qué
- * traerá + acción (p. ej. «Avisarme» secundario, SOLO si existe ese flujo).
+ * Pantalla pausada (ComingSoon): el lienzo con una trama suave de «en construcción» y, al
+ * centro, una tarjeta con la ficha de color de la función, la marca «Próximamente»,
+ * «Estamos construyendo esta sección.», qué traerá y una acción (p. ej. «Volver al inicio»).
  *
- *   <EnObra nn="05" nombre="Cartera" trae="Cartera por unidad, intereses de mora y paz y salvos."
- *     accion={<Boton variante="secundario" href="/dashboard/soporte">Escríbenos</Boton>} />
+ *   <EnObra nombre="Cartera" icono={Wallet} tono="green" trae="Cartera por unidad, intereses de mora y paz y salvos."
+ *     accion={<Boton variante="secundario" href="/dashboard">Volver al inicio</Boton>} />
  */
-export function EnObra({ nn, nombre, trae, accion, titulo = "Esta sección está en obra.", className, minAlto }: {
-  nn: string; nombre: string; trae: ReactNode; accion?: ReactNode; titulo?: string; className?: string;
+export function EnObra({ nombre, trae, accion, titulo = "Estamos construyendo esta sección.", className, minAlto, icono, tono }: {
+  /** Se acepta y se ignora (número del antiguo índice). */
+  nn?: string;
+  nombre: string; trae: ReactNode; accion?: ReactNode; titulo?: string; className?: string;
   /** Alto mínimo del lienzo (por defecto 300 px; en pantalla completa, p. ej. "60vh"). */
   minAlto?: number | string;
+  icono?: LucideIcon; tono?: Tono;
 }) {
   return (
     <div role="group" aria-label={`${nombre} · próximamente`} className={unir("k-obra k-achurado", className)}
       style={minAlto ? { minHeight: minAlto } : undefined}>
       <div className="pl">
-        <div className="k"><span className="k-ref">{nn}</span>{nombre} · próximamente</div>
+        <Loseta icono={icono ?? Construction} tono={tono ?? "amber"} />
+        <div className="k"><Estado tipo="enObra">Próximamente</Estado></div>
         <h2>{titulo}</h2>
         <p>{trae}</p>
         {accion}

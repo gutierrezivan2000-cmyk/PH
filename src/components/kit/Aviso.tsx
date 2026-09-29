@@ -1,23 +1,34 @@
 "use client";
 
+import { CircleAlert, CircleCheck, Info, TriangleAlert, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Boton } from "./Boton";
+import { Loseta } from "./Loseta";
+import type { Tono } from "./modulos";
 import { unir } from "./util";
 
-export type TipoAviso = "ok" | "error" | "info";
+export type TipoAviso = "ok" | "error" | "info" | "aviso";
+
+/** Cada tipo de aviso lleva su icono y su color: verde ✓ · rojo ! · azul i · ámbar ⚠. */
+const TIPOS: Record<TipoAviso, { Icono: LucideIcon; tono: Tono }> = {
+  ok: { Icono: CircleCheck, tono: "green" },
+  error: { Icono: CircleAlert, tono: "red" },
+  info: { Icono: Info, tono: "blue" },
+  aviso: { Icono: TriangleAlert, tono: "amber" },
+};
 export type AccionAviso = { etiqueta: string; href?: string; alElegir?: () => void };
 
 /**
- * Aviso (toast) presentacional (SPEC §f.14): caja --surface-0, borde 2 px,
- * BORDE IZQUIERDO DE 8 px (--ok éxito · --danger error · --ink informativo),
- * --shadow-pop. Primera frase en negrita + una acción de 40 px y/o «Cerrar».
+ * Aviso (toast) presentacional: tarjeta con una ficha de icono y color según el tipo
+ * (verde ✓ éxito · rojo ! error · azul i información · ámbar ⚠ atención) y borde del mismo color.
+ * Primera frase en negrita + una acción de 40 px y/o «Cerrar».
  * Un error no se va solo: con `alCerrar` siempre lleva «Cerrar» (fantasma),
  * también cuando trae acción. Éxito/informativo con acción caducan a los 6 s.
  * Para mostrarlos de verdad usa `avisar()` + <RegionAvisos />.
  * `enLinea` = aviso dentro del flujo (banner de renovación, límite alcanzado,
- * «Demo activo»): sin sombra.
+ * «Demo activo»): sin sombra y con el fondo teñido.
  */
 export function Aviso({ tipo = "info", titulo, texto, accion, alCerrar, enLinea, className, rol }: {
   tipo?: TipoAviso; titulo: ReactNode; texto?: ReactNode; accion?: AccionAviso;
@@ -26,8 +37,10 @@ export function Aviso({ tipo = "info", titulo, texto, accion, alCerrar, enLinea,
   rol?: "status" | "alert" | null;
 }) {
   const role = rol === null ? undefined : rol ?? (tipo === "error" ? "alert" : "status");
+  const { Icono, tono } = TIPOS[tipo];
   return (
-    <div role={role} className={unir("k-aviso", tipo === "ok" && "ok", tipo === "error" && "err", enLinea && "k-linea", className)}>
+    <div role={role} data-h={tono} className={unir("k-aviso", tipo === "ok" && "ok", tipo === "error" && "err", enLinea && "k-linea", className)}>
+      <Loseta icono={Icono} tono={tono} tam={36} />
       <span><b>{titulo}</b>{texto && <> {texto}</>}</span>
       {(accion || alCerrar) && (
         <span className="acc">

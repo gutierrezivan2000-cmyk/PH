@@ -1,20 +1,26 @@
 import Link from "next/link";
+import { ArrowLeft, ArrowRight, LoaderCircle, Plus, type LucideIcon } from "lucide-react";
 import type { ComponentProps, MouseEvent, ReactNode } from "react";
 import { Chevron, Flecha } from "./Iconos";
+import { iconoDeAccion, textoDe, type Tono } from "./modulos";
 import { unir } from "./util";
 
 export type VarianteBoton = "primario" | "secundario" | "fantasma" | "peligro";
 
 type PropsBoton = {
-  /** primario = negativo (uno por zona) · secundario = contorno · fantasma = texto subrayado · peligro = contorno naranja. */
+  /** primario = relleno de color (uno por zona) · secundario = contorno · fantasma = solo texto · peligro = rojo. */
   variante?: VarianteBoton;
   /** 40 filas, barras y avisos · 44 por defecto · 56 una sola acción principal por flujo. */
   tam?: 40 | 44 | 56;
-  /** Solo con variante="peligro": relleno naranja (el botón que confirma dentro de un modal). */
+  /** Solo con variante="peligro": relleno rojo (el botón que confirma dentro de un modal). */
   lleno?: boolean;
+  /** Icono propio. Sin él, se deduce del verbo («Descargar» → ↓, «Agregar» → +). `false` = sin icono. */
+  icono?: LucideIcon | false;
+  /** Color de la intención. Sin él, se deduce del verbo (crear = verde, descargar = azul, eliminar = rojo…). */
+  tono?: Tono;
   /** Si llega, se pinta un <Link> de Next (se reenvían onClick, style, data-* y aria-*). */
   href?: string;
-  /** Flecha al final («avanza», «crea» = +) o al principio («vuelve» = ← Atrás). */
+  /** Pista de dirección: «avanza» (→ al final), «crea» (+ verde) o «vuelve» (← al principio). */
   flecha?: "avanza" | "crea" | "vuelve";
   /** Ancho completo. «movil» = solo en ≤ 860 px. */
   ancho?: boolean | "movil";
@@ -29,15 +35,17 @@ type PropsBoton = {
 } & Omit<ComponentProps<"button">, "children">;
 
 /**
- * Botón del kit (SPEC §f.2, §i.2). Recto, sin sombra, foco de 3 px.
+ * Botón del kit «Guía»: SIEMPRE icono + verbo, con el color de su intención.
+ * El icono y el color se deducen del verbo (ver `iconoDeAccion`); `icono` y `tono`
+ * los fijan a mano cuando hace falta.
  *
- *   <Boton href="/dashboard/generar" flecha="avanza">Generar informe</Boton>
- *   <Boton variante="secundario">Guardar borrador</Boton>
+ *   <Boton href="/dashboard/generar">Generar informe</Boton>            → ✨ violeta-fucsia
+ *   <Boton variante="secundario">Guardar borrador</Boton>              → 💾 contorno
  *   <Boton variante="peligro" lleno onClick={desactivar}>Desactivar portal</Boton>
  *   <Boton cargando={guardando} textoCargando="Guardando…">Guardar cambios</Boton>
  */
 export function Boton({
-  variante = "primario", tam = 44, lleno, href, flecha, ancho, cargando, textoCargando, descargar, nuevaPestana,
+  variante = "primario", tam = 44, lleno, icono, tono, href, flecha, ancho, cargando, textoCargando, descargar, nuevaPestana,
   children, className, disabled, onClick, type = "button", ...rest
 }: PropsBoton) {
   const cls = unir(
@@ -53,13 +61,19 @@ export function Boton({
     className,
   );
   const inactivo = Boolean(disabled || cargando);
+  const { Icono, alFinal, color } = elegirIcono(children, { icono, tono, flecha });
+  const Pintado = cargando ? LoaderCircle : Icono;
+  const icon = Pintado && (
+    <Pintado aria-hidden="true" focusable="false" className={cargando ? "k-spin" : undefined} />
+  );
   const contenido = (
     <>
-      {flecha === "vuelve" && <Flecha tipo="vuelve" />}
+      {!alFinal && icon}
       <span>{cargando && textoCargando ? textoCargando : children}</span>
-      {flecha && flecha !== "vuelve" && <Flecha tipo={flecha} />}
+      {alFinal && icon}
     </>
   );
+  const aire = { "data-h": variante === "peligro" ? undefined : color } as const;
 
   if (href) {
     // Con href se reenvía todo lo que sirve en un enlace (onClick, style, data-*, aria-*…);
@@ -67,11 +81,11 @@ export function Boton({
     const enlace = propsDeEnlace(rest);
     if (inactivo) {
       // Un enlace deshabilitado no navega: se pinta como texto con aria-disabled.
-      return <span {...(enlace as ComponentProps<"span">)} className={cls} aria-disabled="true" role="link" aria-busy={cargando || undefined}>{contenido}</span>;
+      return <span {...(enlace as ComponentProps<"span">)} {...aire} className={cls} aria-disabled="true" role="link" aria-busy={cargando || undefined}>{contenido}</span>;
     }
     if (descargar || nuevaPestana) {
       return (
-        <a {...enlace} href={href} className={cls} onClick={onClick as ComponentProps<"a">["onClick"]}
+        <a {...enlace} {...aire} href={href} className={cls} onClick={onClick as ComponentProps<"a">["onClick"]}
           download={descargar === true ? "" : descargar || undefined}
           target={nuevaPestana ? "_blank" : undefined} rel={nuevaPestana ? "noopener noreferrer" : undefined}>
           {contenido}
@@ -79,7 +93,7 @@ export function Boton({
       );
     }
     return (
-      <Link {...enlace} href={href} className={cls} onClick={onClick as ComponentProps<"a">["onClick"]}>
+      <Link {...enlace} {...aire} href={href} className={cls} onClick={onClick as ComponentProps<"a">["onClick"]}>
         {contenido}
       </Link>
     );
@@ -93,6 +107,7 @@ export function Boton({
   return (
     <button
       type={type}
+      {...aire}
       className={cls}
       disabled={disabled}
       aria-disabled={cargando ? true : undefined}
@@ -105,6 +120,19 @@ export function Boton({
   );
 }
 
+/** Qué icono lleva un botón, dónde va y de qué color es (por `icono`/`tono`, por `flecha` o por el verbo). */
+function elegirIcono(children: ReactNode, o: { icono?: LucideIcon | false; tono?: Tono; flecha?: "avanza" | "crea" | "vuelve" }):
+  { Icono: LucideIcon | null; alFinal: boolean; color: Tono | undefined } {
+  if (o.icono === false) return { Icono: null, alFinal: false, color: o.tono };
+  if (o.icono) return { Icono: o.icono, alFinal: false, color: o.tono ?? iconoDeAccion(textoDe(children)).tono };
+  if (o.flecha === "crea") return { Icono: Plus, alFinal: false, color: o.tono ?? "green" };
+  if (o.flecha === "vuelve") return { Icono: ArrowLeft, alFinal: false, color: o.tono ?? "slate" };
+  const d = iconoDeAccion(textoDe(children));
+  // «avanza» sin un verbo con icono propio (Generar → ✨, Descargar → ↓) es simplemente «→» al final.
+  if (o.flecha === "avanza" && d.Icono === ArrowRight) return { Icono: ArrowRight, alFinal: true, color: o.tono ?? "violet" };
+  return { Icono: d.Icono, alFinal: Boolean(d.fin), color: o.tono ?? d.tono };
+}
+
 /** Props de <button> que no tienen sentido en un enlace. */
 function propsDeEnlace(rest: Omit<ComponentProps<"button">, "children">): ComponentProps<"a"> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -114,8 +142,8 @@ function propsDeEnlace(rest: Omit<ComponentProps<"button">, "children">): Compon
 
 /**
  * Botón-icono cuadrado de 44 px (40 con tam={40}). SIEMPRE con `etiquetaAccesible`:
- * es su nombre accesible (y su title). Úsalo solo donde el SPEC lo prevé (buscar en
- * ≤ 1180, flechas de mes, quitar archivo). Acciones con verbo → <Boton>.
+ * es su nombre accesible (y su title). Úsalo solo donde no cabe una palabra (buscar en
+ * pantallas estrechas, flechas de mes, quitar archivo). Acciones con verbo → <Boton>.
  */
 export function BotonIcono({
   etiquetaAccesible, children, tam = 44, sinBorde, className, type = "button", ...rest
@@ -129,29 +157,38 @@ export function BotonIcono({
 }
 
 /**
- * Acción de fila de tabla (40 px, 44 en móvil): UNA acción principal con texto
- * + <MenuMas>. Botones contiguos se solapan 1,5 px.
+ * Acción de fila de tabla o lista (40 px, 44 en móvil): icono de color + verbo.
+ * UNA acción principal con texto + <MenuMas>. El icono se deduce del verbo.
  *   <BotonFila onClick={copiar}>Copiar enlace</BotonFila>
  *   <BotonFila href={`/u/${token}`} nuevaPestana>Abrir el portal</BotonFila>
  * Con `href` pinta un enlace (<Link>; con `nuevaPestana`, <a target="_blank">
  * con rel="noopener noreferrer", también para enlaces externos como wa.me).
  */
 export function BotonFila({
-  children, href, nuevaPestana, className, type = "button", ...rest
-}: { children: ReactNode; href?: string; nuevaPestana?: boolean } & Omit<ComponentProps<"button">, "children">) {
+  children, href, nuevaPestana, icono, tono, className, type = "button", ...rest
+}: { children: ReactNode; href?: string; nuevaPestana?: boolean; icono?: LucideIcon | false; tono?: Tono } & Omit<ComponentProps<"button">, "children">) {
+  const d = iconoDeAccion(textoDe(children));
+  const Icono = icono === false ? null : icono ?? d.Icono;
+  const contenido = (
+    <>
+      {Icono && <Icono aria-hidden="true" focusable="false" />}
+      {children}
+    </>
+  );
+  const color = tono ?? d.tono;
   if (href) {
     const enlace = propsDeEnlace(rest);
     if (nuevaPestana) {
-      return <a {...enlace} href={href} target="_blank" rel="noopener noreferrer" className={unir("k-bt", className)}>{children}</a>;
+      return <a {...enlace} data-h={color} href={href} target="_blank" rel="noopener noreferrer" className={unir("k-bt", className)}>{contenido}</a>;
     }
-    return <Link {...enlace} href={href} className={unir("k-bt", className)}>{children}</Link>;
+    return <Link {...enlace} data-h={color} href={href} className={unir("k-bt", className)}>{contenido}</Link>;
   }
-  return <button type={type} className={unir("k-bt", className)} {...rest}>{children}</button>;
+  return <button type={type} data-h={color} className={unir("k-bt", className)} {...rest}>{contenido}</button>;
 }
 
 /**
- * Enlace «ver» con flecha: «Abrir bitácora 03 →». `ref` es el número de
- * entrada del índice (mono 12 px). Para enlaces de sección y pies de lista.
+ * Enlace «ver» con flecha: «Abrir bitácora →», en una píldora de color de marca.
+ * Para enlaces de sección y pies de lista. `refIndice` ya no se pinta (compatibilidad).
  */
 export function EnlaceVer({ href, children, refIndice, className, ...rest }:
   { href: string; children: ReactNode; refIndice?: string } & Omit<ComponentProps<typeof Link>, "href" | "children">) {

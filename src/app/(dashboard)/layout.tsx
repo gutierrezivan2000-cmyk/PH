@@ -7,7 +7,7 @@ import { Sidebar, esActiva } from "@/components/dashboard/Sidebar";
 import { useDatosIndice } from "@/components/dashboard/datosIndice";
 import { DemoBanner } from "@/components/dashboard/DemoBanner";
 import { RenewalBanner } from "@/components/dashboard/RenewalBanner";
-import { Dock, RegionAvisos } from "@/components/kit";
+import { Dock, MODULOS, RegionAvisos, type ClaveModulo, type DestinoDock } from "@/components/kit";
 import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
@@ -30,8 +30,8 @@ export default function DashboardLayout({
    * lo rodean. Ese descuento estaba escrito a mano como «52px», pero la barra
    * medía 61: sobraban nueve píxeles de desplazamiento muerto y el chat
    * rebotaba al escribir. Igual que con el banner de demo, se mide en vez de
-   * suponerse. Con el armazón «Índice» la barra móvil es el dock inferior
-   * (≤ 860 px: 60 px + zona segura); en escritorio no se pinta y la variable
+   * suponerse. Con el armazón «Guía» la barra móvil es el dock inferior
+   * (≤ 860 px: 68 px + zona segura); en escritorio no se pinta y la variable
    * queda en 0.
    */
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function DashboardLayout({
     };
   }, [pathname]);
   const enChatDeAgente = /^\/dashboard\/asistente\/[^/]+$/.test(pathname || "");
-  // El índice móvil queda abierto solo en la ruta donde se abrió: cualquier
+  // El menú móvil queda abierto solo en la ruta donde se abrió: cualquier
   // navegación (una entrada, el logotipo, atrás/adelante del navegador) lo cierra
   // sin un efecto que sincronice estado.
   const [indiceAbiertoEn, setIndiceAbiertoEn] = useState<string | null>(null);
@@ -59,10 +59,15 @@ export default function DashboardLayout({
   const cerrarIndice = () => setIndiceAbiertoEn(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const datos = useDatosIndice(pathname);
+  // Cada acceso del dock lleva el icono y el color de su función (los mismos del menú).
+  const destino = (clave: ClaveModulo, etiqueta: string, extra?: Partial<DestinoDock>): DestinoDock => {
+    const m = MODULOS[clave];
+    return { href: m.href, etiqueta, icono: m.icono, tono: m.tono, actual: esActiva(pathname, m.href), ...extra };
+  };
 
   return (
     <SessionProvider>
-      {/* data-shell="app" activa los tokens «Índice» (globals.css, :root:has(…)). */}
+      {/* data-shell="app" activa los tokens «Guía» (globals.css, :root:has(…)). */}
       <div data-shell="app" className="bg-background text-foreground">
         <DemoBanner />
         {/* El armazón arranca DEBAJO del banner de demo: medir la ventana entera
@@ -82,27 +87,21 @@ export default function DashboardLayout({
             {/* overflow-x: clip (no hidden): recorta como antes lo que se salga de lado sin
                 crear un contenedor de scroll, así la cabecera sticky sigue pegándose. */}
             <main className="flex-1 min-w-0 overflow-x-clip">{children}</main>
-            {/* Dock móvil (≤ 860 px): sustituye al menú hamburguesa; «Índice» abre el índice como diálogo. */}
+            {/* Dock móvil (≤ 860 px): sustituye al menú hamburguesa; «Menú» abre el menú como diálogo. */}
             <Dock
               alAbrirIndice={abrirIndice}
               indiceAbierto={sidebarOpen}
               destinos={[
-                { href: "/dashboard", etiqueta: "Inicio", actual: esActiva(pathname, "/dashboard") },
-                {
-                  href: "/dashboard/generar",
-                  etiqueta: "Generar",
-                  actual: esActiva(pathname, "/dashboard/generar"),
+                destino("inicio", "Inicio"),
+                destino("generar", "Generar", {
                   insignia: datos.porGenerar ? { n: datos.porGenerar, unidad: "por generar" } : undefined,
-                },
-                {
-                  href: "/dashboard/calendario",
-                  etiqueta: "Bitácora",
-                  actual: esActiva(pathname, "/dashboard/calendario"),
+                }),
+                destino("bitacora", "Bitácora", {
                   insignia: datos.vencidas
                     ? { n: datos.vencidas, unidad: datos.vencidas === 1 ? "vencida" : "vencidas", alerta: true }
                     : undefined,
-                },
-                { href: "/dashboard/asistente", etiqueta: "Asistente", actual: esActiva(pathname, "/dashboard/asistente") },
+                }),
+                destino("asistente", "Asistente"),
               ]}
             />
             {/* Panel del chat de soporte: se abre desde «Soporte» en el índice (sin
