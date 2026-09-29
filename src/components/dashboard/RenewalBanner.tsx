@@ -8,9 +8,8 @@ type Usage = { planStatus?: string; periodEndsAt?: string | null; /** Momento de
 const DAY = 24 * 60 * 60 * 1000;
 
 /**
- * Aviso de renovación (SPEC §g 14): aviso EN LÍNEA con borde izquierdo de 8 px,
- * naranja (--danger) si el plan ya venció, tinta si está por renovarse, y la
- * acción «Renovar». Mismas condiciones y textos de siempre.
+ * Aviso de renovación: aviso EN LÍNEA rojo si el plan ya venció, azul si está por
+ * renovarse, y la acción «Renovar». Mismas condiciones y textos de siempre.
  */
 export function RenewalBanner() {
   const [usage, setUsage] = useState<Usage | null>(null);

@@ -23,14 +23,13 @@ import { Chevron } from "@/components/kit";
  * con asteriscos»: una lista de plazos o una tabla de mayorías se leía como un
  * párrafo corrido lleno de asteriscos. Se renderiza de verdad —encabezados,
  * listas, tablas, código— con la tipografía de lectura del kit («Guía»,
- * clase `k-md`: 17 px/1,5, tablas con cabecera mono entre filetes), para que
+ * clase `k-md`: 16,5 px/1,6, tablas en tarjeta con cabecera gris), para que
  * funcione igual en claro y en oscuro.
  */
 
 /* Ajustes locales sobre `.k-md` (el kit no los trae; ver pendientes del kit):
-   - encabezados: el kit los pone en MAYÚSCULAS, pero los de una respuesta pueden
-     ser frases largas; la regla de accesibilidad solo admite mayúsculas en rótulos
-     de 1–4 palabras. Aquí: titular de 22 px (h3) y título de 17 px (h4).
+   - encabezados: los de una respuesta pueden ser frases largas: titular de 20 px (h3)
+     y título de 17 px (h4), en la misma tipografía redonda del resto de la interfaz.
    - tablas: ocupan todo el ancho de la respuesta (no 68 ch) y en móvil pasan a
      fichas: cada celda con el nombre de su columna encima (sale del <thead>).
    - bloques de código y notas al pie (remark-gfm), en la gramática del kit. */
@@ -38,14 +37,14 @@ const CSS_RESPUESTA = `
 .k-md { position: relative; }
 .k-md > .tabla-scroll { position: relative; max-width: 100%; }
 .k-md > .tabla-scroll > table { margin-top: 2px; }
-.k-md h3 { margin: 22px 0 8px; font-size: 22px; font-weight: 800; text-transform: none; letter-spacing: -.01em; line-height: 1.05; }
+.k-md h3 { margin: 22px 0 8px; font-size: 20px; font-weight: 800; letter-spacing: -.015em; line-height: 1.2; }
 .k-md h4 { margin: 18px 0 6px; font-size: 17px; font-weight: 700; text-transform: none; letter-spacing: 0; line-height: 1.3; }
 .k-md > :first-child { margin-top: 0; }
 .k-md li > p { margin: 0; }
 .k-md img { max-width: 100%; height: auto; }
-.k-md pre { margin: 0 0 14px; padding: 12px 14px; max-width: 100%; overflow-x: auto; background: var(--surface-2); border-left: 4px solid var(--rule); }
+.k-md pre { margin: 0 0 14px; padding: 14px 16px; max-width: 100%; overflow-x: auto; background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 16px; }
 .k-md pre code { padding: 0; background: none; font-size: 14px; line-height: 1.45; }
-.k-md sup a { font-weight: 600; text-decoration: none; }
+.k-md sup a { font-weight: 700; text-decoration: none; }
 .k-md sup a:hover { text-decoration: underline; }
 .k-md .footnotes { position: relative; margin: 16px 0 14px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.5; color: var(--ink-2); }
 .k-md .footnotes > h4 { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -64,7 +63,7 @@ const CSS_RESPUESTA = `
   .k-md > .tabla-scroll td + td { margin-top: 8px; }
   .k-md > .tabla-scroll td:first-child { font-weight: 700; }
   .k-md > .tabla-scroll td[data-label]:not([data-label=""])::before { content: attr(data-label); display: block; margin-bottom: 2px;
-    font: 500 12px/1.2 var(--f-mono); letter-spacing: .05em; color: var(--ink-3); }
+    font: 800 12.5px/1.2 var(--f-sans); color: var(--ink-3); }
 }
 `;
 

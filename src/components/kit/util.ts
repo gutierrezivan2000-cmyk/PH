@@ -6,8 +6,8 @@ export function unir(...clases: Array<string | false | null | undefined>): strin
 const PREFIJOS = /^(conjunto residencial|conjunto|edificio|urbanizaci[oó]n)\s+/i;
 
 /**
- * Nombre corto de una copropiedad para cornisa, fichas y celdas estrechas
- * (SPEC §f.1): quita el prefijo genérico. «Conjunto Residencial Los Pinos» →
+ * Nombre corto de una copropiedad para chips, fichas y celdas estrechas:
+ * quita el prefijo genérico. «Conjunto Residencial Los Pinos» →
  * «Los Pinos». Si el nombre queda vacío, devuelve el original. Muestra siempre
  * el nombre completo en `title`/`aria-label`.
  * Si tras el prefijo viene «del/de la…» («Conjunto del Parque») se deja entero.

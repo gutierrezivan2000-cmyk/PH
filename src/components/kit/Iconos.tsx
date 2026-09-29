@@ -1,11 +1,9 @@
 import type { CSSProperties } from "react";
 
 /**
- * Iconografía del kit: trazo 2, remates rectos (SPEC §f.2). Todos son
- * decorativos (aria-hidden): el texto del control dice qué hace.
- * Flechas (→ ← ↑), chevrones (▾ ▴) y vistos (✓) van SIEMPRE en SVG: los
- * subconjuntos autoalojados de Archivo y Plex no incluyen U+2192, U+25BE ni
- * U+2713 y saldrían con la fuente del sistema. Tampoco «≈» (U+2248): escribe «aprox.».
+ * Flechas, chevrones, lupa, visto y cruz propios del kit (trazo redondeado). Los iconos de las
+ * funciones, las acciones y los estados vienen de `lucide-react` (ver `modulos.ts`).
+ * Todos son decorativos (aria-hidden): el texto del control dice qué hace.
  */
 type P = { className?: string; style?: CSSProperties };
 
