@@ -1,14 +1,40 @@
 "use client";
 
-import { CircleHelp, type LucideIcon } from "lucide-react";
-import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { ArrowRight, CircleHelp, type LucideIcon } from "lucide-react";
+import { isValidElement, useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { Boton } from "./Boton";
 import { Loseta } from "./Loseta";
-import type { Tono } from "./modulos";
+import { iconoDeAccion, textoDe, type Tono } from "./modulos";
 import { unir } from "./util";
 
 const FOCUSABLES = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const suscribirNada = () => () => {};
+
+/**
+ * Icono y color de un modal cuando no se fijan a mano: salen de su acción principal
+ * (el último <Boton> que no es secundario ni fantasma). Destruye algo → rojo; agrega →
+ * verde +; envía → ✉ teal; si no se reconoce el verbo, un «?» violeta.
+ */
+function ficha(acciones: ReactNode): { Icono: LucideIcon; tono: Tono } {
+  let principal: { peligro: boolean; texto: string } | null = null;
+  const visita = (n: ReactNode) => {
+    if (Array.isArray(n)) { n.forEach(visita); return; }
+    if (!isValidElement(n)) return;
+    const p = n.props as { variante?: string; children?: ReactNode };
+    if (n.type === Boton) {
+      if (p.variante !== "secundario" && p.variante !== "fantasma") principal = { peligro: p.variante === "peligro", texto: textoDe(p.children) };
+      return;
+    }
+    visita(p.children);
+  };
+  visita(acciones);
+  if (!principal) return { Icono: CircleHelp, tono: "violet" };
+  const { peligro, texto } = principal as { peligro: boolean; texto: string };
+  const d = iconoDeAccion(texto);
+  if (d.Icono === ArrowRight) return { Icono: CircleHelp, tono: peligro ? "red" : "violet" };
+  return { Icono: d.Icono, tono: peligro ? "red" : d.tono };
+}
 
 /**
  * Modal: velo oscuro, tarjeta redondeada con una ficha de icono de color (`icono`, `tono`;
@@ -45,6 +71,7 @@ export function Modal({ abierto, alCerrar, titulo, children, acciones, ancho = 4
   className?: string;
 }) {
   const enCliente = useSyncExternalStore(suscribirNada, () => true, () => false);
+  const auto = ficha(acciones);
   const idTitulo = useId();
   const caja = useRef<HTMLDivElement>(null);
   const raiz = useRef<HTMLDivElement>(null);
@@ -91,7 +118,7 @@ export function Modal({ abierto, alCerrar, titulo, children, acciones, ancho = 4
     <div ref={raiz} className="k-scrim" onMouseDown={(e) => { if (cerrarConVelo && e.target === e.currentTarget) alCerrar(); }}>
       <div ref={caja} role="dialog" aria-modal="true" aria-labelledby={idTitulo} tabIndex={-1}
         className={unir("k-modal", ancho === 560 && "k-560", className)}>
-        <Loseta icono={icono ?? CircleHelp} tono={tono ?? "violet"} tam={52} />
+        <Loseta icono={icono ?? auto.Icono} tono={tono ?? auto.tono} tam={52} />
         <h2 id={idTitulo}>{titulo}</h2>
         {children && <div className="cuerpo">{children}</div>}
         {acciones && <div className="acc">{acciones}</div>}

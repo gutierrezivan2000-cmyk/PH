@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronsLeft, ChevronsRight, LogOut } from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, Hourglass, LogOut } from "lucide-react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -115,10 +116,16 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse, datos }: S
   const soporteDisponible = useSoporteDisponible();
   const soporteAbierto = useSoporteAbierto();
   const soporte = MODULOS.soporte;
+  // Las funciones pausadas («Pronto») no ocupan el menú: van juntas, plegadas, bajo «Próximamente».
+  // Si la pantalla actual es una de ellas, el grupo se abre solo.
+  const [prontoAbierto, setProntoAbierto] = useState(false);
+  const esPronto = (item: EntradaIndice) => Boolean(item.comingSoon && COMING_SOON[item.comingSoon]);
+  const enProntoTodas = NAV_GROUPS.flatMap((g) => g.items).filter(esPronto);
+  const prontoVisible = prontoAbierto || enProntoTodas.some((i) => esActiva(pathname, i.href));
 
   const entrada = (item: EntradaIndice) => {
     const m = MODULOS[item.modulo];
-    const pronto = Boolean(item.comingSoon && COMING_SOON[item.comingSoon]);
+    const pronto = esPronto(item);
     const enlace = (
       <ItemIndice
         key={item.href}
@@ -188,15 +195,37 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse, datos }: S
     <div className="k-col-indice" data-largo="" data-plegado={plegado || undefined} data-elite={datos?.elite || undefined}>
       <Indice abierto={open} alCerrar={onClose} pie={pie} hrefInicio="/dashboard" accionMarca={plegado ? undefined : botonPlegar}>
         {plegado && <div className="k-idx-tit">{botonPlegar}</div>}
-        {NAV_GROUPS.map((grupo) => (
-          <GrupoIndice key={grupo.label} titulo={grupo.label}>
-            {grupo.items.map(entrada)}
-          </GrupoIndice>
-        ))}
+        {NAV_GROUPS.map((grupo) => {
+          const visibles = grupo.items.filter((i) => !esPronto(i));
+          return visibles.length === 0 ? null : (
+            <GrupoIndice key={grupo.label} titulo={grupo.label}>
+              {visibles.map(entrada)}
+            </GrupoIndice>
+          );
+        })}
         {datos?.elite && (
           <GrupoIndice titulo="Élite">
             {entrada(PORTAFOLIO_ENTRY)}
           </GrupoIndice>
+        )}
+        {enProntoTodas.length > 0 && (
+          <div className="k-grupo-idx k-pronto" role="group" aria-label="Próximamente">
+            <button
+              type="button"
+              className="k-it"
+              data-h="slate"
+              aria-expanded={prontoVisible}
+              aria-controls="k-pronto-lista"
+              title={plegado ? "Próximamente" : "Funciones que llegarán pronto"}
+              onClick={() => setProntoAbierto((v) => !v)}
+            >
+              <Loseta icono={Hourglass} tono="slate" />
+              <span className="l">Próximamente</span>
+              <span className="c tot">{enProntoTodas.length}</span>
+              <ChevronDown className="chev" aria-hidden="true" focusable="false" />
+            </button>
+            {prontoVisible && <div id="k-pronto-lista" className="k-pronto-lista">{enProntoTodas.map(entrada)}</div>}
+          </div>
         )}
         {soporteDisponible && (
           <div className="k-grupo-idx k-idx-ayuda">

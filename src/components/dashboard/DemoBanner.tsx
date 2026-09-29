@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Banner de modo demo del armazón «Índice» (dashboard). Vive aquí y no en
+ * Banner de modo demo del armazón «Guía» (dashboard). Vive aquí y no en
  * src/components/ui, que no se toca: esa carpeta la comparte /admin (IMPL §4).
  * `data-demo-banner` lo usa el índice para compactarse cuando el banner le
  * quita alto a la ventana.
@@ -41,7 +41,7 @@ export function DemoBanner() {
 
   if (process.env.NEXT_PUBLIC_DEMO_MODE !== "true") return null;
 
-  // Aspecto «Índice»: una línea de cornisa, tinta sobre el lienzo y filete fino.
+  // Aspecto «Guía»: una línea de cornisa, tinta sobre el lienzo y filete fino.
   // Rótulo en MAYÚSCULAS a 125 % (1–2 palabras) y el resto en frase normal.
   return (
     <div

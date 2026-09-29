@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { EnlaceVer } from "./Boton";
 import { Loseta } from "./Loseta";
-import { moduloDe, type Tono } from "./modulos";
+import { iconoDeTitulo, moduloDe, textoDe, type Tono } from "./modulos";
 import { unir } from "./util";
 
 /**
@@ -74,10 +74,12 @@ export function Seccion({ id, titulo, nota, enlace, acciones, icono, tono, child
   children: ReactNode;
   className?: string;
 }) {
+  const auto = icono ? null : iconoDeTitulo(textoDe(titulo));
+  const Icono = icono ?? auto?.Icono;
   return (
     <section className={unir("k-seccion", className)} aria-labelledby={id}>
       <div className="k-sec-h">
-        {icono && <Loseta icono={icono} tono={tono} tam={36} />}
+        {Icono && <Loseta icono={Icono} tono={tono ?? auto?.tono} tam={36} />}
         <h2 id={id}>{titulo}{nota && <small>{nota}</small>}</h2>
         {enlace && <EnlaceVer href={enlace.href}>{enlace.texto}</EnlaceVer>}
         {!enlace && acciones && <div className="acc">{acciones}</div>}
@@ -102,11 +104,13 @@ export function Panel({ titulo, nota, titular, recuadro, nivel = 3, icono, tono,
 }) {
   const idTitulo = id ? `${id}-t` : undefined;
   const H = nivel === 2 ? "h2" : nivel === 4 ? "h4" : "h3";
+  const auto = icono || !titulo ? null : iconoDeTitulo(textoDe(titulo));
+  const Icono = icono ?? auto?.Icono;
   return (
     <Etiqueta id={id} className={unir("k-panel", recuadro && "k-recuadro", className)} aria-labelledby={titulo && idTitulo ? idTitulo : undefined}>
       {titulo && (
         <H id={idTitulo} className={unir("k-panel-h", titular && "k-titular")}>
-          {icono && <Loseta icono={icono} tono={tono} tam={36} />}
+          {Icono && <Loseta icono={Icono} tono={tono ?? auto?.tono} tam={36} />}
           <span>{titulo}</span>
           {nota && <small>{nota}</small>}
         </H>

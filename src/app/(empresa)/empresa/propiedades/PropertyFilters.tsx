@@ -374,8 +374,8 @@ function EstilosTablas() {
 }
 
 const CSS_TABLAS = `
-.emp-cifra { font: 800 32px/.8 var(--f-sans); font-stretch: 62%; letter-spacing: -.03em; white-space: nowrap; }
-.emp-cifra small { font-size: 15px; font-weight: 600; font-stretch: 100%; letter-spacing: 0; color: var(--ink-3); }
+.emp-cifra { font: 800 32px/.8 var(--f-sans); letter-spacing: -.03em; white-space: nowrap; }
+.emp-cifra small { font-size: 15px; font-weight: 600; letter-spacing: 0; color: var(--ink-3); }
 .emp-nom { display: block; min-width: 0; }
 .emp-nom b { display: block; font-size: 18px; font-weight: 700; line-height: 1.2; letter-spacing: -.005em; overflow-wrap: anywhere; }
 .emp-nom.emp-16 b { font-size: 16px; font-weight: 650; }

@@ -104,10 +104,10 @@ export default function DashboardLayout({
                 destino("asistente", "Asistente"),
               ]}
             />
-            {/* Panel del chat de soporte: se abre desde «Soporte» en el índice (sin
+            {/* Panel del chat de soporte: se abre desde «Ayuda y soporte» en el menú (sin
                 botón flotante). En el chat de un agente no se monta: dos chats a la
                 vez confunden. Va dentro de la columna principal para quedar inerte
-                mientras el índice móvil está abierto. */}
+                mientras el menú móvil está abierto. */}
             {!enChatDeAgente && <ChatBot />}
           </div>
         </div>

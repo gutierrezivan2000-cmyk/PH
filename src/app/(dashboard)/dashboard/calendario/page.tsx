@@ -166,14 +166,6 @@ function hoySinHora(): Date {
 function lunesDe(f: Date): Date {
   return sumarDias(f, -((f.getDay() || 7) - 1));
 }
-/** Semana ISO 8601 («S39»). */
-function semanaIso(f: Date): number {
-  const d = new Date(Date.UTC(f.getFullYear(), f.getMonth(), f.getDate()));
-  const dia = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dia);
-  const inicio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - inicio.getTime()) / 86_400_000 + 1) / 7);
-}
 /** «21 al 27 de septiembre», «28 de septiembre al 4 de octubre», con año si no es el actual. */
 function rangoSemana(lunes: Date, hoy: Date): string {
   const dom = sumarDias(lunes, 6);

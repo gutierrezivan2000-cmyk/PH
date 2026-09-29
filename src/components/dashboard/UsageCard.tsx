@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarDays, Zap } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { pedirJSON } from "@/components/dashboard/datosIndice";
 import {
@@ -76,7 +77,7 @@ export function suscripcionNoVigente(usage: UsageData): "vencida" | "inactiva" |
    título en las columnas 1–3 y el medidor con la cifra en 4–12; en móvil, apilado. */
 const CSS_USO = `
 .k-uso { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--g); align-items: center;
-  border-top: 2px solid var(--rule); padding: 16px 0 22px; }
+  border-top: 1px solid var(--line-strong); padding: 16px 0 22px; }
 .k-uso > .t { grid-column: 1 / 4; min-width: 0; }
 .k-uso > .t h2 { margin: 0; }
 .k-uso > .t p { margin: 6px 0 0; font-size: 14px; line-height: 1.35; color: var(--ink-2); }
@@ -189,8 +190,8 @@ export function UsageCard({ alCargar }: { alCargar?: (usage: UsageData) => void 
         </div>
         <div className="m">
           <Kpis>
-            <Kpi cifra={usage.monthlyGenerations} etiqueta="Generaciones este mes" tamLetra={32} />
-            <Kpi cifra={usage.dailyGenerations} etiqueta="Generaciones hoy" tamLetra={32} />
+            <Kpi icono={CalendarDays} tono="violet" cifra={usage.monthlyGenerations} etiqueta="Generaciones este mes" tamLetra={32} />
+            <Kpi icono={Zap} tono="amber" cifra={usage.dailyGenerations} etiqueta="Generaciones hoy" tamLetra={32} />
           </Kpis>
         </div>
       </Marco>

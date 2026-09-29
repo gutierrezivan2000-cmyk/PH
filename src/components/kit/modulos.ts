@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
 import { isValidElement } from "react";
 import {
-  ArrowLeft, ArrowRight, ArrowRightLeft, Award, BadgeCheck, Bell, Building2, CalendarClock, CalendarPlus, Check, Copy,
-  CreditCard, Crown, Download, ExternalLink, Eye, Eraser, FilePlus2, FilterX, Gavel, History, House, KeyRound,
-  Landmark, Layers, LifeBuoy, Link2, LogOut, Mail, Megaphone, MessageCircle, MessageSquareText, Mic, Pencil,
-  PiggyBank, Play, Plus, Power, Printer, RefreshCw, RotateCcw, Rocket, Save, Search, Send, Settings, SkipForward,
-  Sparkles, Square, Trash2, Upload, UserPlus, Users, Wallet, X, Paperclip, PenLine, Undo2, Phone,
+  ArrowLeft, ArrowRight, ArrowRightLeft, BadgeCheck, Bell, Building2, CalendarClock, CalendarDays, CalendarPlus, Check, Copy,
+  CreditCard, Crown, Download, ExternalLink, Eye, Eraser, FilePlus2, FileText, FilterX, Gauge, History, House,
+  KeyRound, Landmark, Layers, LifeBuoy, Link2, LogOut, Mail, Megaphone, MessageCircle, MessageSquareText, Mic, Palette,
+  Pencil, PiggyBank, Play, Plus, Power, Printer, Puzzle, RefreshCw, RotateCcw, Rocket, Save, Search, Send, Settings,
+  ShieldCheck, SkipForward, Sparkles, Square, SunMoon, Trash2, Upload, UserPlus, UserRound, Users, Wallet, X, Paperclip,
+  PenLine, Undo2, Phone, Lightbulb, CheckCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -134,6 +135,9 @@ const REGLAS: Regla[] = [
   { re: /^(detener|parar)/, icono: Square, tono: "red" },
   { re: /^(avisar|recordar|recordatorio)/, icono: Bell, tono: "orange" },
   { re: /^(vincular|enlazar)/, icono: Link2, tono: "blue" },
+  { re: /^(todas|todos|seleccionar)/, icono: CheckCheck, tono: "slate" },
+  { re: /^(ninguna|ninguno|deseleccionar)/, icono: X, tono: "slate" },
+  { re: /^(configurar|ajustar|personalizar)/, icono: Settings, tono: "indigo" },
 ];
 
 /** Módulos que se nombran en el propio botón («Ver propiedades», «Ir al historial»): llevan SU icono. */
@@ -162,4 +166,37 @@ export function iconoDeAccion(texto: string): IconoAccion {
     if (r.re.test(t)) return { Icono: r.icono, tono: r.tono, fin: r.fin };
   }
   return { Icono: ArrowRight, tono: "violet", fin: true };
+}
+
+/**
+ * Icono y color de un ENCABEZADO (sección o panel) según lo que dice, cuando el autor no
+ * los fija a mano. Solo reconoce temas inequívocos; si no reconoce ninguno, no pinta ficha.
+ */
+const TITULOS: Array<{ re: RegExp; icono: LucideIcon; tono: Tono }> = [
+  { re: /whatsapp/, icono: MessageCircle, tono: "green" },
+  { re: /\bperfil\b|datos personales|(mi|tu) cuenta|tus datos/, icono: UserRound, tono: "violet" },
+  { re: /para que sirve|como funciona|consejo/, icono: Lightbulb, tono: "amber" },
+  { re: /\bempresa\b/, icono: Building2, tono: "indigo" },
+  { re: /otros canales|\bcanales\b/, icono: MessageCircle, tono: "sky" },
+  { re: /vista previa/, icono: Eye, tono: "blue" },
+  { re: /\bmarca\b|\blogo\b|identidad|color de/, icono: Palette, tono: "pink" },
+  { re: /\btema\b|apariencia/, icono: SunMoon, tono: "indigo" },
+  { re: /soporte|\bayuda\b|tickets?/, icono: LifeBuoy, tono: "sky" },
+  { re: /notificacion|avisos por|alertas/, icono: Bell, tono: "orange" },
+  { re: /seguridad|contrasena|\bclave\b/, icono: ShieldCheck, tono: "teal" },
+  { re: /complementos|add-?ons|extras/, icono: Puzzle, tono: "fuchsia" },
+  { re: /\buso\b|consumo|limites/, icono: Gauge, tono: "blue" },
+  { re: /pago|facturacion|suscripcion|\bplan(es)?\b|cobro/, icono: CreditCard, tono: "teal" },
+  { re: /documentos|archivos/, icono: FileText, tono: "blue" },
+  { re: /residentes|unidades/, icono: Users, tono: "sky" },
+  { re: /propiedad|copropiedad|edificio/, icono: Building2, tono: "blue" },
+  { re: /historial/, icono: History, tono: "slate" },
+  { re: /calendario|vencimientos|obligaciones/, icono: CalendarDays, tono: "orange" },
+  { re: /correo|e-?mail/, icono: Mail, tono: "teal" },
+];
+
+export function iconoDeTitulo(texto: string): { Icono: LucideIcon; tono: Tono } | null {
+  const t = normaliza(texto);
+  for (const r of TITULOS) if (r.re.test(t)) return { Icono: r.icono, tono: r.tono };
+  return null;
 }

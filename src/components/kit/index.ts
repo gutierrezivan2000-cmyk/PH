@@ -10,7 +10,7 @@
  */
 export { Loseta, type TamLoseta } from "./Loseta";
 export { Accesos, Acceso } from "./Accesos";
-export { MODULOS, moduloDe, iconoDeAccion, textoDe, type Tono, type Modulo, type ClaveModulo } from "./modulos";
+export { MODULOS, moduloDe, iconoDeAccion, iconoDeTitulo, textoDe, type Tono, type Modulo, type ClaveModulo } from "./modulos";
 export { Boton, BotonIcono, BotonFila, EnlaceVer, type VarianteBoton } from "./Boton";
 export { Flecha, Chevron, Lupa, Cruz, Visto } from "./Iconos";
 export { Campo, Entrada, AreaTexto, Selector, Buscador, GrupoCampos } from "./Campo";

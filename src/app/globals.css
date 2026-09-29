@@ -1121,7 +1121,7 @@ select.ui-input:focus-visible {
     --h-a: #FFFFFF; --h-b: #EEEAFF; --h-on: #2E2390; --h-ink: #FFFFFF; --h-soft: rgb(255 255 255 / .16); --h-line: rgb(255 255 255 / .5);
     --ok: #8EE6A8; --ok-text: #8EE6A8; --danger-text: #FFA8A8; --warn: #FFD27A; --warn-text: #FFD27A; --info: #B4CBFF; --info-text: #B4CBFF; --ai: #E0D8FF; --signal: #FFA8A8;
     --veil-rgb: 255 255 255; --ink-rgb: 255 255 255;
-    --surface-0: #2E2390; --surface-3: rgb(255 255 255 / .2);
+    --surface-0: #2E2390; --surface-1: rgb(255 255 255 / .12); --surface-2: rgb(255 255 255 / .16); --surface-3: rgb(255 255 255 / .22);
   }
   .k-neg { border-radius: var(--r-xl); box-shadow: var(--sh-2); }
   /* Achurado de plano (en preparación): la trama va en ::before; el texto, sobre una placa sólida. */
@@ -1303,7 +1303,7 @@ select.ui-input:focus-visible {
   .k-paso > :is(a, button):hover > span { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
   .k-paso b { position: relative; width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 50%; font: 800 17px/1 var(--f-sans); color: var(--ink-3); background: var(--surface-2); box-shadow: inset 0 0 0 1.5px var(--line-strong); }
   .k-paso span { font-size: 15px; font-weight: 800; line-height: 1.2; min-width: 0; }
-  .k-paso .pi { width: 16px; height: 16px; margin: 0 6px -3px 0; color: var(--accent-text); }
+  .k-paso .pi { display: inline-block; width: 16px; height: 16px; margin: 0 6px 0 0; vertical-align: -3px; color: var(--accent-text); }
   .k-paso.hecho .pi { color: var(--ok-text); }
   .k-paso.futuro .pi { color: var(--ink-3); }
   .k-paso small { display: block; margin-top: 3px; font-size: 13.5px; font-weight: 500; color: var(--ink-3); overflow-wrap: anywhere; }
@@ -1618,7 +1618,8 @@ select.ui-input:focus-visible {
   .k-obra > .pl > p { margin: 12px 0 18px; font-size: 16px; line-height: 1.5; color: var(--ink-2); }
 
   /* ── chat con un agente ─────────────────────────────────────────── */
-  .k-msg-u { align-self: flex-end; max-width: 66%; margin: 22px 0 26px auto; padding: 14px 20px 15px; color: #fff; border-radius: 24px 24px 8px 24px; background: linear-gradient(140deg, var(--c-violet-a), var(--c-violet-b)); box-shadow: 0 12px 24px -14px var(--c-violet-a); }
+  .k-msg-u { align-self: flex-end; max-width: 66%; margin: 22px 0 26px auto; padding: 14px 20px 15px; color: #fff; border-radius: 24px 24px 8px 24px; background: linear-gradient(140deg, var(--c-violet-a), var(--c-violet-b)); box-shadow: 0 12px 24px -14px var(--c-violet-a);
+    --ink: #fff; --ink-2: rgb(255 255 255 / .94); --ink-3: rgb(255 255 255 / .9); --line-strong: rgb(255 255 255 / .55); --accent-text: #fff; --surface-1: rgb(255 255 255 / .16); --hl: rgb(255 255 255 / .18); --accent: #fff; }
   .k-msg-u > p { margin: 0; font-size: 16.5px; line-height: 1.45; color: #fff; }
   .k-msg-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; font-size: 13.5px; color: var(--ink-3); }
   .k-msg-meta b { color: var(--ink); font-weight: 800; }
@@ -1666,10 +1667,9 @@ select.ui-input:focus-visible {
 
   /* ── tarjeta de plan ────────────────────────────────────────────── */
   .k-plan { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 28px 28px 28px; background: var(--surface-1); border: 1.5px solid var(--line-strong); border-radius: 30px; box-shadow: var(--sh-1); }
-  .k-plan.k-neg { border: 0; box-shadow: var(--glow), var(--sh-2); }
+  .k-plan.k-neg { border: 0; background: linear-gradient(150deg, #4632C8, #2E2390); box-shadow: var(--glow), var(--sh-2); }
   .k-plan > .tag { align-self: flex-start; margin: 0 0 14px; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 800; background: rgb(255 255 255 / .2); color: #fff; }
-  .k-plan > .ico { --t: 52px; margin-bottom: 16px; }
-  .k-plan > h3 { margin: 0; font: 800 23px/1.15 var(--f-sans); letter-spacing: -.02em; }
+  .k-plan > h3 { margin: 0; display: flex; align-items: center; gap: 12px; font: 800 23px/1.15 var(--f-sans); letter-spacing: -.02em; }
   .k-plan > .para { margin-top: 8px; font-size: 15.5px; line-height: 1.4; color: var(--ink-2); }
   .k-plan > .precio { margin-top: 22px; display: flex; align-items: flex-end; gap: 10px; }
   .k-plan > .precio b { font-size: 44px; font-weight: 800; letter-spacing: -.035em; line-height: 1; }
@@ -1744,6 +1744,11 @@ select.ui-input:focus-visible {
   button.k-it { width: 100%; background: transparent; text-align: left; cursor: pointer; }
   button.k-it:hover { background: var(--hl); }
   .k-idx-ayuda { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .k-pronto { margin-top: 12px; }
+  .k-pronto > .k-it .chev { width: 18px; height: 18px; flex: none; color: var(--ink-3); }
+  .k-pronto > .k-it[aria-expanded="true"] .chev { transform: rotate(180deg); }
+  .k-pronto-lista { margin: 2px 0 0 22px; padding-left: 8px; border-left: 2px solid var(--line); }
+  .k-pronto-lista .k-it.pronto .c { display: none; }
   /* Pie: quién soy, cómo se ve, salir. */
   .k-indice-pie { flex: none; border-top: 1px solid var(--line); padding: 12px 14px 14px; display: grid; gap: 10px; }
   .k-yo-fila { display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -1817,6 +1822,8 @@ select.ui-input:focus-visible {
     .k-col-indice[data-plegado] .k-it .c.pend { background: var(--c-blue-a); }
     .k-col-indice[data-plegado] .k-it .c.alerta { background: var(--danger); }
     .k-col-indice[data-plegado] .k-idx-ayuda { margin-top: 8px; padding-top: 8px; }
+    .k-col-indice[data-plegado] .k-pronto > .k-it .chev { display: none; }
+    .k-col-indice[data-plegado] .k-pronto-lista { margin-left: 0; padding-left: 0; border-left: 0; }
     .k-col-indice[data-plegado] .k-indice-pie { justify-items: center; padding: 10px 8px 12px; }
     .k-col-indice[data-plegado] .k-yo-fila { flex-direction: column; }
     .k-col-indice[data-plegado] .k-yo { flex: none; }

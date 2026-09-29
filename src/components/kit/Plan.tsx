@@ -29,8 +29,7 @@ export function TarjetaPlan({ nombre, para, precio, moneda = "COP", periodo = "a
   return (
     <article id={id} aria-labelledby={idTitulo} className={unir("k-plan", recomendado && "k-neg", actual && !recomendado && "es-actual", className)}>
       {recomendado && <span className="tag">{recomendado}</span>}
-      {icono && <Loseta icono={icono} tono={tono} />}
-      <H id={idTitulo}>{nombre}</H>
+      <H id={idTitulo}>{icono && <Loseta icono={icono} tono={tono} />}{nombre}</H>
       {para && <div className="para">{para}</div>}
       <div className="precio"><b>{precio}</b><span>{moneda}<br />{periodo}</span></div>
       {equivalencia && <div className="equiv">{equivalencia}</div>}

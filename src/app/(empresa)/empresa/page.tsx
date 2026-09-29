@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { Building2, FileText, Sparkles, TriangleAlert } from "lucide-react";
 import { eliteGate } from "@/components/empresa/EmpresaGate";
 import { EmpresaShell } from "@/components/empresa/EmpresaShell";
 import {
@@ -134,11 +135,11 @@ export default async function EmpresaOverviewPage() {
 
           <Kpis className="emp-kpis">
             {!monthlyCap && (
-              <Kpi cifra={fmt(data.generationsThisMonth)} etiqueta="Generaciones del mes" variacion="ilimitado en beta" />
+              <Kpi icono={Sparkles} tono="ai" cifra={fmt(data.generationsThisMonth)} etiqueta="Generaciones del mes" variacion="ilimitado en beta" />
             )}
-            <Kpi cifra={fmt(N)} etiqueta="Propiedades" variacion="en tu portafolio" />
-            <Kpi cifra={fmt(n)} etiqueta="Sin informe reciente" variacion="en los últimos 30 días" />
-            <Kpi cifra={fmt(data.totalDocuments)} etiqueta="Documentos cargados" variacion="reglamentos y manuales" />
+            <Kpi icono={Building2} tono="blue" cifra={fmt(N)} etiqueta="Propiedades" variacion="en tu portafolio" />
+            <Kpi icono={TriangleAlert} tono={n > 0 ? "amber" : "green"} cifra={fmt(n)} etiqueta="Sin informe reciente" variacion="en los últimos 30 días" />
+            <Kpi icono={FileText} tono="teal" cifra={fmt(data.totalDocuments)} etiqueta="Documentos cargados" variacion="reglamentos y manuales" />
           </Kpis>
 
           <Seccion

@@ -22,7 +22,7 @@ import { Chevron } from "@/components/kit";
  * Antes llegaba como texto plano y por eso los prompts pedían «no uses markdown
  * con asteriscos»: una lista de plazos o una tabla de mayorías se leía como un
  * párrafo corrido lleno de asteriscos. Se renderiza de verdad —encabezados,
- * listas, tablas, código— con la tipografía de lectura del kit («Índice»,
+ * listas, tablas, código— con la tipografía de lectura del kit («Guía»,
  * clase `k-md`: 17 px/1,5, tablas con cabecera mono entre filetes), para que
  * funcione igual en claro y en oscuro.
  */
@@ -38,8 +38,8 @@ const CSS_RESPUESTA = `
 .k-md { position: relative; }
 .k-md > .tabla-scroll { position: relative; max-width: 100%; }
 .k-md > .tabla-scroll > table { margin-top: 2px; }
-.k-md h3 { margin: 22px 0 8px; font-size: 22px; font-weight: 800; font-stretch: 75%; text-transform: none; letter-spacing: -.01em; line-height: 1.05; }
-.k-md h4 { margin: 18px 0 6px; font-size: 17px; font-weight: 700; font-stretch: 100%; text-transform: none; letter-spacing: 0; line-height: 1.3; }
+.k-md h3 { margin: 22px 0 8px; font-size: 22px; font-weight: 800; text-transform: none; letter-spacing: -.01em; line-height: 1.05; }
+.k-md h4 { margin: 18px 0 6px; font-size: 17px; font-weight: 700; text-transform: none; letter-spacing: 0; line-height: 1.3; }
 .k-md > :first-child { margin-top: 0; }
 .k-md li > p { margin: 0; }
 .k-md img { max-width: 100%; height: auto; }
@@ -59,12 +59,12 @@ const CSS_RESPUESTA = `
   .k-md > .tabla-scroll > table, .k-md > .tabla-scroll tbody, .k-md > .tabla-scroll tr, .k-md > .tabla-scroll td { display: block; width: auto; }
   .k-md > .tabla-scroll thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .k-md > .tabla-scroll tbody tr { padding: 12px 0; border-bottom: 1px solid var(--line); }
-  .k-md > .tabla-scroll tbody tr:first-child { border-top: 2px solid var(--rule); }
+  .k-md > .tabla-scroll tbody tr:first-child { border-top: 1px solid var(--line-strong); }
   .k-md > .tabla-scroll td { padding: 0; border: 0; }
   .k-md > .tabla-scroll td + td { margin-top: 8px; }
   .k-md > .tabla-scroll td:first-child { font-weight: 700; }
   .k-md > .tabla-scroll td[data-label]:not([data-label=""])::before { content: attr(data-label); display: block; margin-bottom: 2px;
-    font: 500 12px/1.2 var(--f-mono); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); }
+    font: 500 12px/1.2 var(--f-mono); letter-spacing: .05em; color: var(--ink-3); }
 }
 `;
 

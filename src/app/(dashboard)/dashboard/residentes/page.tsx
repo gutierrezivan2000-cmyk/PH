@@ -1,5 +1,6 @@
 "use client";
 
+import { Check, Copy, CreditCard, Link2, Link2Off, MailWarning, MessageCircle, Power, RefreshCw, Send, Settings2, Users, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { UnitImport } from "@/components/dashboard/UnitImport";
@@ -34,10 +35,10 @@ import {
   SinResultados,
   Tabla,
   Vacio,
-  Visto,
   nombreCorto,
   type ColumnaTabla,
   type ItemMenu,
+  type Tono,
 } from "@/components/kit";
 
 interface Property {
@@ -55,6 +56,14 @@ interface UnitRow {
 }
 
 type Filtro = "todas" | "con" | "sin" | "sinCorreo";
+
+/** Cada filtro con su icono y color: 👥 todas · 🔗 con enlace · 🔗̸ sin enlace · ✉⚠ sin correo. */
+const ICONO_FILTRO: Record<Filtro, { icono: LucideIcon; tono: Tono }> = {
+  todas: { icono: Users, tono: "sky" },
+  con: { icono: Link2, tono: "green" },
+  sin: { icono: Link2Off, tono: "slate" },
+  sinCorreo: { icono: MailWarning, tono: "amber" },
+};
 
 /** Confirmaciones que antes eran window.confirm: ahora un <Modal> del kit con el mismo texto. */
 type Confirmacion =
@@ -622,8 +631,13 @@ export default function ResidentesPage() {
         ];
         return (
           <AccionesFila>
-            <BotonFila onClick={() => copyLink(u)} aria-label={`${copied === u.id ? "Copiado" : "Copiar enlace"}: ${u.label}`}>
-              {copied === u.id ? <><Visto /> Copiado</> : "Copiar enlace"}
+            <BotonFila
+              onClick={() => copyLink(u)}
+              icono={copied === u.id ? Check : Copy}
+              tono={copied === u.id ? "green" : "slate"}
+              aria-label={`${copied === u.id ? "Copiado" : "Copiar enlace"}: ${u.label}`}
+            >
+              {copied === u.id ? "Copiado" : "Copiar enlace"}
             </BotonFila>
             <MenuMas etiquetaAccesible={`Más acciones · ${u.label}`} items={items} />
           </AccionesFila>
@@ -639,29 +653,34 @@ export default function ResidentesPage() {
     const cancelar = <Boton variante="secundario" onClick={() => setConfirmar(null)}>Cancelar</Boton>;
     if (c.tipo === "rotar")
       return {
+        icono: RefreshCw as LucideIcon, tono: "amber" as Tono,
         titulo: `¿Generar un enlace nuevo para ${c.unidad.label}?`,
         texto: "El enlace anterior dejará de funcionar de inmediato. Tendrás que compartir el nuevo con el residente.",
         acciones: <>{cancelar}<Boton onClick={ejecutarConfirmacion}>Generar enlace nuevo</Boton></>,
       };
     if (c.tipo === "desactivar")
       return {
+        icono: Power as LucideIcon, tono: "red" as Tono,
         titulo: `¿Desactivar el portal de ${c.unidad.label}?`,
         texto: `${c.unidad.residentName ? `${c.unidad.residentName} perderá` : "El residente perderá"} el acceso: su enlace dejará de funcionar de inmediato.`,
         acciones: <>{cancelar}<Boton variante="peligro" lleno onClick={ejecutarConfirmacion}>Desactivar portal</Boton></>,
       };
     if (c.tipo === "enviarTodos")
       return {
+        icono: Send as LucideIcon, tono: "teal" as Tono,
         titulo: `¿Enviar el enlace del portal por correo a las ${withEmail} unidades con correo?`,
         texto: "Consumirá parte de tu cuota mensual de correos.",
         acciones: <>{cancelar}<Boton onClick={ejecutarConfirmacion}>Enviar a {plural(withEmail, "unidad", "unidades")}</Boton></>,
       };
     if (c.tipo === "enviarLote")
       return {
+        icono: Send as LucideIcon, tono: "teal" as Tono,
         titulo: `¿Enviar el enlace del portal por correo a ${plural(c.ids.length, "unidad", "unidades")}?`,
         texto: `Se envía solo a las seleccionadas que tienen enlace y correo. Consumirá parte de tu cuota mensual de correos.`,
         acciones: <>{cancelar}<Boton onClick={ejecutarConfirmacion}>Enviar a {plural(c.ids.length, "unidad", "unidades")}</Boton></>,
       };
     return {
+      icono: RefreshCw as LucideIcon, tono: "amber" as Tono,
       titulo: `¿Generar enlaces nuevos para ${plural(c.ids.length, "unidad", "unidades")}?`,
       texto: "Los enlaces anteriores dejarán de funcionar de inmediato. Tendrás que compartir los nuevos con los residentes.",
       acciones: <>{cancelar}<Boton onClick={ejecutarConfirmacion}>Generar enlaces nuevos</Boton></>,
@@ -677,7 +696,6 @@ export default function ResidentesPage() {
       <Pagina>
         <Pieza>
           <CabeceraPieza
-            nn="07"
             titulo="Residentes"
             subtitulo="Portal por unidad, sin usuarios ni contraseñas"
             acciones={
@@ -778,7 +796,7 @@ export default function ResidentesPage() {
                   texto="Sube el listado de copropietarios en Excel o PDF y la IA arma la tabla por ti. También puedes agregarlas a mano."
                   acciones={
                     <>
-                      <Boton flecha="avanza" onClick={() => setShowImport(true)} aria-controls="res-importar">Importar Excel con IA</Boton>
+                      <Boton onClick={() => setShowImport(true)} aria-controls="res-importar">Importar Excel con IA</Boton>
                       <Boton variante="secundario" onClick={() => abrirAgregar()}>Agregar a mano</Boton>
                     </>
                   }
@@ -792,6 +810,7 @@ export default function ResidentesPage() {
                       alCambiar={(v) => setFiltro(v as Filtro)}
                       items={(Object.keys(etiquetaFiltro) as Filtro[]).map((f) => ({
                         id: f, etiqueta: etiquetaFiltro[f], conteo: conteoFiltro[f],
+                        icono: ICONO_FILTRO[f].icono, tono: ICONO_FILTRO[f].tono,
                       }))}
                     />
                     <Buscador
@@ -873,14 +892,14 @@ export default function ResidentesPage() {
               )}
 
               <div className="res-ajustes">
-                <Seccion id="res-ajustes-t" titulo="Ajustes del portal">
+                <Seccion id="res-ajustes-t" titulo="Ajustes del portal" icono={Settings2} tono="indigo">
                   <p className="k-lectura res-intro">
                     Cada unidad tiene un <b>enlace privado</b> (sin cuenta ni contraseña) donde el residente ve su
                     estado de cuenta, comunicados y documentos. Genera los enlaces, compártelos por correo o WhatsApp,
                     y rótalos si alguno se filtra.
                   </p>
                   <div className="res-dos">
-                    <Panel titulo="WhatsApp de la administración" nota={corto ? `de ${corto}` : undefined}>
+                    <Panel titulo="WhatsApp de la administración" nota={corto ? `de ${corto}` : undefined} icono={MessageCircle} tono="green">
                       <p className="k-apoyo res-p">
                         Aparece en el portal como botón <b>«Escríbenos por WhatsApp»</b>. Cuando un residente lo usa,
                         el mensaje te llega <b>ya identificado con su unidad</b>: sabes de inmediato quién escribe.
@@ -902,7 +921,7 @@ export default function ResidentesPage() {
                       </div>
                     </Panel>
 
-                    <Panel titulo="Pago en línea (ePayco)">
+                    <Panel titulo="Pago en línea (ePayco)" icono={CreditCard} tono="teal">
                       <div className="res-pago">
                         {!payConfigured && payConsulta === "cargando" ? (
                           <p className="k-meta res-p">Consultando la configuración…</p>
@@ -1021,6 +1040,8 @@ export default function ResidentesPage() {
         abierto={!!modal}
         alCerrar={() => setConfirmar(null)}
         titulo={modal?.titulo ?? ""}
+        icono={modal?.icono}
+        tono={modal?.tono}
         acciones={modal?.acciones}
       >
         {modal && <p>{modal.texto}</p>}
@@ -1031,8 +1052,6 @@ export default function ResidentesPage() {
 
 const estilos = `
   .res .k-pest { margin-bottom: 18px; }
-  /* Título corto: las dos acciones caben en una línea (cols. 7–12). */
-  @media (min-width: 1181px) { .res .k-pieza-h .acc { grid-column: 7 / 13; } }
   .res .res-importar { margin: 6px 0 32px; }
   .res .res-portal { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: flex-end; margin: 0 0 14px; }
   .res .res-cifras { display: none; font-size: 14px; color: var(--ink-2); margin-right: auto; }
@@ -1056,7 +1075,7 @@ const estilos = `
   .res-bulk-err::before { margin-top: 5px; }
   @media (max-width: 860px) {
     .res .res-cifras { display: block; flex-basis: 100%; }
-    .res .res-pre { display: block; margin-bottom: 4px; font: 500 12px/1 var(--f-mono); color: var(--ink-3); }
+    .res .res-pre { display: block; margin-bottom: 4px; font: 700 12px/1 var(--f-sans); color: var(--ink-3); }
     .res .res-portal { justify-content: flex-start; }
     .res .res-dos { grid-template-columns: minmax(0, 1fr); }
     .res .res-ajustes { margin-top: 48px; }

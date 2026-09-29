@@ -31,7 +31,7 @@ const CSS_ASISTENTE = `
 .asis-uso > span { font-size: 13px; color: var(--ink-3); }
 .asis-uso > p { margin: 0; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; justify-content: flex-end;
   font-size: 14px; color: var(--ink-2); white-space: nowrap; }
-.asis-uso b { font: 800 34px/1 var(--f-sans); font-stretch: 62%; letter-spacing: -.02em; color: var(--ink); }
+.asis-uso b { font: 800 34px/1 var(--f-sans); letter-spacing: -.02em; color: var(--ink); }
 .asis-uso p > span + b { margin-left: 12px; }
 .asis-activos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g); }
 .asis-prep { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--g); margin-top: var(--g); }
