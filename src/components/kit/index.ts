@@ -16,7 +16,7 @@ export { Flecha, Chevron, Lupa, Cruz, Visto } from "./Iconos";
 export { Campo, Entrada, AreaTexto, Selector, Buscador, GrupoCampos } from "./Campo";
 export { Casilla, Opcion, OpcionFila, OpcionesFila, Interruptor } from "./Casilla";
 export { RejillaMeses } from "./Periodo";
-export { Estado, Cuadro, Insignia, Categoria, TipoArchivo, estiloDeEstado, type TipoEstado } from "./Estado";
+export { Estado, Etiqueta, Cuadro, Insignia, Categoria, TipoArchivo, estiloDeEstado, type TipoEstado } from "./Estado";
 export { Pagina, Pieza, CabeceraPieza, Seccion, Panel, Reticula, Resumen, Colofon } from "./Pagina";
 export {
   Urgencia, Urgencias, TiraSemanal, FilaObligacion, ListaObligaciones, MasEnLista, type DiaTira,

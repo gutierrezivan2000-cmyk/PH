@@ -1,23 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Building2, ChevronDown, Mail, Megaphone, Send, Sparkles, Trash2, Users, Check, MessageCircle, History } from "lucide-react";
 import { Header } from "@/components/dashboard/Header";
 import { ComingSoon } from "@/components/dashboard/ComingSoon";
 import { COMING_SOON } from "@/lib/feature-flags";
 import { UnitImport } from "@/components/dashboard/UnitImport";
 import {
-  Send,
-  Loader2,
-  Users,
-  Plus,
-  Trash2,
-  ChevronDown,
-  Sparkles,
-  Mail,
-  CheckCircle2,
-  Building2,
-  MessageCircle,
-} from "lucide-react";
+  AreaTexto,
+  Aviso,
+  BarraProgreso,
+  Boton,
+  CabeceraPieza,
+  Campo,
+  Entrada,
+  Esqueleto,
+  Etiqueta,
+  Loseta,
+  Modal,
+  Pagina,
+  Panel,
+  PestanasUnidas,
+  Pieza,
+  Seccion,
+  Vacio,
+} from "@/components/kit";
 
 interface Property {
   id: string;
@@ -41,34 +48,53 @@ interface Announcement {
   property?: { name: string };
 }
 
-const monoLabel: React.CSSProperties = {
-  fontFamily: "'Geist Mono', 'GeistMono', monospace",
-  fontSize: "10px",
-  letterSpacing: "0.16em",
-  textTransform: "uppercase",
-};
-
-const monoMini: React.CSSProperties = {
-  fontFamily: "'Geist Mono', 'GeistMono', monospace",
-  fontSize: "11px",
-  letterSpacing: "0.06em",
-};
-
-const card: React.CSSProperties = {
-  background: "var(--hifi-surface-1)",
-  border: "1px solid var(--hifi-hairline)",
-};
-
-const inputStyle: React.CSSProperties = {
-  background: "var(--hifi-bg-elev)",
-  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
-  color: "var(--ink)",
-  borderRadius: "10px",
-  padding: "10px 12px",
-  fontSize: "13px",
-  outline: "none",
-  width: "100%",
-};
+/* Estilos locales: selector de copropiedad + cuota, destinatarios, redactor y enviados. */
+const CSS_COMUNICADOS = `
+.co-sel { display: grid; gap: 14px; margin: 0 0 20px; }
+.co-cuota { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px 14px; padding: 14px 18px; border-radius: 22px; background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.co-cuota .t { font-size: 14.5px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
+.co-cuota .t b { color: var(--ink); font-weight: 800; }
+.co-dest { margin: 0 0 20px; overflow: hidden; border-radius: 26px; background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.co-dest > button { display: flex; align-items: center; gap: 14px; width: 100%; padding: 16px 20px; text-align: left; background: transparent; cursor: pointer; }
+.co-dest > button:hover { background: var(--hl); }
+.co-dest > button > span:not(.k-tile) { flex: 1 1 auto; min-width: 0; }
+.co-dest > button b { display: block; font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
+.co-dest > button small { display: block; margin-top: 2px; font-size: 14px; color: var(--ink-2); }
+.co-dest > button .chev { width: 20px; height: 20px; flex: none; color: var(--ink-3); }
+.co-dest > button[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.co-dest .cuerpo { display: grid; gap: 16px; padding: 4px 20px 22px; }
+.co-chips { display: flex; flex-wrap: wrap; gap: 8px; max-height: 190px; overflow-y: auto; }
+.co-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 4px 4px 14px; border-radius: 999px; background: var(--surface-2); font-size: 14px; font-weight: 800; }
+.co-chip small { font-size: 13px; font-weight: 500; color: var(--ink-3); }
+.co-chip button { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: var(--ink-3); background: transparent; cursor: pointer; }
+.co-chip button:hover { color: var(--danger-text); background: var(--c-red-soft); }
+.co-chip button svg { width: 15px; height: 15px; }
+.co-o { display: flex; align-items: center; gap: 14px; font-size: 13.5px; font-weight: 800; color: var(--ink-3); }
+.co-o::before, .co-o::after { content: ""; flex: 1; height: 1px; background: var(--line-strong); }
+.co-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.co-fila .msg { font-size: 14.5px; font-weight: 600; color: var(--ink-2); }
+.co-ia { display: grid; gap: 12px; margin: 0 0 22px; padding: 16px 18px 18px; border-radius: 22px; border: 1.5px solid var(--c-ai-line); background: linear-gradient(120deg, var(--c-ai-soft), transparent 85%), var(--surface-2); }
+.co-ia h4 { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; color: var(--ink); }
+.co-ia .fila { display: flex; flex-wrap: wrap; gap: 10px; }
+.co-ia .fila .k-in { flex: 1 1 280px; }
+.co-acc { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 8px; }
+.co-env { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.co-env > li { padding: 16px 20px; border-radius: 24px; background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.co-env .cab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.co-env h3 { flex: 1 1 240px; min-width: 0; margin: 0; font-size: 16.5px; font-weight: 800; letter-spacing: -.01em; line-height: 1.3; }
+.co-env p { margin: 8px 0 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 15px; line-height: 1.5; color: var(--ink-2); }
+.co-env .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; font-size: 13.5px; color: var(--ink-3); }
+.co-env .meta > span { display: inline-flex; align-items: center; gap: 6px; }
+.co-env .meta svg { width: 15px; height: 15px; }
+@media (max-width: 860px) {
+  .co-cuota { grid-template-columns: minmax(0, 1fr); }
+  .co-cuota .t { white-space: normal; }
+  .co-dest > button { padding: 14px; }
+  .co-dest .cuerpo { padding: 2px 14px 18px; }
+  .co-ia { padding: 14px 14px 16px; }
+  .co-acc .k-btn { flex: 1 1 100%; }
+}
+`;
 
 function ComunicadosPage() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -83,6 +109,8 @@ function ComunicadosPage() {
   const [bulkText, setBulkText] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkMsg, setBulkMsg] = useState("");
+  // Unidad que se va a eliminar (confirmación en un <Modal>, antes window.confirm).
+  const [porQuitar, setPorQuitar] = useState<Unit | null>(null);
 
   // Compose
   const [brief, setBrief] = useState("");
@@ -169,15 +197,8 @@ function ComunicadosPage() {
     }
   }
 
+  // La confirmación la pide el <Modal> (porQuitar); aquí solo se elimina.
   async function removeUnit(id: string) {
-    const u = units.find((x) => x.id === id);
-    if (
-      !window.confirm(
-        `¿Eliminar la unidad ${u?.label || ""}? Se quita de la copropiedad por completo (no solo de los comunicados). Si tiene movimientos de cartera, no podrá eliminarse.`
-      )
-    ) {
-      return;
-    }
     const res = await fetch(`/api/properties/${propertyId}/units?id=${id}`, { method: "DELETE" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -251,365 +272,299 @@ function ComunicadosPage() {
 
   return (
     <div>
+      <style href="k-comunicados-local" precedence="default">
+        {CSS_COMUNICADOS}
+      </style>
       <Header
         title="Comunicados"
         subtitle="Circulares oficiales para tus copropiedades, redactadas con IA"
       />
-      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-[1080px] mx-auto space-y-4">
-        {loading && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent-text)" }} />
-          </div>
-        )}
+      <Pagina>
+        <Pieza>
+          <CabeceraPieza titulo="Comunicados" subtitulo="Circulares oficiales para tus copropiedades, redactadas con IA" />
 
-        {!loading && properties.length === 0 && (
-          <div className="rounded-2xl p-10 text-center" style={card}>
-            <Mail className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
-            <p className="text-[14px]" style={{ color: "var(--ink-2)" }}>
-              Crea una propiedad primero para enviar comunicados.
-            </p>
-          </div>
-        )}
+          {loading && <Esqueleto variante="completo" filas={3} etiquetaAccesible="Cargando comunicados…" />}
 
-        {!loading && properties.length > 0 && (
-          <>
-            {/* Property selector + quota */}
-            <div className="rounded-2xl p-4 space-y-3" style={card}>
-              <div className="ui-scroll flex items-center gap-2 overflow-x-auto pb-0.5">
-                <span className="shrink-0" style={{ ...monoLabel, color: "var(--ink-3)" }}>Propiedad</span>
-                {properties.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setPropertyId(p.id)}
-                    className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
-                    style={{
-                      border: `1px solid ${propertyId === p.id ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.1)"}`,
-                      background: propertyId === p.id ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
-                      color: propertyId === p.id ? "var(--accent-hi)" : "var(--ink-2)",
-                    }}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-3">
-                <div
-                  className="flex-1 h-1.5 rounded-full overflow-hidden"
-                  style={{ background: "rgb(var(--veil-rgb) / 0.06)" }}
-                >
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${quotaPct}%`,
-                      background: quotaPct > 90 ? "var(--danger)" : quotaPct > 70 ? "var(--warn)" : "var(--accent)",
-                    }}
-                  />
-                </div>
-                <span style={{ ...monoMini, color: "var(--ink-3)" }}>
-                  {quota.used.toLocaleString("es-CO")} / {quota.limit.toLocaleString("es-CO")} emails este mes
-                </span>
-              </div>
-            </div>
+          {!loading && properties.length === 0 && (
+            <Vacio
+              icono={Mail}
+              titulo="Crea una propiedad primero para enviar comunicados."
+              texto="Los comunicados salen por correo a las unidades de una copropiedad."
+              acciones={<Boton href="/dashboard/propiedades" flecha="crea">Agregar propiedad</Boton>}
+            />
+          )}
 
-            {/* Recipients */}
-            <div className="ui-card ui-sheen">
-              <button
-                onClick={() => setShowRecipients((v) => !v)}
-                className="w-full flex items-center gap-3 p-4 cursor-pointer"
-              >
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgb(var(--ok-rgb) / 0.1)" }}
-                >
-                  <Users className="h-4 w-4" style={{ color: "var(--ok-text)" }} />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="text-[13.5px] font-medium" style={{ color: "var(--ink)" }}>
-                    Destinatarios
-                  </p>
-                  <p className="text-[11.5px]" style={{ color: "var(--ink-3)" }}>
-                    {units.length === 0
-                      ? "Sin unidades registradas — agrégalas para poder enviar"
-                      : `${units.length} unidades · ${emailCount} con correo`}
-                  </p>
-                </div>
-                <ChevronDown
-                  className="h-4 w-4 transition-transform"
-                  style={{
-                    color: "var(--ink-4)",
-                    transform: showRecipients ? "rotate(180deg)" : "none",
-                  }}
+          {!loading && properties.length > 0 && (
+            <>
+              {/* Copropiedad + cuota de correos del mes */}
+              <div className="co-sel">
+                <PestanasUnidas
+                  etiquetaAccesible="Copropiedad"
+                  valor={propertyId}
+                  alCambiar={setPropertyId}
+                  items={properties.map((p) => ({ id: p.id, etiqueta: p.name }))}
                 />
-              </button>
-
-              {showRecipients && (
-                <div className="px-4 pb-4 space-y-3">
-                  {units.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-                      {units.map((u) => (
-                        <span
-                          key={u.id}
-                          className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full text-[11px]"
-                          style={{
-                            background: "rgb(var(--veil-rgb) / 0.05)",
-                            border: "1px solid rgb(var(--veil-rgb) / 0.09)",
-                            color: "var(--ink-2)",
-                          }}
-                        >
-                          {u.label}
-                          {u.email && (
-                            <span style={{ color: "var(--ink-3)" }}>· {u.email}</span>
-                          )}
-                          <button
-                            onClick={() => removeUnit(u.id)}
-                            className="p-0.5 rounded-full cursor-pointer hover:bg-white/[0.08]"
-                            style={{ color: "var(--ink-4)" }}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {/* AI file import (Excel/PDF/Word) */}
-                  <UnitImport
-                    propertyId={propertyId}
-                    onImported={(n) => {
-                      setBulkMsg(`${n} ${n === 1 ? "unidad importada" : "unidades importadas"} desde el archivo.`);
-                      loadUnits(propertyId);
-                    }}
-                  />
-
-                  <div className="flex items-center gap-3 my-1">
-                    <div style={{ flex: 1, height: 1, background: "rgb(var(--veil-rgb) / 0.06)" }} />
-                    <span style={{ ...monoLabel, color: "var(--ink-4)" }}>o a mano</span>
-                    <div style={{ flex: 1, height: 1, background: "rgb(var(--veil-rgb) / 0.06)" }} />
-                  </div>
-
-                  <div>
-                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
-                      Agregar unidades (una por línea)
-                    </label>
-                    <textarea
-                      value={bulkText}
-                      onChange={(e) => setBulkText(e.target.value)}
-                      rows={4}
-                      placeholder={"Apto 101, María Pérez, maria@correo.com, 3001112233\nApto 102, juan@correo.com\ncarlos@correo.com"}
-                      style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }}
-                    />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={addRecipients}
-                      disabled={bulkBusy || !bulkText.trim()}
-                      className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 transition-all disabled:opacity-40 cursor-pointer"
-                      style={{ background: "rgb(var(--ok-rgb) / 0.14)", color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.3)" }}
-                    >
-                      {bulkBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                      Agregar
-                    </button>
-                    {bulkMsg && (
-                      <span className="text-[12px]" style={{ color: "var(--ink-2)" }}>
-                        {bulkMsg}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Compose */}
-            <div className="ui-card ui-sheen ui-rise p-5 space-y-4">
-              <p className="text-[13.5px] font-medium" style={{ color: "var(--ink)" }}>
-                Nuevo comunicado
-              </p>
-
-              {/* AI drafting row */}
-              <div
-                className="rounded-xl p-3.5 space-y-2.5"
-                style={{ background: "rgb(var(--accent-rgb) / 0.06)", border: "1px solid rgb(var(--accent-rgb) / 0.22)" }}
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5" style={{ color: "var(--accent-text)" }} />
-                  <span style={{ ...monoLabel, color: "var(--accent-text)" }}>Redactar con IA</span>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2.5">
-                  <input
-                    value={brief}
-                    onChange={(e) => setBrief(e.target.value)}
-                    placeholder="Ej: corte de agua el martes 25 de 8am a 2pm por mantenimiento del tanque"
-                    style={{ ...inputStyle, flex: 1 }}
-                    maxLength={1500}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !drafting) draftWithAI();
-                    }}
-                  />
-                  <button
-                    onClick={draftWithAI}
-                    disabled={drafting || !brief.trim()}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-full text-[12.5px] font-medium px-4 py-2.5 transition-all disabled:opacity-40 cursor-pointer flex-shrink-0"
-                    style={{ background: "var(--accent)", color: "var(--on-accent)" }}
-                  >
-                    {drafting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                    {drafting ? "Redactando…" : "Redactar"}
-                  </button>
+                <div className="co-cuota">
+                  <Loseta icono={Mail} tono={quotaPct > 90 ? "red" : quotaPct > 70 ? "amber" : "teal"} tam={36} />
+                  <BarraProgreso valor={quotaPct} excede={quotaPct > 90} decorativa />
+                  <span className="t">
+                    <b>{quota.used.toLocaleString("es-CO")}</b> de {quota.limit.toLocaleString("es-CO")} correos este mes
+                  </span>
                 </div>
               </div>
 
-              <div>
-                <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
-                  Asunto
-                </label>
-                <input
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  placeholder="Asunto del comunicado"
-                  style={inputStyle}
-                  maxLength={150}
-                />
-              </div>
-
-              <div>
-                <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
-                  Contenido
-                </label>
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  rows={9}
-                  placeholder="Escribe el comunicado o usa el redactor IA de arriba…"
-                  style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6, fontFamily: "inherit" }}
-                  maxLength={10000}
-                />
-              </div>
-
-              {sendMsg && (
-                <div
-                  className="flex items-start gap-2 px-3 py-2.5 rounded-lg text-[12.5px]"
-                  style={
-                    sendMsg.ok
-                      ? { background: "rgb(var(--ok-rgb) / 0.1)", border: "1px solid rgb(var(--ok-rgb) / 0.3)", color: "var(--ok-text)" }
-                      : { background: "rgb(var(--danger-rgb) / 0.1)", border: "1px solid rgb(var(--danger-rgb) / 0.3)", color: "var(--danger-text)" }
-                  }
-                >
-                  {sendMsg.ok && <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-px" />}
-                  <span>{sendMsg.text}</span>
-                </div>
-              )}
-
-              <div className="flex items-center gap-3 flex-wrap">
+              {/* Destinatarios */}
+              <div className="co-dest" data-h="green">
                 <button
-                  onClick={sendAnnouncement}
-                  disabled={sending || !subject.trim() || !content.trim() || emailCount === 0}
-                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-                  style={{
-                    // Confirmar el envío es la señal de peligro: naranja con tinta encima (nunca blanco).
-                    background: confirming ? "var(--danger)" : "var(--accent)",
-                    color: confirming ? "var(--on-danger)" : "var(--on-accent)",
-                    boxShadow: confirming ? "none" : "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)",
-                  }}
+                  type="button"
+                  aria-expanded={showRecipients}
+                  aria-controls="co-dest-cuerpo"
+                  onClick={() => setShowRecipients((v) => !v)}
                 >
-                  {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                  {sending
-                    ? "Enviando…"
-                    : confirming
+                  <Loseta icono={Users} tono="green" />
+                  <span>
+                    <b>Destinatarios</b>
+                    <small>
+                      {units.length === 0
+                        ? "Sin unidades registradas — agrégalas para poder enviar"
+                        : `${units.length} unidades · ${emailCount} con correo`}
+                    </small>
+                  </span>
+                  <ChevronDown className="chev" aria-hidden="true" focusable="false" />
+                </button>
+
+                {showRecipients && (
+                  <div id="co-dest-cuerpo" className="cuerpo">
+                    {units.length > 0 && (
+                      <div className="co-chips">
+                        {units.map((u) => (
+                          <span key={u.id} className="co-chip">
+                            {u.label}
+                            {u.email && <small>· {u.email}</small>}
+                            <button
+                              type="button"
+                              onClick={() => setPorQuitar(u)}
+                              aria-label={`Quitar la unidad ${u.label}`}
+                              title={`Quitar la unidad ${u.label}`}
+                            >
+                              <Trash2 aria-hidden="true" focusable="false" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {/* AI file import (Excel/PDF/Word) */}
+                    <UnitImport
+                      propertyId={propertyId}
+                      onImported={(n) => {
+                        setBulkMsg(`${n} ${n === 1 ? "unidad importada" : "unidades importadas"} desde el archivo.`);
+                        loadUnits(propertyId);
+                      }}
+                    />
+
+                    <div className="co-o">o a mano</div>
+
+                    <Campo id="co-lineas" etiqueta="Agregar unidades (una por línea)">
+                      <AreaTexto
+                        id="co-lineas"
+                        value={bulkText}
+                        onChange={(e) => setBulkText(e.target.value)}
+                        rows={4}
+                        placeholder={"Apto 101, María Pérez, maria@correo.com, 3001112233\nApto 102, juan@correo.com\ncarlos@correo.com"}
+                      />
+                    </Campo>
+                    <div className="co-fila">
+                      <Boton
+                        variante="secundario"
+                        tam={40}
+                        flecha="crea"
+                        onClick={addRecipients}
+                        disabled={!bulkText.trim()}
+                        cargando={bulkBusy}
+                        textoCargando="Agregando…"
+                      >
+                        Agregar
+                      </Boton>
+                      {bulkMsg && <span className="msg" role="status">{bulkMsg}</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Nuevo comunicado */}
+              <Panel titulo="Nuevo comunicado" titular icono={Megaphone} tono="amber" nivel={2}>
+                <div className="co-ia" data-h="ai">
+                  <h4>
+                    <Loseta icono={Sparkles} tono="ai" tam={32} />
+                    Redactar con IA
+                  </h4>
+                  <div className="fila">
+                    <Entrada
+                      value={brief}
+                      onChange={(e) => setBrief(e.target.value)}
+                      placeholder="Ej: corte de agua el martes 25 de 8am a 2pm por mantenimiento del tanque"
+                      aria-label="Cuéntale a la IA de qué trata el comunicado"
+                      maxLength={1500}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !drafting) draftWithAI();
+                      }}
+                    />
+                    <Boton
+                      onClick={draftWithAI}
+                      disabled={!brief.trim()}
+                      cargando={drafting}
+                      textoCargando="Redactando…"
+                      icono={Sparkles}
+                      tono="ai"
+                    >
+                      Redactar
+                    </Boton>
+                  </div>
+                </div>
+
+                <Campo id="co-asunto" etiqueta="Asunto">
+                  <Entrada
+                    id="co-asunto"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="Asunto del comunicado"
+                    maxLength={150}
+                  />
+                </Campo>
+
+                <Campo id="co-contenido" etiqueta="Contenido">
+                  <AreaTexto
+                    id="co-contenido"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    rows={9}
+                    placeholder="Escribe el comunicado o usa el redactor IA de arriba…"
+                    maxLength={10000}
+                  />
+                </Campo>
+
+                {sendMsg && (
+                  <div style={{ marginBottom: 16 }}>
+                    <Aviso enLinea tipo={sendMsg.ok ? "ok" : "error"} titulo={sendMsg.text} />
+                  </div>
+                )}
+
+                <div className="co-acc">
+                  {/* Confirmar el envío es la señal de peligro: el botón pasa a rojo y pide un segundo clic. */}
+                  <Boton
+                    variante={confirming ? "peligro" : "primario"}
+                    lleno={confirming}
+                    icono={Send}
+                    tono="teal"
+                    onClick={sendAnnouncement}
+                    disabled={!subject.trim() || !content.trim() || emailCount === 0}
+                    cargando={sending}
+                    textoCargando="Enviando…"
+                  >
+                    {confirming
                       ? `Confirmar envío a ${emailCount} ${emailCount === 1 ? "correo" : "correos"}`
                       : `Enviar a ${emailCount} ${emailCount === 1 ? "destinatario" : "destinatarios"}`}
-                </button>
-                {confirming && !sending && (
-                  <button
-                    onClick={() => setConfirming(false)}
-                    className="text-[12px] cursor-pointer"
-                    style={{ color: "var(--ink-3)" }}
-                  >
-                    Cancelar
-                  </button>
-                )}
-                {subject.trim() && content.trim() && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(`*${subject.trim()}*\n\n${content.trim()}`);
-                        setWaCopied(true);
-                        setTimeout(() => setWaCopied(false), 2000);
-                      } catch {
-                        /* clipboard unavailable */
-                      }
-                    }}
-                    className="inline-flex items-center gap-2 rounded-full text-[13px] font-medium px-4 py-2.5 transition-all cursor-pointer"
-                    style={{ background: waCopied ? "rgba(37,211,102,0.2)" : "rgba(37,211,102,0.14)", color: "#25D366", border: "1px solid rgba(37,211,102,0.35)" }}
-                    title="Copia el texto para pegarlo en una difusión de WhatsApp"
-                  >
-                    {waCopied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <MessageCircle className="h-3.5 w-3.5" />}
-                    {waCopied ? "Copiado" : "Copiar para WhatsApp"}
-                  </button>
-                )}
-                {emailCount === 0 && (
-                  <span className="text-[12px]" style={{ color: "var(--ink-3)" }}>
-                    Agrega destinatarios con correo para habilitar el envío.
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* History */}
-            {announcements.length > 0 && (
-              <div>
-                <p style={{ ...monoLabel, color: "var(--ink-3)" }} className="mb-2.5">
-                  Enviados
-                </p>
-                <div className="space-y-2.5">
-                  {announcements.map((a) => (
-                    <div key={a.id} className="ui-card p-4">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <p className="text-[13.5px] font-medium flex-1 min-w-0" style={{ color: "var(--ink)" }}>
-                          {a.subject}
-                        </p>
-                        <span
-                          className="inline-flex items-center gap-1 text-[10.5px] flex-shrink-0"
-                          style={{ ...monoMini, color: "var(--ink-3)" }}
-                        >
-                          <Users className="h-3 w-3" />
-                          {a.recipientCount}
-                        </span>
-                      </div>
-                      <p
-                        className="text-[12px] leading-relaxed mb-1.5"
-                        style={{
-                          color: "var(--ink-3)",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {a.content}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        {a.property?.name && (
-                          <span className="inline-flex items-center gap-1" style={{ ...monoMini, color: "var(--ink-4)" }}>
-                            <Building2 className="h-3 w-3" />
-                            {a.property.name}
-                          </span>
-                        )}
-                        <span style={{ ...monoMini, color: "var(--ink-4)" }}>
-                          {new Date(a.sentAt || a.createdAt).toLocaleDateString("es-CO", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                  </Boton>
+                  {confirming && !sending && (
+                    <Boton variante="secundario" onClick={() => setConfirming(false)}>
+                      Cancelar
+                    </Boton>
+                  )}
+                  {subject.trim() && content.trim() && (
+                    <Boton
+                      variante="secundario"
+                      icono={waCopied ? Check : MessageCircle}
+                      tono="green"
+                      title="Copia el texto para pegarlo en una difusión de WhatsApp"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(`*${subject.trim()}*\n\n${content.trim()}`);
+                          setWaCopied(true);
+                          setTimeout(() => setWaCopied(false), 2000);
+                        } catch {
+                          /* clipboard unavailable */
+                        }
+                      }}
+                    >
+                      {waCopied ? "Copiado" : "Copiar para WhatsApp"}
+                    </Boton>
+                  )}
+                  {emailCount === 0 && (
+                    <span className="msg" style={{ fontSize: 14.5, color: "var(--ink-2)" }}>
+                      Agrega destinatarios con correo para habilitar el envío.
+                    </span>
+                  )}
                 </div>
-              </div>
-            )}
+              </Panel>
+
+              {/* Enviados */}
+              {announcements.length > 0 && (
+                <div style={{ marginTop: 32 }}>
+                  <Seccion id="co-enviados" titulo="Enviados" nota="lo más reciente primero" icono={History} tono="slate">
+                    <ul className="co-env">
+                      {announcements.map((a) => (
+                        <li key={a.id}>
+                          <div className="cab">
+                            <h3>{a.subject}</h3>
+                            <Etiqueta icono={Users} tono="teal">
+                              {a.recipientCount} {a.recipientCount === 1 ? "destinatario" : "destinatarios"}
+                            </Etiqueta>
+                          </div>
+                          <p>{a.content}</p>
+                          <div className="meta">
+                            {a.property?.name && (
+                              <span>
+                                <Building2 aria-hidden="true" focusable="false" />
+                                {a.property.name}
+                              </span>
+                            )}
+                            <span>
+                              {new Date(a.sentAt || a.createdAt).toLocaleDateString("es-CO", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </Seccion>
+                </div>
+              )}
+            </>
+          )}
+        </Pieza>
+      </Pagina>
+
+      <Modal
+        abierto={!!porQuitar}
+        alCerrar={() => setPorQuitar(null)}
+        titulo={`¿Eliminar la unidad ${porQuitar?.label || ""}?`}
+        acciones={
+          <>
+            <Boton variante="secundario" onClick={() => setPorQuitar(null)}>Cancelar</Boton>
+            <Boton
+              variante="peligro"
+              lleno
+              onClick={() => {
+                const u = porQuitar;
+                setPorQuitar(null);
+                if (u) void removeUnit(u.id);
+              }}
+            >
+              Eliminar unidad
+            </Boton>
           </>
-        )}
-      </div>
+        }
+      >
+        <p>
+          Se quita de la copropiedad por completo (no solo de los comunicados). Si tiene movimientos de cartera, no
+          podrá eliminarse.
+        </p>
+      </Modal>
     </div>
   );
 }

@@ -60,6 +60,28 @@ Portafolio (Élite) ámbar. Rojo se reserva para lo destructivo y lo vencido.
 - `Estado`, `Cuadro`, `Insignia`, `Categoria`, `TipoArchivo`: siempre con icono/color/palabra.
 - `Accesos`/`Acceso`: fichas grandes de «qué quieres hacer».
 - Para una función nueva: añádela a `MODULOS` (y, si va en el menú, a `NAV_GROUPS` en `Sidebar.tsx`).
+- `Etiqueta`: icono + palabra en el color que elijas, para estados propios de una función (radicado, vigente,
+  «a favor») que no están entre los `TipoEstado`.
+
+## Pantallas pausadas
+
+Cartera, Presupuesto, PQRS, Comunicados, Asambleas y Certificados también están escritas con el kit, pero
+siguen detrás de `COMING_SOON` (`src/lib/feature-flags.ts`): en producción se ve «Próximamente». Para activar
+una, pon su bandera en `false`; la lógica y las llamadas a la API no cambian.
+
+Convenciones que siguen (para mantenerlas al tocarlas):
+
+- Las confirmaciones (`window.confirm`) son un `<Modal>` con la consecuencia concreta y la acción con su verbo.
+- Los éxitos salen como `avisar()` (aviso flotante, se va solo); los errores de un formulario, como `<Aviso enLinea>`
+  dentro del panel que está abierto.
+- Los estilos propios de una pantalla van en un `<style href="k-<pantalla>-local" precedence="default">` con
+  prefijo propio (`.ca-*`, `.pr-*`, `.pq-*`…); van sin capa, así que ganan a las reglas `k-*` (que viven en
+  `@layer components`) salvo las marcadas `!important`, que solo se pueden vencer con otro `!important` en una capa
+  anterior (`@layer base`).
+- `.k-bt + .k-bt` añade 6 px a la izquierda: en un contenedor con `gap` (filas de acciones que se parten en
+  móvil) hay que anularlo con `margin-left: 0` o el primer botón de cada línea queda desalineado.
+- Las cifras largas en COP no caben en las tarjetas de 2 columnas del móvil con `tamLetra={32}`: se reduce con
+  `clamp()` en ≤ 860 px (ver `.ca-kpis` y `.pr-kpis`).
 
 ## Comprobaciones
 
