@@ -3,7 +3,8 @@ import {
   BLOQUE_MS, CLAVES_TIPO_REUNION, ESPERAS_REINTENTO_MS, ESTADOS_REUNION, MAX_INTENTOS_TAREA, MP3_BYTES_POR_MS,
   MP3_KBPS, MP3_TRAMA_BYTES, MP3_TRAMA_MS, PARTE_SUBIDA_BYTES, SOLAPE_MS, TRAMO_MS,
   cortoTipoReunion, describirEstado, duracionMp3Cbr, esEstadoReunion, esTipoReunion, estaEnMarcha,
-  formatearDuracion, formatearReloj, leerReloj, nombreTipoReunion, puedeAgregarFuentes,
+  ROLES_PERSONA, esRolPersona, formatearDuracion, formatearReloj, leerReloj, nombreRolPersona, nombreTipoReunion,
+  puedeAgregarFuentes, tituloSugerido,
 } from "./tipos";
 
 describe("formatearReloj", () => {
@@ -161,5 +162,36 @@ describe("estados", () => {
     expect(estaEnMarcha("procesando")).toBe(true);
     expect(estaEnMarcha("lista")).toBe(false);
     expect(estaEnMarcha("error")).toBe(false);
+  });
+});
+
+describe("personas de la copropiedad", () => {
+  it("reconoce solo sus roles", () => {
+    for (const r of Object.keys(ROLES_PERSONA)) expect(esRolPersona(r)).toBe(true);
+    expect(esRolPersona("toString")).toBe(false);
+    expect(esRolPersona("jefe")).toBe(false);
+    expect(esRolPersona(null)).toBe(false);
+  });
+  it("da el rol legible, y deja pasar uno libre (puede venir de la IA)", () => {
+    expect(nombreRolPersona("revisor_fiscal")).toBe("Revisor fiscal");
+    expect(nombreRolPersona("Vocal")).toBe("Vocal");
+    expect(nombreRolPersona(null)).toBe("");
+    expect(nombreRolPersona(undefined)).toBe("");
+  });
+});
+
+describe("tituloSugerido", () => {
+  it("lleva el tipo y el día en español", () => {
+    const fecha = new Date("2026-10-12T15:00:00-05:00");
+    expect(tituloSugerido("consejo", fecha)).toBe("Reunión de consejo — 12 de octubre");
+    expect(tituloSugerido("asamblea_ordinaria", fecha)).toBe("Asamblea ordinaria — 12 de octubre");
+    expect(tituloSugerido("comite", fecha)).toBe("Comité — 12 de octubre");
+    expect(tituloSugerido("otra", fecha)).toBe("Reunión — 12 de octubre");
+    expect(tituloSugerido("desconocido", fecha)).toBe("Reunión — 12 de octubre");
+  });
+  it("escribe el día en hora de Colombia: a las 7 p. m. el servidor (UTC) ya está en el día siguiente", () => {
+    const sieteDeLaNoche = new Date("2026-10-12T19:00:00-05:00"); // = 2026-10-13T00:00:00Z
+    expect(tituloSugerido("consejo", sieteDeLaNoche)).toBe("Reunión de consejo — 12 de octubre");
+    expect(tituloSugerido("consejo", sieteDeLaNoche, "UTC")).toBe("Reunión de consejo — 13 de octubre");
   });
 });

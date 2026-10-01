@@ -14,6 +14,7 @@ import {
   DURACION_SEPTIEMBRE_MS, FICHA_SEPTIEMBRE, MARCADORES_SEPTIEMBRE, PERSONAS_LOS_PINOS, SILENCIOS_SEPTIEMBRE,
   construirHablantes, construirIntervenciones,
 } from "./demo-datos";
+import type { CambiosPersona, CambiosReunion, NuevaPersona } from "./validar";
 
 type ReunionDemo = {
   id: string;
@@ -273,5 +274,96 @@ export function demoIntervenciones(userId: string, id: string): IntervencionDTO[
 }
 
 export function demoPersonas(propertyId: string): PersonaDTO[] {
-  return almacen().personas.filter((p) => p.propertyId === propertyId && p.active);
+  return almacen()
+    .personas.filter((p) => p.propertyId === propertyId && p.active)
+    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+}
+
+/* ── Escritura (el demo permite crear y editar, con tope) ────────────── */
+
+/** Tope por usuario: el demo vive en memoria y no debe crecer sin límite. */
+export const MAX_REUNIONES_DEMO = 30;
+export const MAX_PERSONAS_DEMO = 60;
+
+let secuencia = 0;
+
+/** Solo para pruebas: vuelve a sembrar el demo. */
+export function reiniciarDemoReuniones(): void {
+  global.__demoReuniones = undefined;
+}
+
+function buscar(userId: string, id: string): ReunionDemo | undefined {
+  return almacen().reuniones.find((x) => x.id === id && x.userId === userId);
+}
+
+/** Crea un borrador. null si se llegó al tope del demo. */
+export function demoCrearReunion(
+  userId: string,
+  datos: { propertyId: string; type: string; title: string; date: Date },
+): ReunionResumen | null {
+  const a = almacen();
+  if (a.reuniones.filter((r) => r.userId === userId).length >= MAX_REUNIONES_DEMO) return null;
+  const r: ReunionDemo = {
+    ...vacia({
+      id: `reunion-${Date.now()}-${++secuencia}`,
+      propertyId: datos.propertyId,
+      type: datos.type,
+      title: datos.title,
+      date: datos.date.toISOString(),
+    }),
+    userId,
+  };
+  a.reuniones.push(r);
+  return resumen(r);
+}
+
+export function demoActualizarReunion(userId: string, id: string, cambios: CambiosReunion): ReunionResumen | null {
+  const r = buscar(userId, id);
+  if (!r) return null;
+  if (cambios.title !== undefined) r.title = cambios.title;
+  if (cambios.type !== undefined) r.type = cambios.type;
+  if (cambios.date !== undefined) r.date = cambios.date.toISOString();
+  if (cambios.consentAt !== undefined) r.consentAt = cambios.consentAt ? cambios.consentAt.toISOString() : null;
+  return resumen(r);
+}
+
+export function demoEliminarReunion(userId: string, id: string): boolean {
+  const a = almacen();
+  const i = a.reuniones.findIndex((x) => x.id === id && x.userId === userId);
+  if (i < 0) return false;
+  a.reuniones.splice(i, 1);
+  return true;
+}
+
+/**
+ * Crea una persona; si ya hay una activa con ese nombre (sin distinguir mayúsculas) devuelve esa
+ * con `creada: false`. null si se llegó al tope.
+ */
+export function demoCrearPersona(propertyId: string, datos: NuevaPersona): { persona: PersonaDTO; creada: boolean } | null {
+  const a = almacen();
+  const existente = a.personas.find(
+    (p) => p.propertyId === propertyId && p.active && p.name.toLowerCase() === datos.name.toLowerCase(),
+  );
+  if (existente) return { persona: existente, creada: false };
+  if (a.personas.filter((p) => p.propertyId === propertyId).length >= MAX_PERSONAS_DEMO) return null;
+  const nueva: PersonaDTO = { id: `persona-${Date.now()}-${++secuencia}`, propertyId, name: datos.name, role: datos.role, active: true };
+  a.personas.push(nueva);
+  return { persona: nueva, creada: true };
+}
+
+export function demoActualizarPersona(propertyId: string, id: string, cambios: CambiosPersona): PersonaDTO | null {
+  const p = almacen().personas.find((x) => x.id === id && x.propertyId === propertyId);
+  if (!p) return null;
+  if (cambios.name !== undefined) p.name = cambios.name;
+  if (cambios.role !== undefined) p.role = cambios.role;
+  if (cambios.active !== undefined) p.active = cambios.active;
+  return p;
+}
+
+export function demoEliminarPersona(propertyId: string, id: string): boolean {
+  const a = almacen();
+  const i = a.personas.findIndex((x) => x.id === id && x.propertyId === propertyId);
+  if (i < 0) return false;
+  a.personas.splice(i, 1);
+  return true;
 }

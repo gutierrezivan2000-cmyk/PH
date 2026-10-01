@@ -28,6 +28,7 @@ const STATEMENTS: string[] = [
     "errorMessage" TEXT,
     "durationMs" INTEGER,
     "coverage" DOUBLE PRECISION,
+    "silences" JSONB,
     "audioUrl" TEXT,
     "transcriptUrl" TEXT,
     "digest" JSONB,

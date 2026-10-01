@@ -224,3 +224,53 @@ export function formatearDuracion(ms: number | null | undefined): string {
   if (h === 0) return `${m} min`;
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   Personas de la copropiedad (ayudan a nombrar a los hablantes)
+   ════════════════════════════════════════════════════════════════════ */
+
+export const ROLES_PERSONA = {
+  presidente: "Presidente del consejo",
+  consejero: "Consejero",
+  administrador: "Administrador",
+  revisor_fiscal: "Revisor fiscal",
+  contador: "Contador",
+  otro: "Otro",
+} as const;
+
+export type RolPersona = keyof typeof ROLES_PERSONA;
+
+export function esRolPersona(valor: unknown): valor is RolPersona {
+  return typeof valor === "string" && Object.prototype.hasOwnProperty.call(ROLES_PERSONA, valor);
+}
+
+/** «consejero» → «Consejero»; un rol que no se conoce se devuelve tal cual (puede venir de la IA) o vacío. */
+export function nombreRolPersona(rol: string | null | undefined): string {
+  if (!rol) return "";
+  return esRolPersona(rol) ? ROLES_PERSONA[rol] : rol;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Título sugerido
+   ════════════════════════════════════════════════════════════════════ */
+
+const PREFIJO_TITULO: Record<TipoReunion, string> = {
+  consejo: "Reunión de consejo",
+  comite: "Comité",
+  asamblea_ordinaria: "Asamblea ordinaria",
+  asamblea_extraordinaria: "Asamblea extraordinaria",
+  otra: "Reunión",
+};
+
+/** Zona horaria de la aplicación (Colombia): el servidor corre en UTC y «hoy» no puede cambiar de día a las 7 p. m. */
+export const ZONA_HORARIA = "America/Bogota";
+
+/**
+ * «Reunión de consejo — 12 de octubre». Es lo que la pantalla propone y lo que el
+ * servidor pone cuando no llega un título. La fecha se escribe en hora de Colombia.
+ */
+export function tituloSugerido(tipo: string | null | undefined, fecha: Date, zona: string = ZONA_HORARIA): string {
+  const prefijo = esTipoReunion(tipo) ? PREFIJO_TITULO[tipo] : PREFIJO_TITULO.otra;
+  const dia = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "long", timeZone: zona }).format(fecha);
+  return `${prefijo} — ${dia}`;
+}

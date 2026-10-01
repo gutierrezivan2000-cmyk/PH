@@ -794,6 +794,7 @@ model Meeting {
   errorMessage  String?
   durationMs    Int?      // duración total de audio.mp3
   coverage      Float?    // 0..1 (1 = toda la línea de tiempo transcrita)
+  silences      Json?     // [{ desdeMs, hastaMs }] tramos sin voz que se muestran como «Sin voz entre …»
   audioUrl      String?   // audio.mp3 normalizado (Blob privado)
   transcriptUrl String?   // transcripcion.txt (Blob privado)
   digest        Json?     // ficha: resumen, decisiones, compromisos, votaciones…

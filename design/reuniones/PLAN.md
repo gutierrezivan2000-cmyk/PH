@@ -1099,10 +1099,36 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
   Un `ClientFetchError` de next-auth en los scripts de Playwright suele ser una navegación que aborta el
   `fetch` de sesión en curso, no un error de la app.
 
+**Notas de M1 (desviaciones y decisiones al construir):**
+
+- **La subida vive en la reunión, no en «nueva».** `nueva` solo crea el borrador (copropiedad, tipo, título, fecha) y
+  lleva a `/dashboard/reuniones/[id]?modo=grabar|subir`. Ahí, para un borrador, M2 monta la zona de subida y M3 el
+  acceso a la grabadora. Así hay un solo lugar donde se agregan archivos (también para «Continuar» desde la lista y
+  para reintentar tras un error). Donde §11 pone la `ZonaSubida` en `nueva`, léase en la página de la reunión.
+- **Columna nueva `Meeting.silences`** (Json, aditiva): los tramos «Sin voz entre …» se calculan en `unir` (M5) y se
+  guardan; no se derivan al leer (8 h son miles de intervenciones). `ensureMeetingsSchema` y su prueba de
+  sincronía ya la incluyen.
+- **Puerta de acceso única** (`src/lib/meetings/acceso.ts`): toda ruta empieza por `exigirVisible()` (401 sin sesión,
+  404 —no 403— si la bandera no deja ver Reuniones). Las páginas usan `sesionVeReuniones()` + `notFound()`.
+  `rutas.test.ts` recorre TODAS las rutas y exige 401/404 sin tocar la base de datos: **cada ruta nueva se agrega a
+  la tabla `TODAS` de ese archivo**.
+- **El demo permite crear, editar y borrar** (en memoria, con tope de 30 reuniones y 60 personas) en vez de ser solo
+  lectura, para poder recorrer el flujo en local.
+- **Las URLs de Blob nunca salen al navegador** (`mapeo.ts`): el detalle solo dice `hasAudio`. Hay una prueba que lo
+  garantiza; mantenerla al agregar campos.
+- **Borrar una reunión** borra primero los archivos (prefijo `meetings/<id>/`, con salvaguarda contra prefijos
+  vacíos o ajenos) y después las filas; si los archivos no se pueden borrar responde 502 y conserva la reunión.
+  Las actas ya redactadas pierden el vínculo (`Generation.meetingId = null`) pero no se borran.
+- **CSS global:** `.k-pieza-h` recortaba (`overflow: hidden`) cualquier menú desplegable dentro de la cabecera de
+  pantalla; ahora no recorta en «Calma» ni en «Guía» cuando contiene un `.k-menu`.
+- **Copropiedad en la lista:** va como segunda línea de «Reunión» (en vez de una columna aparte) y solo si hay más
+  de una copropiedad y el filtro es «Todas».
+- **Auditoría de interfaz** (`scripts/contraste.mjs`) ya incluye las siete pantallas de Reuniones del demo.
+
 | Hito | Estado | Commit | Notas |
 |---|---|---|---|
 | M0 Fundaciones | hecho | (ver `git log`) | Ver «Notas de M0» abajo. |
-| M1 Lista y creación | pendiente | | |
+| M1 Lista y creación | hecho | (ver `git log`) | Ver «Notas de M1» abajo. |
 | M2 Subida reanudable | pendiente | | |
 | M3 Grabadora | pendiente | | |
 | M4 Cola y audio | pendiente | | |

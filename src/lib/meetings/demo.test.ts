@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { DEMO_USER } from "@/lib/demo-store";
-import { demoIntervenciones, demoPersonas, demoReunion, demoReuniones } from "./demo";
+import {
+  MAX_PERSONAS_DEMO, MAX_REUNIONES_DEMO, demoActualizarPersona, demoActualizarReunion, demoCrearPersona, demoCrearReunion,
+  demoEliminarPersona, demoEliminarReunion, demoIntervenciones, demoPersonas, demoReunion, demoReuniones, reiniciarDemoReuniones,
+} from "./demo";
 import { DURACION_SEPTIEMBRE_MS, FICHA_SEPTIEMBRE, construirHablantes, construirIntervenciones } from "./demo-datos";
 import { ESTADOS_REUNION, esEstadoReunion, esTipoReunion, formatearReloj } from "./tipos";
 
@@ -140,5 +143,77 @@ describe("almacén de demo", () => {
     const usados = new Set(demoReuniones(DEMO_USER.id).map((r) => r.status));
     const sinEjemplo = ESTADOS_REUNION.filter((e) => !usados.has(e));
     expect(sinEjemplo.sort()).toEqual(["en_cola", "grabando", "subiendo"]);
+  });
+});
+
+describe("el demo permite crear, editar y borrar (con tope)", () => {
+  beforeEach(() => reiniciarDemoReuniones());
+
+  it("crea un borrador que aparece primero si es el más reciente", () => {
+    const creada = demoCrearReunion(DEMO_USER.id, { propertyId: "prop-demo-001", type: "consejo", title: "Nueva", date: new Date("2030-01-01T10:00:00Z") })!;
+    expect(creada).toMatchObject({ status: "borrador", title: "Nueva", propertyName: "Conjunto Residencial Los Pinos", durationMs: null });
+    expect(demoReuniones(DEMO_USER.id)[0].id).toBe(creada.id);
+    expect(demoReunion(DEMO_USER.id, creada.id)?.sources).toEqual([]);
+  });
+  it("las ids no se repiten aunque se creen en el mismo milisegundo", () => {
+    const ids = new Set(Array.from({ length: 10 }, () => demoCrearReunion(DEMO_USER.id, { propertyId: "prop-demo-001", type: "otra", title: "x", date: new Date() })!.id));
+    expect(ids.size).toBe(10);
+  });
+  it("respeta el tope del demo", () => {
+    let creadas = 0;
+    for (let i = 0; i < MAX_REUNIONES_DEMO + 5; i++) {
+      if (demoCrearReunion(DEMO_USER.id, { propertyId: "prop-demo-001", type: "otra", title: `r${i}`, date: new Date() })) creadas++;
+    }
+    expect(creadas).toBe(MAX_REUNIONES_DEMO - 5); // ya hay 5 sembradas
+    expect(demoReuniones(DEMO_USER.id).length).toBe(MAX_REUNIONES_DEMO);
+  });
+  it("edita título, tipo, fecha y constancia; no toca el estado", () => {
+    const antes = demoReunion(DEMO_USER.id, "reunion-demo-003")!.meeting;
+    const r = demoActualizarReunion(DEMO_USER.id, "reunion-demo-003", {
+      title: "Otro título", type: "asamblea_extraordinaria", date: new Date("2031-02-03T04:05:06Z"), consentAt: new Date("2031-02-03T04:00:00Z"),
+    })!;
+    expect(r).toMatchObject({ title: "Otro título", type: "asamblea_extraordinaria", date: "2031-02-03T04:05:06.000Z", status: antes.status });
+    expect(demoReunion(DEMO_USER.id, "reunion-demo-003")!.meeting.consentAt).toBe("2031-02-03T04:00:00.000Z");
+    demoActualizarReunion(DEMO_USER.id, "reunion-demo-003", { consentAt: null });
+    expect(demoReunion(DEMO_USER.id, "reunion-demo-003")!.meeting.consentAt).toBeNull();
+  });
+  it("no edita ni borra reuniones de otro usuario ni inexistentes", () => {
+    expect(demoActualizarReunion("otro", "reunion-demo-001", { title: "x" })).toBeNull();
+    expect(demoEliminarReunion("otro", "reunion-demo-001")).toBe(false);
+    expect(demoEliminarReunion(DEMO_USER.id, "no-existe")).toBe(false);
+    expect(demoReuniones(DEMO_USER.id).length).toBe(5);
+  });
+  it("borra", () => {
+    expect(demoEliminarReunion(DEMO_USER.id, "reunion-demo-003")).toBe(true);
+    expect(demoReunion(DEMO_USER.id, "reunion-demo-003")).toBeNull();
+    expect(demoReuniones(DEMO_USER.id).length).toBe(4);
+  });
+
+  it("personas: crea, no duplica por nombre (sin distinguir mayúsculas) y las lista por nombre", () => {
+    const a = demoCrearPersona("prop-demo-001", { name: "Zoe Vargas", role: "consejero" })!;
+    const b = demoCrearPersona("prop-demo-001", { name: "zoe vargas", role: null })!;
+    expect(a.creada).toBe(true);
+    expect(b.creada).toBe(false);
+    expect(b.persona.id).toBe(a.persona.id);
+    const nombres = demoPersonas("prop-demo-001").map((p) => p.name);
+    expect(nombres.length).toBe(7);
+    expect([...nombres].sort((x, y) => x.localeCompare(y, "es"))).toEqual(nombres);
+    // En otra copropiedad sí es otra persona.
+    expect(demoCrearPersona("prop-demo-002", { name: "Zoe Vargas", role: null })!.persona.id).not.toBe(a.persona.id);
+  });
+  it("personas: edita, desactiva (deja de listarse) y borra, solo dentro de su copropiedad", () => {
+    const p = demoCrearPersona("prop-demo-001", { name: "Ana Mora", role: null })!.persona;
+    expect(demoActualizarPersona("prop-demo-001", p.id, { name: "Ana M. Mora", role: "contador" })).toMatchObject({ name: "Ana M. Mora", role: "contador" });
+    expect(demoActualizarPersona("prop-demo-002", p.id, { name: "x" })).toBeNull();
+    demoActualizarPersona("prop-demo-001", p.id, { active: false });
+    expect(demoPersonas("prop-demo-001").some((x) => x.id === p.id)).toBe(false);
+    expect(demoEliminarPersona("prop-demo-002", p.id)).toBe(false);
+    expect(demoEliminarPersona("prop-demo-001", p.id)).toBe(true);
+    expect(demoEliminarPersona("prop-demo-001", p.id)).toBe(false);
+  });
+  it("personas: respeta el tope", () => {
+    let creadas = 0;
+    for (let i = 0; i < MAX_PERSONAS_DEMO + 5; i++) if (demoCrearPersona("prop-demo-001", { name: `Persona ${i}`, role: null })) creadas++;
+    expect(creadas).toBe(MAX_PERSONAS_DEMO - 6); // ya hay 6 sembradas
   });
 });
