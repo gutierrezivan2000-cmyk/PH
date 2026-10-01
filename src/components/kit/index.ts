@@ -4,7 +4,7 @@
  *
  * Requisitos del armazón (una sola vez):
  *   - un ancestro con data-shell="app" (activa los tokens; <Armazon> lo pone),
- *   - import "@/components/kit/fuentes" (Figtree autoalojada),
+ *   - import "@/components/kit/fuentes" (Inter y Figtree autoalojadas),
  *   - <RegionAvisos /> montado para que avisar() se vea.
  * Las clases k-* viven al final de src/app/globals.css (no hay kit.css que importar).
  */
@@ -16,7 +16,7 @@ export { Flecha, Chevron, Lupa, Cruz, Visto } from "./Iconos";
 export { Campo, Entrada, AreaTexto, Selector, Buscador, GrupoCampos } from "./Campo";
 export { Casilla, Opcion, OpcionFila, OpcionesFila, Interruptor } from "./Casilla";
 export { RejillaMeses } from "./Periodo";
-export { Estado, Cuadro, Insignia, Categoria, TipoArchivo, estiloDeEstado, type TipoEstado } from "./Estado";
+export { Estado, Etiqueta, Cuadro, Insignia, Categoria, TipoArchivo, estiloDeEstado, type TipoEstado } from "./Estado";
 export { Pagina, Pieza, CabeceraPieza, Seccion, Panel, Reticula, Resumen, Colofon } from "./Pagina";
 export {
   Urgencia, Urgencias, TiraSemanal, FilaObligacion, ListaObligaciones, MasEnLista, type DiaTira,

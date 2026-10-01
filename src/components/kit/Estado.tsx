@@ -55,6 +55,22 @@ export function Estado({ tipo, children, neutro, tamLetra, className }:
 }
 
 /**
+ * Etiqueta = icono + palabra en una píldora del color que tú elijas. Para estados propios de una
+ * función (radicado, en proceso, vigente, programado…) que no están entre los `TipoEstado`.
+ *   <Etiqueta icono={Inbox} tono="blue">Radicado</Etiqueta>
+ * `gira` hace girar el icono (procesando).
+ */
+export function Etiqueta({ icono: Icono, tono, gira, children, className }:
+  { icono?: LucideIcon; tono: Tono; gira?: boolean; children: ReactNode; className?: string }) {
+  return (
+    <span className={unir("k-estado", className)} data-h={tono} data-spin={gira || undefined}>
+      {Icono && <Icono aria-hidden="true" focusable="false" />}
+      {children}
+    </span>
+  );
+}
+
+/**
  * Insignia = un número en una píldora. `alerta` = conteo de vencidas (rojo).
  * `unidad` va en texto solo para lectores de pantalla.
  *   <Insignia alerta unidad="vencidas">3</Insignia>

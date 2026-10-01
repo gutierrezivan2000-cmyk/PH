@@ -1,20 +1,33 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Ban, BadgeCheck, Check, CircleCheck, Home, Link2, Printer, RotateCcw, X, type LucideIcon } from "lucide-react";
 import { Header } from "@/components/dashboard/Header";
 import { ComingSoon } from "@/components/dashboard/ComingSoon";
 import { COMING_SOON } from "@/lib/feature-flags";
 import {
-  BadgeCheck,
-  Loader2,
-  Plus,
-  Printer,
-  Link2,
-  Ban,
-  RotateCcw,
-  ChevronDown,
-  CheckCircle2,
-} from "lucide-react";
+  Aviso,
+  Boton,
+  BotonFila,
+  CabeceraPieza,
+  Campo,
+  Categoria,
+  Entrada,
+  Esqueleto,
+  Etiqueta,
+  Loseta,
+  Modal,
+  OpcionFila,
+  OpcionesFila,
+  Pagina,
+  Panel,
+  PestanasUnidas,
+  Pieza,
+  Selector,
+  Vacio,
+  unir,
+  type Tono,
+} from "@/components/kit";
 
 interface Property {
   id: string;
@@ -43,34 +56,10 @@ const TYPE_LABELS: Record<string, string> = {
   residencia: "Residencia",
 };
 
-const monoLabel: React.CSSProperties = {
-  fontFamily: "'Geist Mono', 'GeistMono', monospace",
-  fontSize: "10px",
-  letterSpacing: "0.16em",
-  textTransform: "uppercase",
-};
-
-const monoMini: React.CSSProperties = {
-  fontFamily: "'Geist Mono', 'GeistMono', monospace",
-  fontSize: "11px",
-  letterSpacing: "0.06em",
-};
-
-const card: React.CSSProperties = {
-  background: "var(--hifi-surface-1)",
-  border: "1px solid var(--hifi-hairline)",
-};
-
-const inputStyle: React.CSSProperties = {
-  background: "var(--hifi-bg-elev)",
-  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
-  color: "var(--ink)",
-  borderRadius: "10px",
-  height: "40px",
-  padding: "0 12px",
-  fontSize: "13px",
-  outline: "none",
-  width: "100%",
+/** Cada tipo con su icono y color: paz y salvo ✓ verde · residencia 🏠 celeste. */
+const TYPE_META: Record<string, { icono: LucideIcon; tono: Tono; detalle: string }> = {
+  paz_y_salvo: { icono: CircleCheck, tono: "green", detalle: "Certifica que la unidad está a paz y salvo hasta una fecha." },
+  residencia: { icono: Home, tono: "sky", detalle: "Constancia de que el titular reside en la unidad." },
 };
 
 function endOfMonthIso(): string {
@@ -78,6 +67,33 @@ function endOfMonthIso(): string {
   const d = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+/* Estilos locales: formulario de expedición, avisos posteriores y lista de certificados. */
+const CSS_CERTIFICADOS = `
+.ce-pest { margin: 0 0 22px; }
+.ce-form { margin: 0 0 24px; }
+.ce-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; align-items: start; margin-top: 22px; }
+.ce-campos > .ancho { grid-column: 1 / -1; }
+.ce-campos .k-fld { margin-bottom: 18px; }
+.ce-mas { margin-top: 8px; display: grid; gap: 8px; }
+.ce-ok { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin: 0 0 20px; padding: 14px 18px; border-radius: 22px; background: var(--c-green-soft); border: 1.5px solid var(--c-green-line); }
+.ce-ok > span { flex: 1 1 220px; font-size: 15.5px; font-weight: 800; }
+.ce-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.ce-item { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 16px 20px; border-radius: 24px; background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.ce-item.revocado { background: transparent; box-shadow: none; border-style: dashed; border-color: var(--line-strong); }
+.ce-item > .t { flex: 1 1 220px; min-width: 0; }
+.ce-item > .t b { display: block; font-size: 16.5px; font-weight: 800; line-height: 1.3; overflow-wrap: anywhere; }
+.ce-item.revocado > .t b { color: var(--ink-3); text-decoration: line-through; }
+.ce-item > .t small { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; margin-top: 4px; font-size: 13.5px; color: var(--ink-3); }
+.ce-item > .t small .cod { font-weight: 800; color: var(--ink-2); letter-spacing: .03em; }
+.ce-item > .acc { display: flex; flex-wrap: wrap; gap: 8px; }
+.ce-item > .acc > .k-bt { margin-left: 0; }
+@media (max-width: 860px) {
+  .ce-campos { grid-template-columns: minmax(0, 1fr); }
+  .ce-item { padding: 14px; }
+  .ce-item > .acc { width: 100%; }
+}
+`;
 
 function CertificadosPage() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -90,6 +106,8 @@ function CertificadosPage() {
   const [actionError, setActionError] = useState("");
   const [issuedId, setIssuedId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  // Certificado que se va a revocar (confirmación en un <Modal>, antes window.confirm).
+  const [porRevocar, setPorRevocar] = useState<Certificate | null>(null);
 
   // Form
   const [showForm, setShowForm] = useState(false);
@@ -211,17 +229,9 @@ function CertificadosPage() {
     }
   }
 
+  // Revocar cambia al instante la página pública de verificación a «REVOCADO»: la
+  // dirección destructiva pide confirmación en un <Modal> (porRevocar) antes de llegar aquí.
   async function toggleRevoke(cert: Certificate) {
-    // Revoking flips the public verification page to "REVOCADO" instantly —
-    // confirm the destructive direction.
-    if (
-      cert.status === "valid" &&
-      !window.confirm(
-        `¿Revocar el certificado de ${cert.recipientName} (${cert.unitLabel})? El enlace público de verificación mostrará "Documento REVOCADO".`
-      )
-    ) {
-      return;
-    }
     setActionError("");
     setBusyId(cert.id);
     try {
@@ -256,350 +266,290 @@ function CertificadosPage() {
     }
   }
 
+  const botonExpedir = showForm ? (
+    <Boton variante="secundario" icono={X} onClick={() => setShowForm(false)}>Cancelar</Boton>
+  ) : (
+    <Boton flecha="crea" onClick={() => setShowForm(true)} disabled={properties.length === 0}>Expedir certificado</Boton>
+  );
+
   return (
     <div>
+      <style href="k-certificados-local" precedence="default">
+        {CSS_CERTIFICADOS}
+      </style>
       <Header
         title="Certificados"
         subtitle="Paz y salvos y constancias con verificación QR"
       />
-      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-[1180px] mx-auto space-y-4">
-        {loading && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent-text)" }} />
-          </div>
-        )}
+      <Pagina>
+        <Pieza>
+          <CabeceraPieza
+            titulo="Certificados"
+            subtitulo="Paz y salvos y constancias con verificación QR"
+            acciones={!loading && properties.length > 0 ? botonExpedir : undefined}
+          />
 
-        {!loading && properties.length === 0 && (
-          <div className="rounded-2xl p-10 text-center" style={card}>
-            <BadgeCheck className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
-            <p className="text-[14px]" style={{ color: "var(--ink-2)" }}>
-              Crea una propiedad primero para expedir certificados.
-            </p>
-          </div>
-        )}
+          {loading && <Esqueleto variante="completo" filas={3} etiquetaAccesible="Cargando certificados…" />}
 
-        {!loading && properties.length > 0 && (
-          <>
-            {/* Property + new */}
-            <div className="ui-card ui-sheen p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-              <span style={{ ...monoLabel, color: "var(--ink-3)" }}>Propiedad</span>
-              <div className="ui-scroll flex gap-2 flex-1 overflow-x-auto pb-0.5">
-                {properties.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setPropertyId(p.id)}
-                    className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
-                    style={{
-                      border: `1px solid ${propertyId === p.id ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.1)"}`,
-                      background: propertyId === p.id ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
-                      color: propertyId === p.id ? "var(--accent-hi)" : "var(--ink-2)",
-                    }}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={() => setShowForm((v) => !v)}
-                className="ui-press inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
-                style={{
-                  background: showForm ? "rgb(var(--veil-rgb) / 0.06)" : "var(--accent)",
-                  color: showForm ? "var(--ink-2)" : "var(--on-accent)",
-                }}
-              >
-                <Plus
-                  className="h-3.5 w-3.5 transition-transform"
-                  style={{ transform: showForm ? "rotate(45deg)" : "none" }}
-                />
-                {showForm ? "Cancelar" : "Expedir certificado"}
-              </button>
-            </div>
+          {!loading && properties.length === 0 && (
+            <Vacio
+              titulo="Crea una propiedad primero para expedir certificados."
+              texto="Cada certificado se expide a nombre de una unidad de tu copropiedad."
+              acciones={<Boton href="/dashboard/propiedades" flecha="crea">Agregar propiedad</Boton>}
+            />
+          )}
 
-            {/* Issue form */}
-            {showForm && (
-              <form onSubmit={createCert} className="ui-card ui-sheen ui-rise p-5 space-y-4">
-                <div className="flex gap-2">
-                  {(["paz_y_salvo", "residencia"] as const).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setType(t)}
-                      className="ui-chip flex-1 px-3 py-2.5 rounded-xl text-[12.5px] font-medium cursor-pointer"
-                      style={{
-                        border: `1px solid ${type === t ? "rgb(var(--accent-rgb) / 0.5)" : "rgb(var(--veil-rgb) / 0.1)"}`,
-                        background: type === t ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
-                        color: type === t ? "var(--accent-hi)" : "var(--ink-2)",
-                      }}
-                    >
-                      {TYPE_LABELS[t]}
-                    </button>
-                  ))}
-                </div>
+          {!loading && properties.length > 0 && (
+            <>
+              <PestanasUnidas
+                className="ce-pest"
+                etiquetaAccesible="Copropiedad"
+                valor={propertyId}
+                alCambiar={setPropertyId}
+                items={properties.map((p) => ({ id: p.id, etiqueta: p.name }))}
+              />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
-                      Unidad
-                    </label>
-                    {units.length > 0 ? (
-                      <div className="relative">
-                        <select
-                          value={unitId}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setUnitId(v);
-                            // Clear any stale free-text label so it can never
-                            // override the selected directory unit.
-                            if (v) setUnitLabel("");
-                          }}
-                          style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}
-                        >
-                          <option value="" style={{ background: "var(--hifi-surface-1)" }}>
-                            Escribir manualmente…
-                          </option>
-                          {units.map((u) => (
-                            <option key={u.id} value={u.id} style={{ background: "var(--hifi-surface-1)" }}>
-                              {u.label}
-                              {u.residentName ? ` — ${u.residentName}` : ""}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5"
-                          style={{ color: "var(--ink-3)" }}
+              {/* Formulario de expedición */}
+              {showForm && (
+                <form onSubmit={createCert} className="ce-form">
+                  <Panel titulo="Expedir certificado" titular icono={BadgeCheck} tono="teal" nivel={2}>
+                    <OpcionesFila etiquetaAccesible="Tipo de certificado">
+                      {(["paz_y_salvo", "residencia"] as const).map((t) => (
+                        <OpcionFila
+                          key={t}
+                          name="ce-tipo"
+                          value={t}
+                          icono={TYPE_META[t].icono}
+                          tono={TYPE_META[t].tono}
+                          etiqueta={TYPE_LABELS[t]}
+                          detalle={TYPE_META[t].detalle}
+                          checked={type === t}
+                          onChange={() => setType(t)}
                         />
-                      </div>
-                    ) : null}
-                    {(!unitId || units.length === 0) && (
-                      <input
-                        value={unitLabel}
-                        onChange={(e) => setUnitLabel(e.target.value)}
-                        placeholder="Ej: Apto 502"
-                        style={{ ...inputStyle, marginTop: units.length > 0 ? 8 : 0 }}
-                        maxLength={60}
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
-                      Titular
-                    </label>
-                    <input
-                      value={recipientName}
-                      onChange={(e) => setRecipientName(e.target.value)}
-                      placeholder="Nombre completo"
-                      style={inputStyle}
-                      maxLength={120}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
-                      Documento (opcional)
-                    </label>
-                    <input
-                      value={recipientDocument}
-                      onChange={(e) => setRecipientDocument(e.target.value)}
-                      placeholder="C.C. 1.234.567.890"
-                      style={inputStyle}
-                      maxLength={30}
-                    />
-                  </div>
-                  {type === "paz_y_salvo" ? (
-                    <div>
-                      <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
-                        A paz y salvo hasta
-                      </label>
-                      <input
-                        type="date"
-                        value={validUntil}
-                        onChange={(e) => setValidUntil(e.target.value)}
-                        style={{ ...inputStyle, colorScheme: "dark" }}
-                      />
+                      ))}
+                    </OpcionesFila>
+
+                    <div className="ce-campos">
+                      <Campo id="ce-unidad" etiqueta="Unidad">
+                        {units.length > 0 ? (
+                          <Selector
+                            id="ce-unidad"
+                            value={unitId}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setUnitId(v);
+                              // Clear any stale free-text label so it can never
+                              // override the selected directory unit.
+                              if (v) setUnitLabel("");
+                            }}
+                          >
+                            <option value="">Escribir manualmente…</option>
+                            {units.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.label}
+                                {u.residentName ? ` — ${u.residentName}` : ""}
+                              </option>
+                            ))}
+                          </Selector>
+                        ) : (
+                          <Entrada
+                            id="ce-unidad"
+                            value={unitLabel}
+                            onChange={(e) => setUnitLabel(e.target.value)}
+                            placeholder="Ej: Apto 502"
+                            maxLength={60}
+                          />
+                        )}
+                        {units.length > 0 && !unitId && (
+                          <div className="ce-mas">
+                            <Entrada
+                              aria-label="Nombre de la unidad, escrito a mano"
+                              value={unitLabel}
+                              onChange={(e) => setUnitLabel(e.target.value)}
+                              placeholder="Ej: Apto 502"
+                              maxLength={60}
+                            />
+                          </div>
+                        )}
+                      </Campo>
+                      <Campo id="ce-titular" etiqueta="Titular">
+                        <Entrada
+                          id="ce-titular"
+                          value={recipientName}
+                          onChange={(e) => setRecipientName(e.target.value)}
+                          placeholder="Nombre completo"
+                          maxLength={120}
+                        />
+                      </Campo>
+                      <Campo id="ce-documento" etiqueta="Documento" opcional>
+                        <Entrada
+                          id="ce-documento"
+                          value={recipientDocument}
+                          onChange={(e) => setRecipientDocument(e.target.value)}
+                          placeholder="C.C. 1.234.567.890"
+                          maxLength={30}
+                        />
+                      </Campo>
+                      {type === "paz_y_salvo" ? (
+                        <Campo id="ce-hasta" etiqueta="A paz y salvo hasta">
+                          <Entrada id="ce-hasta" type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+                        </Campo>
+                      ) : (
+                        <Campo id="ce-desde" etiqueta="Reside desde" opcional>
+                          <Entrada
+                            id="ce-desde"
+                            value={residesSince}
+                            onChange={(e) => setResidesSince(e.target.value)}
+                            placeholder="Ej: enero de 2023"
+                            maxLength={100}
+                          />
+                        </Campo>
+                      )}
+                      <Campo id="ce-nota" etiqueta="Nota adicional" opcional className="ancho">
+                        <Entrada
+                          id="ce-nota"
+                          value={note}
+                          onChange={(e) => setNote(e.target.value)}
+                          placeholder="Texto adicional que aparecerá en el documento"
+                          maxLength={600}
+                        />
+                      </Campo>
                     </div>
-                  ) : (
-                    <div>
-                      <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
-                        Reside desde (opcional)
-                      </label>
-                      <input
-                        value={residesSince}
-                        onChange={(e) => setResidesSince(e.target.value)}
-                        placeholder="Ej: enero de 2023"
-                        style={inputStyle}
-                        maxLength={100}
-                      />
-                    </div>
-                  )}
-                  <div className="sm:col-span-2">
-                    <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">
-                      Nota adicional (opcional)
-                    </label>
-                    <input
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      placeholder="Texto adicional que aparecerá en el documento"
-                      style={inputStyle}
-                      maxLength={600}
-                    />
-                  </div>
+
+                    {formError && <p className="k-err" role="alert" style={{ margin: "0 0 14px" }}>{formError}</p>}
+
+                    <Boton type="submit" icono={BadgeCheck} tono="teal" cargando={creating} textoCargando="Expidiendo…">
+                      Expedir y abrir para imprimir
+                    </Boton>
+                  </Panel>
+                </form>
+              )}
+
+              {/* Avisos posteriores a expedir */}
+              {notice && (
+                <div style={{ marginBottom: 20 }}>
+                  <Aviso enLinea tipo="aviso" titulo={notice} />
                 </div>
+              )}
+              {issuedId && (
+                <div className="ce-ok">
+                  <Loseta icono={CircleCheck} tono="green" tam={36} />
+                  <span>Certificado expedido correctamente.</span>
+                  <Boton href={`/certificados/${issuedId}/imprimir`} nuevaPestana icono={Printer} tono="green" tam={40}>
+                    Abrir para imprimir
+                  </Boton>
+                </div>
+              )}
+              {actionError && (
+                <div style={{ marginBottom: 16 }}>
+                  <Aviso enLinea tipo="error" titulo={actionError} />
+                </div>
+              )}
 
-                {formError && (
-                  <p className="text-[12px]" style={{ color: "var(--danger-text)" }}>
-                    {formError}
-                  </p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-                  style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
-                >
-                  {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BadgeCheck className="h-3.5 w-3.5" />}
-                  {creating ? "Expidiendo…" : "Expedir y abrir para imprimir"}
-                </button>
-              </form>
-            )}
-
-            {/* Post-issue notices */}
-            {notice && (
-              <p
-                className="text-[12.5px] rounded-xl p-3"
-                style={{
-                  background: "rgb(var(--warn-rgb) / 0.1)",
-                  color: "var(--warn-text)",
-                  border: "1px solid rgb(var(--warn-rgb) / 0.3)",
-                }}
-              >
-                {notice}
-              </p>
-            )}
-            {issuedId && (
-              <div
-                className="flex flex-wrap items-center gap-3 rounded-xl p-3"
-                style={{
-                  background: "rgb(var(--ok-rgb) / 0.08)",
-                  border: "1px solid rgb(var(--ok-rgb) / 0.3)",
-                }}
-              >
-                <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: "var(--ok-text)" }} />
-                <span className="text-[12.5px] flex-1" style={{ color: "var(--ok-text)" }}>
-                  Certificado expedido correctamente.
-                </span>
-                <a
-                  href={`/certificados/${issuedId}/imprimir`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-1.5"
-                  style={{ background: "var(--ok)", color: "#0a0a0a" }}
-                >
-                  <Printer className="h-3.5 w-3.5" />
-                  Abrir para imprimir
-                </a>
-              </div>
-            )}
-            {actionError && (
-              <p className="text-[12px]" style={{ color: "var(--danger-text)" }}>
-                {actionError}
-              </p>
-            )}
-
-            {/* List */}
-            {certs.length === 0 ? (
-              <div className="rounded-2xl p-10 text-center" style={card}>
-                <BadgeCheck className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
-                <p className="text-[14px] mb-1" style={{ color: "var(--ink-2)" }}>
-                  Aún no has expedido certificados en esta propiedad
-                </p>
-                <p className="text-[12.5px]" style={{ color: "var(--ink-3)" }}>
-                  Cada certificado incluye un código QR público de verificación anti-fraude.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {certs.map((c) => {
-                  const revoked = c.status !== "valid";
-                  return (
-                    <div key={c.id} className="rounded-xl p-4 flex flex-wrap items-center gap-3" style={card}>
-                      <span
-                        className="px-2.5 py-1 rounded-lg text-[10px] flex-shrink-0"
-                        style={{
-                          ...monoLabel,
-                          fontSize: 9.5,
-                          background: c.type === "paz_y_salvo" ? "rgb(var(--ok-rgb) / 0.1)" : "rgb(var(--info-rgb) / 0.1)",
-                          color: c.type === "paz_y_salvo" ? "var(--ok)" : "var(--info)",
-                          border: `1px solid ${c.type === "paz_y_salvo" ? "rgb(var(--ok-rgb) / 0.3)" : "rgb(var(--info-rgb) / 0.3)"}`,
-                        }}
-                      >
-                        {TYPE_LABELS[c.type] || c.type}
-                      </span>
-                      <div className="flex-1 min-w-[160px]">
-                        <p
-                          className="text-[13.5px] font-medium"
-                          style={{
-                            color: revoked ? "var(--ink-3)" : "var(--ink)",
-                            textDecoration: revoked ? "line-through" : "none",
-                          }}
-                        >
-                          {c.unitLabel} · {c.recipientName}
-                        </p>
-                        <p style={{ ...monoMini, color: "var(--ink-3)" }}>
-                          {new Date(c.createdAt).toLocaleDateString("es-CO", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                          {" · "}
-                          {c.verifyCode}
-                          {revoked && (
-                            <span style={{ color: "var(--danger-text)" }}> · REVOCADO</span>
-                          )}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <a
-                          href={`/certificados/${c.id}/imprimir`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 rounded-lg transition-colors hover:bg-white/[0.06]"
-                          style={{ color: "var(--ink-2)" }}
-                          title="Imprimir / PDF"
-                        >
-                          <Printer className="h-4 w-4" />
-                        </a>
-                        <button
-                          onClick={() => copyVerifyLink(c)}
-                          className="p-2 rounded-lg transition-colors cursor-pointer hover:bg-white/[0.06]"
-                          style={{ color: copied === c.id ? "var(--ok)" : "var(--ink-2)" }}
-                          title="Copiar enlace de verificación"
-                        >
-                          {copied === c.id ? <CheckCircle2 className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
-                        </button>
-                        <button
-                          onClick={() => toggleRevoke(c)}
-                          disabled={busyId === c.id}
-                          className="p-2 rounded-lg transition-colors cursor-pointer hover:bg-white/[0.06]"
-                          style={{ color: revoked ? "var(--ok-text)" : "var(--danger-text)" }}
-                          title={revoked ? "Restaurar" : "Revocar"}
-                        >
-                          {busyId === c.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : revoked ? (
-                            <RotateCcw className="h-4 w-4" />
+              {/* Lista */}
+              {certs.length === 0 ? (
+                <Vacio
+                  titulo="Aún no has expedido certificados en esta propiedad"
+                  texto="Cada certificado incluye un código QR público de verificación anti-fraude."
+                  acciones={!showForm ? <Boton flecha="crea" onClick={() => setShowForm(true)}>Expedir certificado</Boton> : undefined}
+                />
+              ) : (
+                <ul className="ce-lista" aria-label="Certificados expedidos">
+                  {certs.map((c) => {
+                    const revoked = c.status !== "valid";
+                    const meta = TYPE_META[c.type];
+                    return (
+                      <li key={c.id} className={unir("ce-item", revoked && "revocado")}>
+                        <Loseta
+                          icono={revoked ? Ban : meta?.icono ?? BadgeCheck}
+                          tono={revoked ? "red" : meta?.tono ?? "teal"}
+                          suave={revoked}
+                        />
+                        <div className="t">
+                          <b>{c.unitLabel} · {c.recipientName}</b>
+                          <small>
+                            <Categoria tono={meta?.tono ?? "slate"}>{TYPE_LABELS[c.type] || c.type}</Categoria>
+                            <span>
+                              {new Date(c.createdAt).toLocaleDateString("es-CO", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                            <span className="cod">{c.verifyCode}</span>
+                            {revoked ? (
+                              <Etiqueta icono={Ban} tono="red">Revocado</Etiqueta>
+                            ) : (
+                              <Etiqueta icono={CircleCheck} tono="green">Vigente</Etiqueta>
+                            )}
+                          </small>
+                        </div>
+                        <div className="acc">
+                          <BotonFila href={`/certificados/${c.id}/imprimir`} nuevaPestana icono={Printer} tono="slate" title="Imprimir / PDF">
+                            Imprimir
+                          </BotonFila>
+                          <BotonFila
+                            onClick={() => copyVerifyLink(c)}
+                            icono={copied === c.id ? Check : Link2}
+                            tono={copied === c.id ? "green" : "blue"}
+                            title="Copiar enlace de verificación"
+                          >
+                            {copied === c.id ? "Copiado" : "Copiar enlace"}
+                          </BotonFila>
+                          {revoked ? (
+                            <BotonFila
+                              onClick={() => toggleRevoke(c)}
+                              disabled={busyId === c.id}
+                              icono={RotateCcw}
+                              tono="green"
+                            >
+                              {busyId === c.id ? "Guardando…" : "Restaurar"}
+                            </BotonFila>
                           ) : (
-                            <Ban className="h-4 w-4" />
+                            <BotonFila
+                              onClick={() => setPorRevocar(c)}
+                              disabled={busyId === c.id}
+                              icono={Ban}
+                              tono="red"
+                            >
+                              {busyId === c.id ? "Guardando…" : "Revocar"}
+                            </BotonFila>
                           )}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </>
+          )}
+        </Pieza>
+      </Pagina>
+
+      <Modal
+        abierto={!!porRevocar}
+        alCerrar={() => setPorRevocar(null)}
+        titulo={`¿Revocar el certificado de ${porRevocar?.recipientName ?? ""} (${porRevocar?.unitLabel ?? ""})?`}
+        acciones={
+          <>
+            <Boton variante="secundario" onClick={() => setPorRevocar(null)}>Cancelar</Boton>
+            <Boton
+              variante="peligro"
+              lleno
+              icono={Ban}
+              onClick={() => {
+                const c = porRevocar;
+                setPorRevocar(null);
+                if (c) void toggleRevoke(c);
+              }}
+            >
+              Revocar certificado
+            </Boton>
           </>
-        )}
-      </div>
+        }
+      >
+        <p>El enlace público de verificación mostrará «Documento REVOCADO». Podrás restaurarlo después.</p>
+      </Modal>
     </div>
   );
 }

@@ -2081,3 +2081,660 @@ select.ui-input:focus-visible {
 @keyframes k-entra { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes k-escribe { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
 @keyframes k-gira { to { transform: rotate(360deg); } }
+
+/* ════════════════════════════════════════════════════════════════════
+   «CALMA» · el aspecto sobrio y profesional de «Guía».
+   Se activa con <html data-paleta="calma">. Mismos iconos, verbos y español llano;
+   cambia el carácter visual: superficies neutras, UN acento (violeta) para lo
+   principal, color únicamente donde significa algo (verde listo, ámbar atención,
+   rojo peligro), radios contenidos, tipografía de pesos finos, sin degradados ni brillos.
+   ════════════════════════════════════════════════════════════════════ */
+@supports selector(:has(*)) {
+  :root[data-paleta="calma"]:not([data-theme="light"]):has([data-shell="app"]) {
+    --surface-0: #0E1013; --surface-1: #15181C; --surface-2: #1C2025; --surface-3: #262B32; --surface-4: #343A43; --surface-5: #464D58;
+    --ink: #EDEFF3; --ink-2: #C8CDD6; --ink-3: #9AA2B0; --ink-4: #949BAA;
+    --ink-rgb: 237 239 243; --veil-rgb: 237 239 243; --surface-rgb: 14 16 19; --surface-hi-rgb: 38 43 50;
+    --hl: #1F2328;
+    --line: rgb(var(--veil-rgb) / .09); --line-strong: rgb(var(--veil-rgb) / .18); --rule: rgb(var(--veil-rgb) / .28);
+    --sh-1: 0 0 0 0 transparent;
+    --sh-2: 0 14px 30px -20px rgb(0 0 0 / .65);
+    --shadow-pop: 0 24px 60px -16px rgb(0 0 0 / .7), 0 0 0 1px rgb(237 239 243 / .08);
+    --glow: 0 0 0 0 transparent;
+    --f-sans: 'Inter Variable', 'Inter', 'Figtree Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --accent: #6E56CF; --accent-hi: #7D68DB; --accent-lo: #5F49BF; --accent-text: #B7ABF2; --accent-rgb: 110 86 207; --accent-pale: #B7ABF2;
+    --on-accent: #FFFFFF; --brand: #6E56CF; --focus: #B7ABF2; --ai: #B7ABF2;
+    --c-violet-a: #6E56CF; --c-violet-b: #5F49BF; --c-violet-on: #FFFFFF; --c-violet-ink: #B7ABF2; --c-violet-soft: rgb(110 86 207 / .16); --c-violet-line: rgb(110 86 207 / .34);
+    --c-blue-a: #6E56CF; --c-blue-b: #5F49BF; --c-blue-on: #FFFFFF; --c-blue-ink: #B7ABF2; --c-blue-soft: rgb(110 86 207 / .16); --c-blue-line: rgb(110 86 207 / .34);
+    --c-sky-a: #6E56CF; --c-sky-b: #5F49BF; --c-sky-on: #FFFFFF; --c-sky-ink: #B7ABF2; --c-sky-soft: rgb(110 86 207 / .16); --c-sky-line: rgb(110 86 207 / .34);
+    --c-teal-a: #6E56CF; --c-teal-b: #5F49BF; --c-teal-on: #FFFFFF; --c-teal-ink: #B7ABF2; --c-teal-soft: rgb(110 86 207 / .16); --c-teal-line: rgb(110 86 207 / .34);
+    --c-lime-a: #6E56CF; --c-lime-b: #5F49BF; --c-lime-on: #FFFFFF; --c-lime-ink: #B7ABF2; --c-lime-soft: rgb(110 86 207 / .16); --c-lime-line: rgb(110 86 207 / .34);
+    --c-pink-a: #6E56CF; --c-pink-b: #5F49BF; --c-pink-on: #FFFFFF; --c-pink-ink: #B7ABF2; --c-pink-soft: rgb(110 86 207 / .16); --c-pink-line: rgb(110 86 207 / .34);
+    --c-fuchsia-a: #6E56CF; --c-fuchsia-b: #5F49BF; --c-fuchsia-on: #FFFFFF; --c-fuchsia-ink: #B7ABF2; --c-fuchsia-soft: rgb(110 86 207 / .16); --c-fuchsia-line: rgb(110 86 207 / .34);
+    --c-indigo-a: #6E56CF; --c-indigo-b: #5F49BF; --c-indigo-on: #FFFFFF; --c-indigo-ink: #B7ABF2; --c-indigo-soft: rgb(110 86 207 / .16); --c-indigo-line: rgb(110 86 207 / .34);
+    --c-ai-a: #6E56CF; --c-ai-b: #5F49BF; --c-ai-on: #FFFFFF; --c-ai-ink: #B7ABF2; --c-ai-soft: rgb(110 86 207 / .16); --c-ai-line: rgb(110 86 207 / .34);
+    --c-orange-a: #F59E0B; --c-orange-b: #C27E0F; --c-orange-on: #0B0D1C; --c-orange-ink: #F7AE34; --c-orange-soft: rgb(245 158 11 / .22); --c-orange-line: rgb(245 158 11 / .42);
+  }
+  :root[data-paleta="calma"][data-theme="light"]:has([data-shell="app"]) {
+    --surface-0: #F6F7F9; --surface-1: #FFFFFF; --surface-2: #F1F3F6; --surface-3: #E7EAEE; --surface-4: #D5DAE1; --surface-5: #BEC5CF;
+    --ink: #15181D; --ink-2: #353B47; --ink-3: #555D6C; --ink-4: #5E6675;
+    --ink-rgb: 21 24 29; --veil-rgb: 21 24 29; --surface-rgb: 246 247 249; --surface-hi-rgb: 231 234 238;
+    --hl: #F1F3F6;
+    --line: rgb(var(--veil-rgb) / .09); --line-strong: rgb(var(--veil-rgb) / .20); --rule: rgb(var(--veil-rgb) / .34);
+    --sh-1: 0 1px 2px rgb(21 24 29 / .04);
+    --sh-2: 0 1px 2px rgb(21 24 29 / .05), 0 12px 26px -18px rgb(21 24 29 / .26);
+    --shadow-pop: 0 24px 56px -18px rgb(21 24 29 / .32), 0 0 0 1px rgb(21 24 29 / .07);
+    --glow: 0 0 0 0 transparent;
+    --f-sans: 'Inter Variable', 'Inter', 'Figtree Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --accent: #6E56CF; --accent-hi: #5F49BF; --accent-lo: #5240AB; --accent-text: #5746AF; --accent-rgb: 110 86 207; --accent-pale: #5746AF;
+    --on-accent: #FFFFFF; --brand: #6E56CF; --focus: #5746AF; --ai: #5746AF;
+    --c-violet-a: #6E56CF; --c-violet-b: #5F49BF; --c-violet-on: #FFFFFF; --c-violet-ink: #5746AF; --c-violet-soft: rgb(110 86 207 / .10); --c-violet-line: rgb(110 86 207 / .30);
+    --c-blue-a: #6E56CF; --c-blue-b: #5F49BF; --c-blue-on: #FFFFFF; --c-blue-ink: #5746AF; --c-blue-soft: rgb(110 86 207 / .10); --c-blue-line: rgb(110 86 207 / .30);
+    --c-sky-a: #6E56CF; --c-sky-b: #5F49BF; --c-sky-on: #FFFFFF; --c-sky-ink: #5746AF; --c-sky-soft: rgb(110 86 207 / .10); --c-sky-line: rgb(110 86 207 / .30);
+    --c-teal-a: #6E56CF; --c-teal-b: #5F49BF; --c-teal-on: #FFFFFF; --c-teal-ink: #5746AF; --c-teal-soft: rgb(110 86 207 / .10); --c-teal-line: rgb(110 86 207 / .30);
+    --c-lime-a: #6E56CF; --c-lime-b: #5F49BF; --c-lime-on: #FFFFFF; --c-lime-ink: #5746AF; --c-lime-soft: rgb(110 86 207 / .10); --c-lime-line: rgb(110 86 207 / .30);
+    --c-pink-a: #6E56CF; --c-pink-b: #5F49BF; --c-pink-on: #FFFFFF; --c-pink-ink: #5746AF; --c-pink-soft: rgb(110 86 207 / .10); --c-pink-line: rgb(110 86 207 / .30);
+    --c-fuchsia-a: #6E56CF; --c-fuchsia-b: #5F49BF; --c-fuchsia-on: #FFFFFF; --c-fuchsia-ink: #5746AF; --c-fuchsia-soft: rgb(110 86 207 / .10); --c-fuchsia-line: rgb(110 86 207 / .30);
+    --c-indigo-a: #6E56CF; --c-indigo-b: #5F49BF; --c-indigo-on: #FFFFFF; --c-indigo-ink: #5746AF; --c-indigo-soft: rgb(110 86 207 / .10); --c-indigo-line: rgb(110 86 207 / .30);
+    --c-ai-a: #6E56CF; --c-ai-b: #5F49BF; --c-ai-on: #FFFFFF; --c-ai-ink: #5746AF; --c-ai-soft: rgb(110 86 207 / .10); --c-ai-line: rgb(110 86 207 / .30);
+    --c-orange-a: #F59E0B; --c-orange-b: #C27E0F; --c-orange-on: #0B0D1C; --c-orange-ink: #815613; --c-orange-soft: rgb(245 158 11 / .12); --c-orange-line: rgb(245 158 11 / .34);
+  }
+}
+/* Fichas de icono: neutras. Conservan su color solo donde el color significa algo: peligro (rojo),
+   avisos, urgencias, modales y el estado de cada solicitud o movimiento. */
+:root[data-paleta="calma"] .k-tile { background: var(--surface-2); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line); }
+:root[data-paleta="calma"] :is(.k-aviso, .k-cubo, .k-modal, .pq-item, .pr-lista, .co-cuota) .k-tile,
+:root[data-paleta="calma"] .k-tile[data-h="red"] { background: var(--h-soft); color: var(--h-ink); box-shadow: inset 0 0 0 1px var(--h-line); }
+:root[data-paleta="calma"] .k-it[aria-current="page"] { background: rgb(var(--accent-rgb) / .12); box-shadow: inset 0 0 0 1.5px rgb(var(--accent-rgb) / .34); }
+:root[data-paleta="calma"] .k-it[aria-current="page"] .k-tile { background: var(--accent); color: var(--on-accent); box-shadow: none; }
+:root[data-paleta="calma"] .k-it.pronto .k-tile { background: var(--surface-3); color: var(--ink-2); }
+
+/* Cabecera de pantalla: sin tarjeta ni franja de color. */
+:root[data-paleta="calma"] .k-pieza-h { background: transparent; border: 0; box-shadow: none; padding: 4px 0 22px; margin-bottom: 6px; border-radius: 0; }
+:root[data-paleta="calma"] .k-pieza-h::before { display: none; }
+
+/* Botones: uno solo de color (el acento); el rojo, solo para lo destructivo. */
+:root[data-paleta="calma"] .k-btn:not(.k-sec, .k-fan, .k-pel):not(:disabled, [aria-disabled="true"]) { background: var(--accent); color: var(--on-accent); box-shadow: none; }
+:root[data-paleta="calma"] .k-btn.k-sec > svg { color: var(--ink-2); }
+:root[data-paleta="calma"] .k-btn.k-sec:where(:not(:disabled, [aria-disabled="true"])):hover { background: var(--hl); border-color: var(--line-strong); }
+:root[data-paleta="calma"] .k-btn.k-fan { color: var(--accent-text); }
+:root[data-paleta="calma"] .k-btn.k-fan:where(:not(:disabled, [aria-disabled="true"])):hover { background: var(--hl); }
+:root[data-paleta="calma"] .k-btn.k-pel.k-lleno { background: var(--danger); box-shadow: none; }
+:root[data-paleta="calma"] .k-bt > svg { color: var(--ink-2); }
+:root[data-paleta="calma"] .k-bt:hover { background: var(--hl); border-color: var(--line-strong); }
+:root[data-paleta="calma"] .k-bt[data-h="red"] > svg { color: var(--danger-text); }
+:root[data-paleta="calma"] .k-seg > * > svg, :root[data-paleta="calma"] .k-pest > * > svg { color: currentColor; }
+
+/* Etiquetas de tipo y categoría: neutras (la palabra ya dice el tipo). */
+:root[data-paleta="calma"] :is(.k-cat, .k-tipo) { color: var(--ink-2); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+
+/* Tarjetas de urgencia y accesos: planas; solo lo vencido se pinta de rojo. */
+:root[data-paleta="calma"] .k-cubo { background: var(--surface-1); border-color: var(--line); }
+:root[data-paleta="calma"] .k-cubo::after { display: none; }
+:root[data-paleta="calma"] .k-num { color: var(--ink); }
+:root[data-paleta="calma"] .k-cubo[data-h="red"] .k-num { color: var(--danger-text); }
+:root[data-paleta="calma"] .k-acceso { --h-soft: var(--hl); --h-line: var(--line-strong); --h-ink: var(--ink-2); }
+:root[data-paleta="calma"] .k-acceso:hover { background: var(--hl); transform: none; box-shadow: var(--sh-1); }
+:root[data-paleta="calma"] .k-agente { --h-soft: var(--surface-2); --h-line: var(--line); --h-ink: var(--ink-2); --h-a: var(--accent); --h-b: var(--accent-lo); --h-on: var(--on-accent); }
+:root[data-paleta="calma"] .k-agente > .sig { background: var(--surface-2); }
+:root[data-paleta="calma"] .k-agente .ir { background: var(--accent); color: var(--on-accent); box-shadow: none; }
+
+/* Barras, celdas, marcas y burbujas: el acento, plano. */
+:root[data-paleta="calma"] .k-barra > i { background: var(--accent); }
+:root[data-paleta="calma"] .k-barra.excede > i { background: var(--danger); }
+:root[data-paleta="calma"] .k-celdas > i { background: var(--accent); }
+:root[data-paleta="calma"] .k-semana > .hoy, :root[data-paleta="calma"] .k-mes:has(> :checked), :root[data-paleta="calma"] .k-cornisa > button[aria-pressed="true"] { background: var(--accent); box-shadow: none; }
+:root[data-paleta="calma"] .k-msg-u { background: var(--accent); box-shadow: none; }
+:root[data-paleta="calma"] .k-marca-s, :root[data-paleta="calma"] .k-yo-a { background: var(--accent); box-shadow: none; }
+:root[data-paleta="calma"] .k-dock > [aria-current="page"] > .ico, :root[data-paleta="calma"] .k-dock > [aria-expanded="true"] > .ico { background: var(--accent); color: var(--on-accent); }
+
+/* Áreas de realce (paso actual, plan recomendado, barra de lote): un bloque liso y oscuro, sin índigo intenso. */
+:root[data-paleta="calma"] :is(.k-neg, .k-lote, .k-paso[aria-current="step"], .k-plan.k-neg) { background: #272C3B; box-shadow: none; }
+
+/* Inicio: saludo plano; obligaciones y semana sin relleno de color (solo el texto de la fecha y el borde dicen la urgencia). */
+:root[data-paleta="calma"] .ini-hero { background: var(--surface-1); }
+:root[data-paleta="calma"] .ini-sug { border-color: var(--line); }
+:root[data-paleta="calma"] .k-semana > .con { color: var(--ink); background: var(--surface-2); box-shadow: inset 0 0 0 1.5px var(--c-amber-line); }
+:root[data-paleta="calma"] .k-semana > .con em { color: var(--warn-text); }
+:root[data-paleta="calma"] .k-semana > .hoy { background: var(--accent); box-shadow: none; }
+:root[data-paleta="calma"] .k-ob > .acc { color: var(--ink); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-strong); }
+:root[data-paleta="calma"] .k-ob > .acc:hover { background: var(--hl); color: var(--ink); }
+:root[data-paleta="calma"] .k-ob:has(> .que > .k-ob-a):hover { border-color: var(--line-strong); background: var(--hl); }
+
+/* Pantallas de gestión: sin tintes propios; la cartera por edades sube de gravedad (ámbar → naranja → rojo → rojo oscuro). */
+:root[data-paleta="calma"] .co-ia { background: var(--surface-2); border-color: var(--line-strong); }
+:root[data-paleta="calma"] .pq-item.abierta { border-color: var(--line-strong); }
+:root[data-paleta="calma"] .ca-acc:hover { border-color: var(--line-strong); }
+:root[data-paleta="calma"] .ca-acc[aria-expanded="true"] { background: rgb(var(--accent-rgb) / .10); border-color: var(--accent); }
+:root[data-paleta="calma"] :is(.ca-edades-barra > i, .ca-leyenda li)[data-h="orange"] { --h-a: #E0710E; --h-b: #E0710E; }
+:root[data-paleta="calma"] :is(.ca-edades-barra > i, .ca-leyenda li)[data-h="fuchsia"] { --h-a: #8F1D1D; --h-b: #8F1D1D; }
+/* ── «Calma» · forma: radios contenidos y pesos finos. Una regla por cada regla del kit o de un <style> de pantalla con
+   radio ≥ 12 px o peso ≥ 600 (lista plana, editable a mano; una pantalla nueva con radios o pesos grandes necesita la suya) ── */
+:root[data-paleta="calma"] .k-h1 { font-weight: 700; }
+:root[data-paleta="calma"] .k-t40 { font-weight: 700; }
+:root[data-paleta="calma"] .k-t32 { font-weight: 700; }
+:root[data-paleta="calma"] .k-t28 { font-weight: 700; }
+:root[data-paleta="calma"] .k-t26 { font-weight: 700; }
+:root[data-paleta="calma"] .k-t22 { font-weight: 700; }
+:root[data-paleta="calma"] .k-cifra { font-weight: 700; }
+:root[data-paleta="calma"] .k-rotulo { font: 700 16px/1.2 var(--f-sans); }
+:root[data-paleta="calma"] .k-fila-t { font-weight: 600; }
+:root[data-paleta="calma"] .k-fecha { font-weight: 500; }
+:root[data-paleta="calma"] .k-mono-h { font: 600 13px/1.25 var(--f-sans); }
+:root[data-paleta="calma"] .k-enlace { font-weight: 600; }
+:root[data-paleta="calma"] .k-ver { font-weight: 600; }
+:root[data-paleta="calma"] .k-pieza-h { border-radius: 14px; }
+:root[data-paleta="calma"] .k-pieza-h h1 { font: 700 32px/1.1 var(--f-sans); }
+:root[data-paleta="calma"] .k-sec-h h2 { font: 700 22px/1.2 var(--f-sans); }
+:root[data-paleta="calma"] .k-panel { border-radius: 14px; }
+:root[data-paleta="calma"] .k-panel-h { font: 700 18px/1.25 var(--f-sans); }
+:root[data-paleta="calma"] .k-btn { font: 600 15.5px/1 var(--f-sans); border-radius: 10px; }
+:root[data-paleta="calma"] .k-btn.k-40 { border-radius: 8px; }
+:root[data-paleta="calma"] .k-btn.k-56 { border-radius: 12px; }
+:root[data-paleta="calma"] .k-ic { border-radius: 10px; }
+:root[data-paleta="calma"] .k-ic.k-40 { border-radius: 8px; }
+:root[data-paleta="calma"] .k-bt { border-radius: 8px; font: 600 14.5px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-fld > label,
+:root[data-paleta="calma"] .k-fld > .lb { font-weight: 600; }
+:root[data-paleta="calma"] .k-in { border-radius: 10px; }
+:root[data-paleta="calma"] .k-err { font-weight: 600; }
+:root[data-paleta="calma"] .k-err::before { font: 700 12px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-campo kbd { font: 600 12px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-grupo-campos { border-radius: 14px; }
+:root[data-paleta="calma"] .k-grupo-campos > legend { font-weight: 700; }
+:root[data-paleta="calma"] .k-estado { font-weight: 600; }
+:root[data-paleta="calma"] .k-bdg { font: 700 13px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-cat { font-weight: 600; }
+:root[data-paleta="calma"] .k-tipo { font: 700 12px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-seg,
+:root[data-paleta="calma"] .k-pest { border-radius: 12px; }
+:root[data-paleta="calma"] .k-seg > button,
+:root[data-paleta="calma"] .k-seg > a,
+:root[data-paleta="calma"] .k-pest > button,
+:root[data-paleta="calma"] .k-pest > a { border-radius: 8px; font-weight: 600; }
+:root[data-paleta="calma"] .k-seg > * b,
+:root[data-paleta="calma"] .k-seg > * small,
+:root[data-paleta="calma"] .k-pest > * b,
+:root[data-paleta="calma"] .k-pest > * small { font: 700 12.5px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-paso { border-radius: 12px; }
+:root[data-paleta="calma"] .k-paso b { font: 700 17px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-paso span { font-weight: 700; }
+:root[data-paleta="calma"] .k-paso.hecho small { font-weight: 600; }
+:root[data-paleta="calma"] .k-zona { border-radius: 14px; }
+:root[data-paleta="calma"] .k-zona > b { font-weight: 700; }
+:root[data-paleta="calma"] .k-zona.k-compacta { border-radius: 14px; }
+:root[data-paleta="calma"] .k-arch { border-radius: 12px; }
+:root[data-paleta="calma"] .k-arch > .nom b { font-weight: 600; }
+:root[data-paleta="calma"] .k-arch > .est { font-weight: 600; }
+:root[data-paleta="calma"] .k-arch > .x { border-radius: 8px; }
+:root[data-paleta="calma"] .k-cubo { border-radius: 14px; }
+:root[data-paleta="calma"] .k-num { font-weight: 700; }
+:root[data-paleta="calma"] .k-cubo .cap b { font-weight: 700; }
+:root[data-paleta="calma"] .k-semana > span { border-radius: 10px; font: 600 13px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-semana > span b { font: 700 20px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-semana > span em { font: 600 12.5px/1.2 var(--f-sans); }
+:root[data-paleta="calma"] .k-ob { border-radius: 12px; }
+:root[data-paleta="calma"] .k-ob > .que { font-weight: 700; }
+:root[data-paleta="calma"] .k-ob > .cuando { font-weight: 600; }
+:root[data-paleta="calma"] .k-ob > .acc { border-radius: 8px; font-weight: 700; }
+:root[data-paleta="calma"] .k-lista-h b { font-weight: 700; }
+:root[data-paleta="calma"] .k-lista-h span { font-weight: 700; }
+:root[data-paleta="calma"] .k-mas-lista { font-weight: 600; }
+:root[data-paleta="calma"] .k-acceso { border-radius: 14px; }
+:root[data-paleta="calma"] .k-acceso > .t b { font-weight: 700; }
+:root[data-paleta="calma"] .k-kpi { border-radius: 14px; }
+:root[data-paleta="calma"] .k-kpi > b { font-weight: 700; }
+:root[data-paleta="calma"] .k-kpi > span { font-weight: 600; }
+:root[data-paleta="calma"] .k-kpi > em.malo { font-weight: 600; }
+:root[data-paleta="calma"] .k-medidor .lb { font-weight: 500; }
+:root[data-paleta="calma"] .k-medidor .lb b { font-weight: 700; }
+:root[data-paleta="calma"] .k-libres > b { font-weight: 700; }
+:root[data-paleta="calma"] .k-opfila { border-radius: 12px; }
+:root[data-paleta="calma"] .k-opfila > .t b { font-weight: 700; }
+:root[data-paleta="calma"] .k-mes { border-radius: 10px; font-weight: 600; }
+:root[data-paleta="calma"] .k-resumen dt { font-weight: 500; }
+:root[data-paleta="calma"] .k-resumen dd { font-weight: 600; }
+:root[data-paleta="calma"] .k-tabla { border-radius: 14px; }
+:root[data-paleta="calma"] .k-tr { border-radius: 8px; }
+:root[data-paleta="calma"] .k-tr.th { font: 700 13.5px/1.2 var(--f-sans); }
+:root[data-paleta="calma"] .k-td-cifra { font-weight: 600; }
+:root[data-paleta="calma"] .k-grupo-n { font: 700 34px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-grupo-n small { font-weight: 600; }
+:root[data-paleta="calma"] .k-c-id { font: 700 17px/1.1 var(--f-sans); }
+:root[data-paleta="calma"] .k-c-nom { font-weight: 600; }
+:root[data-paleta="calma"] .k-lote { border-radius: 14px; }
+:root[data-paleta="calma"] .k-lote > b { font-weight: 700; }
+:root[data-paleta="calma"] .k-lote .bl { border-radius: 8px; font: 600 14.5px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-lote .quitar { border-radius: 8px; font-weight: 600; }
+:root[data-paleta="calma"] .k-pag > * { border-radius: 8px; font-weight: 700; }
+:root[data-paleta="calma"] .k-menu { border-radius: 12px; }
+:root[data-paleta="calma"] .k-menu > :is(button, a) { border-radius: 8px; font-weight: 500; }
+:root[data-paleta="calma"] .k-menu > .peligro { font-weight: 700; }
+:root[data-paleta="calma"] .k-vacio { border-radius: 14px; }
+:root[data-paleta="calma"] .k-vacio > h2,
+:root[data-paleta="calma"] .k-vacio > h3 { font-weight: 700; }
+:root[data-paleta="calma"] .k-vacio > .q { font-weight: 700; }
+:root[data-paleta="calma"] .k-vacio > .falla { font-weight: 700; }
+:root[data-paleta="calma"] .k-vacio > .falla::before { font: 700 13px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-modal { border-radius: 14px; }
+:root[data-paleta="calma"] .k-modal > h2 { font-weight: 700; }
+:root[data-paleta="calma"] .k-aviso { border-radius: 14px; }
+:root[data-paleta="calma"] .k-aviso b { font-weight: 700; }
+:root[data-paleta="calma"] .k-gen { border-radius: 14px; }
+:root[data-paleta="calma"] .k-gen > .gt b { font-weight: 700; }
+:root[data-paleta="calma"] .k-gen > .gbar > span { font: 700 16px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-gen li.curso > span { font-weight: 700; }
+:root[data-paleta="calma"] .k-gen li.error > span,
+:root[data-paleta="calma"] .k-gen li.error > small { font-weight: 700; }
+:root[data-paleta="calma"] .k-agente { border-radius: 14px; }
+:root[data-paleta="calma"] .k-agente .top :is(h2, h3) { font-weight: 700; }
+:root[data-paleta="calma"] .k-agente .txt > p.firma { border-radius: 10px; }
+:root[data-paleta="calma"] .k-agente .ir { border-radius: 10px; font-weight: 700; }
+:root[data-paleta="calma"] .k-agente.prep .placa { font-weight: 700; }
+:root[data-paleta="calma"] .k-sug { font-weight: 600; }
+:root[data-paleta="calma"] .k-rotulo-ia { font: 700 14.5px/1.2 var(--f-sans); }
+:root[data-paleta="calma"] .k-prep > .lbl { font-weight: 700; }
+:root[data-paleta="calma"] .k-prep b { font-weight: 700; }
+:root[data-paleta="calma"] .k-obra > .pl { border-radius: 14px; }
+:root[data-paleta="calma"] .k-obra > .pl > .k { font-weight: 600; }
+:root[data-paleta="calma"] .k-obra > .pl > h2 { font-weight: 700; }
+:root[data-paleta="calma"] .k-msg-u { border-radius: 14px 14px 8px 14px; }
+:root[data-paleta="calma"] .k-msg-meta b { font-weight: 700; }
+:root[data-paleta="calma"] .k-msg-meta .firma { font-weight: 700; }
+:root[data-paleta="calma"] .k-md li::marker { font-weight: 700; }
+:root[data-paleta="calma"] .k-md :is(h1, h2, h3, h4) { font-weight: 700; }
+:root[data-paleta="calma"] .k-md strong { font-weight: 700; }
+:root[data-paleta="calma"] .k-md a { font-weight: 600; }
+:root[data-paleta="calma"] .k-md code { font: 500 .9em/1.3 var(--f-mono); }
+:root[data-paleta="calma"] .k-md sup { font-weight: 600; }
+:root[data-paleta="calma"] .k-md table { border-radius: 10px; }
+:root[data-paleta="calma"] .k-md caption { font: 700 15px/1.2 var(--f-sans); }
+:root[data-paleta="calma"] .k-md th { font: 700 13.5px/1.2 var(--f-sans); }
+:root[data-paleta="calma"] .k-notas sup { font-weight: 600; }
+:root[data-paleta="calma"] .k-redactor { border-radius: 14px; }
+:root[data-paleta="calma"] .k-redactor .herr button { border-radius: 8px; font-weight: 600; }
+:root[data-paleta="calma"] .k-plan { border-radius: 14px; }
+:root[data-paleta="calma"] .k-plan > .tag { font-weight: 700; }
+:root[data-paleta="calma"] .k-plan > h3 { font: 700 23px/1.15 var(--f-sans); }
+:root[data-paleta="calma"] .k-plan > .precio b { font-weight: 700; }
+:root[data-paleta="calma"] .k-plan > ul li:first-child { font-weight: 700; }
+:root[data-paleta="calma"] .k-plan > .pie .actual { border-radius: 10px; font-weight: 700; }
+:root[data-paleta="calma"] .k-marca-a { border-radius: 10px; }
+:root[data-paleta="calma"] .k-marca-s { border-radius: 8px; font: 700 23px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-marca-w { font: 700 21px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-idx-tit { font: 700 14px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-plegar { border-radius: 8px; }
+:root[data-paleta="calma"] .k-grupo-h { font: 600 13px/1.2 var(--f-sans); }
+:root[data-paleta="calma"] .k-it { border-radius: 10px; font-weight: 500; }
+:root[data-paleta="calma"] .k-it .c { font: 700 12.5px/1.3 var(--f-sans); }
+:root[data-paleta="calma"] .k-it[aria-current="page"] { font-weight: 700; }
+:root[data-paleta="calma"] .k-it.pronto .l { font-weight: 500; }
+:root[data-paleta="calma"] .k-yo-a { font: 700 15px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-yo b { font-weight: 700; }
+:root[data-paleta="calma"] .k-tema { border-radius: 10px; }
+:root[data-paleta="calma"] .k-tema button { border-radius: 8px; font: 600 13.5px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-tema-ciclo { border-radius: 10px; }
+:root[data-paleta="calma"] .k-salir { border-radius: 8px; font: 600 14px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-cab-ruta .tit { font: 700 20px/1.2 var(--f-sans); }
+:root[data-paleta="calma"] .k-cornisa > .k { font-weight: 700; }
+:root[data-paleta="calma"] .k-cornisa > .info b { font-weight: 700; }
+:root[data-paleta="calma"] .k-cornisa > button { font-weight: 700; }
+:root[data-paleta="calma"] .k-cornisa > button .e { font-weight: 500; }
+:root[data-paleta="calma"] .k-cornisa > button .e.v { font-weight: 700; }
+:root[data-paleta="calma"] .as-ok { border-radius: 14px; }
+:root[data-paleta="calma"] .as-ok > span { font-weight: 700; }
+:root[data-paleta="calma"] .as-item { border-radius: 14px; }
+:root[data-paleta="calma"] .as-cab h3 { font-weight: 700; }
+:root[data-paleta="calma"] .as-enviada { font-weight: 600; }
+:root[data-paleta="calma"] .asis-agente .nom { font: 700 32px/.9 var(--f-sans); }
+:root[data-paleta="calma"] .asis-hilos-t { font-weight: 700; }
+:root[data-paleta="calma"] .asis-hilo { border-radius: 10px; font-weight: 500; }
+:root[data-paleta="calma"] .asis-hilo[aria-current="true"] { font-weight: 700; }
+:root[data-paleta="calma"] .asis-memoria > button { font-weight: 600; }
+:root[data-paleta="calma"] .asis-barra h2 { font-weight: 700; }
+:root[data-paleta="calma"] .asis-ficha { border-radius: 10px; }
+:root[data-paleta="calma"] .asis-ficha .n { font-weight: 700; }
+:root[data-paleta="calma"] .asis-ficha .d { font-weight: 700; }
+:root[data-paleta="calma"] .asis-bloq { border-radius: 14px; }
+:root[data-paleta="calma"] .asis-bloq h3 { font: 700 21px/1.15 var(--f-sans); }
+:root[data-paleta="calma"] .asis-bienv h3 { font: 700 36px/1.05 var(--f-sans); }
+:root[data-paleta="calma"] .asis-bienv > p.asis-rot { font-weight: 700; }
+:root[data-paleta="calma"] .asis-sug { border-radius: 12px; }
+:root[data-paleta="calma"] .asis-sug b { font-weight: 700; }
+:root[data-paleta="calma"] .asis-subiendo { font-weight: 500; }
+:root[data-paleta="calma"] .asis-conteo { font: 600 13px/1 var(--f-sans); }
+:root[data-paleta="calma"] .asis-uso b { font: 700 34px/1 var(--f-sans); }
+:root[data-paleta="calma"] .asis-como li b { font-weight: 600; }
+:root[data-paleta="calma"] .bit-gh b { font-weight: 700; }
+:root[data-paleta="calma"] .bit-gh em { font-weight: 700; }
+:root[data-paleta="calma"] .bit-nada { border-radius: 12px; }
+:root[data-paleta="calma"] .bit-fila { border-radius: 14px; }
+:root[data-paleta="calma"] .bit-fila > .d { font-weight: 700; }
+:root[data-paleta="calma"] .bit-fila > .t b { font-weight: 700; }
+:root[data-paleta="calma"] .bit-fila > .t small .v { font-weight: 700; }
+:root[data-paleta="calma"] .bit-plegable { border-radius: 12px; }
+:root[data-paleta="calma"] .bit-plegable b { font-weight: 700; }
+:root[data-paleta="calma"] .bit-plegable .n { font-weight: 700; }
+:root[data-paleta="calma"] .bit-mes-cab h2 { font-weight: 700; }
+:root[data-paleta="calma"] .bit-mesg { border-radius: 14px; }
+:root[data-paleta="calma"] .bit-dh { font-weight: 700; }
+:root[data-paleta="calma"] .bit-dia .dn { font-weight: 700; }
+:root[data-paleta="calma"] .bit-dia.fuera .dn { font-weight: 500; }
+:root[data-paleta="calma"] .bit-dia .hoy-l { font-weight: 700; }
+:root[data-paleta="calma"] .bit-ev { font-weight: 500; }
+:root[data-paleta="calma"] .bit-ev b { font-weight: 700; }
+:root[data-paleta="calma"] .bit-mas-ev { font-weight: 700; }
+:root[data-paleta="calma"] .bit-leyenda b { font-weight: 700; }
+:root[data-paleta="calma"] .bit-dpanel h3 { font-weight: 700; }
+:root[data-paleta="calma"] .bit-dvacio { border-radius: 12px; }
+:root[data-paleta="calma"] .bit-pista { border-radius: 12px; }
+:root[data-paleta="calma"] .bit-fa b { font-weight: 700; }
+:root[data-paleta="calma"] .bit-fa small.v { font-weight: 600; }
+:root[data-paleta="calma"] .bit-arch b { font-weight: 600; }
+:root[data-paleta="calma"] .ca-acc { border-radius: 14px; }
+:root[data-paleta="calma"] .ca-acc .t b { font-weight: 700; }
+:root[data-paleta="calma"] .ca-recientes h4 { font-weight: 700; }
+:root[data-paleta="calma"] .ca-recientes .f { font-weight: 500; }
+:root[data-paleta="calma"] .ca-recientes b { font-weight: 700; }
+:root[data-paleta="calma"] .ca-leyenda .r { font-weight: 600; }
+:root[data-paleta="calma"] .ca-leyenda b { font-weight: 700; }
+:root[data-paleta="calma"] .ca-leyenda li.cero b { font-weight: 600; }
+:root[data-paleta="calma"] .ca-deudores-t { font-weight: 700; }
+:root[data-paleta="calma"] .ca-deudores .n b { font-weight: 700; }
+:root[data-paleta="calma"] .ca-deudores .m { font-weight: 700; }
+:root[data-paleta="calma"] .ca-deudores .d { font-weight: 600; }
+:root[data-paleta="calma"] .ca-uni b { font-weight: 700; }
+:root[data-paleta="calma"] .ca-saldo b { font-weight: 700; }
+:root[data-paleta="calma"] .ca-saldo b.cero { font-weight: 500; }
+:root[data-paleta="calma"] .ca-est small { font-weight: 500; }
+:root[data-paleta="calma"] .ce-ok { border-radius: 14px; }
+:root[data-paleta="calma"] .ce-ok > span { font-weight: 700; }
+:root[data-paleta="calma"] .ce-item { border-radius: 14px; }
+:root[data-paleta="calma"] .ce-item > .t b { font-weight: 700; }
+:root[data-paleta="calma"] .ce-item > .t small .cod { font-weight: 700; }
+:root[data-paleta="calma"] .co-cuota { border-radius: 14px; }
+:root[data-paleta="calma"] .co-cuota .t { font-weight: 600; }
+:root[data-paleta="calma"] .co-cuota .t b { font-weight: 700; }
+:root[data-paleta="calma"] .co-dest { border-radius: 14px; }
+:root[data-paleta="calma"] .co-dest > button b { font-weight: 700; }
+:root[data-paleta="calma"] .co-chip { font-weight: 700; }
+:root[data-paleta="calma"] .co-o { font-weight: 700; }
+:root[data-paleta="calma"] .co-fila .msg { font-weight: 500; }
+:root[data-paleta="calma"] .co-ia { border-radius: 14px; }
+:root[data-paleta="calma"] .co-ia h4 { font-weight: 700; }
+:root[data-paleta="calma"] .co-env > li { border-radius: 14px; }
+:root[data-paleta="calma"] .co-env h3 { font-weight: 700; }
+:root[data-paleta="calma"] .cfg-cuenta > .a { font: 600 20px/1 var(--f-sans); }
+:root[data-paleta="calma"] .cfg-lam .emp.pdf { font-weight: 500; }
+:root[data-paleta="calma"] .cfg-lam .emp { font-weight: 600; }
+:root[data-paleta="calma"] .res-doc .t b { font-weight: 600; }
+:root[data-paleta="calma"] .res-cifra > b { font-weight: 700; }
+:root[data-paleta="calma"] .gen-bloque { border-radius: 14px; }
+:root[data-paleta="calma"] .gen-bloque-h .paso { font-weight: 700; }
+:root[data-paleta="calma"] .gen-bloque-h h2 { font-weight: 700; }
+:root[data-paleta="calma"] .gen-lb { font-weight: 700; }
+:root[data-paleta="calma"] .gen-pptx { border-radius: 12px; }
+:root[data-paleta="calma"] .gen-pptx .k-ctl > span { font-weight: 700; }
+:root[data-paleta="calma"] .gen-guia h4 { font: 700 15px/1.2 var(--f-sans); }
+:root[data-paleta="calma"] .onb-kicker b { font-weight: 600; }
+:root[data-paleta="calma"] .onb-ayuda p b { font-weight: 600; }
+:root[data-paleta="calma"] .onb-fila .ref { font: 600 13px/1 var(--f-sans); }
+:root[data-paleta="calma"] .onb-fila h2 { font-weight: 700; }
+:root[data-paleta="calma"] .onb-fila .dato { font-weight: 500; }
+:root[data-paleta="calma"] .onb-fila p b { font-weight: 600; }
+:root[data-paleta="calma"] .ini-hero { border-radius: 14px; }
+:root[data-paleta="calma"] .ini-fecha b { font-weight: 700; }
+:root[data-paleta="calma"] .ini-sug { border-radius: 14px; }
+:root[data-paleta="calma"] .ini-sug p strong { font-weight: 700; }
+:root[data-paleta="calma"] .ini-inicio sup { font-weight: 600; }
+:root[data-paleta="calma"] .ini-tira { border-radius: 14px; }
+:root[data-paleta="calma"] .ini-tira > h3 { font: 700 18px/1.2 var(--f-sans); }
+:root[data-paleta="calma"] .ini-mes-t { font-weight: 700; }
+:root[data-paleta="calma"] .ini-prop { border-radius: 14px; }
+:root[data-paleta="calma"] .ini-prop > .cab b { font-weight: 700; }
+:root[data-paleta="calma"] .ini-doc > .n b { font-weight: 700; }
+:root[data-paleta="calma"] .ini-mpie { border-radius: 14px; }
+:root[data-paleta="calma"] .ini-mpie .tot > b { font-weight: 700; }
+:root[data-paleta="calma"] .ini-mpie .tot strong { font-weight: 700; }
+:root[data-paleta="calma"] .ini-mpie .tot a { font-weight: 600; }
+:root[data-paleta="calma"] .pq-item { border-radius: 14px; }
+:root[data-paleta="calma"] .pq-tit b { font-weight: 700; }
+:root[data-paleta="calma"] .pq-meta .cod { font-weight: 700; }
+:root[data-paleta="calma"] .pq-quien { font-weight: 600; }
+:root[data-paleta="calma"] .pq-msg { border-radius: 12px 12px 12px 6px; }
+:root[data-paleta="calma"] .pq-msg.admin { border-radius: 12px 12px 6px 12px; }
+:root[data-paleta="calma"] .pq-estados > span { font-weight: 700; }
+:root[data-paleta="calma"] .pr-fondo p strong { font-weight: 700; }
+:root[data-paleta="calma"] .pr-grupo { border-radius: 14px; }
+:root[data-paleta="calma"] .pr-grupo > header h3 { font-weight: 700; }
+:root[data-paleta="calma"] .pr-grupo > header .tot { font-weight: 600; }
+:root[data-paleta="calma"] .pr-grupo > header .tot b { font-weight: 700; }
+:root[data-paleta="calma"] .pr-fila .l1 span { font-weight: 600; }
+:root[data-paleta="calma"] .pr-fila .l1 b { font-weight: 700; }
+:root[data-paleta="calma"] .pr-fila .l2 > span { font-weight: 700; }
+:root[data-paleta="calma"] .pr-mov { border-radius: 14px; }
+:root[data-paleta="calma"] .pr-mov > button b { font-weight: 700; }
+:root[data-paleta="calma"] .pr-lista { border-radius: 14px; }
+:root[data-paleta="calma"] .pr-lista > h3 { font-weight: 700; }
+:root[data-paleta="calma"] .pr-lista li .c b { font-weight: 700; }
+:root[data-paleta="calma"] .pr-lista li .m { font-weight: 700; }
+:root[data-paleta="calma"] .pr-pie .n { font-weight: 500; }
+:root[data-paleta="calma"] .tk-adjuntos a .n { font-weight: 700; }
+:root[data-paleta="calma"] .tk-respuesta .herr kbd { font: 600 12px/1 var(--f-sans); }
+:root[data-paleta="calma"] .emp-cifra { font: 700 32px/.8 var(--f-sans); }
+:root[data-paleta="calma"] .emp-cifra small { font-weight: 500; }
+:root[data-paleta="calma"] .emp-nom b { font-weight: 600; }
+:root[data-paleta="calma"] .emp-num { font-weight: 500; }
+:root[data-paleta="calma"] .emp-periodo { font-weight: 500; }
+:root[data-paleta="calma"] .k-md h3 { font-weight: 700; }
+:root[data-paleta="calma"] .k-md h4 { font-weight: 600; }
+:root[data-paleta="calma"] .k-md pre { border-radius: 10px; }
+:root[data-paleta="calma"] .k-md sup a { font-weight: 600; }
+:root[data-paleta="calma"] .ai-prev-h h3 { font-weight: 700; }
+:root[data-paleta="calma"] .ai-fila.sin-fecha .nom span.falta { font-weight: 500; }
+:root[data-paleta="calma"] .grab-vivo { font-weight: 700; }
+:root[data-paleta="calma"] .grab-vivo time { font: 700 14px/1 var(--f-sans); }
+:root[data-paleta="calma"] .k-cab-ruta .miga { font-weight: 600; }
+:root[data-paleta="calma"] .emp-mes-txt strong { font-weight: 600; }
+@media (max-width: 860px) {
+  :root[data-paleta="calma"] .k-pieza-h { border-radius: 14px; }
+  :root[data-paleta="calma"] .k-panel { border-radius: 14px; }
+  :root[data-paleta="calma"] .k-cubo { border-radius: 14px; }
+  :root[data-paleta="calma"] .k-paso { border-radius: 12px; }
+  :root[data-paleta="calma"] .k-zona { border-radius: 14px; }
+  :root[data-paleta="calma"] .k-kpi { border-radius: 14px; }
+  :root[data-paleta="calma"] .k-tabla { border-radius: 14px; }
+  :root[data-paleta="calma"] .k-sel-todas .k-ctl { font-weight: 600; }
+  :root[data-paleta="calma"] .k-vacio { border-radius: 14px; }
+  :root[data-paleta="calma"] .k-modal { border-radius: 14px; }
+  :root[data-paleta="calma"] .k-gen { border-radius: 14px; }
+  :root[data-paleta="calma"] .k-agente { border-radius: 14px; }
+  :root[data-paleta="calma"] .k-obra > .pl { border-radius: 14px; }
+  :root[data-paleta="calma"] .k-plan { border-radius: 14px; }
+  :root[data-paleta="calma"] .k-dock > * { border-radius: 10px; font-weight: 600; }
+  :root[data-paleta="calma"] .k-dock > [aria-current="page"],
+  :root[data-paleta="calma"] .k-dock > [aria-expanded="true"] { font-weight: 700; }
+  :root[data-paleta="calma"] .k-dock > * > .b { font: 700 12px/1.1 var(--f-sans); }
+  :root[data-paleta="calma"] .bit-fila { border-radius: 12px; }
+  :root[data-paleta="calma"] .bit-mesg { border-radius: 12px; }
+  :root[data-paleta="calma"] .bit-rayas small { font-weight: 700; }
+  :root[data-paleta="calma"] .ca-et { font-weight: 600; }
+  :root[data-paleta="calma"] .gen-bloque { border-radius: 14px; }
+  :root[data-paleta="calma"] .ini-hero { border-radius: 14px; }
+  :root[data-paleta="calma"] .ini-sug { border-radius: 12px; }
+  :root[data-paleta="calma"] .ini-prop { border-radius: 14px; }
+  :root[data-paleta="calma"] .pr-grupo,
+  :root[data-paleta="calma"] .pr-lista { border-radius: 14px; }
+  :root[data-paleta="calma"] .k-md > .tabla-scroll td:first-child { font-weight: 600; }
+  :root[data-paleta="calma"] .k-md > .tabla-scroll td[data-label]:not([data-label=""])::before { font: 700 12.5px/1.2 var(--f-sans); }
+  :root[data-paleta="calma"] .ai-lb { font-weight: 500; }
+}
+/* ── «Calma» · refinamientos de forma que ganan a lo generado ── */
+
+/* Fichas de icono: cuadros pequeños de esquina suave (los grandes, algo más). */
+:root[data-paleta="calma"] .k-tile { border-radius: min(calc(var(--t) * .3), 10px); box-shadow: inset 0 0 0 1px var(--line); }
+:root[data-paleta="calma"] .k-tile > svg { stroke-width: 1.9; }
+
+/* Menú: iconos sueltos (sin cuadro), el elegido con un tinte del acento. */
+:root[data-paleta="calma"] .k-it { min-height: 40px; padding: 4px 10px 4px 8px; border-radius: 10px; font-size: 15px; font-weight: 500; gap: 10px; }
+:root[data-paleta="calma"] .k-it .k-tile { --t: 26px; background: transparent; box-shadow: none; color: var(--ink-3); }
+:root[data-paleta="calma"] .k-it .k-tile > svg { width: 20px; height: 20px; }
+:root[data-paleta="calma"] .k-it:hover .k-tile { color: var(--ink); }
+:root[data-paleta="calma"] .k-it[aria-current="page"] { font-weight: 600; background: rgb(var(--accent-rgb) / .12); box-shadow: none; }
+:root[data-paleta="calma"] .k-it[aria-current="page"] .k-tile { background: transparent; color: var(--accent-text); box-shadow: none; }
+:root[data-paleta="calma"] .k-it.pronto .k-tile { background: transparent; color: var(--ink-4); }
+:root[data-paleta="calma"] .k-it .c { border-radius: 6px; font-weight: 600; }
+:root[data-paleta="calma"] .k-grupo-h { padding: 6px 12px 6px; font: 600 11.5px/1.2 var(--f-sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-4); }
+:root[data-paleta="calma"] .k-marca-s { border-radius: 10px; font-weight: 700; }
+:root[data-paleta="calma"] .k-marca-w { font-weight: 700; }
+
+/* Cabecera de pantalla: título y frase, sin tarjeta, sin franja y sin ficha de icono. */
+:root[data-paleta="calma"] .k-pieza-h { padding: 0 0 4px; margin-bottom: 24px; border-radius: 0; gap: 16px; }
+:root[data-paleta="calma"] .k-pieza-h > .k-tile { display: none; }
+:root[data-paleta="calma"] .k-pieza-h h1 { font-size: 26px; line-height: 1.2; font-weight: 700; letter-spacing: -.02em; }
+:root[data-paleta="calma"] .k-pieza-h .tt p { margin-top: 4px; font-size: 15px; color: var(--ink-3); max-width: 72ch; }
+:root[data-paleta="calma"] .k-pieza { padding-top: 24px; }
+:root[data-paleta="calma"] .ini-hero .k-h1 { font-size: 30px; font-weight: 700; letter-spacing: -.025em; }
+:root[data-paleta="calma"] .ini-hero { padding: 24px 28px; }
+
+/* Secciones y paneles: icono pequeño y suelto delante del título. */
+:root[data-paleta="calma"] :is(.k-sec-h, .k-panel-h) > .k-tile { --t: 24px; background: transparent; box-shadow: none; color: var(--ink-3); }
+:root[data-paleta="calma"] :is(.k-sec-h, .k-panel-h) > .k-tile > svg { width: 20px; height: 20px; }
+:root[data-paleta="calma"] .k-sec-h h2 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+:root[data-paleta="calma"] .k-sec-h h2 small { font-size: 14px; }
+:root[data-paleta="calma"] .k-seccion { padding-bottom: 36px; }
+:root[data-paleta="calma"] .k-panel { padding: 20px 22px 22px; }
+:root[data-paleta="calma"] .k-panel-h { font-size: 16px; font-weight: 600; }
+:root[data-paleta="calma"] .k-panel-h.k-titular { font-size: 19px; }
+
+/* Botones: más bajos, sin saltos al pasar el cursor, filo de 1 px. */
+:root[data-paleta="calma"] .k-btn { min-height: 42px; padding: 0 16px; gap: 8px; font-size: 15px; font-weight: 600; letter-spacing: 0; }
+:root[data-paleta="calma"] .k-btn > svg { width: 18px; height: 18px; stroke-width: 2; }
+:root[data-paleta="calma"] .k-btn:where(:not(:disabled, [aria-disabled="true"])):hover { transform: none; filter: brightness(1.08); }
+:root[data-paleta="calma"] .k-btn.k-sec { border-width: 1px; border-color: var(--line-strong); font-weight: 500; }
+:root[data-paleta="calma"] .k-btn.k-40 { min-height: 36px; padding: 0 12px; font-size: 14px; }
+:root[data-paleta="calma"] .k-btn.k-56 { min-height: 48px; font-size: 16px; }
+:root[data-paleta="calma"] .k-bt { min-height: 36px; padding: 0 12px; border-width: 1px; border-color: var(--line-strong); font-size: 14px; font-weight: 500; gap: 7px; }
+:root[data-paleta="calma"] .k-bt > svg { width: 16px; height: 16px; }
+:root[data-paleta="calma"] .k-ic { border-width: 1px; }
+
+/* Campos: filo de 1 px y altura contenida. */
+:root[data-paleta="calma"] .k-in { min-height: 44px; border-width: 1px; font-size: 15px; }
+:root[data-paleta="calma"] .k-fld > label, :root[data-paleta="calma"] .k-fld > .lb { font-size: 14px; font-weight: 500; color: var(--ink-2); }
+
+/* Estados, categorías y etiquetas: rectángulos de esquina suave, no píldoras. */
+:root[data-paleta="calma"] .k-estado { padding: 3px 10px 3px 8px; border-radius: 6px; font-size: 13.5px; font-weight: 600; gap: 6px; }
+:root[data-paleta="calma"] .k-estado > svg { width: 15px; height: 15px; }
+:root[data-paleta="calma"] .k-estado.neutro { padding: 0; }
+:root[data-paleta="calma"] :is(.k-cat, .k-tipo) { border-radius: 6px; font-size: 13px; font-weight: 600; }
+:root[data-paleta="calma"] .k-ver { border-radius: 8px; font-weight: 600; }
+
+/* Pestañas y segmentos: activo neutro (tarjeta blanca), el acento queda para lo accionable. */
+:root[data-paleta="calma"] :is(.k-seg, .k-pest) { padding: 3px; gap: 2px; }
+:root[data-paleta="calma"] :is(.k-seg, .k-pest) > :is(button, a) { min-height: 36px; padding: 0 14px; font-size: 14.5px; font-weight: 500; gap: 8px; }
+:root[data-paleta="calma"] :is(.k-seg, .k-pest) > * > svg { width: 17px; height: 17px; }
+:root[data-paleta="calma"] :is(.k-seg, .k-pest) > :is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"]) { color: var(--ink); font-weight: 600; box-shadow: var(--sh-1), inset 0 0 0 1px var(--line-strong); }
+:root[data-paleta="calma"] :is(.k-seg, .k-pest) > * :is(b, small) { background: var(--surface-3); color: var(--ink-2); font-weight: 600; height: 20px; min-width: 22px; font-size: 12px; }
+:root[data-paleta="calma"] :is(.k-seg, .k-pest) > :is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"]) :is(b, small) { background: var(--surface-3); color: var(--ink); }
+
+/* Alcance (copropiedad): botones rectangulares; el elegido, con tinte del acento. */
+:root[data-paleta="calma"] .k-cornisa { min-height: 56px; padding: 10px var(--pad); }
+:root[data-paleta="calma"] .k-cornisa > button { min-height: 36px; padding: 0 12px 0 10px; border-radius: 8px; font-size: 14px; font-weight: 500; gap: 7px; box-shadow: inset 0 0 0 1px var(--line-strong); }
+:root[data-paleta="calma"] .k-cornisa > button[aria-pressed="true"] { color: var(--ink); font-weight: 600; background: rgb(var(--accent-rgb) / .14); box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / .5); }
+:root[data-paleta="calma"] .k-cornisa > button[aria-pressed="true"] :is(.e, .e.v, svg) { color: var(--ink-2); }
+:root[data-paleta="calma"] .k-cornisa > .k { font-weight: 600; }
+
+/* Cifras clave: etiqueta arriba, cifra, detalle; el icono, suelto en la esquina. */
+:root[data-paleta="calma"] .k-kpi { display: flex; flex-direction: column; padding: 16px 18px 18px; }
+:root[data-paleta="calma"] .k-kpi > .k-tile { position: absolute; top: 12px; right: 12px; --t: 30px; margin: 0; background: transparent; box-shadow: none; color: var(--ink-4); }
+:root[data-paleta="calma"] .k-kpi > .k-tile > svg { width: 18px; height: 18px; }
+:root[data-paleta="calma"] .k-kpi > .k-tile[data-h="red"] { color: var(--danger-text); }
+:root[data-paleta="calma"] .k-kpi > span { order: -1; margin: 0 32px 10px 0; font-size: 14px; font-weight: 500; color: var(--ink-3); }
+:root[data-paleta="calma"] .k-kpi > b { font-size: 30px; font-weight: 700; letter-spacing: -.025em; }
+:root[data-paleta="calma"] .k-kpi > em { margin-top: 6px; font-size: 13.5px; color: var(--ink-3); }
+:root[data-paleta="calma"] .k-kpi > em.malo { font-weight: 600; }
+
+/* Urgencias y accesos: más pequeños y tranquilos. */
+:root[data-paleta="calma"] .k-cubo { padding: 18px 20px; column-gap: 16px; }
+:root[data-paleta="calma"] .k-cubo > .ico { --t: 44px; }
+:root[data-paleta="calma"] .k-num { font-size: 40px; font-weight: 700; letter-spacing: -.03em; }
+:root[data-paleta="calma"] .k-cubo .cap b { font-size: 16px; font-weight: 600; }
+:root[data-paleta="calma"] .k-cubo .cap > span { font-size: 14px; color: var(--ink-3); }
+:root[data-paleta="calma"] .k-accesos { gap: 12px; }
+:root[data-paleta="calma"] .k-acceso { padding: 14px 16px; gap: 12px; }
+:root[data-paleta="calma"] .k-acceso > .k-tile { --t: 40px; }
+:root[data-paleta="calma"] .k-acceso > .t b { font-size: 15px; font-weight: 600; letter-spacing: 0; }
+:root[data-paleta="calma"] .k-acceso > .t small { font-size: 13.5px; color: var(--ink-3); }
+:root[data-paleta="calma"] .k-acceso > .ir { width: 18px; height: 18px; color: var(--ink-4); }
+:root[data-paleta="calma"] .k-ob > .que { font-size: 16px; font-weight: 600; letter-spacing: 0; }
+
+/* Tablas: filas más compactas, encabezado discreto, números de piso sobrios. */
+:root[data-paleta="calma"] .k-tabla { padding: 4px 20px 8px; }
+:root[data-paleta="calma"] .k-tr { min-height: 56px; }
+:root[data-paleta="calma"] .k-tr.th { font: 600 12.5px/1.2 var(--f-sans); color: var(--ink-3); letter-spacing: .02em; }
+:root[data-paleta="calma"] .k-tr:not(.th):hover { background: var(--hl); box-shadow: -10px 0 0 var(--hl), 10px 0 0 var(--hl); }
+:root[data-paleta="calma"] .k-grupo-n { font-size: 20px; font-weight: 600; letter-spacing: -.01em; color: var(--ink-3); }
+:root[data-paleta="calma"] .k-grupo-n small { font-size: 12.5px; font-weight: 500; }
+:root[data-paleta="calma"] .k-c-id { font-size: 15.5px; font-weight: 600; letter-spacing: 0; }
+:root[data-paleta="calma"] .k-c-nom { font-size: 15px; font-weight: 500; }
+:root[data-paleta="calma"] .k-c-nom > span { font-size: 13.5px; }
+:root[data-paleta="calma"] .k-c-correo { font-size: 14px; }
+
+/* Buscador, avisos, ventanas y vacíos. */
+:root[data-paleta="calma"] .k-campo { min-height: 44px; border-width: 1px; border-radius: 10px; }
+:root[data-paleta="calma"] .k-campo input { font-size: 15px; font-weight: 400; }
+:root[data-paleta="calma"] .k-aviso { padding: 12px 14px; border-width: 1px; font-size: 14.5px; gap: 12px; }
+:root[data-paleta="calma"] .k-aviso > .k-tile { --t: 32px; }
+:root[data-paleta="calma"] .k-modal { padding: 26px 26px 22px; border-radius: 16px; }
+:root[data-paleta="calma"] .k-modal > .ico { --t: 44px; margin-bottom: 14px; }
+:root[data-paleta="calma"] .k-modal > h2 { font-size: 20px; font-weight: 700; letter-spacing: -.015em; }
+:root[data-paleta="calma"] .k-modal > .cuerpo { font-size: 15px; margin: 10px 0 20px; }
+:root[data-paleta="calma"] .k-vacio { border-width: 1px; padding: 40px 24px 44px; }
+:root[data-paleta="calma"] .k-vacio > .ico { --t: 56px; margin-bottom: 16px; }
+:root[data-paleta="calma"] :is(.k-vacio > h2, .k-vacio > h3) { font-size: 20px; font-weight: 700; letter-spacing: -.015em; }
+:root[data-paleta="calma"] .k-vacio > p { font-size: 15px; color: var(--ink-3); margin: 8px 0 20px; }
+:root[data-paleta="calma"] .k-zona { border-width: 1.5px; }
+:root[data-paleta="calma"] .k-plan { border-width: 1px; padding: 24px; }
+:root[data-paleta="calma"] .k-plan > h3 { font-size: 20px; font-weight: 700; }
+:root[data-paleta="calma"] .k-plan > .precio b { font-size: 38px; font-weight: 700; }
+
+
+/* Filas altas (Propiedades) y filas-título de grupo (Historial). */
+:root[data-paleta="calma"] .k-tr.k-76 { min-height: 76px; padding-block: 8px; }
+:root[data-paleta="calma"] .k-tr.k-tr-grupo:not(.th), :root[data-paleta="calma"] .k-tr.k-tr-grupo:not(.th):hover { min-height: 0; padding: 20px 0 8px; background: none; box-shadow: none; }
+:root[data-paleta="calma"] .k-grupo-n.k-22 { font-size: 16px; font-weight: 600; color: var(--ink); letter-spacing: -.01em; }
+
+/* Barra superior: delgada; si la pantalla ya tiene su título, no se repite (queda solo la acción a la derecha). */
+@media (min-width: 861px) {
+  :root[data-paleta="calma"]:has([data-shell="app"]) { --cab-h: 52px; }
+  :root[data-paleta="calma"] .k-cab:not([data-sin-titulo], [data-migas]) { border-bottom-color: transparent; background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  :root[data-paleta="calma"] .k-cab:not([data-sin-titulo], [data-migas]) .k-cab-ruta .tit { visibility: hidden; }
+}
+:root[data-paleta="calma"] .k-cab-ruta .tit { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+:root[data-paleta="calma"] .k-cab-ruta .miga { font-weight: 500; color: var(--ink-3); }
+
+:root[data-paleta="calma"] .k-acceso > .k-tile { --t: 36px; }
+:root[data-paleta="calma"] .k-acceso { padding: 12px 14px; gap: 12px; }
+
+/* Menú «Más»: iconos neutros; solo lo destructivo va en rojo. */
+:root[data-paleta="calma"] .k-menu > :is(button, a) { min-height: 40px; font-size: 14.5px; gap: 0; column-gap: 10px; }
+:root[data-paleta="calma"] .k-menu > :is(button, a) > svg { width: 18px; height: 18px; color: var(--ink-3); }
+:root[data-paleta="calma"] .k-menu > :is(button, a):hover, :root[data-paleta="calma"] .k-menu > :is(button, a):focus-visible { background: var(--hl); }
+:root[data-paleta="calma"] .k-menu > .peligro { font-weight: 600; }
+:root[data-paleta="calma"] .k-menu > .peligro > svg { color: var(--danger-text); }
+
+/* Títulos grandes y fichas de las pantallas de gestión. */
+:root[data-paleta="calma"] .k-h1 { font-size: 32px; letter-spacing: -.025em; }
+:root[data-paleta="calma"] .k-opfila .k-tile { --t: 36px; }
+:root[data-paleta="calma"] .pr-grupo > header .k-tile { --t: 28px; background: transparent; box-shadow: none; color: var(--ink-3); }
+:root[data-paleta="calma"] .pr-grupo > header h3 { font-size: 17px; font-weight: 600; }
+:root[data-paleta="calma"] .pr-lista > h3 { font-size: 17px; font-weight: 600; }
+:root[data-paleta="calma"] .pr-lista > h3 .k-tile { --t: 28px; background: transparent; box-shadow: none; color: var(--ink-3); }
+:root[data-paleta="calma"] .pr-mov > button b { font-size: 16px; font-weight: 600; }
+:root[data-paleta="calma"] .co-dest > button b { font-size: 16px; font-weight: 600; }
+:root[data-paleta="calma"] .co-dest > button .k-tile { --t: 36px; }
+:root[data-paleta="calma"] .ca-leyenda b { font-size: 18px; font-weight: 600; }
+:root[data-paleta="calma"] .ca-uni b { font-size: 16px; font-weight: 600; }
+
+/* Listas con marca de verificación: marca verde sobre un círculo tenue, no un círculo verde macizo. */
+:root[data-paleta="calma"] :is(.k-checks li, .k-plan > ul li)::before { background: rgb(var(--ok-rgb) / .16); }
+:root[data-paleta="calma"] :is(.k-checks li, .k-plan > ul li)::after { background: var(--ok-text); }

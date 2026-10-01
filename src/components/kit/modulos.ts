@@ -6,7 +6,7 @@ import {
   KeyRound, Landmark, Layers, LifeBuoy, Link2, LogOut, Mail, Megaphone, MessageCircle, MessageSquareText, Mic, Palette,
   Pencil, PiggyBank, Play, Plus, Power, Printer, Puzzle, RefreshCw, RotateCcw, Rocket, Save, Search, Send, Settings,
   ShieldCheck, SkipForward, Sparkles, Square, SunMoon, Trash2, Upload, UserPlus, UserRound, Users, Wallet, X, Paperclip,
-  PenLine, Undo2, Phone, Lightbulb, CheckCheck,
+  PenLine, Undo2, Phone, Lightbulb, CheckCheck, Reply,
   type LucideIcon,
 } from "lucide-react";
 
@@ -135,6 +135,7 @@ const REGLAS: Regla[] = [
   { re: /^(detener|parar)/, icono: Square, tono: "red" },
   { re: /^(avisar|recordar|recordatorio)/, icono: Bell, tono: "orange" },
   { re: /^(vincular|enlazar)/, icono: Link2, tono: "blue" },
+  { re: /^(responder|contestar)/, icono: Reply, tono: "teal" },
   { re: /^(todas|todos|seleccionar)/, icono: CheckCheck, tono: "slate" },
   { re: /^(ninguna|ninguno|deseleccionar)/, icono: X, tono: "slate" },
   { re: /^(configurar|ajustar|personalizar)/, icono: Settings, tono: "indigo" },

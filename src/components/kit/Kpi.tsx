@@ -7,7 +7,7 @@ import { unir } from "./util";
 /**
  * KPI: tarjeta con ficha de icono (opcional), cifra grande, etiqueta de 15 px y variación
  * de 14 px CON PALABRA («+4 este mes»). Nunca más de 4 por fila. Cifras monetarias:
- * «$ 12.480.000» (Figtree con cifras tabulares). `alerta` pinta la cifra en rojo (en mora, excedido).
+ * «$ 12.480.000» (con cifras tabulares). `alerta` pinta la cifra en rojo (en mora, excedido).
  *
  *   <Kpis>
  *     <Kpi icono={FileText} tono="blue" cifra="38" etiqueta="Documentos generados en 2026" variacion="4 este mes" />

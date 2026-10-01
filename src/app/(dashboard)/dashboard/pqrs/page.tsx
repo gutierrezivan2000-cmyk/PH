@@ -1,21 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import {
+  Building2, ChevronDown, CircleCheck, Files, Home, Inbox, LoaderCircle, Lock, MessageSquareText, RotateCcw, User,
+  type LucideIcon,
+} from "lucide-react";
 import { Header } from "@/components/dashboard/Header";
 import { ComingSoon } from "@/components/dashboard/ComingSoon";
 import { COMING_SOON } from "@/lib/feature-flags";
 import {
-  MessageSquare,
-  Loader2,
-  Send,
-  CheckCircle2,
-  ChevronDown,
-  Building2,
-  Home,
-  User,
-  ArrowUpRight,
-} from "lucide-react";
+  Aviso,
+  Boton,
+  CabeceraPieza,
+  Casilla,
+  Categoria,
+  Esqueleto,
+  Etiqueta,
+  Loseta,
+  Pagina,
+  Pieza,
+  Redactor,
+  Segmentos,
+  Vacio,
+  unir,
+  type Tono,
+} from "@/components/kit";
 
 interface PqrsMessage {
   id: string;
@@ -37,44 +46,68 @@ interface Pqrs {
   property?: { name: string };
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  peticion: "Petición",
-  queja: "Queja",
-  reclamo: "Reclamo",
-  sugerencia: "Sugerencia",
+/** Cada tipo de solicitud con su color: petición azul · queja naranja · reclamo rojo · sugerencia verde. */
+const TYPE_META: Record<string, { label: string; tono: Tono }> = {
+  peticion: { label: "Petición", tono: "blue" },
+  queja: { label: "Queja", tono: "orange" },
+  reclamo: { label: "Reclamo", tono: "red" },
+  sugerencia: { label: "Sugerencia", tono: "green" },
 };
 
-const STATUS_META: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  radicado: { label: "Radicado", color: "var(--info-text)", bg: "rgb(var(--info-rgb) / 0.1)", border: "rgb(var(--info-rgb) / 0.3)" },
-  en_proceso: { label: "En proceso", color: "var(--warn-text)", bg: "rgb(var(--warn-rgb) / 0.1)", border: "rgb(var(--warn-rgb) / 0.3)" },
-  resuelto: { label: "Resuelto", color: "var(--ok-text)", bg: "rgb(var(--ok-rgb) / 0.1)", border: "rgb(var(--ok-rgb) / 0.3)" },
-  cerrado: { label: "Cerrado", color: "var(--ink-3)", bg: "rgb(var(--veil-rgb) / 0.05)", border: "rgb(var(--veil-rgb) / 0.12)" },
+/** Cada estado con su icono y color: radicado 📥 azul · en proceso ◌ ámbar · resuelto ✓ verde · cerrado 🔒 gris. */
+const STATUS_META: Record<string, { label: string; icono: LucideIcon; tono: Tono; accion: string }> = {
+  radicado: { label: "Radicado", icono: Inbox, tono: "blue", accion: "Marcar radicado" },
+  en_proceso: { label: "En proceso", icono: LoaderCircle, tono: "amber", accion: "Marcar en proceso" },
+  resuelto: { label: "Resuelto", icono: CircleCheck, tono: "green", accion: "Marcar resuelto" },
+  cerrado: { label: "Cerrado", icono: Lock, tono: "slate", accion: "Cerrar solicitud" },
 };
-
-const monoLabel: React.CSSProperties = {
-  fontFamily: "'Geist Mono', 'GeistMono', monospace",
-  fontSize: "10px",
-  letterSpacing: "0.16em",
-  textTransform: "uppercase",
-};
-const monoMini: React.CSSProperties = {
-  fontFamily: "'Geist Mono', 'GeistMono', monospace",
-  fontSize: "11px",
-  letterSpacing: "0.06em",
-};
-const card: React.CSSProperties = { background: "var(--hifi-surface-1)", border: "1px solid var(--hifi-hairline)" };
 
 function fecha(d: string) {
   return new Date(d).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-const FILTERS = [
-  { key: "", label: "Todas" },
-  { key: "radicado", label: "Radicado" },
-  { key: "en_proceso", label: "En proceso" },
-  { key: "resuelto", label: "Resuelto" },
-  { key: "cerrado", label: "Cerrado" },
+const FILTERS: Array<{ key: string; label: string; icono: LucideIcon; tono: Tono }> = [
+  { key: "", label: "Todas", icono: Files, tono: "slate" },
+  { key: "radicado", label: "Radicado", icono: STATUS_META.radicado.icono, tono: STATUS_META.radicado.tono },
+  { key: "en_proceso", label: "En proceso", icono: STATUS_META.en_proceso.icono, tono: STATUS_META.en_proceso.tono },
+  { key: "resuelto", label: "Resuelto", icono: STATUS_META.resuelto.icono, tono: STATUS_META.resuelto.tono },
+  { key: "cerrado", label: "Cerrado", icono: STATUS_META.cerrado.icono, tono: STATUS_META.cerrado.tono },
 ];
+
+/* Estilos locales: la bandeja es una lista de tarjetas que se abren para ver el hilo y responder. */
+const CSS_PQRS = `
+.pq-filtros { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin: 0 0 20px; }
+.pq-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.pq-item { overflow: hidden; border-radius: 26px; background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.pq-item.abierta { border-color: var(--h-line); }
+.pq-cab { display: flex; align-items: center; gap: 14px; width: 100%; padding: 16px 20px; text-align: left; background: transparent; cursor: pointer; }
+.pq-cab:hover { background: var(--hl); }
+.pq-tx { flex: 1 1 auto; min-width: 0; display: grid; gap: 6px; }
+.pq-tit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.pq-tit b { font-size: 16.5px; font-weight: 800; line-height: 1.25; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.pq-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 16px; font-size: 13.5px; line-height: 1.4; color: var(--ink-3); }
+.pq-meta > span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.pq-meta svg { width: 15px; height: 15px; flex: none; }
+.pq-meta .cod { font-weight: 800; color: var(--ink-2); letter-spacing: .02em; }
+.pq-cab .chev { width: 20px; height: 20px; flex: none; color: var(--ink-3); }
+.pq-item.abierta .chev { transform: rotate(180deg); }
+.pq-cuerpo { display: grid; gap: 16px; padding: 4px 20px 22px 78px; }
+.pq-quien { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 700; color: var(--ink-2); }
+.pq-quien svg { width: 16px; height: 16px; }
+.pq-hilo { display: grid; gap: 10px; }
+.pq-msg { max-width: min(72ch, 100%); padding: 12px 16px 14px; border-radius: 20px 20px 20px 6px; background: var(--surface-2); }
+.pq-msg.admin { justify-self: end; border-radius: 20px 20px 6px 20px; background: rgb(var(--accent-rgb) / .12); box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / .32); }
+.pq-msg .k-msg-meta { margin: 0 0 4px; }
+.pq-msg .tx { margin: 0; font-size: 15.5px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pq-estados { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.pq-estados > span { margin-right: 4px; font-size: 14px; font-weight: 800; color: var(--ink-2); }
+@media (max-width: 860px) {
+  .pq-cab { flex-wrap: wrap; gap: 10px 12px; padding: 14px; }
+  .pq-cab > .ico { display: none; }
+  .pq-cab > .k-estado { order: 3; }
+  .pq-cuerpo { padding: 2px 14px 18px; }
+}
+`;
 
 function PqrsInboxPage() {
   const [list, setList] = useState<Pqrs[]>([]);
@@ -143,228 +176,200 @@ function PqrsInboxPage() {
 
   return (
     <div>
+      <style href="k-pqrs-local" precedence="default">
+        {CSS_PQRS}
+      </style>
       <Header title="PQRS" subtitle="Peticiones, quejas y reclamos de los residentes" />
-      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-[1080px] mx-auto space-y-4">
-        {loading && list.length === 0 && !upgrade && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent-text)" }} />
-          </div>
-        )}
+      <Pagina>
+        <Pieza>
+          <CabeceraPieza titulo="PQRS" subtitulo="Peticiones, quejas y reclamos de los residentes" />
 
-        {upgrade && (
-          <div className="rounded-2xl p-8 text-center" style={{ ...card, borderColor: "rgb(var(--accent-rgb) / 0.3)" }}>
-            <MessageSquare className="h-9 w-9 mx-auto mb-3" style={{ color: "var(--accent-text)" }} />
-            <p className="text-[16px] font-semibold mb-2" style={{ color: "var(--ink)" }}>
-              Las PQRS de residentes son parte de los planes Business y Élite
-            </p>
-            <p className="text-[13px] mb-5 max-w-md mx-auto leading-relaxed" style={{ color: "var(--ink-2)" }}>
-              Los residentes radican peticiones, quejas y reclamos desde su portal (sin cuenta) y tú
-              respondes desde aquí.
-            </p>
-            <Link href="/dashboard/suscripcion" className="inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-6 py-3" style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}>
-              Ver planes <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </div>
-        )}
+          {loading && list.length === 0 && !upgrade && (
+            <Esqueleto variante="tabla" filas={4} etiquetaAccesible="Cargando las solicitudes…" />
+          )}
 
-        {!upgrade && (
-          <>
-            {!canAct && (
-              <div
-                className="flex flex-wrap items-center gap-3 rounded-2xl p-4"
-                style={{ background: "rgb(var(--accent-rgb) / 0.07)", border: "1px solid rgb(var(--accent-rgb) / 0.28)" }}
-              >
-                <MessageSquare className="h-4 w-4 flex-shrink-0" style={{ color: "var(--accent-text)" }} />
-                <p className="text-[12.5px] flex-1" style={{ color: "var(--ink-2)" }}>
-                  Puedes <strong>leer</strong> las solicitudes de tus residentes, pero para
-                  <strong> responderlas</strong> necesitas el plan Business o Élite. Mientras tanto, el
-                  portal dejó de recibir solicitudes nuevas.
-                </p>
-                <Link
-                  href="/dashboard/suscripcion"
-                  className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2"
-                  style={{ background: "var(--accent)", color: "var(--on-accent)" }}
-                >
-                  Ver planes <ArrowUpRight className="h-3.5 w-3.5" />
-                </Link>
+          {upgrade && (
+            <Vacio
+              icono={Lock}
+              tono="violet"
+              titulo="Las PQRS de residentes son parte de los planes Business y Élite"
+              texto="Los residentes radican peticiones, quejas y reclamos desde su portal (sin cuenta) y tú respondes desde aquí."
+              acciones={<Boton href="/dashboard/suscripcion">Ver planes</Boton>}
+            />
+          )}
+
+          {!upgrade && (
+            <>
+              {!canAct && (
+                <div style={{ marginBottom: 20 }}>
+                  <Aviso
+                    enLinea
+                    rol={null}
+                    tipo="aviso"
+                    titulo="Puedes leer las solicitudes de tus residentes, pero para responderlas necesitas el plan Business o Élite."
+                    texto="Mientras tanto, el portal dejó de recibir solicitudes nuevas."
+                    accion={{ etiqueta: "Ver planes", href: "/dashboard/suscripcion" }}
+                  />
+                </div>
+              )}
+
+              <div className="pq-filtros">
+                <Segmentos
+                  etiquetaAccesible="Filtrar por estado"
+                  valor={filter}
+                  alCambiar={setFilter}
+                  items={FILTERS.map((f) => ({
+                    id: f.key,
+                    etiqueta: f.label,
+                    icono: f.icono,
+                    tono: f.tono,
+                    conteo: f.key ? counts[f.key] || undefined : undefined,
+                  }))}
+                />
+                {pending > 0 && (
+                  <Etiqueta icono={LoaderCircle} tono="amber">
+                    {pending} {pending === 1 ? "pendiente" : "pendientes"}
+                  </Etiqueta>
+                )}
               </div>
-            )}
 
-            {/* Filters */}
-            <div className="ui-card ui-sheen px-4 py-3 flex items-center gap-3">
-              <div className="ui-scroll flex-1 overflow-x-auto">
-                <div
-                  className="inline-flex items-center gap-1 p-1 rounded-xl"
-                  style={{ background: "var(--hifi-bg-elev)", border: "1px solid var(--hifi-hairline)" }}
-                >
-                  {FILTERS.map((f) => {
-                    const on = filter === f.key;
-                    const n = f.key ? counts[f.key] : undefined;
+              {msg && (
+                <div style={{ marginBottom: 16 }}>
+                  <Aviso enLinea tipo={msg.ok ? "ok" : "error"} titulo={msg.text} />
+                </div>
+              )}
+
+              {!loading && list.length === 0 ? (
+                <Vacio
+                  icono={MessageSquareText}
+                  tono="pink"
+                  titulo={filter ? "Sin solicitudes en este estado" : "Aún no hay solicitudes de residentes"}
+                  texto="Aparecerán aquí cuando un residente radique una PQRS desde su portal."
+                />
+              ) : (
+                <ul className="pq-lista" aria-label="Solicitudes de los residentes">
+                  {list.map((p) => {
+                    const st = STATUS_META[p.status] || STATUS_META.radicado;
+                    const tipo = TYPE_META[p.type] || { label: p.type, tono: "slate" as Tono };
+                    const isOpen = expanded === p.id;
+                    const correo = p.residentContact && /[^@\s]+@[^@\s]+\.[^@\s]+/.test(p.residentContact);
                     return (
-                      <button
-                        key={f.key}
-                        onClick={() => setFilter(f.key)}
-                        className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0 inline-flex items-center gap-1.5"
-                        style={{
-                          background: on ? "var(--hifi-accent)" : "transparent",
-                          color: on ? "var(--on-accent)" : "var(--ink-2)",
-                          boxShadow: on ? "0 6px 16px -8px rgb(var(--accent-rgb) / 0.9)" : "none",
-                        }}
-                      >
-                        {f.label}
-                        {n ? (
-                          <span
-                            className="tabular-nums rounded px-1.5 text-[11px]"
-                            style={{
-                              background: on ? "rgb(var(--veil-rgb) / 0.2)" : "rgb(var(--veil-rgb) / 0.07)",
-                              color: on ? "var(--on-accent)" : "var(--ink-2)",
-                            }}
-                          >
-                            {n}
+                      <li key={p.id} className={unir("pq-item", isOpen && "abierta")} data-h={st.tono}>
+                        <button
+                          type="button"
+                          className="pq-cab"
+                          aria-expanded={isOpen}
+                          aria-controls={`pq-${p.id}`}
+                          onClick={() => { setExpanded(isOpen ? null : p.id); setReply(""); setMsg(null); }}
+                        >
+                          <Loseta icono={st.icono} tono={st.tono} />
+                          <span className="pq-tx">
+                            <span className="pq-tit">
+                              <Categoria tono={tipo.tono}>{tipo.label}</Categoria>
+                              <b>{p.subject}</b>
+                            </span>
+                            <span className="pq-meta">
+                              <span className="cod">{p.code}</span>
+                              {p.property?.name && (
+                                <span><Building2 aria-hidden="true" focusable="false" />{p.property.name}</span>
+                              )}
+                              {p.unitLabel && (
+                                <span><Home aria-hidden="true" focusable="false" />{p.unitLabel}</span>
+                              )}
+                              <span>{fecha(p.createdAt)}</span>
+                            </span>
                           </span>
-                        ) : null}
-                      </button>
+                          <Etiqueta icono={st.icono} tono={st.tono}>{st.label}</Etiqueta>
+                          <ChevronDown className="chev" aria-hidden="true" focusable="false" />
+                        </button>
+
+                        {isOpen && (
+                          <div id={`pq-${p.id}`} className="pq-cuerpo">
+                            {(p.residentName || p.residentContact) && (
+                              <p className="pq-quien">
+                                <User aria-hidden="true" focusable="false" />
+                                {[p.residentName, p.residentContact].filter(Boolean).join(" · ")}
+                              </p>
+                            )}
+                            <div className="pq-hilo">
+                              {p.messages.map((m) => (
+                                <div key={m.id} className={unir("pq-msg", m.fromAdmin && "admin")}>
+                                  <p className="k-msg-meta">
+                                    <b>{m.fromAdmin ? "Administración" : p.residentName || "Residente"}</b>
+                                    <span>{fecha(m.createdAt)}</span>
+                                  </p>
+                                  <p className="tx">{m.content}</p>
+                                </div>
+                              ))}
+                            </div>
+
+                            {p.status !== "cerrado" && canAct && (
+                              <>
+                                <Redactor
+                                  etiqueta="Tu respuesta al residente"
+                                  placeholder="Escribe tu respuesta…"
+                                  valor={reply}
+                                  alCambiar={setReply}
+                                  alEnviar={() => act(p.id, { reply, notify })}
+                                  enviando={busy}
+                                  deshabilitado={busy}
+                                  enviarConEnter={false}
+                                  filas={3}
+                                  etiquetaEnviar="Responder"
+                                  textoEnviando="Enviando…"
+                                  herramientas={
+                                    correo ? (
+                                      <Casilla
+                                        etiqueta="Notificar por correo"
+                                        checked={notify}
+                                        onChange={(e) => setNotify(e.target.checked)}
+                                      />
+                                    ) : undefined
+                                  }
+                                />
+                                <div className="pq-estados">
+                                  <span>Cambiar estado:</span>
+                                  {["en_proceso", "resuelto", "cerrado"].filter((s) => s !== p.status).map((s) => (
+                                    <Boton
+                                      key={s}
+                                      variante="secundario"
+                                      tam={40}
+                                      icono={STATUS_META[s].icono}
+                                      tono={STATUS_META[s].tono}
+                                      disabled={busy}
+                                      onClick={() => act(p.id, { status: s })}
+                                    >
+                                      {STATUS_META[s].accion}
+                                    </Boton>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                            {p.status === "cerrado" && (
+                              <div className="pq-estados">
+                                <Boton
+                                  variante="secundario"
+                                  tam={40}
+                                  icono={RotateCcw}
+                                  tono="amber"
+                                  disabled={busy}
+                                  onClick={() => act(p.id, { status: "en_proceso" })}
+                                >
+                                  Reabrir
+                                </Boton>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </li>
                     );
                   })}
-                </div>
-              </div>
-              {pending > 0 && (
-                <span className="shrink-0 hidden sm:inline" style={{ ...monoMini, color: "var(--warn-text)" }}>
-                  {pending} pendientes
-                </span>
+                </ul>
               )}
-            </div>
-
-            {msg && (
-              <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg text-[12.5px]" style={msg.ok ? { background: "rgb(var(--ok-rgb) / 0.1)", border: "1px solid rgb(var(--ok-rgb) / 0.3)", color: "var(--ok-text)" } : { background: "rgb(var(--danger-rgb) / 0.1)", border: "1px solid rgb(var(--danger-rgb) / 0.3)", color: "var(--danger-text)" }}>
-                {msg.ok && <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-px" />}
-                <span>{msg.text}</span>
-              </div>
-            )}
-
-            {!loading && list.length === 0 ? (
-              <div className="rounded-2xl p-10 text-center" style={card}>
-                <MessageSquare className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
-                <p className="text-[14px] mb-1" style={{ color: "var(--ink-2)" }}>
-                  {filter ? "Sin solicitudes en este estado" : "Aún no hay solicitudes de residentes"}
-                </p>
-                <p className="text-[12.5px]" style={{ color: "var(--ink-3)" }}>
-                  Aparecerán aquí cuando un residente radique una PQRS desde su portal.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {list.map((p) => {
-                  const st = STATUS_META[p.status] || STATUS_META.radicado;
-                  const isOpen = expanded === p.id;
-                  return (
-                    <div key={p.id} className="ui-card ui-sheen overflow-hidden">
-                      <button onClick={() => { setExpanded(isOpen ? null : p.id); setReply(""); setMsg(null); }} className="w-full flex items-center gap-3 p-4 cursor-pointer text-left">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="px-2 py-0.5 rounded-full text-[9.5px]" style={{ ...monoLabel, fontSize: 9, background: "rgb(var(--veil-rgb) / 0.05)", color: "var(--ink-2)", border: "1px solid rgb(var(--veil-rgb) / 0.1)" }}>
-                              {TYPE_LABELS[p.type] || p.type}
-                            </span>
-                            <p className="text-[13.5px] font-medium truncate" style={{ color: "var(--ink)" }}>{p.subject}</p>
-                          </div>
-                          {/* whitespace-nowrap + truncate: on a phone the property
-                              name used to wrap mid-word and orphan its icon. */}
-                          <p style={{ ...monoMini, color: "var(--ink-3)" }} className="mt-1 flex items-center gap-x-2 whitespace-nowrap overflow-hidden">
-                            <span className="shrink-0">{p.code}</span>
-                            {p.property?.name && (
-                              <span className="hidden lg:inline-flex items-center gap-1 min-w-0">
-                                <Building2 className="h-3 w-3 shrink-0" />
-                                <span className="truncate">{p.property.name}</span>
-                              </span>
-                            )}
-                            {p.unitLabel && (
-                              <span className="inline-flex items-center gap-1 shrink-0"><Home className="h-3 w-3" />{p.unitLabel}</span>
-                            )}
-                            {/* Truncated to "01 d…" on a phone — the full date is
-                                one tap away in the expanded thread. */}
-                            <span className="hidden sm:inline truncate">{fecha(p.createdAt)}</span>
-                          </p>
-                        </div>
-                        <span className="px-2.5 py-1 rounded-full text-[10.5px] font-medium flex-shrink-0" style={{ background: st.bg, color: st.color, border: `1px solid ${st.border}` }}>{st.label}</span>
-                        <ChevronDown className="h-4 w-4 transition-transform flex-shrink-0" style={{ color: "var(--ink-4)", transform: isOpen ? "rotate(180deg)" : "none" }} />
-                      </button>
-
-                      {isOpen && (
-                        <div className="px-4 pb-4 space-y-3">
-                          {(p.residentName || p.residentContact) && (
-                            <p className="text-[11.5px] flex items-center gap-1.5" style={{ color: "var(--ink-3)" }}>
-                              <User className="h-3 w-3" />
-                              {[p.residentName, p.residentContact].filter(Boolean).join(" · ")}
-                            </p>
-                          )}
-                          <div className="space-y-2">
-                            {p.messages.map((m) => (
-                              <div key={m.id} className="rounded-xl p-3" style={{ background: m.fromAdmin ? "rgb(var(--accent-rgb) / 0.08)" : "rgb(var(--veil-rgb) / 0.03)", border: `1px solid ${m.fromAdmin ? "rgb(var(--accent-rgb) / 0.2)" : "rgb(var(--veil-rgb) / 0.07)"}` }}>
-                                <p style={{ ...monoLabel, fontSize: 9, color: m.fromAdmin ? "var(--accent-text)" : "var(--ink-3)" }} className="mb-1">
-                                  {m.fromAdmin ? "Administración" : (p.residentName || "Residente")} · {fecha(m.createdAt)}
-                                </p>
-                                <p className="text-[13px] whitespace-pre-wrap leading-relaxed" style={{ color: "var(--ink)" }}>{m.content}</p>
-                              </div>
-                            ))}
-                          </div>
-
-                          {p.status !== "cerrado" && canAct && (
-                            <div className="space-y-2">
-                              <textarea
-                                value={expanded === p.id ? reply : ""}
-                                onChange={(e) => setReply(e.target.value)}
-                                rows={3}
-                                placeholder="Escribe tu respuesta…"
-                                className="w-full rounded-lg text-[13px] px-3 py-2.5"
-                                style={{ background: "var(--hifi-bg-elev)", border: "1px solid rgb(var(--veil-rgb) / 0.1)", color: "var(--ink)", outline: "none", resize: "vertical", fontFamily: "inherit" }}
-                                maxLength={4000}
-                              />
-                              <div className="flex flex-wrap items-center gap-3">
-                                <button
-                                  onClick={() => act(p.id, { reply, notify })}
-                                  disabled={busy || !reply.trim()}
-                                  className="ui-press inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[12.5px] font-medium px-4 py-2 cursor-pointer"
-                                  style={{ background: "var(--accent)" }}
-                                >
-                                  {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                                  Responder
-                                </button>
-                                {p.residentContact && /[^@\s]+@[^@\s]+\.[^@\s]+/.test(p.residentContact) && (
-                                  <label className="flex items-center gap-1.5 text-[12px] cursor-pointer" style={{ color: "var(--ink-2)" }}>
-                                    <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
-                                    Notificar por correo
-                                  </label>
-                                )}
-                                <span className="flex-1" />
-                                {["en_proceso", "resuelto", "cerrado"].filter((s) => s !== p.status).map((s) => (
-                                  <button
-                                    key={s}
-                                    onClick={() => act(p.id, { status: s })}
-                                    disabled={busy}
-                                    className="text-[11.5px] px-3 py-1.5 rounded-full cursor-pointer transition-colors hover:bg-white/[0.06]"
-                                    style={{ color: STATUS_META[s].color, border: `1px solid ${STATUS_META[s].border}` }}
-                                  >
-                                    {STATUS_META[s].label}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {p.status === "cerrado" && (
-                            <button onClick={() => act(p.id, { status: "en_proceso" })} disabled={busy} className="text-[11.5px] px-3 py-1.5 rounded-full cursor-pointer" style={{ color: "var(--warn-text)", border: "1px solid rgb(var(--warn-rgb) / 0.3)" }}>
-                              Reabrir
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+            </>
+          )}
+        </Pieza>
+      </Pagina>
     </div>
   );
 }
@@ -381,7 +386,7 @@ export default function PqrsRoute() {
       <div>
         <Header title="PQRS" subtitle="Peticiones, quejas y reclamos de los residentes" />
         <ComingSoon
-          icon={MessageSquare}
+          icon={MessageSquareText}
           title="PQRS"
           description="La bandeja de peticiones, quejas y reclamos de los residentes vuelve pronto — la estamos afinando antes de activarla."
         />

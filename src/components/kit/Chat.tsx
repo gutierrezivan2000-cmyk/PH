@@ -51,9 +51,12 @@ export function RespuestaAgente({ agente, hora, meta, children, acciones, classN
  */
 export function Redactor({
   etiqueta, placeholder, valor, alCambiar, alEnviar, enviando, deshabilitado, herramientas, enviarConEnter = true, filas = 2,
+  etiquetaEnviar = "Enviar", textoEnviando = "Enviando…",
 }: {
   etiqueta: string; placeholder?: string; valor: string; alCambiar: (v: string) => void; alEnviar: () => void;
   enviando?: boolean; deshabilitado?: boolean; herramientas?: ReactNode; enviarConEnter?: boolean; filas?: number;
+  /** Verbo del botón: «Enviar» (por defecto), «Responder», «Publicar»… El icono se deduce de él. */
+  etiquetaEnviar?: string; textoEnviando?: string;
 }) {
   const vacio = !valor.trim();
   const tecla = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -67,8 +70,8 @@ export function Redactor({
       <textarea rows={filas} aria-label={etiqueta} placeholder={placeholder} value={valor} disabled={deshabilitado}
         onChange={(e) => alCambiar(e.target.value)} onKeyDown={tecla} />
       <div className="herr">{herramientas}</div>
-      <Boton onClick={alEnviar} disabled={deshabilitado || vacio} cargando={enviando} textoCargando="Enviando…" tono="violet">
-        Enviar
+      <Boton onClick={alEnviar} disabled={deshabilitado || vacio} cargando={enviando} textoCargando={textoEnviando} tono="violet">
+        {etiquetaEnviar}
       </Boton>
     </div>
   );

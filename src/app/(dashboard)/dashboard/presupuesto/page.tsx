@@ -1,31 +1,39 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import {
+  BarChart3, ChevronDown, Download, Landmark, ListPlus, Lock, PenLine, PiggyBank, Plus, Receipt, Save, Scale,
+  ShieldAlert, ShieldCheck, Trash2, TrendingUp, type LucideIcon,
+} from "lucide-react";
 import { Header } from "@/components/dashboard/Header";
 import { ComingSoon } from "@/components/dashboard/ComingSoon";
 import { COMING_SOON } from "@/lib/feature-flags";
 import { fmtCOP } from "@/lib/cartera";
 import { defaultBudgetItems, type BudgetItem, type BudgetExecution } from "@/lib/presupuesto";
 import {
-  PieChart,
-  Loader2,
-  Plus,
-  Trash2,
-  Save,
-  Download,
-  ChevronDown,
-  CheckCircle2,
-  ArrowUpRight,
-  ShieldAlert,
-  ShieldCheck,
-  Landmark,
-  ListPlus,
-  TrendingUp,
-  Receipt,
-  Scale,
-} from "lucide-react";
-import { tinte } from "@/lib/tinte";
+  Aviso,
+  BarraProgreso,
+  Boton,
+  BotonIcono,
+  CabeceraPieza,
+  Campo,
+  Categoria,
+  Entrada,
+  Esqueleto,
+  Kpi,
+  Kpis,
+  Loseta,
+  Modal,
+  Pagina,
+  Panel,
+  PestanasUnidas,
+  Pieza,
+  Segmentos,
+  Selector,
+  Vacio,
+  unir,
+  type Tono,
+} from "@/components/kit";
 
 interface Property {
   id: string;
@@ -42,11 +50,6 @@ interface LedgerEntry {
   note: string | null;
 }
 
-const MONTHS = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-];
-
 const TYPE_LABELS: Record<string, string> = {
   ingreso: "Ingreso",
   gasto: "Gasto",
@@ -54,34 +57,12 @@ const TYPE_LABELS: Record<string, string> = {
   fondo_retiro: "Retiro del fondo",
 };
 
-const monoLabel: React.CSSProperties = {
-  fontFamily: "'Geist Mono', 'GeistMono', monospace",
-  fontSize: "10px",
-  letterSpacing: "0.16em",
-  textTransform: "uppercase",
-};
-
-const monoMini: React.CSSProperties = {
-  fontFamily: "'Geist Mono', 'GeistMono', monospace",
-  fontSize: "11px",
-  letterSpacing: "0.06em",
-};
-
-const card: React.CSSProperties = {
-  background: "var(--hifi-surface-1)",
-  border: "1px solid var(--hifi-hairline)",
-};
-
-const inputStyle: React.CSSProperties = {
-  background: "var(--hifi-bg-elev)",
-  border: "1px solid rgb(var(--veil-rgb) / 0.1)",
-  color: "var(--ink)",
-  borderRadius: "10px",
-  height: "40px",
-  padding: "0 12px",
-  fontSize: "13px",
-  outline: "none",
-  width: "100%",
+/** Cada tipo de movimiento con su icono y color: ingreso ↗ verde · gasto 🧾 ámbar · fondo 🏛 verde/ámbar. */
+const TIPO_META: Record<string, { icono: LucideIcon; tono: Tono }> = {
+  ingreso: { icono: TrendingUp, tono: "green" },
+  gasto: { icono: Receipt, tono: "amber" },
+  fondo_aporte: { icono: Landmark, tono: "green" },
+  fondo_retiro: { icono: Landmark, tono: "amber" },
 };
 
 function newId(): string {
@@ -92,9 +73,137 @@ function newId(): string {
   }
 }
 
+/** Cifra con signo legible: «−$2.478.000» en vez de «$-2.478.000». */
+function fmtSigno(n: number): string {
+  return n < 0 ? `−${fmtCOP(-n)}` : fmtCOP(n);
+}
+
 function todayIso(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/* Estilos locales: barra de contexto, ejecución por rubro, movimientos y edición del presupuesto. */
+const CSS_PRESUPUESTO = `
+.pr-ctx { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin: 0 0 16px; }
+.pr-ctx > .k-pest { flex: 1 1 auto; min-width: 0; }
+.pr-ctx > .k-select { flex: 0 0 130px; }
+.pr-vista { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin: 0 0 22px; }
+.pr-vista > .k-btn { margin-left: auto; }
+.pr-fondo { margin: 0 0 24px; }
+.pr-fondo p { margin: 0 0 8px; font-size: 15.5px; line-height: 1.5; color: var(--ink-2); }
+.pr-fondo p strong { color: var(--ink); font-weight: 800; }
+.pr-fondo .k-barra { margin: 14px 0 6px; }
+.pr-fondo .acc { margin-top: 12px; }
+.pr-grupo { margin: 0 0 20px; padding: 20px 24px 8px; border-radius: 26px; background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.pr-grupo > header { display: flex; align-items: center; gap: 14px; margin: 0 0 8px; }
+.pr-grupo > header h3 { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.015em; }
+.pr-grupo > header .tot { font-size: 15.5px; font-weight: 700; color: var(--ink-2); font-feature-settings: "tnum" 1; text-align: right; }
+.pr-grupo > header .tot b { color: var(--ink); font-weight: 800; }
+.pr-filas { list-style: none; margin: 0; padding: 0; }
+.pr-fila { padding: 14px 0; border-top: 1px solid var(--line); }
+.pr-fila .l1 { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 8px; }
+.pr-fila .l1 span { font-size: 16px; font-weight: 700; }
+.pr-fila .l1 b { font-size: 15.5px; font-weight: 800; white-space: nowrap; font-feature-settings: "tnum" 1; }
+.pr-fila .l1 b small { font-size: inherit; font-weight: 500; color: var(--ink-3); }
+.pr-fila .l1 b.pasa { color: var(--danger-text); }
+.pr-grupo .k-barra > i, .pr-fondo .k-barra > i { background: linear-gradient(90deg, var(--h-a), var(--h-b)); }
+.pr-grupo .k-barra.excede > i, .pr-fondo .k-barra.excede > i { background: var(--danger); }
+.pr-fila .l2 { display: grid; grid-template-columns: minmax(0, 1fr) 52px; align-items: center; gap: 12px; }
+.pr-fila .l2 > span { text-align: right; font-size: 14px; font-weight: 800; color: var(--ink-2); font-feature-settings: "tnum" 1; }
+.pr-fila .l2 > span.pasa { color: var(--danger-text); }
+.pr-fila .l2.sin .k-barra > i { background: var(--ink-3); opacity: .4; }
+.pr-mov { margin: 0 0 24px; overflow: hidden; border-radius: 26px; background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.pr-mov > button { display: flex; align-items: center; gap: 14px; width: 100%; padding: 16px 20px; text-align: left; background: transparent; cursor: pointer; }
+.pr-mov > button:hover { background: var(--hl); }
+.pr-mov > button > span:not(.k-tile) { flex: 1 1 auto; min-width: 0; }
+.pr-mov > button b { display: block; font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
+.pr-mov > button small { display: block; margin-top: 2px; font-size: 14px; color: var(--ink-2); }
+.pr-mov > button .chev { width: 20px; height: 20px; flex: none; color: var(--ink-3); }
+.pr-mov > button[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.pr-mov form { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); column-gap: 18px; align-items: start; padding: 4px 20px 22px; }
+.pr-mov form .k-fld { grid-column: span 2; margin-bottom: 16px; }
+.pr-mov form .k-fld.doble { grid-column: span 4; }
+.pr-mov form .acc { grid-column: 1 / -1; }
+.pr-lista { margin: 0 0 8px; padding: 20px 24px 12px; border-radius: 26px; background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--sh-1); }
+.pr-lista > h3 { margin: 0 0 8px; display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 800; letter-spacing: -.015em; }
+.pr-lista ul { list-style: none; margin: 0; padding: 0; }
+.pr-lista li { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto auto; align-items: center; gap: 4px 14px; padding: 12px 0; border-top: 1px solid var(--line); }
+.pr-lista li .c b { display: block; font-size: 15.5px; font-weight: 800; line-height: 1.3; overflow-wrap: anywhere; }
+.pr-lista li .c small { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 3px; font-size: 13.5px; color: var(--ink-3); }
+.pr-lista li .m { font-size: 16px; font-weight: 800; white-space: nowrap; font-feature-settings: "tnum" 1; }
+.pr-lista li .m.mas { color: var(--ok-text); }
+.pr-lista li .m.menos { color: var(--warn-text); }
+.pr-edit { display: grid; grid-template-columns: minmax(0, 1fr) 176px auto; align-items: center; gap: 10px; padding: 6px 0; }
+.pr-edit .k-in { min-height: 46px; }
+.pr-edit .monto { text-align: right; font-feature-settings: "tnum" 1; }
+.pr-pie { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 4px; }
+.pr-pie .n { font-size: 14.5px; font-weight: 600; color: var(--ink-2); }
+@media (min-width: 861px) and (max-width: 1180px) {
+  .pr-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  .pr-kpis .k-kpi.k-32 > b { font-size: clamp(15px, 4.8vw, 24px); }
+  .pr-ctx > .k-select { flex: 1 1 100%; }
+  .pr-vista > .k-btn { margin-left: 0; }
+  .pr-grupo, .pr-lista { padding: 16px 16px 6px; border-radius: 22px; }
+  .pr-grupo > header { flex-wrap: wrap; }
+  .pr-mov form { grid-template-columns: minmax(0, 1fr); padding: 2px 14px 18px; }
+  .pr-mov form .k-fld, .pr-mov form .k-fld.doble { grid-column: 1 / -1; }
+  .pr-lista li { grid-template-columns: 40px minmax(0, 1fr) auto; }
+  .pr-lista li > .k-ic { grid-column: 3; grid-row: 2; }
+  .pr-edit { grid-template-columns: minmax(0, 1fr) auto; padding: 8px 0; }
+  .pr-edit > :first-child { grid-column: 1 / -1; }
+  .pr-edit .monto-c { grid-column: 1; }
+}
+`;
+
+/** Tabla de ejecución de un grupo (ingresos o gastos): cada rubro con su barra y su porcentaje. */
+function TablaEjecucion({ titulo, grupo, execution }: { titulo: string; grupo: "ingresos" | "gastos"; execution: BudgetExecution }) {
+  const g = execution[grupo];
+  if (g.rows.length === 0) return null;
+  const esIngreso = grupo === "ingresos";
+  return (
+    <section className="pr-grupo" aria-label={titulo} data-h={esIngreso ? "green" : "amber"}>
+      <header>
+        <Loseta icono={esIngreso ? TrendingUp : Receipt} tono={esIngreso ? "green" : "amber"} />
+        <h3>{titulo}</h3>
+        <span className="tot">
+          <b>{fmtCOP(g.executed)}</b> de {fmtCOP(g.budgeted)}
+        </span>
+      </header>
+      <ul className="pr-filas">
+        {g.rows.map((row) => {
+          const over = row.budgeted > 0 && row.executed > row.budgeted;
+          const sinPresupuesto = row.budgeted === 0 && row.executed > 0;
+          const pct = Math.min(100, row.budgeted > 0 ? row.pct : row.executed > 0 ? 100 : 0);
+          return (
+            <li key={row.id} className="pr-fila">
+              <div className="l1">
+                <span>{row.concept}</span>
+                <b className={over ? "pasa" : undefined}>
+                  {fmtCOP(row.executed)} <small>/ {fmtCOP(row.budgeted)}</small>
+                </b>
+              </div>
+              <div className={unir("l2", sinPresupuesto && "sin")}>
+                <BarraProgreso valor={pct} excede={over} decorativa />
+                <span className={over ? "pasa" : undefined}>
+                  {row.budgeted > 0 ? (
+                    `${row.pct}%`
+                  ) : (
+                    <>
+                      <span className="sr-only">Sin presupuesto asignado</span>
+                      <span aria-hidden="true">—</span>
+                    </>
+                  )}
+                </span>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
 }
 
 function PresupuestoPage() {
@@ -112,6 +221,8 @@ function PresupuestoPage() {
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [execution, setExecution] = useState<BudgetExecution | null>(null);
   const [dirty, setDirty] = useState(false);
+  // Movimiento que se va a eliminar (confirmación en un <Modal>, antes window.confirm).
+  const [porEliminar, setPorEliminar] = useState<LedgerEntry | null>(null);
 
   // Movement form
   const [showMov, setShowMov] = useState(false);
@@ -250,8 +361,8 @@ function PresupuestoPage() {
     }
   }
 
+  // La confirmación («¿Eliminar este movimiento?») la pide el <Modal> (porEliminar).
   async function deleteMovement(id: string) {
-    if (!window.confirm("¿Eliminar este movimiento?")) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/presupuesto/movimientos?id=${id}`, { method: "DELETE" });
@@ -262,470 +373,403 @@ function PresupuestoPage() {
   }
 
   const years = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
-
-  function ExecTable({ title, group }: { title: string; group: "ingresos" | "gastos" }) {
-    if (!execution) return null;
-    const g = execution[group];
-    if (g.rows.length === 0) return null;
-    const accent = group === "ingresos" ? "var(--ok)" : "var(--warn)";
-    return (
-      <div className="ui-card ui-sheen overflow-hidden">
-        <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: "1px solid var(--hifi-hairline)" }}>
-          <span style={{ ...monoLabel, color: accent }}>{title}</span>
-          <span style={{ ...monoMini, color: "var(--ink-3)" }}>
-            {fmtCOP(g.executed)} / {fmtCOP(g.budgeted)}
-          </span>
-        </div>
-        <div className="divide-y" style={{ borderColor: "rgb(var(--veil-rgb) / 0.05)" }}>
-          {g.rows.map((row) => {
-            const over = row.budgeted > 0 && row.executed > row.budgeted;
-            return (
-              <div key={row.id} className="px-5 py-3">
-                <div className="flex items-center justify-between gap-3 mb-1.5">
-                  <span className="text-[13px]" style={{ color: "var(--ink)" }}>{row.concept}</span>
-                  <span className="text-[12.5px] font-medium whitespace-nowrap" style={{ color: over ? "var(--danger-text)" : "var(--ink-2)" }}>
-                    {fmtCOP(row.executed)}
-                    <span style={{ color: "var(--ink-4)" }}> / {fmtCOP(row.budgeted)}</span>
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "rgb(var(--veil-rgb) / 0.05)" }}>
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.min(100, row.budgeted > 0 ? row.pct : row.executed > 0 ? 100 : 0)}%`,
-                        background: over ? "var(--danger)" : accent,
-                      }}
-                    />
-                  </div>
-                  <span style={{ ...monoMini, color: over ? "var(--danger-text)" : "var(--ink-3)", minWidth: 38, textAlign: "right" }}>
-                    {row.budgeted > 0 ? `${row.pct}%` : "—"}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
+  const conPresupuesto = tab === "ejecucion" && items.length > 0;
 
   return (
     <div>
+      <style href="k-presupuesto-local" precedence="default">
+        {CSS_PRESUPUESTO}
+      </style>
       <Header title="Presupuesto" subtitle="Presupuesto anual, ejecución y fondo de imprevistos" />
-      <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-[1320px] mx-auto space-y-4">
-        {loading && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent-text)" }} />
-          </div>
-        )}
+      <Pagina>
+        <Pieza>
+          <CabeceraPieza
+            titulo="Presupuesto"
+            subtitulo="Presupuesto anual, ejecución y fondo de imprevistos"
+            acciones={
+              !loading && !upgrade && conPresupuesto ? (
+                <Boton
+                  variante="secundario"
+                  href={`/api/presupuesto/export?propertyId=${propertyId}&year=${year}`}
+                  descargar
+                  icono={Download}
+                  tono="green"
+                >
+                  Excel para contador
+                </Boton>
+              ) : undefined
+            }
+          />
 
-        {!loading && upgrade && (
-          <div className="rounded-2xl p-8 text-center" style={{ ...card, borderColor: "rgb(var(--accent-rgb) / 0.3)" }}>
-            <PieChart className="h-9 w-9 mx-auto mb-3" style={{ color: "var(--accent-text)" }} />
-            <p className="text-[16px] font-semibold mb-2" style={{ color: "var(--ink)" }}>
-              El presupuesto es una función de los planes Business y Élite
-            </p>
-            <p className="text-[13px] mb-5 max-w-md mx-auto leading-relaxed" style={{ color: "var(--ink-2)" }}>
-              Presupuesto anual por rubros, ejecución mes a mes, fondo de imprevistos y exporte a
-              Excel para el contador.
-            </p>
-            <Link
-              href="/dashboard/suscripcion"
-              className="inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-6 py-3"
-              style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
-            >
-              Ver planes
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </div>
-        )}
+          {loading && <Esqueleto variante="completo" filas={3} etiquetaAccesible="Cargando el presupuesto…" />}
 
-        {!loading && !upgrade && properties.length === 0 && (
-          <div className="rounded-2xl p-10 text-center" style={card}>
-            <PieChart className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
-            <p className="text-[14px]" style={{ color: "var(--ink-2)" }}>
-              Crea una propiedad primero para armar su presupuesto.
-            </p>
-          </div>
-        )}
+          {!loading && upgrade && (
+            <Vacio
+              icono={Lock}
+              tono="violet"
+              titulo="El presupuesto es una función de los planes Business y Élite"
+              texto="Presupuesto anual por rubros, ejecución mes a mes, fondo de imprevistos y exporte a Excel para el contador."
+              acciones={<Boton href="/dashboard/suscripcion">Ver planes</Boton>}
+            />
+          )}
 
-        {!loading && !upgrade && properties.length > 0 && (
-          <>
-            {/* Toolbar: context (property + year) on top, view tabs below —
-                one bar instead of a card plus a floating row of naked chips. */}
-            <div className="ui-card ui-sheen">
-              <div className="px-4 pt-3 pb-3 flex items-center gap-3">
-                <div className="ui-scroll flex-1 overflow-x-auto">
-                  <div
-                    className="inline-flex items-center gap-1.5 p-1 rounded-xl"
-                    style={{ background: "var(--hifi-bg-elev)", border: "1px solid var(--hifi-hairline)" }}
-                  >
-                    {properties.map((p) => {
-                      const on = propertyId === p.id;
-                      return (
-                        <button
-                          key={p.id}
-                          onClick={() => setPropertyId(p.id)}
-                          className="ui-chip px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer whitespace-nowrap shrink-0"
-                          style={{
-                            background: on ? "var(--hifi-accent)" : "transparent",
-                            color: on ? "var(--on-accent)" : "var(--ink-2)",
-                            boxShadow: on ? "0 6px 16px -8px rgb(var(--accent-rgb) / 0.9)" : "none",
-                          }}
+          {!loading && !upgrade && properties.length === 0 && (
+            <Vacio
+              titulo="Crea una propiedad primero para armar su presupuesto."
+              texto="El presupuesto se arma por copropiedad y por año."
+              acciones={<Boton href="/dashboard/propiedades" flecha="crea">Agregar propiedad</Boton>}
+            />
+          )}
+
+          {!loading && !upgrade && properties.length > 0 && (
+            <>
+              {/* Contexto: copropiedad y año */}
+              <div className="pr-ctx">
+                <PestanasUnidas
+                  etiquetaAccesible="Copropiedad"
+                  valor={propertyId}
+                  alCambiar={setPropertyId}
+                  items={properties.map((p) => ({ id: p.id, etiqueta: p.name }))}
+                />
+                <Selector aria-label="Año del presupuesto" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+                  {years.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </Selector>
+              </div>
+
+              {/* Vista */}
+              <div className="pr-vista">
+                <Segmentos
+                  etiquetaAccesible="Vista del presupuesto"
+                  valor={tab}
+                  alCambiar={(v) => { setTab(v as "ejecucion" | "presupuesto"); setMsg(null); }}
+                  items={[
+                    { id: "ejecucion", etiqueta: "Ejecución", icono: BarChart3, tono: "blue" },
+                    { id: "presupuesto", etiqueta: "Editar presupuesto", icono: PenLine, tono: "violet" },
+                  ]}
+                />
+              </div>
+
+              {msg && (
+                <div style={{ marginBottom: 18 }}>
+                  <Aviso enLinea tipo={msg.ok ? "ok" : "error"} titulo={msg.text} />
+                </div>
+              )}
+
+              {/* ── EJECUCIÓN ─────────────────────────────── */}
+              {tab === "ejecucion" && (
+                <>
+                  {items.length === 0 ? (
+                    <Vacio
+                      icono={PiggyBank}
+                      tono="lime"
+                      titulo={`Aún no hay presupuesto para ${year}`}
+                      texto="Arma el presupuesto anual por rubros para comparar contra la ejecución real."
+                      acciones={
+                        <Boton icono={ListPlus} tono="violet" onClick={() => setTab("presupuesto")}>
+                          Armar presupuesto
+                        </Boton>
+                      }
+                    />
+                  ) : execution ? (
+                    <>
+                      <div style={{ marginBottom: 24 }}>
+                        <Kpis className="pr-kpis">
+                          <Kpi
+                            icono={TrendingUp}
+                            tono="green"
+                            cifra={fmtCOP(execution.ingresos.executed)}
+                            tamLetra={32}
+                            etiqueta="Ingresos ejecutados"
+                            variacion={`de ${fmtCOP(execution.ingresos.budgeted)} presupuestado`}
+                          />
+                          <Kpi
+                            icono={Receipt}
+                            tono="amber"
+                            cifra={fmtCOP(execution.gastos.executed)}
+                            tamLetra={32}
+                            etiqueta="Gastos ejecutados"
+                            variacion={`de ${fmtCOP(execution.gastos.budgeted)} presupuestado`}
+                          />
+                          <Kpi
+                            icono={Scale}
+                            tono={execution.resultado >= 0 ? "green" : "red"}
+                            cifra={fmtSigno(execution.resultado)}
+                            tamLetra={32}
+                            alerta={execution.resultado < 0}
+                            etiqueta="Resultado"
+                            variacion={execution.resultado >= 0 ? "superávit acumulado" : "déficit acumulado"}
+                            malo={execution.resultado < 0}
+                          />
+                          <Kpi
+                            icono={execution.fondo.compliant ? ShieldCheck : ShieldAlert}
+                            tono={execution.fondo.compliant ? "green" : "red"}
+                            cifra={fmtCOP(execution.fondo.balance)}
+                            tamLetra={32}
+                            alerta={!execution.fondo.compliant}
+                            etiqueta="Fondo de imprevistos"
+                            variacion={execution.fondo.compliant ? "cumple el 1% de ley" : "por debajo del 1% de ley"}
+                            malo={!execution.fondo.compliant}
+                          />
+                        </Kpis>
+                      </div>
+
+                      {/* Fondo de imprevistos */}
+                      <div className="pr-fondo" data-h={execution.fondo.compliant ? "green" : "amber"}>
+                        <Panel
+                          titulo="Fondo de imprevistos (Art. 35, Ley 675)"
+                          icono={execution.fondo.compliant ? ShieldCheck : ShieldAlert}
+                          tono={execution.fondo.compliant ? "green" : "amber"}
+                          nivel={2}
                         >
-                          {p.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="relative shrink-0">
-                  <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ ...inputStyle, width: 104, appearance: "none", paddingRight: 30, cursor: "pointer" }}>
-                    {years.map((y) => (
-                      <option key={y} value={y} style={{ background: "var(--hifi-surface-1)" }}>{y}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
-                </div>
-              </div>
-
-              <div className="h-px" style={{ background: "var(--hifi-hairline)" }} />
-
-              <div className="px-4 py-3 flex flex-wrap items-center gap-2">
-                {(["ejecucion", "presupuesto"] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => { setTab(t); setMsg(null); }}
-                    className="ui-chip px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer"
-                    style={{
-                      border: `1px solid ${tab === t ? "rgb(var(--accent-rgb) / 0.45)" : "rgb(var(--veil-rgb) / 0.1)"}`,
-                      background: tab === t ? "rgb(var(--accent-rgb) / 0.15)" : "transparent",
-                      color: tab === t ? "var(--accent-hi)" : "var(--ink-2)",
-                    }}
-                  >
-                    {t === "ejecucion" ? "Ejecución" : "Editar presupuesto"}
-                  </button>
-                ))}
-                {tab === "ejecucion" && items.length > 0 && (
-                  <a
-                    href={`/api/presupuesto/export?propertyId=${propertyId}&year=${year}`}
-                    className="ui-chip sm:ml-auto inline-flex items-center gap-1.5 rounded-lg text-[12px] font-medium px-3.5 py-1.5 cursor-pointer"
-                    style={{ background: "rgb(var(--ok-rgb) / 0.12)", color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.3)" }}
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Excel para contador
-                  </a>
-                )}
-              </div>
-            </div>
-
-            {msg && (
-              <div
-                className="flex items-start gap-2 px-3 py-2.5 rounded-lg text-[12.5px]"
-                style={
-                  msg.ok
-                    ? { background: "rgb(var(--ok-rgb) / 0.1)", border: "1px solid rgb(var(--ok-rgb) / 0.3)", color: "var(--ok-text)" }
-                    : { background: "rgb(var(--danger-rgb) / 0.1)", border: "1px solid rgb(var(--danger-rgb) / 0.3)", color: "var(--danger-text)" }
-                }
-              >
-                {msg.ok && <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-px" />}
-                <span>{msg.text}</span>
-              </div>
-            )}
-
-            {/* ── EJECUCIÓN TAB ─────────────────────────────── */}
-            {tab === "ejecucion" && (
-              <>
-                {items.length === 0 ? (
-                  <div className="rounded-2xl p-10 text-center" style={card}>
-                    <PieChart className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--ink-4)" }} />
-                    <p className="text-[14px] mb-1" style={{ color: "var(--ink-2)" }}>
-                      Aún no hay presupuesto para {year}
-                    </p>
-                    <p className="text-[12.5px] mb-4" style={{ color: "var(--ink-3)" }}>
-                      Arma el presupuesto anual por rubros para comparar contra la ejecución real.
-                    </p>
-                    <button
-                      onClick={() => setTab("presupuesto")}
-                      className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
-                      style={{ background: "rgb(var(--accent-rgb) / 0.15)", color: "var(--accent-text)", border: "1px solid rgb(var(--accent-rgb) / 0.4)" }}
-                    >
-                      <ListPlus className="h-3.5 w-3.5" />
-                      Armar presupuesto
-                    </button>
-                  </div>
-                ) : execution ? (
-                  <>
-                    {/* Summary KPIs */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 ui-stagger">
-                      {[
-                        { label: "Ingresos ejecutados", value: fmtCOP(execution.ingresos.executed), color: "var(--ok-text)", Icon: TrendingUp, hint: `de ${fmtCOP(execution.ingresos.budgeted)} presupuestado` },
-                        { label: "Gastos ejecutados", value: fmtCOP(execution.gastos.executed), color: "var(--warn-text)", Icon: Receipt, hint: `de ${fmtCOP(execution.gastos.budgeted)} presupuestado` },
-                        { label: "Resultado", value: fmtCOP(execution.resultado), color: execution.resultado >= 0 ? "var(--ok)" : "var(--danger)", Icon: Scale, hint: execution.resultado >= 0 ? "superávit acumulado" : "déficit acumulado" },
-                        { label: "Fondo imprevistos", value: fmtCOP(execution.fondo.balance), color: execution.fondo.compliant ? "var(--ok-text)" : "var(--danger)", Icon: ShieldCheck, hint: execution.fondo.compliant ? "cumple el 1% de ley" : "por debajo del 1% de ley" },
-                      ].map((k) => (
-                        <div key={k.label} className="ui-card ui-sheen relative overflow-hidden p-4 pl-5">
-                          <span className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: k.color }} />
-                          <div className="flex items-start justify-between gap-2 mb-2.5">
-                            <span style={{ ...monoLabel, color: "var(--ink-3)" }}>{k.label}</span>
-                            <span
-                              className="flex items-center justify-center rounded-lg flex-shrink-0"
-                              style={{ width: 26, height: 26, background: `${tinte(k.color, 0.1)}` }}
-                            >
-                              <k.Icon className="h-3.5 w-3.5" style={{ color: k.color }} />
-                            </span>
-                          </div>
-                          <p
-                            className="ui-count font-semibold tracking-tight leading-none tabular-nums"
-                            style={{ fontSize: "clamp(18px, 4.6vw, 23px)", color: k.color }}
-                          >
-                            {k.value}
+                          <p>
+                            Mínimo legal: 1% del presupuesto de gastos = <strong>{fmtCOP(execution.fondo.required)}</strong>. Saldo actual:{" "}
+                            <strong>{fmtCOP(execution.fondo.balance)}</strong> (aportes {fmtCOP(execution.fondo.aportes)} − retiros{" "}
+                            {fmtCOP(execution.fondo.retiros)}).
                           </p>
-                          <p className="text-[11px] mt-1.5" style={{ color: "var(--ink-4)" }}>{k.hint}</p>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Fondo de imprevistos card */}
-                    <div
-                      className="rounded-2xl p-5"
-                      style={{
-                        ...card,
-                        borderColor: execution.fondo.compliant ? "rgb(var(--ok-rgb) / 0.25)" : "rgb(var(--warn-rgb) / 0.3)",
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
-                        {execution.fondo.compliant ? (
-                          <ShieldCheck className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: "var(--ok-text)" }} />
-                        ) : (
-                          <ShieldAlert className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: "var(--warn-text)" }} />
-                        )}
-                        <div className="flex-1">
-                          <p className="text-[13.5px] font-medium mb-0.5" style={{ color: "var(--ink)" }}>
-                            Fondo de imprevistos (Art. 35, Ley 675)
-                          </p>
-                          <p className="text-[12px]" style={{ color: "var(--ink-2)" }}>
-                            Mínimo legal: 1% del presupuesto de gastos = <strong>{fmtCOP(execution.fondo.required)}</strong>.
-                            {" "}Saldo actual: <strong style={{ color: execution.fondo.compliant ? "var(--ok-text)" : "var(--warn)" }}>{fmtCOP(execution.fondo.balance)}</strong>
-                            {" "}(aportes {fmtCOP(execution.fondo.aportes)} − retiros {fmtCOP(execution.fondo.retiros)}).
-                          </p>
+                          {execution.fondo.required > 0 && (
+                            <BarraProgreso
+                              valor={Math.min(100, (execution.fondo.balance / execution.fondo.required) * 100)}
+                              excede={!execution.fondo.compliant}
+                              etiquetaAccesible="Avance hacia el mínimo legal del fondo"
+                            />
+                          )}
                           {!execution.fondo.compliant && execution.fondo.required > 0 && (
-                            <p className="text-[12px] mt-1.5" style={{ color: "var(--warn-text)" }}>
+                            <p style={{ color: "var(--warn-text)", fontWeight: 700 }}>
                               Faltan {fmtCOP(Math.max(0, execution.fondo.required - execution.fondo.balance))} para cumplir el mínimo.
                             </p>
                           )}
-                          <div className="flex gap-2 mt-3">
-                            <button
-                              onClick={() => { setShowMov(true); setMovType("fondo_aporte"); setMovConcept("Aporte al fondo de imprevistos"); window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }); }}
-                              className="inline-flex items-center gap-1.5 rounded-full text-[11.5px] px-3 py-1.5 cursor-pointer transition-colors hover:bg-white/[0.06]"
-                              style={{ color: "var(--ok-text)", border: "1px solid rgb(var(--ok-rgb) / 0.3)" }}
+                          <div className="acc">
+                            <Boton
+                              variante="secundario"
+                              tam={40}
+                              icono={Landmark}
+                              tono="green"
+                              onClick={() => {
+                                setShowMov(true);
+                                setMovType("fondo_aporte");
+                                setMovConcept("Aporte al fondo de imprevistos");
+                                setTimeout(() => document.getElementById("pr-mov")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+                              }}
                             >
-                              <Landmark className="h-3 w-3" />
                               Registrar aporte
-                            </button>
+                            </Boton>
                           </div>
-                        </div>
+                        </Panel>
                       </div>
-                    </div>
 
-                    <ExecTable title="Ingresos" group="ingresos" />
-                    <ExecTable title="Gastos" group="gastos" />
-                  </>
-                ) : null}
+                      <TablaEjecucion titulo="Ingresos" grupo="ingresos" execution={execution} />
+                      <TablaEjecucion titulo="Gastos" grupo="gastos" execution={execution} />
+                    </>
+                  ) : null}
 
-                {/* Register movement */}
-                {items.length > 0 && (
-                  <div className="ui-card ui-sheen">
-                    <button
-                      onClick={() => setShowMov((v) => !v)}
-                      className="w-full flex items-center gap-3 p-4 cursor-pointer"
-                    >
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgb(var(--accent-rgb) / 0.12)" }}>
-                        <Plus className="h-4 w-4" style={{ color: "var(--accent-text)" }} />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-[13.5px] font-medium" style={{ color: "var(--ink)" }}>Registrar movimiento</p>
-                        <p className="text-[11.5px]" style={{ color: "var(--ink-3)" }}>Ingreso, gasto o movimiento del fondo</p>
-                      </div>
-                      <ChevronDown className="h-4 w-4 transition-transform" style={{ color: "var(--ink-4)", transform: showMov ? "rotate(180deg)" : "none" }} />
-                    </button>
-                    {showMov && (
-                      <form onSubmit={addMovement} className="px-4 pb-4 space-y-3">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          <div>
-                            <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Tipo</label>
-                            <div className="relative">
-                              <select value={movType} onChange={(e) => { setMovType(e.target.value); setMovItem(""); }} style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
-                                <option value="gasto" style={{ background: "var(--hifi-surface-1)" }}>Gasto</option>
-                                <option value="ingreso" style={{ background: "var(--hifi-surface-1)" }}>Ingreso</option>
-                                <option value="fondo_aporte" style={{ background: "var(--hifi-surface-1)" }}>Aporte al fondo</option>
-                                <option value="fondo_retiro" style={{ background: "var(--hifi-surface-1)" }}>Retiro del fondo</option>
-                              </select>
-                              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
-                            </div>
-                          </div>
+                  {/* Registrar movimiento */}
+                  {items.length > 0 && (
+                    <div className="pr-mov" id="pr-mov" data-h="green">
+                      <button
+                        type="button"
+                        aria-expanded={showMov}
+                        aria-controls="pr-mov-form"
+                        onClick={() => setShowMov((v) => !v)}
+                      >
+                        <Loseta icono={Plus} tono="green" />
+                        <span>
+                          <b>Registrar movimiento</b>
+                          <small>Ingreso, gasto o movimiento del fondo</small>
+                        </span>
+                        <ChevronDown className="chev" aria-hidden="true" focusable="false" />
+                      </button>
+                      {showMov && (
+                        <form id="pr-mov-form" onSubmit={addMovement}>
+                          <Campo id="pr-tipo" etiqueta="Tipo">
+                            <Selector
+                              id="pr-tipo"
+                              value={movType}
+                              onChange={(e) => { setMovType(e.target.value); setMovItem(""); }}
+                            >
+                              <option value="gasto">Gasto</option>
+                              <option value="ingreso">Ingreso</option>
+                              <option value="fondo_aporte">Aporte al fondo</option>
+                              <option value="fondo_retiro">Retiro del fondo</option>
+                            </Selector>
+                          </Campo>
                           {(movType === "ingreso" || movType === "gasto") && (
-                            <div>
-                              <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Rubro</label>
-                              <div className="relative">
-                                <select value={movItem} onChange={(e) => setMovItem(e.target.value)} style={{ ...inputStyle, appearance: "none", paddingRight: 32, cursor: "pointer" }}>
-                                  <option value="" style={{ background: "var(--hifi-surface-1)" }}>Sin rubro</option>
-                                  {items.filter((i) => i.group === movType).map((i) => (
-                                    <option key={i.id} value={i.id} style={{ background: "var(--hifi-surface-1)" }}>{i.concept}</option>
-                                  ))}
-                                </select>
-                                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
-                              </div>
-                            </div>
+                            <Campo id="pr-rubro" etiqueta="Rubro">
+                              <Selector id="pr-rubro" value={movItem} onChange={(e) => setMovItem(e.target.value)}>
+                                <option value="">Sin rubro</option>
+                                {items.filter((i) => i.group === movType).map((i) => (
+                                  <option key={i.id} value={i.id}>{i.concept}</option>
+                                ))}
+                              </Selector>
+                            </Campo>
                           )}
-                          <div>
-                            <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Fecha</label>
-                            <input type="date" value={movDate} onChange={(e) => setMovDate(e.target.value)} style={{ ...inputStyle, colorScheme: "dark" }} />
+                          <Campo id="pr-fecha" etiqueta="Fecha">
+                            <Entrada id="pr-fecha" type="date" value={movDate} onChange={(e) => setMovDate(e.target.value)} />
+                          </Campo>
+                          <Campo id="pr-concepto" etiqueta="Concepto" className="doble">
+                            <Entrada id="pr-concepto" value={movConcept} onChange={(e) => setMovConcept(e.target.value)} placeholder="Ej: Pago vigilancia mayo" maxLength={120} />
+                          </Campo>
+                          <Campo id="pr-monto" etiqueta="Monto (COP)">
+                            <Entrada id="pr-monto" value={movAmount} onChange={(e) => setMovAmount(e.target.value)} placeholder="1.200.000" inputMode="numeric" />
+                          </Campo>
+                          <div className="acc">
+                            <Boton type="submit" flecha="crea" cargando={busy} textoCargando="Registrando…">
+                              Registrar
+                            </Boton>
                           </div>
-                          <div className="sm:col-span-2">
-                            <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Concepto</label>
-                            <input value={movConcept} onChange={(e) => setMovConcept(e.target.value)} placeholder="Ej: Pago vigilancia mayo" style={inputStyle} maxLength={120} />
-                          </div>
-                          <div>
-                            <label style={{ ...monoLabel, color: "var(--ink-3)" }} className="block mb-1.5">Monto (COP)</label>
-                            <input value={movAmount} onChange={(e) => setMovAmount(e.target.value)} placeholder="1.200.000" style={inputStyle} inputMode="numeric" />
+                        </form>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Movimientos */}
+                  {entries.length > 0 && (
+                    <section className="pr-lista" aria-labelledby="pr-mov-t">
+                      <h3 id="pr-mov-t">
+                        <Loseta icono={Receipt} tono="slate" tam={36} />
+                        Movimientos {year}
+                      </h3>
+                      <ul>
+                        {entries.slice(0, 60).map((e) => {
+                          const positive = e.type === "ingreso" || e.type === "fondo_aporte";
+                          const meta = TIPO_META[e.type] ?? TIPO_META.gasto;
+                          return (
+                            <li key={e.id}>
+                              <Loseta icono={meta.icono} tono={meta.tono} tam={40} suave />
+                              <div className="c">
+                                <b>{e.concept}</b>
+                                <small>
+                                  <Categoria tono={meta.tono}>{TYPE_LABELS[e.type] || e.type}</Categoria>
+                                  <span>{new Date(e.date).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}</span>
+                                </small>
+                              </div>
+                              <span className={unir("m", positive ? "mas" : "menos")}>
+                                {positive ? "+" : "−"}{fmtCOP(e.amount)}
+                              </span>
+                              <BotonIcono etiquetaAccesible={`Eliminar el movimiento «${e.concept}»`} tam={40} sinBorde onClick={() => setPorEliminar(e)}>
+                                <Trash2 />
+                              </BotonIcono>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
+                  )}
+                </>
+              )}
+
+              {/* ── EDITAR PRESUPUESTO ───────────────────── */}
+              {tab === "presupuesto" && (
+                <>
+                  {items.length === 0 && (
+                    <div style={{ marginBottom: 22 }}>
+                      <Panel titulo="Empieza con una plantilla" icono={ListPlus} tono="violet" nivel={2}>
+                        <p style={{ margin: "0 0 16px", fontSize: 15.5, color: "var(--ink-2)" }}>
+                          Empieza con una plantilla de rubros típicos de PH y ajústala, o agrega los tuyos.
+                        </p>
+                        <Boton icono={ListPlus} tono="violet" onClick={loadTemplate}>Cargar plantilla</Boton>
+                      </Panel>
+                    </div>
+                  )}
+
+                  {(["ingreso", "gasto"] as const).map((group) => {
+                    const groupItems = items.filter((i) => i.group === group);
+                    const total = groupItems.reduce((s, i) => s + i.budgeted, 0);
+                    const esIngreso = group === "ingreso";
+                    return (
+                      <section key={group} className="pr-grupo" aria-label={esIngreso ? "Ingresos" : "Gastos"} data-h={esIngreso ? "green" : "amber"}>
+                        <header>
+                          <Loseta icono={esIngreso ? TrendingUp : Receipt} tono={esIngreso ? "green" : "amber"} />
+                          <h3>{esIngreso ? "Ingresos" : "Gastos"}</h3>
+                          <span className="tot"><b>{fmtCOP(total)}</b></span>
+                        </header>
+                        <div>
+                          {groupItems.map((it) => (
+                            <div key={it.id} className="pr-edit">
+                              <Entrada
+                                aria-label="Concepto del rubro"
+                                value={it.concept}
+                                onChange={(e) => updateItem(it.id, "concept", e.target.value)}
+                                placeholder="Concepto del rubro"
+                                maxLength={120}
+                              />
+                              <span className="monto-c">
+                                <Entrada
+                                  aria-label={`Monto presupuestado de ${it.concept || "este rubro"}`}
+                                  className="monto"
+                                  value={it.budgeted ? it.budgeted.toLocaleString("es-CO") : ""}
+                                  onChange={(e) => updateItem(it.id, "budgeted", e.target.value)}
+                                  placeholder="0"
+                                  inputMode="numeric"
+                                />
+                              </span>
+                              <BotonIcono etiquetaAccesible={`Quitar el rubro ${it.concept || "sin nombre"}`} tam={40} sinBorde onClick={() => removeItem(it.id)}>
+                                <Trash2 />
+                              </BotonIcono>
+                            </div>
+                          ))}
+                          <div style={{ padding: "8px 0 14px" }}>
+                            <Boton variante="fantasma" tam={40} flecha="crea" onClick={() => addItem(group)}>
+                              Agregar rubro
+                            </Boton>
                           </div>
                         </div>
-                        <button
-                          type="submit"
-                          disabled={busy}
-                          className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-                          style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
-                        >
-                          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                          Registrar
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                )}
+                      </section>
+                    );
+                  })}
 
-                {/* Movements list */}
-                {entries.length > 0 && (
-                  <div className="ui-card ui-sheen overflow-hidden">
-                    <div className="px-5 py-3.5" style={{ borderBottom: "1px solid var(--hifi-hairline)" }}>
-                      <span style={{ ...monoLabel, color: "var(--ink-3)" }}>Movimientos {year}</span>
+                  {items.length > 0 && (
+                    <div className="pr-pie">
+                      <Boton
+                        icono={Save}
+                        tono="violet"
+                        onClick={saveBudget}
+                        disabled={!dirty}
+                        cargando={busy}
+                        textoCargando="Guardando…"
+                      >
+                        {dirty ? "Guardar presupuesto" : "Guardado"}
+                      </Boton>
+                      <span className="n">
+                        Fondo de imprevistos requerido: {fmtCOP(Math.round(items.filter((i) => i.group === "gasto").reduce((s, i) => s + i.budgeted, 0) * 0.01))}
+                      </span>
                     </div>
-                    <div className="divide-y" style={{ borderColor: "rgb(var(--veil-rgb) / 0.05)" }}>
-                      {entries.slice(0, 60).map((e) => {
-                        const positive = e.type === "ingreso" || e.type === "fondo_aporte";
-                        return (
-                          <div key={e.id} className="px-5 py-2.5 flex items-center gap-3">
-                            <span style={{ ...monoMini, color: "var(--ink-3)", minWidth: 58 }}>
-                              {new Date(e.date).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}
-                            </span>
-                            <span className="flex-1 min-w-0">
-                              <span className="text-[12.5px] truncate block" style={{ color: "var(--ink)" }}>{e.concept}</span>
-                              <span style={{ ...monoMini, color: "var(--ink-4)" }}>{TYPE_LABELS[e.type] || e.type}</span>
-                            </span>
-                            <span className="text-[12.5px] font-medium whitespace-nowrap" style={{ color: positive ? "var(--ok-text)" : "var(--warn)" }}>
-                              {positive ? "+" : "−"}{fmtCOP(e.amount)}
-                            </span>
-                            <button onClick={() => deleteMovement(e.id)} className="p-1 rounded cursor-pointer hover:bg-white/[0.06]" style={{ color: "rgb(var(--danger-rgb) / 0.55)" }} title="Eliminar">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </Pieza>
+      </Pagina>
 
-            {/* ── PRESUPUESTO TAB ───────────────────────────── */}
-            {tab === "presupuesto" && (
-              <>
-                {items.length === 0 && (
-                  <div className="rounded-2xl p-5 flex flex-wrap items-center gap-3" style={{ ...card, borderColor: "rgb(var(--accent-rgb) / 0.22)" }}>
-                    <p className="text-[13px] flex-1" style={{ color: "var(--ink-2)" }}>
-                      Empieza con una plantilla de rubros típicos de PH y ajústala, o agrega los tuyos.
-                    </p>
-                    <button
-                      onClick={loadTemplate}
-                      className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium px-4 py-2 cursor-pointer"
-                      style={{ background: "var(--accent)", color: "var(--on-accent)" }}
-                    >
-                      <ListPlus className="h-3.5 w-3.5" />
-                      Cargar plantilla
-                    </button>
-                  </div>
-                )}
-
-                {(["ingreso", "gasto"] as const).map((group) => {
-                  const groupItems = items.filter((i) => i.group === group);
-                  const total = groupItems.reduce((s, i) => s + i.budgeted, 0);
-                  const accent = group === "ingreso" ? "var(--ok)" : "var(--warn)";
-                  return (
-                    <div key={group} className="ui-card ui-sheen overflow-hidden">
-                      <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: "1px solid var(--hifi-hairline)" }}>
-                        <span style={{ ...monoLabel, color: accent }}>{group === "ingreso" ? "Ingresos" : "Gastos"}</span>
-                        <span style={{ ...monoMini, color: "var(--ink-2)" }}>{fmtCOP(total)}</span>
-                      </div>
-                      <div className="p-3 space-y-2">
-                        {groupItems.map((it) => (
-                          <div key={it.id} className="flex items-center gap-2">
-                            <input
-                              value={it.concept}
-                              onChange={(e) => updateItem(it.id, "concept", e.target.value)}
-                              placeholder="Concepto del rubro"
-                              className="flex-1 h-9 px-3 rounded-lg text-[13px]"
-                              style={{ background: "rgb(var(--veil-rgb) / 0.04)", border: "1px solid rgb(var(--veil-rgb) / 0.08)", color: "var(--ink)", outline: "none" }}
-                              maxLength={120}
-                            />
-                            <input
-                              value={it.budgeted ? it.budgeted.toLocaleString("es-CO") : ""}
-                              onChange={(e) => updateItem(it.id, "budgeted", e.target.value)}
-                              placeholder="0"
-                              inputMode="numeric"
-                              className="w-36 h-9 px-3 rounded-lg text-[13px] text-right"
-                              style={{ background: "rgb(var(--veil-rgb) / 0.04)", border: "1px solid rgb(var(--veil-rgb) / 0.08)", color: "var(--ink)", outline: "none" }}
-                            />
-                            <button onClick={() => removeItem(it.id)} className="p-2 rounded-lg cursor-pointer hover:bg-white/[0.06]" style={{ color: "rgb(var(--danger-rgb) / 0.55)" }}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        ))}
-                        <button
-                          onClick={() => addItem(group)}
-                          className="inline-flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg cursor-pointer transition-colors hover:bg-white/[0.04]"
-                          style={{ color: "var(--ink-2)" }}
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          Agregar rubro
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {items.length > 0 && (
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={saveBudget}
-                      disabled={busy || !dirty}
-                      className="ui-press ui-btn-glow inline-flex items-center gap-2 rounded-full text-[var(--on-accent)] text-[13px] font-medium px-5 py-2.5 cursor-pointer"
-                      style={{ background: "var(--accent)", boxShadow: "0 8px 24px -8px rgb(var(--accent-rgb) / 0.5)" }}
-                    >
-                      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                      {dirty ? "Guardar presupuesto" : "Guardado"}
-                    </button>
-                    <span style={{ ...monoMini, color: "var(--ink-3)" }}>
-                      Fondo de imprevistos requerido: {fmtCOP(Math.round(items.filter((i) => i.group === "gasto").reduce((s, i) => s + i.budgeted, 0) * 0.01))}
-                    </span>
-                  </div>
-                )}
-              </>
-            )}
+      <Modal
+        abierto={!!porEliminar}
+        alCerrar={() => setPorEliminar(null)}
+        titulo="¿Eliminar este movimiento?"
+        acciones={
+          <>
+            <Boton variante="secundario" onClick={() => setPorEliminar(null)}>Cancelar</Boton>
+            <Boton
+              variante="peligro"
+              lleno
+              onClick={() => {
+                const e = porEliminar;
+                setPorEliminar(null);
+                if (e) void deleteMovement(e.id);
+              }}
+            >
+              Eliminar movimiento
+            </Boton>
           </>
+        }
+      >
+        {porEliminar && (
+          <p>
+            «{porEliminar.concept}» por {fmtCOP(porEliminar.amount)} dejará de contarse en la ejecución del presupuesto.
+          </p>
         )}
-      </div>
+      </Modal>
     </div>
   );
 }
@@ -742,7 +786,7 @@ export default function PresupuestoRoute() {
       <div>
         <Header title="Presupuesto" subtitle="Presupuesto anual, ejecución y fondo de imprevistos" />
         <ComingSoon
-          icon={PieChart}
+          icon={PiggyBank}
           title="Presupuesto"
           description="El presupuesto anual, la ejecución por rubro y el fondo de imprevistos vuelven pronto — los estamos afinando antes de activarlos."
         />
