@@ -1074,9 +1074,34 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
 - Un recorte por bytes de 9:30 a 20:30 se decodifica sin errores y dura 11:00,02.
 - Pendiente de verificar en M4: la lectura con `-headers` desde Blob privado por HTTPS.
 
+**Notas de M0 (desviaciones y decisiones al construir):**
+
+- **Nombres.** Los tipos de reunión son `TIPOS_DE_REUNION` (`src/lib/meetings/tipos.ts`). La lista de tipos
+  MIME aceptados para subir es `TIPOS_ARCHIVO_REUNION` (`upload-limits.ts`); donde este plan dice
+  `TIPOS_REUNION` para la subida (§10, §14), léase `TIPOS_ARCHIVO_REUNION`.
+- **Visibilidad.** `puedeVerReuniones` es pura (`feature-flags.ts`) y se apoya en `reunionesVisibles(modo, usuario)`.
+  El menú (cliente) solo ve el rol de la sesión; los admins de `ADMIN_EMAILS` entran con rol admin porque el
+  login los promueve. En servidor (`acceso.ts`, M1) se suma `adminDeEntorno: isEnvAdmin(email)`. El layout no
+  pasa ninguna bandera: `Sidebar.tsx` la calcula con `useSession()`.
+- **`iconoDeAccion`** ya tenía `/^(grabar)/ → Mic`; no hizo falta tocarlo. «Empezar a grabar» cae en la regla
+  `empezar → Play`, así que el botón de la grabadora (M3) debe fijar `icono={Mic}` a mano.
+- **Demo.** En vez de 3 reuniones son 5 (`src/lib/meetings/demo.ts`): lista, procesando 12 de 24, borrador,
+  error en un tramo y sin horas. La de septiembre tiene 5 temas en el orden del día, 3 decisiones, **6**
+  compromisos, 1 votación, 5 voces (4 confirmadas y H5 como sugerencia) y un receso de 10 min.
+  El almacén vive en `globalThis` (las rutas dev se compilan en paquetes separados).
+- **Tipos compartidos** en `src/lib/meetings/dto.ts` (`ReunionResumen`, `ReunionDetalle`, `Ficha`, …).
+- **`formatoTamano`** ahora pasa a GB desde 1000 MB (un WAV de 8 h pesa ~5,5 GB).
+- **Prueba de sincronía** `ensure-meetings-schema.test.ts`: lee `schema.prisma` y exige que el SQL de
+  `ensureMeetingsSchema` tenga las mismas columnas, tipos, defaults, índices y claves foráneas. Si cambias
+  un modelo de Reuniones, esa prueba te dice qué falta en el SQL.
+- **Trampa del entorno:** si `tsc` falla con errores en `.next/dev/types/validator.ts`, el archivo quedó
+  corrupto por un reinicio del servidor a mitad de escritura. Se borra y se reinicia el servidor (se regenera).
+  Un `ClientFetchError` de next-auth en los scripts de Playwright suele ser una navegación que aborta el
+  `fetch` de sesión en curso, no un error de la app.
+
 | Hito | Estado | Commit | Notas |
 |---|---|---|---|
-| M0 Fundaciones | pendiente | | |
+| M0 Fundaciones | hecho | (ver `git log`) | Ver «Notas de M0» abajo. |
 | M1 Lista y creación | pendiente | | |
 | M2 Subida reanudable | pendiente | | |
 | M3 Grabadora | pendiente | | |

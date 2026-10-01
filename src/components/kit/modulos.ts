@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { isValidElement } from "react";
 import {
-  ArrowLeft, ArrowRight, ArrowRightLeft, BadgeCheck, Bell, Building2, CalendarClock, CalendarDays, CalendarPlus, Check, Copy,
+  ArrowLeft, ArrowRight, ArrowRightLeft, AudioLines, BadgeCheck, Bell, Building2, CalendarClock, CalendarDays, CalendarPlus, Check, Copy,
   CreditCard, Crown, Download, ExternalLink, Eye, Eraser, FilePlus2, FileText, FilterX, Gauge, History, House,
   KeyRound, Landmark, Layers, LifeBuoy, Link2, LogOut, Mail, Megaphone, MessageCircle, MessageSquareText, Mic, Palette,
   Pencil, PiggyBank, Play, Plus, Power, Printer, Puzzle, RefreshCw, RotateCcw, Rocket, Save, Search, Send, Settings,
@@ -21,7 +21,7 @@ export type Tono =
   | "pink" | "fuchsia" | "indigo" | "slate" | "ai";
 
 export type ClaveModulo =
-  | "inicio" | "generar" | "bitacora" | "asistente" | "cartera" | "presupuesto" | "residentes" | "pqrs"
+  | "inicio" | "reuniones" | "generar" | "bitacora" | "asistente" | "cartera" | "presupuesto" | "residentes" | "pqrs"
   | "comunicados" | "asambleas" | "certificados" | "propiedades" | "historial" | "suscripcion" | "configuracion"
   | "soporte" | "onboarding" | "portafolio" | "generarLote" | "propiedadesEmpresa";
 
@@ -39,6 +39,7 @@ export type Modulo = {
 
 export const MODULOS: Record<ClaveModulo, Modulo> = {
   inicio: { clave: "inicio", nombre: "Inicio", href: "/dashboard", icono: House, tono: "violet", queHace: "Lo que necesita tu atención hoy." },
+  reuniones: { clave: "reuniones", nombre: "Reuniones", href: "/dashboard/reuniones", icono: AudioLines, tono: "blue", queHace: "Graba o sube tus reuniones y obtén la transcripción completa." },
   generar: { clave: "generar", nombre: "Generar", href: "/dashboard/generar", icono: FilePlus2, tono: "blue", queHace: "Crea actas e informes en minutos." },
   bitacora: { clave: "bitacora", nombre: "Bitácora", href: "/dashboard/calendario", icono: CalendarClock, tono: "orange", queHace: "Vencimientos legales y mantenimientos." },
   asistente: { clave: "asistente", nombre: "Asistente IA", href: "/dashboard/asistente", icono: Sparkles, tono: "ai", queHace: "Agentes de IA que trabajan por ti." },
