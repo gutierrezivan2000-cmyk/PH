@@ -6,7 +6,10 @@
  *   import "@/components/kit/fuentes";
  * No toques el <link> de Google del layout raíz: lo usa la portada.
  *
- * - "Figtree Variable": eje wght 300–900. Una sola familia redonda y amable para
- *   toda la interfaz; las cifras usan `tnum` para alinearse en columnas.
+ * - "Inter Variable": la tipografía de «Calma» (el aspecto actual): sobria y muy legible, eje wght 100–900,
+ *   con cifras tabulares (`tnum`) para alinear importes en columnas.
+ * - "Figtree Variable": la de «Guía» (redonda y amable). Solo se descarga si se quita
+ *   `data-paleta="calma"` del <html> (ver design/guia/README.md); con «Calma» el navegador no la pide.
  */
 import "@fontsource-variable/figtree";
+import "@fontsource-variable/inter";
