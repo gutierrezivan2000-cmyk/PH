@@ -8,14 +8,15 @@
  */
 import { DEMO_USER, getProperties } from "@/lib/demo-store";
 import type {
-  Ficha, FuenteDTO, HablanteDTO, IntervencionDTO, MarcadorDTO, PersonaDTO, RangoMs, ReunionDetalle, ReunionResumen,
+  Ficha, FuenteDTO, HablanteDTO, IntervencionDTO, MarcadorDTO, PersonaDTO, RangoMs, ReunionDetalle, ReunionResumen, VivoDTO,
 } from "./dto";
 import {
   DURACION_SEPTIEMBRE_MS, FICHA_SEPTIEMBRE, MARCADORES_SEPTIEMBRE, PERSONAS_LOS_PINOS, SILENCIOS_SEPTIEMBRE,
   construirHablantes, construirIntervenciones,
 } from "./demo-datos";
-import { MAX_FUENTES_POR_REUNION, puedeAgregarFuentes } from "./tipos";
-import type { CambiosPersona, CambiosReunion, NuevaPersona } from "./validar";
+import { nombreDeSesion, offsetAntesDe, planificarCierre, type ParteRecibida } from "./cierre";
+import { MAX_FUENTES_POR_REUNION, MAX_MARCADORES, MAX_SESIONES_VIVO, puedeAgregarFuentes } from "./tipos";
+import type { CambiosPersona, CambiosReunion, NuevaMarca, NuevaPersona, ParteViva, SesionDeCierre } from "./validar";
 
 type ReunionDemo = {
   id: string;
@@ -43,7 +44,15 @@ type ReunionDemo = {
   ficha: Ficha | null;
   intervenciones: IntervencionDTO[];
   silencios: RangoMs[];
+  /** Partes de la grabadora en vivo (el demo guarda solo su medida, no el audio). */
+  vivo: ParteVivaDemo[];
+  /** Sesiones de grabación ya cerradas (cada una es una fuente). */
+  cerradas: Array<{ session: number; durationMs: number }>;
+  /** Números de sesión ya entregados a un dispositivo. */
+  reservas: number[];
 };
+
+type ParteVivaDemo = ParteRecibida & { creadaEn: string };
 
 type Almacen = { reuniones: ReunionDemo[]; personas: PersonaDTO[] };
 
@@ -80,6 +89,9 @@ function vacia(base: Pick<ReunionDemo, "id" | "propertyId" | "type" | "title" | 
     ficha: null,
     intervenciones: [],
     silencios: [],
+    vivo: [],
+    cerradas: [],
+    reservas: [],
   };
 }
 
@@ -263,9 +275,21 @@ export function demoReunion(userId: string, id: string): ReunionDetalle | null {
     // Copias: el almacén es mutable y quien lee no debe poder (ni sufrir) cambiar lo que guarda.
     sources: r.fuentes.map((f) => ({ ...f })),
     speakers: r.hablantes.map((h) => ({ ...h })),
-    markers: r.marcadores.map((m) => ({ ...m })),
+    markers: r.marcadores.map((m) => ({ ...m })).sort((a, b) => a.atMs - b.atMs),
     digest: r.ficha ? structuredClone(r.ficha) : null,
     silences: r.silencios.map((x) => ({ ...x })),
+    live: r.status === "grabando" ? resumenVivoDemo(r) : null,
+  };
+}
+
+function resumenVivoDemo(r: ReunionDemo): VivoDTO | null {
+  const audio = r.vivo.filter((p) => p.seq >= 0);
+  if (audio.length === 0) return null;
+  return {
+    sesiones: new Set(audio.map((p) => p.session)).size,
+    durMs: audio.reduce((suma, p) => suma + p.durationMs, 0),
+    partes: audio.length,
+    ultimaParteEn: audio.map((p) => p.creadaEn).sort().at(-1) ?? null,
   };
 }
 
@@ -372,7 +396,10 @@ export function demoEliminarPersona(propertyId: string, id: string): boolean {
 
 /* ── Archivos de la reunión (subida simulada) ────────────────────────── */
 
-export type ResultadoDemo<T> = { ok: true; valor: T } | { ok: false; codigo: "no_existe" | "cerrada" | "tope" | "vacia" | "pendiente"; error: string };
+export type FaltanDemo = Array<{ session: number; seq: number }>;
+export type ResultadoDemo<T> =
+  | { ok: true; valor: T }
+  | { ok: false; codigo: "no_existe" | "cerrada" | "tope" | "vacia" | "pendiente" | "faltan" | "sin_constancia"; error: string; faltan?: FaltanDemo };
 
 const NO_EXISTE = { ok: false, codigo: "no_existe", error: "Reunión no encontrada" } as const;
 const CERRADA = {
@@ -438,19 +465,110 @@ export function demoQuitarFuente(userId: string, id: string, sourceId: string): 
   return { ok: true, valor: null };
 }
 
-/** Cierra la captura y manda la reunión a la cola. Idempotente. */
-export function demoProcesar(userId: string, id: string): ResultadoDemo<{ status: string }> {
+/**
+ * Cierra la captura y manda la reunión a la cola. Idempotente. Con `sesiones` (lo que declara la grabadora)
+ * comprueba que no falte ninguna parte; las sesiones con audio que nadie declaró se cierran con lo que haya.
+ */
+export function demoProcesar(
+  userId: string,
+  id: string,
+  sesiones: readonly SesionDeCierre[] | null = null,
+): ResultadoDemo<{ status: string }> {
   const r = buscar(userId, id);
   if (!r) return NO_EXISTE;
   if (r.status === "en_cola" || r.status === "procesando" || r.status === "lista") return { ok: true, valor: { status: r.status } };
   if (!puedeAgregarFuentes(r.status)) return CERRADA;
-  if (r.fuentes.length === 0) return { ok: false, codigo: "vacia", error: "Sube al menos un archivo antes de procesar la reunión." };
+
+  const plan = planificarCierre(r.vivo, r.cerradas.map((c) => ({ kind: "grabacion", session: c.session })), sesiones);
+  if (plan.faltan.length > 0) {
+    return { ok: false, codigo: "faltan", error: "Faltan partes de la grabación. Vuelve a enviarlas.", faltan: plan.faltan };
+  }
+  if (r.fuentes.length + plan.cerrar.length === 0) {
+    return { ok: false, codigo: "vacia", error: "Sube al menos un archivo antes de procesar la reunión." };
+  }
+  if (r.fuentes.length + plan.cerrar.length > MAX_FUENTES_POR_REUNION) {
+    return { ok: false, codigo: "tope", error: `Máximo ${MAX_FUENTES_POR_REUNION} archivos por reunión.` };
+  }
   if (r.fuentes.some((f) => f.status !== "recibida")) {
     return { ok: false, codigo: "pendiente", error: "Algún archivo todavía se está preparando. Espera un momento." };
+  }
+
+  for (const c of plan.cerrar) {
+    r.fuentes.push({
+      id: `src-viva-${c.session}`,
+      idx: r.fuentes.length,
+      kind: "grabacion",
+      name: nombreDeSesion(c.session, plan.cerrar.length),
+      sizeBytes: c.sizeBytes,
+      mimeType: c.mimeType,
+      status: "recibida",
+      durationMs: c.durationMs,
+      offsetMs: null,
+    });
+    r.cerradas.push({ session: c.session, durationMs: c.durationMs });
   }
   r.status = "en_cola";
   r.stage = null;
   r.progress = 0;
   r.errorMessage = null;
   return { ok: true, valor: { status: "en_cola" } };
+}
+
+/* ── Grabadora en vivo ───────────────────────────────────────────────── */
+
+const CERRADA_AUDIO = {
+  ok: false, codigo: "cerrada",
+  error: "Esta reunión ya no admite más audio: se está procesando o ya está lista.",
+} as const;
+const SIN_CONSTANCIA = {
+  ok: false, codigo: "sin_constancia",
+  error: "Antes de grabar, confirma que avisaste a los asistentes.",
+} as const;
+/** El demo vive en memoria: tope de partes por reunión (≈ 33 h). */
+export const MAX_PARTES_VIVO_DEMO = 4_000;
+
+/** Reserva el número de la próxima sesión de grabación y dice dónde empieza dentro de la reunión. */
+export function demoNuevaSesionVivo(userId: string, id: string): ResultadoDemo<{ session: number; offsetMs: number }> {
+  const r = buscar(userId, id);
+  if (!r) return NO_EXISTE;
+  if (!puedeAgregarFuentes(r.status)) return CERRADA_AUDIO;
+  if (!r.consentAt) return SIN_CONSTANCIA;
+  const session = Math.max(0, ...r.reservas, ...r.vivo.map((p) => p.session), ...r.cerradas.map((c) => c.session)) + 1;
+  if (session > MAX_SESIONES_VIVO) return { ok: false, codigo: "tope", error: "Esta reunión ya tiene demasiadas sesiones de grabación." };
+  r.reservas.push(session);
+  const offsetMs = offsetAntesDe(session, r.vivo, r.cerradas.map((c) => ({ kind: "grabacion", session: c.session, durationMs: c.durationMs })));
+  return { ok: true, valor: { session, offsetMs } };
+}
+
+/** Recibe una parte de la grabadora (idempotente por sesión y número). */
+export function demoRegistrarParteViva(userId: string, id: string, d: ParteViva & { bytes: number }): ResultadoDemo<null> {
+  const r = buscar(userId, id);
+  if (!r) return NO_EXISTE;
+  if (!puedeAgregarFuentes(r.status)) return CERRADA_AUDIO;
+  if (!r.consentAt) return SIN_CONSTANCIA;
+  const existente = r.vivo.find((p) => p.session === d.session && p.seq === d.seq);
+  if (existente) {
+    Object.assign(existente, { bytes: d.bytes, durationMs: d.durMs, mimeType: d.mime, creadaEn: new Date().toISOString() });
+  } else {
+    if (r.vivo.length >= MAX_PARTES_VIVO_DEMO) return { ok: false, codigo: "tope", error: "El demo no admite más audio en esta reunión." };
+    r.vivo.push({ session: d.session, seq: d.seq, bytes: d.bytes, durationMs: d.durMs, mimeType: d.mime, creadaEn: new Date().toISOString() });
+  }
+  if (r.status !== "grabando") {
+    r.status = "grabando";
+    r.errorMessage = null;
+  }
+  return { ok: true, valor: null };
+}
+
+/** Guarda una marca puesta durante la grabación. Idempotente por el identificador del dispositivo. */
+export function demoRegistrarMarca(userId: string, id: string, d: NuevaMarca): ResultadoDemo<{ marca: MarcadorDTO; creada: boolean }> {
+  const r = buscar(userId, id);
+  if (!r) return NO_EXISTE;
+  const marcaId = d.id ? `marca-${d.id}` : `marca-${Date.now()}-${++secuencia}`;
+  const existente = r.marcadores.find((m) => m.id === marcaId);
+  if (existente) return { ok: true, valor: { marca: { ...existente }, creada: false } };
+  if (r.marcadores.length >= MAX_MARCADORES) return { ok: false, codigo: "tope", error: `Máximo ${MAX_MARCADORES} marcas por reunión.` };
+  const marca: MarcadorDTO = { id: marcaId, atMs: d.atMs, kind: d.kind, note: d.note };
+  r.marcadores.push(marca);
+  return { ok: true, valor: { marca: { ...marca }, creada: true } };
 }

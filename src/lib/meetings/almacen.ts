@@ -90,6 +90,15 @@ export function esRutaDeFuente(meetingId: string, pathname: unknown): pathname i
   return /^[a-z0-9]{8}-[A-Za-z0-9._-]{1,120}$/.test(pathname.slice(base.length)) && !pathname.includes("..");
 }
 
+/**
+ * `meetings/<id>/vivo/<sesión>/<seq>.<ext>`: una parte de la grabadora. La ruta es SIEMPRE la misma para la
+ * misma parte, así reenviarla (la respuesta se perdió) la sobrescribe en vez de duplicarla.
+ */
+export function rutaDeParteViva(meetingId: string, session: number, seq: number, ext: "webm" | "mp4" | "ogg"): string {
+  if (!Number.isInteger(session) || session < 1 || !Number.isInteger(seq) || seq < 0) throw new Error("Parte no válida.");
+  return `${prefijoDeReunion(meetingId)}vivo/${session}/${seq}.${ext}`;
+}
+
 /** Sufijo aleatorio de 8 caracteres [a-z0-9] para una ruta nueva. */
 export function sufijoAleatorio(): string {
   const alfabeto = "abcdefghijklmnopqrstuvwxyz0123456789";

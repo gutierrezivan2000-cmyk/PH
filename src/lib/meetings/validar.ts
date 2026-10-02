@@ -8,7 +8,11 @@
 import { isAllowedBlobUrl } from "@/lib/blob-url";
 import { esArchivoDeReunion, esTipoDeReunionPermitido, formatoTamano, tipoDeArchivoReunion } from "@/lib/upload-limits";
 import { esRutaDeFuente, urlCorrespondeARuta } from "./almacen";
-import { MAX_FUENTE_BYTES, esRolPersona, esTipoReunion, type RolPersona, type TipoReunion } from "./tipos";
+import { extensionDeGrabacion, mimeBase, parteCabe } from "./grabadora-partes";
+import {
+  MAX_DURACION_PARTE_MS, MAX_FUENTE_BYTES, MAX_MS_REUNION, MAX_NOTA_MARCADOR, MAX_SECUENCIA_VIVO, MAX_SESIONES_VIVO, VIVO_PARTE_MAX_BYTES,
+  esRolPersona, esTipoMarcador, esTipoReunion, type RolPersona, type TipoMarcador, type TipoReunion,
+} from "./tipos";
 
 export type Validacion<T> = { ok: true; valor: T } | { ok: false; error: string };
 
@@ -239,4 +243,89 @@ export function validarRegistroFuente(body: unknown, meetingId: string): Validac
     return { ok: false, error: "La dirección del archivo no es válida." };
   }
   return { ok: true, valor: { ...archivo.valor, url: body.url as string, pathname: body.pathname } };
+}
+
+/* ── Grabadora en vivo ───────────────────────────────────────────────── */
+
+/** Entero decimal sin signo ni ceros de relleno raros («007» no): lo que mandan las cabeceras. */
+function leerEntero(valor: string | null, min: number, max: number): number | null {
+  if (valor === null || !/^(0|[1-9]\d{0,9})$/.test(valor)) return null;
+  const n = Number(valor);
+  return n >= min && n <= max ? n : null;
+}
+
+export type ParteViva = { session: number; seq: number; durMs: number; mime: string; ext: "webm" | "mp4" | "ogg" };
+
+/** Cabeceras de `POST /live` y tamaño del cuerpo ya leído. */
+export function validarParteViva(
+  cabeceras: { tipo: string | null; sesion: string | null; secuencia: string | null; duracionMs: string | null },
+  bytes: number,
+): Validacion<ParteViva> {
+  const ext = cabeceras.tipo ? extensionDeGrabacion(cabeceras.tipo) : null;
+  if (!ext || !cabeceras.tipo) return { ok: false, error: "El tipo de audio no es válido." };
+  const session = leerEntero(cabeceras.sesion, 1, MAX_SESIONES_VIVO);
+  if (session === null) return { ok: false, error: "El número de sesión no es válido." };
+  const seq = leerEntero(cabeceras.secuencia, 0, MAX_SECUENCIA_VIVO);
+  if (seq === null) return { ok: false, error: "El número de parte no es válido." };
+  const durMs = leerEntero(cabeceras.duracionMs, 1, MAX_DURACION_PARTE_MS);
+  if (durMs === null) return { ok: false, error: "La duración de la parte no es válida." };
+  if (!parteCabe(bytes)) {
+    return { ok: false, error: bytes <= 0 ? "La parte de audio llegó vacía." : `La parte de audio supera los ${VIVO_PARTE_MAX_BYTES / (1024 * 1024)} MB.` };
+  }
+  return { ok: true, valor: { session, seq, durMs, mime: mimeBase(cabeceras.tipo), ext } };
+}
+
+export type NuevaMarca = { id: string | null; atMs: number; kind: TipoMarcador; note: string | null };
+
+export function validarMarca(body: unknown): Validacion<NuevaMarca> {
+  if (!esObjeto(body)) return { ok: false, error: "Solicitud no válida." };
+  if (!esTipoMarcador(body.kind)) return { ok: false, error: "El tipo de marca no es válido." };
+  const atMs = body.atMs;
+  if (typeof atMs !== "number" || !Number.isInteger(atMs) || atMs < 0 || atMs > MAX_MS_REUNION) {
+    return { ok: false, error: "El minuto de la marca no es válido." };
+  }
+  let note: string | null = null;
+  if (!vacio(body.note)) {
+    if (typeof body.note !== "string") return { ok: false, error: "La nota no es válida." };
+    const limpia = limpiarTexto(body.note);
+    if (limpia.length > MAX_NOTA_MARCADOR) return { ok: false, error: `La nota admite hasta ${MAX_NOTA_MARCADOR} caracteres.` };
+    note = limpia || null;
+  }
+  // El identificador lo pone el dispositivo para que reenviar la misma marca no la duplique.
+  let id: string | null = null;
+  if (!vacio(body.id)) {
+    if (typeof body.id !== "string" || !/^[A-Za-z0-9_-]{6,60}$/.test(body.id)) return { ok: false, error: "El identificador de la marca no es válido." };
+    id = body.id;
+  }
+  return { ok: true, valor: { id, atMs, kind: body.kind, note } };
+}
+
+export type SesionDeCierre = { session: number; ultimaSecuencia: number; mimeType: string; duracionMs: number };
+
+/**
+ * Cuerpo de `POST /process`. Sin cuerpo (o `{}`) = cerrar con lo que haya; con `sesiones` = lo que el
+ * dispositivo declara haber grabado, para comprobar que no falte ninguna parte.
+ */
+export function validarCierre(body: unknown): Validacion<{ sesiones: SesionDeCierre[] | null }> {
+  if (body === null || body === undefined) return { ok: true, valor: { sesiones: null } };
+  if (!esObjeto(body)) return { ok: false, error: "Solicitud no válida." };
+  if (body.sesiones === undefined || body.sesiones === null) return { ok: true, valor: { sesiones: null } };
+  if (!Array.isArray(body.sesiones) || body.sesiones.length > MAX_SESIONES_VIVO) return { ok: false, error: "La lista de sesiones no es válida." };
+
+  const vistas = new Set<number>();
+  const sesiones: SesionDeCierre[] = [];
+  for (const s of body.sesiones) {
+    if (!esObjeto(s)) return { ok: false, error: "La lista de sesiones no es válida." };
+    const { session, ultimaSecuencia, duracionMs, mimeType } = s;
+    const sesionValida = typeof session === "number" && Number.isInteger(session) && session >= 1 && session <= MAX_SESIONES_VIVO;
+    const ultimaValida = typeof ultimaSecuencia === "number" && Number.isInteger(ultimaSecuencia) && ultimaSecuencia >= 0 && ultimaSecuencia <= MAX_SECUENCIA_VIVO;
+    const duracionValida = typeof duracionMs === "number" && Number.isFinite(duracionMs) && duracionMs >= 0 && duracionMs <= MAX_MS_REUNION;
+    if (!sesionValida || !ultimaValida || !duracionValida || typeof mimeType !== "string" || !extensionDeGrabacion(mimeType)) {
+      return { ok: false, error: "Los datos de una sesión no son válidos." };
+    }
+    if (vistas.has(session)) return { ok: false, error: "Una sesión está repetida." };
+    vistas.add(session);
+    sesiones.push({ session, ultimaSecuencia, mimeType: mimeBase(mimeType), duracionMs: Math.round(duracionMs) });
+  }
+  return { ok: true, valor: { sesiones } };
 }

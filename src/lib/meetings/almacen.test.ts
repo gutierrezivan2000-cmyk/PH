@@ -5,7 +5,7 @@ const del = vi.fn();
 vi.mock("@vercel/blob", () => ({ list: (...a: unknown[]) => list(...a), del: (...a: unknown[]) => del(...a) }));
 
 import {
-  borrarArchivosDeReunion, borrarPrefijo, esRutaDeFuente, nombreSeguro, prefijoDeReunion, rutaDeFuente, sufijoAleatorio,
+  borrarArchivosDeReunion, borrarPrefijo, esRutaDeFuente, nombreSeguro, prefijoDeReunion, rutaDeFuente, rutaDeParteViva, sufijoAleatorio,
   urlCorrespondeARuta,
 } from "./almacen";
 
@@ -142,5 +142,22 @@ describe("urlCorrespondeARuta", () => {
     expect(urlCorrespondeARuta("https://abc.private.blob.vercel-storage.com/meetings/otra/fuentes/ab12cd34-x.mp3", ruta)).toBe(false);
     expect(urlCorrespondeARuta(`https://abc.private.blob.vercel-storage.com/${ruta}.extra`, ruta)).toBe(false);
     expect(urlCorrespondeARuta("no es una url", ruta)).toBe(false);
+  });
+});
+
+describe("rutaDeParteViva", () => {
+  it("es siempre la misma para la misma parte, bajo el prefijo de la reunión", () => {
+    expect(rutaDeParteViva("m1abcdefg", 2, 17, "webm")).toBe("meetings/m1abcdefg/vivo/2/17.webm");
+    expect(rutaDeParteViva("m1abcdefg", 2, 17, "webm")).toBe(rutaDeParteViva("m1abcdefg", 2, 17, "webm"));
+    expect(rutaDeParteViva("m1abcdefg", 1, 0, "mp4")).toBe("meetings/m1abcdefg/vivo/1/0.mp4");
+  });
+  it("no se puede borrar con el prefijo de la reunión ni sale de él", () => {
+    expect(rutaDeParteViva("m1abcdefg", 1, 0, "ogg").startsWith(prefijoDeReunion("m1abcdefg"))).toBe(true);
+  });
+  it("rechaza números que no sean enteros válidos y reuniones raras", () => {
+    for (const [s, q] of [[0, 0], [-1, 0], [1.5, 0], [1, -1], [1, 0.5], [Number.NaN, 0]] as const) {
+      expect(() => rutaDeParteViva("m1abcdefg", s, q, "webm"), `${s},${q}`).toThrow();
+    }
+    expect(() => rutaDeParteViva("../x", 1, 0, "webm")).toThrow();
   });
 });

@@ -9,12 +9,13 @@ import { INCLUIR_DETALLE, SELECCION_RESUMEN } from "@/lib/meetings/consultas";
 import { demoActualizarReunion, demoEliminarReunion, demoReunion } from "@/lib/meetings/demo";
 import { aDetalle, aResumen } from "@/lib/meetings/mapeo";
 import { validarCambiosReunion } from "@/lib/meetings/validar";
+import { resumenVivo } from "@/lib/meetings/vivo";
 
 type Contexto = { params: Promise<{ id: string }> };
 
 const NO_ENCONTRADA = () => NextResponse.json({ error: "Reunión no encontrada" }, { status: 404 });
 
-/** GET /api/meetings/[id] → ReunionDetalle { meeting, sources, speakers, markers, digest, silences }. */
+/** GET /api/meetings/[id] → ReunionDetalle { meeting, sources, speakers, markers, digest, silences, live }. */
 export async function GET(_req: NextRequest, { params }: Contexto) {
   const acceso = await exigirVisible();
   if ("error" in acceso) return acceso.error;
@@ -30,7 +31,9 @@ export async function GET(_req: NextRequest, { params }: Contexto) {
     await ensureMeetingsSchema();
     const fila = await db.meeting.findFirst({ where: { id, userId: ctx.userId }, include: INCLUIR_DETALLE });
     if (!fila) return NO_ENCONTRADA();
-    return NextResponse.json(aDetalle(fila));
+    // Mientras graba, la página muestra cuánto audio ya llegó al servidor.
+    const vivo = fila.status === "grabando" ? await resumenVivo(id) : null;
+    return NextResponse.json(aDetalle(fila, undefined, vivo));
   } catch (error) {
     console.error("[api/meetings/[id] GET]", error);
     return NextResponse.json({ error: "No pudimos cargar la reunión." }, { status: 500 });

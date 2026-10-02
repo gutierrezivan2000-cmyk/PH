@@ -8,27 +8,58 @@
 type Fila = Record<string, unknown>;
 type Donde = Record<string, unknown> | undefined;
 
+const COMPARADORES: Record<string, (x: number, y: number) => boolean> = {
+  gte: (x, y) => x >= y,
+  gt: (x, y) => x > y,
+  lte: (x, y) => x <= y,
+  lt: (x, y) => x < y,
+};
+
 function coincide(fila: Fila, donde: Donde): boolean {
   return Object.entries(donde ?? {}).every(([clave, valor]) => {
     if (clave === "NOT") return !coincide(fila, valor as Donde);
-    if (valor && typeof valor === "object" && !(valor instanceof Date) && "in" in valor) {
-      return (valor as { in: unknown[] }).in.includes(fila[clave]);
+    if (valor && typeof valor === "object" && !(valor instanceof Date)) {
+      const operadores = valor as Record<string, unknown>;
+      if ("in" in operadores) return (operadores.in as unknown[]).includes(fila[clave]);
+      const comparadores = Object.keys(operadores).filter((k) => k in COMPARADORES);
+      if (comparadores.length > 0) {
+        return comparadores.every((k) => COMPARADORES[k](Number(fila[clave]), Number(operadores[k])));
+      }
     }
     return fila[clave] === valor;
   });
 }
 
+/** Un choque de clave única, con el código que usa Prisma. */
+export const errorUnico = () => Object.assign(new Error("P2002: restricción de unicidad"), { code: "P2002" });
+
+const valorNumerico = (v: unknown) => (v instanceof Date ? v.getTime() : (v as number));
+
 export class TablaFalsa {
   filas: Fila[] = [];
   private secuencia = 0;
-  constructor(private readonly prefijo: string) {}
+  /** `unico`: campos que juntos no pueden repetirse (como un @@unique de Prisma). */
+  constructor(private readonly prefijo: string, private readonly unico: string[] = []) {}
 
   async findFirst({ where }: { where?: Donde } = {}) {
     return this.filas.find((f) => coincide(f, where)) ?? null;
   }
 
-  async findMany({ where, orderBy }: { where?: Donde; orderBy?: Array<Record<string, "asc" | "desc">> | Record<string, "asc" | "desc"> } = {}) {
-    const hallados = this.filas.filter((f) => coincide(f, where));
+  async findMany({ where, orderBy, distinct }: {
+    where?: Donde;
+    orderBy?: Array<Record<string, "asc" | "desc">> | Record<string, "asc" | "desc">;
+    distinct?: string[];
+  } = {}) {
+    let hallados = this.filas.filter((f) => coincide(f, where));
+    if (distinct?.length) {
+      const vistos = new Set<string>();
+      hallados = hallados.filter((f) => {
+        const clave = JSON.stringify(distinct.map((c) => f[c]));
+        if (vistos.has(clave)) return false;
+        vistos.add(clave);
+        return true;
+      });
+    }
     const criterios = Array.isArray(orderBy) ? orderBy : orderBy ? [orderBy] : [];
     return hallados.sort((a, b) => {
       for (const criterio of criterios) {
@@ -47,9 +78,19 @@ export class TablaFalsa {
   }
 
   async create({ data }: { data: Fila }) {
+    if (this.unico.length && this.filas.some((f) => this.unico.every((c) => f[c] === data[c]))) throw errorUnico();
     const fila: Fila = { id: `${this.prefijo}${++this.secuencia}`, createdAt: new Date(), updatedAt: new Date(), ...data };
     this.filas.push(fila);
     return fila;
+  }
+
+  /** `where` puede ser un selector compuesto de Prisma ({ meetingId_session_seq: { … } }): se usa lo de adentro. */
+  async upsert({ where, create, update }: { where: Fila; create: Fila; update: Fila }) {
+    const valores = Object.values(where);
+    const filtro = valores.length === 1 && valores[0] && typeof valores[0] === "object" ? (valores[0] as Fila) : where;
+    const fila = this.filas.find((f) => coincide(f, filtro));
+    if (fila) return Object.assign(fila, update);
+    return this.create({ data: create });
   }
 
   async update({ where, data }: { where: Fila; data: Fila }) {
@@ -71,13 +112,27 @@ export class TablaFalsa {
     return this.filas.splice(i, 1)[0];
   }
 
-  async aggregate({ where, _max }: { where?: Donde; _max: Record<string, true> }) {
+  async aggregate({ where, _max, _sum, _count }: {
+    where?: Donde;
+    _max?: Record<string, true>;
+    _sum?: Record<string, true>;
+    _count?: true | { _all: true };
+  }) {
     const hallados = this.filas.filter((f) => coincide(f, where));
-    const resultado: Record<string, number | null> = {};
-    for (const clave of Object.keys(_max)) {
-      resultado[clave] = hallados.length ? Math.max(...hallados.map((f) => f[clave] as number)) : null;
+    const maximos: Record<string, number | Date | null> = {};
+    for (const clave of Object.keys(_max ?? {})) {
+      if (!hallados.length) {
+        maximos[clave] = null;
+        continue;
+      }
+      const mayor = hallados.map((f) => f[clave]).reduce((m, v) => (valorNumerico(v) > valorNumerico(m) ? v : m));
+      maximos[clave] = mayor as number | Date;
     }
-    return { _max: resultado };
+    const sumas: Record<string, number | null> = {};
+    for (const clave of Object.keys(_sum ?? {})) {
+      sumas[clave] = hallados.length ? hallados.reduce((suma, f) => suma + (f[clave] as number), 0) : null;
+    }
+    return { _max: maximos, _sum: sumas, _count: _count === true ? hallados.length : { _all: hallados.length } };
   }
 }
 
@@ -85,6 +140,8 @@ export function crearDbFalsa() {
   return {
     meeting: new TablaFalsa("m"),
     meetingSource: new TablaFalsa("s"),
+    meetingLivePart: new TablaFalsa("v", ["meetingId", "session", "seq"]),
+    meetingMarker: new TablaFalsa("k"),
     generation: new TablaFalsa("g"),
     propertyPerson: new TablaFalsa("p"),
     property: new TablaFalsa("c"),

@@ -6,6 +6,8 @@
  * para las pruebas. El contrato de cada ruta está en design/reuniones/PLAN.md §10.
  */
 
+import type { TipoMarcador } from "./tipos";
+
 export type ReunionResumen = {
   id: string;
   propertyId: string;
@@ -63,7 +65,7 @@ export type HablanteDTO = {
   sampleEndMs: number | null;
 };
 
-export type TipoMarcador = "tema" | "votacion" | "compromiso" | "nota";
+export type { TipoMarcador } from "./tipos";
 
 export type MarcadorDTO = {
   id: string;
@@ -114,6 +116,17 @@ export type Ficha = {
   }[];
 };
 
+/** Lo que el servidor ya recibió de una grabación en la app que todavía no se cerró. */
+export type VivoDTO = {
+  /** Sesiones de grabación con audio recibido (una por cada vez que se empezó a grabar). */
+  sesiones: number;
+  /** Duración del audio recibido, sumando todas las partes. */
+  durMs: number;
+  partes: number;
+  /** Cuándo llegó la última parte (ISO). */
+  ultimaParteEn: string | null;
+};
+
 export type ReunionDetalle = {
   meeting: ReunionResumen & {
     /** 0..1: qué parte de la línea de tiempo quedó transcrita. */
@@ -130,6 +143,8 @@ export type ReunionDetalle = {
   digest: Ficha | null;
   /** Tramos sin voz detectados (se muestran como «Sin voz entre …»). */
   silences: RangoMs[];
+  /** Solo mientras la reunión está «grabando»: lo recibido hasta ahora de la grabadora. */
+  live: VivoDTO | null;
 };
 
 export type PersonaDTO = {

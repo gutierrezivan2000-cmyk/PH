@@ -4,7 +4,7 @@ import {
   MP3_KBPS, MP3_TRAMA_BYTES, MP3_TRAMA_MS, PARTE_SUBIDA_BYTES, SOLAPE_MS, TRAMO_MS,
   cortoTipoReunion, describirEstado, duracionMp3Cbr, esEstadoReunion, esTipoReunion, estaEnMarcha,
   ROLES_PERSONA, esRolPersona, formatearDuracion, formatearReloj, leerReloj, nombreRolPersona, nombreTipoReunion,
-  puedeAgregarFuentes, tituloSugerido,
+  esTipoMarcador, puedeAgregarFuentes, tituloSugerido, TIPOS_MARCADOR,
 } from "./tipos";
 
 describe("formatearReloj", () => {
@@ -153,6 +153,7 @@ describe("estados", () => {
     expect(puedeAgregarFuentes("borrador")).toBe(true);
     expect(puedeAgregarFuentes("subiendo")).toBe(true);
     expect(puedeAgregarFuentes("error")).toBe(true);
+    expect(puedeAgregarFuentes("grabando")).toBe(true); // se puede subir un archivo y grabar el resto
     expect(puedeAgregarFuentes("procesando")).toBe(false);
     expect(puedeAgregarFuentes("lista")).toBe(false);
     expect(puedeAgregarFuentes("en_cola")).toBe(false);
@@ -193,5 +194,13 @@ describe("tituloSugerido", () => {
     const sieteDeLaNoche = new Date("2026-10-12T19:00:00-05:00"); // = 2026-10-13T00:00:00Z
     expect(tituloSugerido("consejo", sieteDeLaNoche)).toBe("Reunión de consejo — 12 de octubre");
     expect(tituloSugerido("consejo", sieteDeLaNoche, "UTC")).toBe("Reunión de consejo — 13 de octubre");
+  });
+});
+
+describe("marcas de la grabación", () => {
+  it("reconoce solo sus cuatro tipos", () => {
+    expect([...TIPOS_MARCADOR]).toEqual(["tema", "votacion", "compromiso", "nota"]);
+    for (const t of TIPOS_MARCADOR) expect(esTipoMarcador(t)).toBe(true);
+    for (const t of ["Tema", "otro", "", null, undefined, 1, {}]) expect(esTipoMarcador(t), String(t)).toBe(false);
   });
 });

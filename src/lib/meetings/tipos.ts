@@ -111,14 +111,25 @@ export function describirEstado(d: DatosEstado): { tipo: TipoEstado; texto: stri
   return base;
 }
 
-/** Solo se suman archivos mientras la reunión no se ha cerrado a la captura. */
+/**
+ * Solo se suma audio (archivos o grabación en vivo) mientras la reunión no se ha cerrado a la captura. «Grabando»
+ * cuenta: se puede subir un archivo y grabar el resto, y cerrar todo junto.
+ */
 export function puedeAgregarFuentes(status: string): boolean {
-  return status === "borrador" || status === "subiendo" || status === "error";
+  return status === "borrador" || status === "subiendo" || status === "error" || status === "grabando";
 }
 
 /** El trabajo sigue en marcha en el servidor (la página debe seguir consultando el estado). */
 export function estaEnMarcha(status: string): boolean {
   return status === "en_cola" || status === "procesando";
+}
+
+/** Marcas que se ponen a mano durante la grabación. */
+export const TIPOS_MARCADOR = ["tema", "votacion", "compromiso", "nota"] as const;
+export type TipoMarcador = (typeof TIPOS_MARCADOR)[number];
+
+export function esTipoMarcador(valor: unknown): valor is TipoMarcador {
+  return typeof valor === "string" && (TIPOS_MARCADOR as readonly string[]).includes(valor);
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -174,6 +185,15 @@ export const VIVO_PARTE_MAX_BYTES = 2 * 1024 * 1024;
 export const VIVO_BITS_POR_SEGUNDO = 32_000;
 /** Si no entra sonido por tanto tiempo, la grabadora avisa. */
 export const VIVO_SILENCIO_AVISO_MS = 2 * 60_000;
+/** Topes de la grabadora en vivo: frenan abusos, no reuniones largas (9 999 partes de 30 s son 83 h por sesión). */
+export const MAX_SESIONES_VIVO = 40;
+export const MAX_SECUENCIA_VIVO = 9_999;
+/** Una parte dura ~30 s; con la pestaña en segundo plano los trozos pueden llegar juntos, de ahí el margen. */
+export const MAX_DURACION_PARTE_MS = 10 * 60_000;
+export const MAX_MARCADORES = 500;
+export const MAX_NOTA_MARCADOR = 300;
+/** Ninguna marca cae más allá de las 48 h de una reunión. */
+export const MAX_MS_REUNION = 48 * 3_600_000;
 
 /* ════════════════════════════════════════════════════════════════════
    Retención

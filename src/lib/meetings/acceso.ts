@@ -57,6 +57,6 @@ export function propiedadDelUsuario(propertyId: string, userId: string) {
 export function reunionDelUsuario(id: string, userId: string) {
   return db.meeting.findFirst({
     where: { id, userId },
-    select: { id: true, propertyId: true, status: true, title: true },
+    select: { id: true, propertyId: true, status: true, title: true, consentAt: true },
   });
 }

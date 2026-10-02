@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { MAX_FUENTE_BYTES } from "./tipos";
 import {
-  MAX_NOMBRE_PERSONA, MAX_TITULO, leerFecha, limpiarTexto, validarCambiosPersona, validarCambiosReunion,
-  validarNuevaReunion, validarPedidoToken, validarPersona, validarRegistroFuente,
+  MAX_NOMBRE_PERSONA, MAX_TITULO, leerFecha, limpiarTexto, validarCambiosPersona, validarCambiosReunion, validarCierre, validarMarca,
+  validarNuevaReunion, validarParteViva, validarPedidoToken, validarPersona, validarRegistroFuente,
 } from "./validar";
 
 const AHORA = new Date("2026-10-01T15:00:00Z");
@@ -216,5 +216,97 @@ describe("validarRegistroFuente", () => {
     expect(validarRegistroFuente({ ...ok, nombre: "acta.pdf" }, ID).ok).toBe(false);
     expect(validarRegistroFuente({ ...ok, tamano: 0 }, ID).ok).toBe(false);
     expect(validarRegistroFuente(null, ID)).toEqual({ ok: false, error: "Solicitud no válida." });
+  });
+});
+
+describe("validarParteViva", () => {
+  const ok = { tipo: "audio/webm;codecs=opus", sesion: "2", secuencia: "17", duracionMs: "30000" };
+
+  it("acepta una parte válida y deduce la extensión del tipo", () => {
+    expect(validarParteViva(ok, 4000)).toEqual({ ok: true, valor: { session: 2, seq: 17, durMs: 30_000, mime: "audio/webm", ext: "webm" } });
+    expect(validarParteViva({ ...ok, tipo: "audio/mp4" }, 1)).toMatchObject({ ok: true, valor: { ext: "mp4", mime: "audio/mp4" } });
+    expect(validarParteViva({ ...ok, tipo: "Audio/OGG; codecs=opus", secuencia: "0" }, 1)).toMatchObject({ ok: true, valor: { ext: "ogg", seq: 0 } });
+  });
+
+  it("rechaza tipos que no son audio de la grabadora", () => {
+    for (const tipo of ["audio/mpeg", "video/webm", "text/plain", "", null]) {
+      expect(validarParteViva({ ...ok, tipo }, 10), String(tipo)).toEqual({ ok: false, error: "El tipo de audio no es válido." });
+    }
+  });
+
+  it("solo acepta enteros normales en sesión, parte y duración", () => {
+    const malos: Array<[Partial<typeof ok>, RegExp]> = [
+      [{ sesion: "0" }, /sesión/], [{ sesion: "41" }, /sesión/], [{ sesion: "1.5" }, /sesión/], [{ sesion: "007" }, /sesión/], [{ sesion: "-1" }, /sesión/], [{ sesion: "" }, /sesión/],
+      [{ secuencia: "10000" }, /parte/], [{ secuencia: "abc" }, /parte/], [{ secuencia: "1e3" }, /parte/], [{ secuencia: " 5" }, /parte/],
+      [{ duracionMs: "0" }, /duración/], [{ duracionMs: "600001" }, /duración/], [{ duracionMs: "NaN" }, /duración/],
+    ];
+    for (const [cambio, patron] of malos) {
+      const r = validarParteViva({ ...ok, ...cambio }, 100);
+      expect(r.ok, JSON.stringify(cambio)).toBe(false);
+      expect(r.ok ? "" : r.error).toMatch(patron);
+    }
+    expect(validarParteViva({ ...ok, sesion: null }, 100).ok).toBe(false);
+  });
+
+  it("el cuerpo no puede estar vacío ni pasar de 2 MB", () => {
+    expect(validarParteViva(ok, 0)).toEqual({ ok: false, error: "La parte de audio llegó vacía." });
+    expect(validarParteViva(ok, 2 * 1024 * 1024).ok).toBe(true);
+    expect(validarParteViva(ok, 2 * 1024 * 1024 + 1)).toEqual({ ok: false, error: "La parte de audio supera los 2 MB." });
+  });
+});
+
+describe("validarMarca", () => {
+  it("acepta cada tipo y limpia la nota", () => {
+    for (const kind of ["tema", "votacion", "compromiso", "nota"]) expect(validarMarca({ atMs: 1000, kind }).ok, kind).toBe(true);
+    expect(validarMarca({ id: "marca-1-1", atMs: 61_000, kind: "nota", note: "  Cambio   de\ncontador " })).toEqual({
+      ok: true, valor: { id: "marca-1-1", atMs: 61_000, kind: "nota", note: "Cambio de contador" },
+    });
+    expect(validarMarca({ atMs: 0, kind: "tema", note: "   " })).toEqual({ ok: true, valor: { id: null, atMs: 0, kind: "tema", note: null } });
+  });
+
+  it("rechaza lo que no cuadra", () => {
+    const malos: unknown[] = [
+      null, [], "x", {}, { atMs: 1 }, { kind: "tema" }, { atMs: 1, kind: "fiesta" },
+      { atMs: -1, kind: "tema" }, { atMs: 1.5, kind: "tema" }, { atMs: "5", kind: "tema" }, { atMs: 49 * 3_600_000, kind: "tema" },
+      { atMs: 1, kind: "tema", note: 5 }, { atMs: 1, kind: "tema", note: "x".repeat(301) },
+      { atMs: 1, kind: "tema", id: "ab" }, { atMs: 1, kind: "tema", id: "con espacio" }, { atMs: 1, kind: "tema", id: 7 },
+    ];
+    for (const m of malos) expect(validarMarca(m).ok, JSON.stringify(m)).toBe(false);
+  });
+});
+
+describe("validarCierre", () => {
+  const sesion = { session: 1, ultimaSecuencia: 3, mimeType: "audio/webm;codecs=opus", duracionMs: 118_400.6 };
+
+  it("sin cuerpo, vacío o sin sesiones: cerrar con lo que haya", () => {
+    for (const b of [null, undefined, {}, { sesiones: null }, { sesiones: undefined }]) {
+      expect(validarCierre(b), JSON.stringify(b)).toEqual({ ok: true, valor: { sesiones: null } });
+    }
+  });
+
+  it("acepta sesiones, normaliza el tipo y redondea la duración", () => {
+    expect(validarCierre({ sesiones: [sesion, { ...sesion, session: 2 }] })).toEqual({
+      ok: true,
+      valor: { sesiones: [
+        { session: 1, ultimaSecuencia: 3, mimeType: "audio/webm", duracionMs: 118_401 },
+        { session: 2, ultimaSecuencia: 3, mimeType: "audio/webm", duracionMs: 118_401 },
+      ] },
+    });
+    expect(validarCierre({ sesiones: [] })).toEqual({ ok: true, valor: { sesiones: [] } });
+  });
+
+  it("rechaza listas y sesiones mal formadas, repetidas o en exceso", () => {
+    const malos: unknown[] = [
+      [], "x", [1], [null], [{}], [{ ...sesion, session: 0 }], [{ ...sesion, session: 41 }], [{ ...sesion, ultimaSecuencia: -1 }],
+      [{ ...sesion, ultimaSecuencia: 10_000 }], [{ ...sesion, duracionMs: -5 }], [{ ...sesion, duracionMs: Number.NaN }],
+      [{ ...sesion, mimeType: "audio/mpeg" }], [{ ...sesion, mimeType: 5 }], [sesion, sesion],
+      Array.from({ length: 41 }, (_, i) => ({ ...sesion, session: i + 1 })),
+    ];
+    for (const sesiones of malos) {
+      if (Array.isArray(sesiones) && sesiones.length === 0) continue; // vacío es válido
+      expect(validarCierre({ sesiones }).ok, JSON.stringify(sesiones).slice(0, 80)).toBe(false);
+    }
+    expect(validarCierre("texto").ok).toBe(false);
+    expect(validarCierre([]).ok).toBe(false);
   });
 });

@@ -13,8 +13,9 @@
  */
 import type {
   Ficha, FichaVotacion, FuenteDTO, HablanteDTO, MarcadorDTO, PersonaDTO, RangoMs, ReunionDetalle, ReunionResumen,
-  SugerenciaHablante, TipoMarcador,
+  SugerenciaHablante, VivoDTO,
 } from "./dto";
+import { TIPOS_MARCADOR } from "./tipos";
 
 const esObjeto = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const esNumero = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
@@ -204,8 +205,6 @@ export function aHablante(f: FilaHablante): HablanteDTO {
   };
 }
 
-const TIPOS_MARCADOR: readonly TipoMarcador[] = ["tema", "votacion", "compromiso", "nota"];
-
 export function aMarcador(f: FilaMarcador): MarcadorDTO {
   return {
     id: f.id,
@@ -215,7 +214,7 @@ export function aMarcador(f: FilaMarcador): MarcadorDTO {
   };
 }
 
-export function aDetalle(f: FilaDetalle, conteo?: ConteoTareas): ReunionDetalle {
+export function aDetalle(f: FilaDetalle, conteo?: ConteoTareas, vivo: VivoDTO | null = null): ReunionDetalle {
   return {
     meeting: {
       ...aResumen(f, conteo),
@@ -231,6 +230,7 @@ export function aDetalle(f: FilaDetalle, conteo?: ConteoTareas): ReunionDetalle 
     markers: [...f.markers].sort((a, b) => a.atMs - b.atMs).map(aMarcador),
     digest: leerFicha(f.digest),
     silences: leerRangos(f.silences),
+    live: vivo,
   };
 }
 

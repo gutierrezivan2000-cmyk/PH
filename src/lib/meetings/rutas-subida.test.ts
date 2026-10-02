@@ -105,11 +105,10 @@ describe("POST upload-token", () => {
   });
 
   it("si la reunión ya se procesa o está lista: 409", async () => {
-    for (const status of ["en_cola", "procesando", "lista", "grabando", "sin_cupo"]) {
+    for (const status of ["en_cola", "procesando", "lista", "sin_cupo"]) {
       db.meeting.filas.length = 0;
       await nuevaReunion({ status });
-      const esperado = status === "sin_cupo" ? 409 : 409;
-      expect((await pedirToken(pedir(pedido), ctx({ id: ID }))).status, status).toBe(esperado);
+      expect((await pedirToken(pedir(pedido), ctx({ id: ID }))).status, status).toBe(409);
     }
     expect(generarToken).not.toHaveBeenCalled();
   });
@@ -292,12 +291,12 @@ describe("POST process", () => {
     }
   });
 
-  it("una reunión de otro usuario o inexistente: 404; grabando o sin cupo: 409", async () => {
+  it("una reunión de otro usuario o inexistente: 404; sin cupo: 409", async () => {
     await nuevaReunion({ userId: "otro" });
     expect((await procesar(pedir(), ctx({ id: ID }))).status).toBe(404);
     expect((await procesar(pedir(), ctx({ id: "no-existe" }))).status).toBe(404);
     db.meeting.filas[0].userId = "u1";
-    db.meeting.filas[0].status = "grabando";
+    db.meeting.filas[0].status = "sin_cupo";
     expect((await procesar(pedir(), ctx({ id: ID }))).status).toBe(409);
   });
 });
