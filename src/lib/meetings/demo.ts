@@ -8,14 +8,14 @@
  */
 import { DEMO_USER, getProperties } from "@/lib/demo-store";
 import type {
-  Ficha, FuenteDTO, HablanteDTO, IntervencionDTO, MarcadorDTO, PersonaDTO, RangoMs, ReunionDetalle, ReunionResumen, VivoDTO,
+  EstadoProcesoDTO, Ficha, FuenteDTO, HablanteDTO, IntervencionDTO, MarcadorDTO, PersonaDTO, RangoMs, ReunionDetalle, ReunionResumen, VivoDTO,
 } from "./dto";
 import {
   DURACION_SEPTIEMBRE_MS, FICHA_SEPTIEMBRE, MARCADORES_SEPTIEMBRE, PERSONAS_LOS_PINOS, SILENCIOS_SEPTIEMBRE,
   construirHablantes, construirIntervenciones,
 } from "./demo-datos";
 import { nombreDeSesion, offsetAntesDe, planificarCierre, type ParteRecibida } from "./cierre";
-import { MAX_FUENTES_POR_REUNION, MAX_MARCADORES, MAX_SESIONES_VIVO, puedeAgregarFuentes } from "./tipos";
+import { MAX_FUENTES_POR_REUNION, MAX_MARCADORES, MAX_SESIONES_VIVO, estaEnMarcha, puedeAgregarFuentes, type EtapaReunion } from "./tipos";
 import type { CambiosPersona, CambiosReunion, NuevaMarca, NuevaPersona, ParteViva, SesionDeCierre } from "./validar";
 
 type ReunionDemo = {
@@ -50,6 +50,8 @@ type ReunionDemo = {
   cerradas: Array<{ session: number; durationMs: number }>;
   /** Números de sesión ya entregados a un dispositivo. */
   reservas: number[];
+  /** Cuándo empezó a «procesarse» en el demo (ms). La simulación avanza con el tiempo. */
+  procesoDesde: number | null;
 };
 
 type ParteVivaDemo = ParteRecibida & { creadaEn: string };
@@ -92,6 +94,7 @@ function vacia(base: Pick<ReunionDemo, "id" | "propertyId" | "type" | "title" | 
     vivo: [],
     cerradas: [],
     reservas: [],
+    procesoDesde: null,
   };
 }
 
@@ -233,7 +236,42 @@ function nombreDePropiedad(userId: string, propertyId: string): string {
   return getProperties(userId).find((p) => p.id === propertyId)?.name ?? "Copropiedad";
 }
 
+/* ── Procesamiento simulado ───────────────────────────────────────────── */
+
+/** Cuánto «espera en cola» una reunión recién enviada, antes de que un trabajador la tome. */
+export const COLA_DEMO_MS = 2_000;
+/** Los pasos que el demo simula. Cada hito agrega los suyos (transcribir, unir, analizar). */
+export const PASOS_DEMO: ReadonlyArray<{ etapa: EtapaReunion; ms: number }> = [{ etapa: "preparando_audio", ms: 8_000 }];
+
+/** Pone la reunión en el estado que le toca según el tiempo que lleva «procesándose». */
+function avanzarDemo(r: ReunionDemo, ahora: number = Date.now()): void {
+  if (r.procesoDesde === null || !estaEnMarcha(r.status)) return;
+  const t = ahora - r.procesoDesde;
+  if (t < COLA_DEMO_MS) {
+    r.status = "en_cola";
+    return;
+  }
+  r.status = "procesando";
+  let resto = t - COLA_DEMO_MS;
+  for (const paso of PASOS_DEMO) {
+    if (resto < paso.ms) {
+      r.stage = paso.etapa;
+      r.progress = Math.round((resto / paso.ms) * 100);
+      r.hechas = null;
+      r.total = null;
+      return;
+    }
+    resto -= paso.ms;
+  }
+  // Hasta que existan los pasos siguientes, la simulación espera en la etapa que viene.
+  r.stage = "transcribiendo";
+  r.progress = 0;
+  r.hechas = 0;
+  r.total = null;
+}
+
 function resumen(r: ReunionDemo): ReunionResumen {
+  avanzarDemo(r);
   return {
     id: r.id,
     propertyId: r.propertyId,
@@ -262,6 +300,7 @@ export function demoReuniones(userId: string, propertyId?: string | null): Reuni
 export function demoReunion(userId: string, id: string): ReunionDetalle | null {
   const r = almacen().reuniones.find((x) => x.id === id && x.userId === userId);
   if (!r) return null;
+  avanzarDemo(r);
   return {
     meeting: {
       ...resumen(r),
@@ -511,7 +550,36 @@ export function demoProcesar(
   r.stage = null;
   r.progress = 0;
   r.errorMessage = null;
+  r.procesoDesde = Date.now();
   return { ok: true, valor: { status: "en_cola" } };
+}
+
+/** El estado del procesamiento (lo que consulta la página mientras espera). */
+export function demoEstado(userId: string, id: string): EstadoProcesoDTO | null {
+  const r = buscar(userId, id);
+  if (!r) return null;
+  avanzarDemo(r);
+  const enProceso = estaEnMarcha(r.status);
+  return {
+    status: r.status,
+    stage: r.stage,
+    progress: r.progress,
+    errorMessage: r.errorMessage,
+    durationMs: r.durationMs,
+    coverage: r.coverage,
+    tareas: { hechas: enProceso ? r.hechas : null, total: enProceso ? r.total : null },
+  };
+}
+
+/** «Reintentar» una reunión en error: sigue procesándose desde el principio de la simulación. */
+export function demoReintentar(userId: string, id: string): ResultadoDemo<{ status: string }> {
+  const r = buscar(userId, id);
+  if (!r) return NO_EXISTE;
+  if (r.status !== "error") return { ok: true, valor: { status: r.status } };
+  r.status = "procesando";
+  r.errorMessage = null;
+  r.procesoDesde = Date.now() - COLA_DEMO_MS;
+  return { ok: true, valor: { status: "procesando" } };
 }
 
 /* ── Grabadora en vivo ───────────────────────────────────────────────── */

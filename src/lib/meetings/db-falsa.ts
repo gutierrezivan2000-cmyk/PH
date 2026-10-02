@@ -26,6 +26,8 @@ function coincide(fila: Fila, donde: Donde): boolean {
         return comparadores.every((k) => COMPARADORES[k](Number(fila[clave]), Number(operadores[k])));
       }
     }
+    // Las fechas se comparan por valor, como en la base de datos.
+    if (valor instanceof Date && fila[clave] instanceof Date) return valor.getTime() === (fila[clave] as Date).getTime();
     return fila[clave] === valor;
   });
 }
@@ -38,17 +40,31 @@ const valorNumerico = (v: unknown) => (v instanceof Date ? v.getTime() : (v as n
 export class TablaFalsa {
   filas: Fila[] = [];
   private secuencia = 0;
-  /** `unico`: campos que juntos no pueden repetirse (como un @@unique de Prisma). */
-  constructor(private readonly prefijo: string, private readonly unico: string[] = []) {}
+  /**
+   * `unico`: campos que juntos no pueden repetirse (como un @@unique de Prisma). `defaults`: valores por omisión de
+   * las columnas con `@default` (se evalúa en cada creación).
+   */
+  constructor(private readonly prefijo: string, private readonly unico: string[] = [], private readonly defaults: () => Fila = () => ({})) {}
 
-  async findFirst({ where }: { where?: Donde } = {}) {
-    return this.filas.find((f) => coincide(f, where)) ?? null;
+  /** Como Prisma, lo que se lee es una copia (y, con `select`, solo esas columnas): cambiarla no cambia la tabla. */
+  private copia(f: Fila, select?: Record<string, unknown>): Fila {
+    if (!select) return { ...f };
+    const salida: Fila = {};
+    for (const [clave, pedido] of Object.entries(select)) if (pedido && clave in f) salida[clave] = f[clave];
+    return salida;
   }
 
-  async findMany({ where, orderBy, distinct }: {
+  async findFirst({ where, select }: { where?: Donde; select?: Record<string, unknown> } = {}) {
+    const f = this.filas.find((x) => coincide(x, where));
+    return f ? this.copia(f, select) : null;
+  }
+
+  async findMany({ where, orderBy, distinct, take, select }: {
     where?: Donde;
     orderBy?: Array<Record<string, "asc" | "desc">> | Record<string, "asc" | "desc">;
     distinct?: string[];
+    take?: number;
+    select?: Record<string, unknown>;
   } = {}) {
     let hallados = this.filas.filter((f) => coincide(f, where));
     if (distinct?.length) {
@@ -61,7 +77,7 @@ export class TablaFalsa {
       });
     }
     const criterios = Array.isArray(orderBy) ? orderBy : orderBy ? [orderBy] : [];
-    return hallados.sort((a, b) => {
+    const ordenados = hallados.sort((a, b) => {
       for (const criterio of criterios) {
         const [clave, sentido] = Object.entries(criterio)[0];
         const x = a[clave] as number | string | Date;
@@ -71,6 +87,7 @@ export class TablaFalsa {
       }
       return 0;
     });
+    return (take === undefined ? ordenados : ordenados.slice(0, take)).map((f) => this.copia(f, select));
   }
 
   async count({ where }: { where?: Donde } = {}) {
@@ -79,9 +96,9 @@ export class TablaFalsa {
 
   async create({ data }: { data: Fila }) {
     if (this.unico.length && this.filas.some((f) => this.unico.every((c) => f[c] === data[c]))) throw errorUnico();
-    const fila: Fila = { id: `${this.prefijo}${++this.secuencia}`, createdAt: new Date(), updatedAt: new Date(), ...data };
+    const fila: Fila = { id: `${this.prefijo}${++this.secuencia}`, createdAt: new Date(), updatedAt: new Date(), ...this.defaults(), ...data };
     this.filas.push(fila);
-    return fila;
+    return this.copia(fila);
   }
 
   /** `where` puede ser un selector compuesto de Prisma ({ meetingId_session_seq: { … } }): se usa lo de adentro. */
@@ -89,21 +106,43 @@ export class TablaFalsa {
     const valores = Object.values(where);
     const filtro = valores.length === 1 && valores[0] && typeof valores[0] === "object" ? (valores[0] as Fila) : where;
     const fila = this.filas.find((f) => coincide(f, filtro));
-    if (fila) return Object.assign(fila, update);
+    if (fila) {
+      this.aplicar(fila, update);
+      return this.copia(fila);
+    }
     return this.create({ data: create });
+  }
+
+  /** Aplica `data` a una fila, entendiendo `{ increment: n }` y `{ decrement: n }` como Prisma. */
+  private aplicar(fila: Fila, data: Fila) {
+    for (const [clave, valor] of Object.entries(data)) {
+      if (valor && typeof valor === "object" && !(valor instanceof Date) && ("increment" in valor || "decrement" in valor)) {
+        const v = valor as { increment?: number; decrement?: number };
+        fila[clave] = (Number(fila[clave]) || 0) + (v.increment ?? 0) - (v.decrement ?? 0);
+      } else if (valor !== undefined) {
+        fila[clave] = valor;
+      }
+    }
+    fila.updatedAt = new Date();
   }
 
   async update({ where, data }: { where: Fila; data: Fila }) {
     const fila = this.filas.find((f) => coincide(f, where));
     if (!fila) throw new Error("P2025: registro no encontrado");
-    Object.assign(fila, data);
-    return fila;
+    this.aplicar(fila, data);
+    return this.copia(fila);
   }
 
   async updateMany({ where, data }: { where?: Donde; data: Fila }) {
     const hallados = this.filas.filter((f) => coincide(f, where));
-    for (const f of hallados) Object.assign(f, data);
+    for (const f of hallados) this.aplicar(f, data);
     return { count: hallados.length };
+  }
+
+  async deleteMany({ where }: { where?: Donde } = {}) {
+    const antes = this.filas.length;
+    this.filas = this.filas.filter((f) => !coincide(f, where));
+    return { count: antes - this.filas.length };
   }
 
   async delete({ where }: { where: Fila }) {
@@ -141,6 +180,9 @@ export function crearDbFalsa() {
     meeting: new TablaFalsa("m"),
     meetingSource: new TablaFalsa("s"),
     meetingLivePart: new TablaFalsa("v", ["meetingId", "session", "seq"]),
+    meetingTask: new TablaFalsa("t", ["meetingId", "key"], () => ({
+      status: "pendiente", attempts: 0, payload: {}, result: null, runAfter: new Date(), lockedAt: null, error: null,
+    })),
     meetingMarker: new TablaFalsa("k"),
     generation: new TablaFalsa("g"),
     propertyPerson: new TablaFalsa("p"),

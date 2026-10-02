@@ -116,6 +116,19 @@ export type Ficha = {
   }[];
 };
 
+/** Lo que responde `GET /api/meetings/[id]/status` mientras la reunión se procesa. */
+export type EstadoProcesoDTO = {
+  status: string;
+  stage: string | null;
+  /** 0-100 del paso actual. */
+  progress: number;
+  errorMessage: string | null;
+  durationMs: number | null;
+  coverage: number | null;
+  /** Tareas hechas y totales del paso actual (null fuera del procesamiento). */
+  tareas: { hechas: number | null; total: number | null };
+};
+
 /** Lo que el servidor ya recibió de una grabación en la app que todavía no se cerró. */
 export type VivoDTO = {
   /** Sesiones de grabación con audio recibido (una por cada vez que se empezó a grabar). */

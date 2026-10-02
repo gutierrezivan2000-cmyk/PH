@@ -6,7 +6,7 @@
  * el estado (una respuesta HTML de un 504 de la plataforma no se puede leer, y
  * «Unexpected token <» no es un mensaje para una persona).
  */
-import type { PersonaDTO, ReunionDetalle, ReunionResumen } from "./dto";
+import type { EstadoProcesoDTO, PersonaDTO, ReunionDetalle, ReunionResumen } from "./dto";
 
 export class ErrorApi extends Error {
   readonly status: number;
@@ -101,4 +101,14 @@ export async function quitarFuente(meetingId: string, sourceId: string): Promise
 /** Cierra la captura y manda la reunión a procesar (idempotente en el servidor). */
 export async function procesarReunion(meetingId: string): Promise<{ status: string }> {
   return pedir<{ status: string }>(`/api/meetings/${encodeURIComponent(meetingId)}/process`, { method: "POST" });
+}
+
+/** Cómo va el procesamiento (liviano: la página lo consulta cada pocos segundos). Además empuja el trabajo en el servidor. */
+export function obtenerEstado(meetingId: string): Promise<EstadoProcesoDTO> {
+  return pedir<EstadoProcesoDTO>(`/api/meetings/${encodeURIComponent(meetingId)}/status`);
+}
+
+/** «Reintentar» una reunión en error: vuelve a intentar solo lo que falló. */
+export async function reintentarReunion(meetingId: string): Promise<{ status: string }> {
+  return pedir<{ status: string }>(`/api/meetings/${encodeURIComponent(meetingId)}/retry`, { method: "POST" });
 }

@@ -1,11 +1,13 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { auth, fake, put } = vi.hoisted(() => ({
+const { auth, fake, put, empujar } = vi.hoisted(() => ({
   auth: vi.fn(),
   fake: { db: null as unknown },
   put: vi.fn(),
+  empujar: vi.fn(),
 }));
+vi.mock("@/lib/meetings/empujon", () => ({ empujar: (...a: unknown[]) => empujar(...a) }));
 vi.mock("@/lib/auth", () => ({ auth: (...a: unknown[]) => auth(...a) }));
 vi.mock("@/lib/db", () => ({ get db() { return fake.db; } }));
 vi.mock("@/lib/ensure-meetings-schema", () => ({ ensureMeetingsSchema: async () => {} }));
@@ -52,6 +54,7 @@ beforeEach(() => {
   db = crearDbFalsa();
   fake.db = db;
   auth.mockReset();
+  empujar.mockReset();
   put.mockReset();
   put.mockImplementation(async (pathname: string) => ({ url: `https://abc.private.blob.vercel-storage.com/${pathname}`, pathname }));
   vi.stubEnv("DEMO_MODE", "false");
@@ -269,6 +272,9 @@ describe("POST process con grabación en vivo", () => {
       expect.objectContaining({ meetingId: ID, idx: 0, kind: "grabacion", session: 1, name: "Grabación en la app", mimeType: "audio/webm", sizeBytes: 3000, durationMs: 88_000, status: "recibida" }),
     ]);
     expect(db.meeting.filas[0]).toMatchObject({ status: "en_cola", progress: 0 });
+    // y queda encolada la primera etapa: unir la sesión de la grabadora (todavía sin archivo ensamblado)
+    expect(db.meetingTask.filas.map((t) => [t.kind, t.status])).toEqual([["ensamblar_sesion", "pendiente"]]);
+    expect(empujar).toHaveBeenCalledTimes(1);
   });
 
   it("si faltan partes responde 409 con cuáles y no cambia nada", async () => {
@@ -280,6 +286,7 @@ describe("POST process con grabación en vivo", () => {
     expect(r.cuerpo.faltan).toEqual([{ session: 1, seq: 1 }, { session: 1, seq: 3 }]);
     expect(db.meetingSource.filas).toEqual([]);
     expect(db.meeting.filas[0].status).toBe("grabando");
+    expect(empujar).not.toHaveBeenCalled();
   });
 
   it("es idempotente: repetir el cierre tras perder la respuesta no duplica la fuente", async () => {

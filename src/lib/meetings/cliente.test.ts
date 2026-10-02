@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ErrorApi, actualizarReunion, crearPersona, crearReunion, eliminarReunion, listarPersonas, listarReuniones, obtenerReunion, procesarReunion, quitarFuente } from "./cliente";
+import {
+  ErrorApi, actualizarReunion, crearPersona, crearReunion, eliminarReunion, listarPersonas, listarReuniones, obtenerEstado, obtenerReunion,
+  procesarReunion, quitarFuente, reintentarReunion,
+} from "./cliente";
 
 const respuesta = (status: number, cuerpo: unknown, comoTexto = false) =>
   ({
@@ -107,5 +110,23 @@ describe("archivos de la reunión", () => {
     const e = await procesarReunion("m1").catch((x) => x);
     expect(e).toBeInstanceOf(ErrorApi);
     expect(e.message).toMatch(/al menos un archivo/);
+  });
+});
+
+describe("procesamiento", () => {
+  it("consulta el estado liviano y escapa la id", async () => {
+    const estado = { status: "procesando", stage: "preparando_audio", progress: 40, tareas: { hechas: 1, total: 3 } };
+    fetchMock.mockResolvedValue(respuesta(200, estado));
+    expect(await obtenerEstado("a/b")).toEqual(estado);
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/meetings/a%2Fb/status", undefined);
+  });
+  it("reintenta con POST y devuelve el estado nuevo", async () => {
+    fetchMock.mockResolvedValue(respuesta(200, { status: "procesando" }));
+    expect(await reintentarReunion("m1")).toEqual({ status: "procesando" });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/meetings/m1/retry", { method: "POST" });
+  });
+  it("un 409 trae el mensaje del servidor", async () => {
+    fetchMock.mockResolvedValue(respuesta(409, { error: "No hay nada que reintentar en esta reunión." }));
+    await expect(reintentarReunion("m1")).rejects.toMatchObject({ status: 409, message: "No hay nada que reintentar en esta reunión." });
   });
 });

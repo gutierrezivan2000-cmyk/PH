@@ -1,13 +1,15 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { auth, fake, head, del, generarToken } = vi.hoisted(() => ({
+const { auth, fake, head, del, generarToken, empujar } = vi.hoisted(() => ({
   auth: vi.fn(),
   fake: { db: null as unknown },
   head: vi.fn(),
   del: vi.fn(),
   generarToken: vi.fn(),
+  empujar: vi.fn(),
 }));
+vi.mock("@/lib/meetings/empujon", () => ({ empujar: (...a: unknown[]) => empujar(...a) }));
 vi.mock("@/lib/auth", () => ({ auth: (...a: unknown[]) => auth(...a) }));
 vi.mock("@/lib/db", () => ({ get db() { return fake.db; } }));
 vi.mock("@/lib/ensure-meetings-schema", () => ({ ensureMeetingsSchema: async () => {} }));
@@ -42,6 +44,7 @@ beforeEach(() => {
   db = crearDbFalsa();
   fake.db = db;
   auth.mockReset();
+  empujar.mockReset();
   head.mockReset();
   del.mockReset();
   generarToken.mockReset();
@@ -279,6 +282,34 @@ describe("POST process", () => {
     const r = await json(await procesar(pedir(), ctx({ id: ID })));
     expect(r).toEqual({ status: 200, cuerpo: { status: "en_cola" } });
     expect(db.meeting.filas[0]).toMatchObject({ status: "en_cola", errorMessage: null, progress: 0, stage: null });
+  });
+
+  it("al cerrar la captura encola la primera etapa (una tarea por archivo) y empuja al trabajador", async () => {
+    await nuevaReunion({ status: "subiendo" });
+    await db.meetingSource.create({ data: { id: "s1", meetingId: ID, idx: 0, kind: "archivo", name: "parte-1.mp3", pathname: pathnameDe("aaaaaaa1"), url: "https://x/1", status: "recibida", normalizedMs: 0 } });
+    await db.meetingSource.create({ data: { id: "s2", meetingId: ID, idx: 1, kind: "archivo", name: "parte-2.mp3", pathname: pathnameDe("aaaaaaa2"), url: "https://x/2", status: "recibida", normalizedMs: 0 } });
+    await procesar(pedir(), ctx({ id: ID }));
+    expect(db.meetingTask.filas.map((t) => [t.kind, t.key, t.status])).toEqual([
+      ["normalizar", "normalizar:s1", "pendiente"],
+      ["normalizar", "normalizar:s2", "pendiente"],
+    ]);
+    expect(db.meeting.filas[0].status).toBe("en_cola"); // sigue «en cola» hasta que un trabajador empiece
+    expect(empujar).toHaveBeenCalledTimes(1);
+  });
+
+  it("repetir el cierre no duplica tareas ni vuelve a empujar", async () => {
+    await nuevaReunion({ status: "subiendo" });
+    await db.meetingSource.create({ data: { id: "s1", meetingId: ID, idx: 0, kind: "archivo", name: "a.mp3", pathname: pathnameDe("aaaaaaa1"), url: "https://x/1", status: "recibida", normalizedMs: 0 } });
+    await procesar(pedir(), ctx({ id: ID }));
+    await procesar(pedir(), ctx({ id: ID }));
+    expect(db.meetingTask.filas).toHaveLength(1);
+    expect(empujar).toHaveBeenCalledTimes(1);
+  });
+
+  it("si no se puede cerrar (sin archivos, en preparación, ajena) no empuja nada", async () => {
+    await nuevaReunion();
+    await procesar(pedir(), ctx({ id: ID }));
+    expect(empujar).not.toHaveBeenCalled();
   });
 
   it("es idempotente: en cola, procesando o lista devuelve su estado sin tocar nada", async () => {

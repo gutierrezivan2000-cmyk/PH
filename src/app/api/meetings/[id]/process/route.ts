@@ -1,4 +1,6 @@
 export const runtime = "nodejs";
+// El trabajo que se empuja con after() corre dentro de este límite.
+export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -6,6 +8,7 @@ import { ensureMeetingsSchema } from "@/lib/ensure-meetings-schema";
 import { exigirVisible, reunionDelUsuario } from "@/lib/meetings/acceso";
 import { nombreDeSesion, planificarCierre, type ParteRecibida } from "@/lib/meetings/cierre";
 import { demoProcesar } from "@/lib/meetings/demo";
+import { empujar } from "@/lib/meetings/empujon";
 import { iniciarProcesamiento } from "@/lib/meetings/proceso";
 import { MAX_FUENTES_POR_REUNION, estaEnMarcha, puedeAgregarFuentes } from "@/lib/meetings/tipos";
 import { validarCierre } from "@/lib/meetings/validar";
@@ -104,6 +107,7 @@ export async function POST(req: NextRequest, { params }: Contexto) {
     }
 
     await iniciarProcesamiento(id);
+    empujar(); // sin esperar al cron: el trabajo arranca cuando ya se respondió
     return NextResponse.json({ status: "en_cola" });
   } catch (error) {
     console.error("[api/meetings/[id]/process]", error);

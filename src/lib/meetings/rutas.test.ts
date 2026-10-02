@@ -11,6 +11,8 @@ import { POST as registrarParte } from "@/app/api/meetings/[id]/live/route";
 import { POST as nuevaSesion } from "@/app/api/meetings/[id]/live/sesion/route";
 import { POST as marcar } from "@/app/api/meetings/[id]/markers/route";
 import { POST as procesar } from "@/app/api/meetings/[id]/process/route";
+import { POST as reintentar } from "@/app/api/meetings/[id]/retry/route";
+import { GET as estadoDeReunion } from "@/app/api/meetings/[id]/status/route";
 import { DELETE as quitarFuente } from "@/app/api/meetings/[id]/sources/[sourceId]/route";
 import { POST as registrarFuente } from "@/app/api/meetings/[id]/sources/route";
 import { POST as pedirToken } from "@/app/api/meetings/[id]/upload-token/route";
@@ -348,6 +350,48 @@ describe("grabadora en vivo (demo): sesión → partes → marcas → cierre", (
   });
 });
 
+describe("procesamiento simulado en demo: en cola → preparando el audio", () => {
+  const ID = "reunion-demo-003";
+  const raiz = ctx({ id: ID });
+
+  async function enviarAProcesar() {
+    await editarReunion(pedir(`/meetings/${ID}`, "PATCH", { consentAt: "now" }), raiz);
+    await registrarParte(pedirParte(), raiz);
+    return json(await procesar(pedir(`/meetings/${ID}/process`, "POST"), raiz));
+  }
+
+  afterEach(() => vi.useRealTimers());
+
+  it("recién enviada está «en cola»; después pasa a «procesando» con el avance de la etapa", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-02T12:00:00Z"));
+    expect((await enviarAProcesar()).cuerpo).toEqual({ status: "en_cola" });
+    expect((await json(await estadoDeReunion(pedir("/s"), raiz))).cuerpo).toMatchObject({ status: "en_cola", progress: 0 });
+
+    vi.setSystemTime(new Date("2026-10-02T12:00:06Z")); // 2 s de cola + 4 s de 8
+    const mitad = (await json(await estadoDeReunion(pedir("/s"), raiz))).cuerpo;
+    expect(mitad).toMatchObject({ status: "procesando", stage: "preparando_audio", progress: 50, errorMessage: null });
+    expect((await json(await leerReunion(pedir("/m"), raiz))).cuerpo.meeting).toMatchObject({ status: "procesando", stage: "preparando_audio", progress: 50 });
+
+    vi.setSystemTime(new Date("2026-10-02T12:00:30Z"));
+    expect((await json(await estadoDeReunion(pedir("/s"), raiz))).cuerpo).toMatchObject({ status: "procesando", stage: "transcribiendo" });
+  });
+
+  it("una reunión que no existe: 404; una lista (sin procesar) no inventa tareas", async () => {
+    expect((await estadoDeReunion(pedir("/s"), ctx({ id: "no-existe" }))).status).toBe(404);
+    const lista = (await json(await estadoDeReunion(pedir("/s"), ctx({ id: "reunion-demo-001" })))).cuerpo;
+    expect(lista).toMatchObject({ status: "lista", tareas: { hechas: null, total: null } });
+  });
+
+  it("«Reintentar» una reunión en error la vuelve a poner en marcha; si no está en error, no toca nada", async () => {
+    const r = await json(await reintentar(pedir("/r", "POST"), ctx({ id: "reunion-demo-004" })));
+    expect(r).toEqual({ status: 200, cuerpo: { status: "procesando" } });
+    expect((await json(await estadoDeReunion(pedir("/s"), ctx({ id: "reunion-demo-004" })))).cuerpo).toMatchObject({ status: "procesando", errorMessage: null });
+    expect((await json(await reintentar(pedir("/r", "POST"), ctx({ id: "reunion-demo-001" })))).cuerpo).toEqual({ status: "lista" });
+    expect((await reintentar(pedir("/r", "POST"), ctx({ id: "no-existe" }))).status).toBe(404);
+  });
+});
+
 /* ════════════════════════════════════════════════════════════════════
    La bandera del piloto cierra TODAS las rutas
    ════════════════════════════════════════════════════════════════════ */
@@ -366,6 +410,8 @@ const TODAS: Array<[string, () => Promise<Response>]> = [
   ["POST sources", () => registrarFuente(pedir("/m", "POST", {}), ctx({ id: "a" }))],
   ["DELETE source", () => quitarFuente(pedir("/m", "DELETE"), ctx({ id: "a", sourceId: "s" }))],
   ["POST process", () => procesar(pedir("/m", "POST"), ctx({ id: "a" }))],
+  ["GET status", () => estadoDeReunion(pedir("/m"), ctx({ id: "a" }))],
+  ["POST retry", () => reintentar(pedir("/m", "POST"), ctx({ id: "a" }))],
   ["POST live/sesion", () => nuevaSesion(pedir("/m", "POST"), ctx({ id: "a" }))],
   ["POST live", () => registrarParte(pedirParte(), ctx({ id: "a" }))],
   ["POST markers", () => marcar(pedir("/m", "POST", { atMs: 1, kind: "tema" }), ctx({ id: "a" }))],

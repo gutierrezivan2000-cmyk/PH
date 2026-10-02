@@ -1226,13 +1226,65 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
   orden, al volver); dos pestañas; navegación dentro de la app; y la comprobación con ffmpeg. Auditoría de contraste y
   desbordes limpia en oscuro/claro × 1440/390 (`reunion-grabar` ya está en `scripts/contraste.mjs`).
 
+**Notas de M4 (desviaciones y decisiones al construir):**
+
+- **ffmpeg lee de un servidor HTTP local, no de Blob (el «plan B» del §7 pasa a ser el plan).** `servirFuente`
+  (`ffmpeg.ts`) levanta un servidor en `127.0.0.1` (puerto libre y ruta al azar) que responde `Range` leyendo del
+  almacén, y ffmpeg lo trata como cualquier URL: salta con `-ss`, relee con rangos y, si se corta, `-reconnect` vuelve
+  a pedir desde donde iba (`-rw_timeout` 30 s). Motivos: el ffmpeg estático (2018) usa gnutls y su raíz de
+  certificados puede no existir en Vercel; un `-headers` con el token se vería en la lista de procesos; y así TODO se
+  prueba aquí (con una carpeta como almacén) en vez de confiar a ciegas en producción. Un `moov` al final (m4a de
+  iPhone) se lee por rangos: la prueba lo comprueba.
+- **`Almacen`** (`almacen.ts`): `subir`, `subirFlujo` (multipart en el servidor, sin pasar el archivo a memoria),
+  `leer(url, { rango })` → `{ flujo, desde, hasta, total }`, `tamano`, `listar`, `borrar`. `AlmacenBlob` lee **sin caché**
+  (`useCache: false`: lo que se lee acaba de escribirse o se sobrescribe en los reintentos), toma el rango real del
+  `content-range` y, si el servicio lo ignorara, recorta del lado nuestro y avisa. Clasifica los errores del SDK (en
+  inglés) en no_encontrado / transitorio / fatal. `AlmacenLocal` es una carpeta (pruebas).
+- **Normalizar**, en segmentos de 10 min con la lista por stdout (`-segment_list pipe:1 -segment_list_type csv`, que el
+  binario de 2018 sí soporta): cada segmento se sube y se anota **apenas termina**. Si se acaba el tiempo se manda
+  SIGINT: ffmpeg cierra el segmento en curso (queda más corto pero completo y válido) y la tarea responde «continuar»;
+  la pasada siguiente sigue con `-ss normalizedMs` y `-segment_start_number`. Cada reanudación reinicia el codificador
+  (≈1 trama de ajuste): en 25 min con una reanudación la suma queda a < 1,5 s del original. Una pasada que no avanza
+  nada cuenta como fallo (no se «continúa» en vano). La duración total se estima con la del contenedor o, si no la
+  trae (WebM de MediaRecorder), con la fracción del archivo leída.
+- **Cola** (`cola.ts`): reclamo atómico con `updateMany` condicionado; espera 30 s / 2 min / 10 min; al agotar
+  intentos la reunión pasa a «error» con un mensaje que nombra el paso («No pudimos preparar el audio de «x.m4a»
+  después de 3 intentos…») y **sus tareas pendientes se congelan** (`runAfter` lejano) hasta «Reintentar», que las
+  descongela. «Continuar» no gasta intento; el vigilante rescata las que llevan 10 min sin latido. El trabajador **solo
+  reclama los tipos que conoce** (una versión nueva atenderá los suyos), no empieza tareas con < 120 s de margen y
+  pasa «en cola» → «procesando» al empezar la primera tarea.
+- **Orquestador** (`orquestador.ts`): `planificarSiguientes` es pura; encola con claves fijas
+  (`ensamblar_sesion:<id>`, `normalizar:<id>`, `armar_audio`), de modo que llamar `avanzar` de más o desde varias
+  tareas a la vez no duplica nada. El avance de «Preparando el audio» es 92 % las fuentes y 8 % `audio.mp3`, nunca
+  retrocede, y se actualiza **a cada segmento**. Con el audio armado la etapa pasa a «transcribiendo» (M5 continúa).
+- **`armar_audio`** une los segmentos, fija `offsetMs` de cada fuente y la duración, y verifica **cada unión** (lee 2
+  bytes y exige `FF F3`: un ID3 o Xing en medio se detecta aquí, no al reproducir). *Pendiente M6:* aquí va la
+  comprobación de cupo (`sin_cupo`).
+- **Rutas:** `GET /api/cron/process-meetings` (Bearer `CRON_SECRET`, 401 sin él; en `vercel.json`);
+  `GET …/status` (liviano; **empuja** el trabajo con `after()` si hay tareas listas y nadie las atiende, o quien las
+  atendía lleva > 45 s sin avisar); `POST …/retry`; y `POST …/process` ahora encola y empuja. Todas con
+  `maxDuration = 300`. La página consulta `status` cada 4 s mientras procesa (y recarga la reunión al terminar).
+- **Verificado en el build:** el rastreo de archivos de Vercel incluye `@ffmpeg-installer/linux-x64/ffmpeg` en las
+  cuatro rutas que ejecutan trabajo. **No se puede probar aquí** (hacerlo en la primera vista previa con una
+  grabación real): que Vercel permita el servidor en loopback y lance ffmpeg con la memoria/CPU de la función, y cuánto
+  audio normaliza por pasada (el diseño tolera que sean pocas: continúa por cron).
+- **Demo:** simula el procesamiento con el tiempo (2 s en cola, 8 s «Preparando el audio» con barra que avanza) y luego
+  espera en «Transcribiendo»; M5 extiende la simulación hasta «lista». «Reintentar» también funciona.
+- **Pruebas:** cola 28, orquestador 18, trabajador 14, manejadores 23, audio y ffmpeg (puras) ~30, almacenes 24, rutas
+  de proceso 17, empujón 4, y dos integraciones con el **ffmpeg real** (se saltan si no está): audio (25 min sintéticos
+  en m4a → 3 segmentos de tramas completas, `audio.mp3` de 25 min ± 1 s con **cada** trama `FF F3`, recorte por rango
+  sin ffmpeg, reanudación, varias fuentes, archivo dañado/mudo, cancelación; ~45 s) y proceso (archivo + sesión de la
+  grabadora con partes WebM cortadas en bytes arbitrarios, de punta a punta, reanudación y errores; ~20 s).
+- **El `db-falsa.ts` ahora se parece más a Prisma** (devuelve copias, respeta `select`, valores por omisión, fechas por
+  valor, `increment`, `take`): destapó dos pruebas mal escritas, ningún defecto del código.
+
 | Hito | Estado | Commit | Notas |
 |---|---|---|---|
 | M0 Fundaciones | hecho | (ver `git log`) | Ver «Notas de M0» arriba. |
 | M1 Lista y creación | hecho | (ver `git log`) | Ver «Notas de M1» arriba. |
 | M2 Subida reanudable | hecho | (ver `git log`) | Ver «Notas de M2» arriba. |
 | M3 Grabadora | hecho | (ver `git log`) | Ver «Notas de M3» arriba. |
-| M4 Cola y audio | pendiente | | |
+| M4 Cola y audio | hecho | (ver `git log`) | Ver «Notas de M4» arriba. |
 | M5 Transcripción | pendiente | | |
 | M6 Ficha, hablantes, cupos | pendiente | | |
 | M7 Página de la reunión | pendiente | | |

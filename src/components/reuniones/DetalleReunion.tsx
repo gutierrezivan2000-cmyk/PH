@@ -9,11 +9,12 @@ import {
   Aviso, BarraProgreso, Boton, CabeceraPieza, Campo, Entrada, ErrorCarga, Esqueleto, Estado, MenuMas, Modal, Pagina, Panel,
   Pieza, Segmentos, Selector, Vacio, avisar, type ItemMenu,
 } from "@/components/kit";
-import { ErrorApi, actualizarReunion, eliminarReunion, obtenerReunion, procesarReunion } from "@/lib/meetings/cliente";
+import { ErrorApi, actualizarReunion, eliminarReunion, obtenerEstado, obtenerReunion, procesarReunion, reintentarReunion } from "@/lib/meetings/cliente";
 import type { ReunionDetalle } from "@/lib/meetings/dto";
 import { aValorLocal, deValorLocal, fechaLarga, haceCuanto } from "@/lib/meetings/formato";
 import {
-  CLAVES_TIPO_REUNION, TIPOS_DE_REUNION, cortoTipoReunion, describirEstado, esTipoReunion, estaEnMarcha, formatearDuracion,
+  CLAVES_TIPO_REUNION, TEXTO_ETAPA, TIPOS_DE_REUNION, cortoTipoReunion, describirEstado, esTipoReunion, estaEnMarcha, formatearDuracion,
+  type EtapaReunion,
 } from "@/lib/meetings/tipos";
 
 type Pestana = "resumen" | "transcripcion" | "hablantes" | "acta" | "preguntar";
@@ -26,14 +27,17 @@ const PESTANAS: Array<{ id: Pestana; etiqueta: string; texto: string }> = [
   { id: "preguntar", etiqueta: "Preguntar", texto: "Aquí le preguntas a la reunión: responde con la transcripción completa y te dice en qué minuto se habló." },
 ];
 
-/** Mientras algo se sube, graba o procesa, la página se refresca sola. */
+/** Mientras algo se sube o graba, la página se refresca sola. */
 const REFRESCO_MS = 8_000;
+/** Mientras se procesa se consulta el estado liviano (y de paso el servidor empuja el trabajo). */
+const REFRESCO_PROCESO_MS = 4_000;
 
 const CSS = `
 .re-estado { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 20px; }
 .re-estado .cob { font-size: 14.5px; font-weight: 600; color: var(--ink-2); }
 .re-nota { margin: 0 0 16px; max-width: 64ch; font-size: 15px; line-height: 1.5; color: var(--ink-2); }
 .re-proceso { display: grid; gap: 12px; max-width: 560px; }
+.re-etapa { margin: 0; font-size: 15.5px; font-weight: 600; color: var(--ink); font-feature-settings: "tnum" 1; }
 .re-acciones { display: flex; flex-wrap: wrap; gap: 10px; }
 @media (max-width: 560px) { .re-acciones > .k-btn { flex: 1 1 auto; } }
 .re-pestanas { margin: 0 0 16px; }
@@ -70,7 +74,7 @@ export function DetalleReunion({ id }: { id: string }) {
   }, [id, version]);
 
   const estado = datos?.meeting.status ?? "";
-  const hayEnMarcha = estaEnMarcha(estado) || estado === "subiendo" || estado === "grabando";
+  const hayEnMarcha = estado === "subiendo" || estado === "grabando";
   useEffect(() => {
     if (!hayEnMarcha) return;
     const t = setInterval(() => {
@@ -80,6 +84,41 @@ export function DetalleReunion({ id }: { id: string }) {
     }, REFRESCO_MS);
     return () => clearInterval(t);
   }, [hayEnMarcha, id]);
+
+  // Procesando: se consulta el estado liviano. Cuando termina (lista, error, sin horas) se vuelve a cargar la reunión entera.
+  const procesando = estaEnMarcha(estado);
+  useEffect(() => {
+    if (!procesando) return;
+    const t = setInterval(() => {
+      obtenerEstado(id)
+        .then((e) => {
+          if (!estaEnMarcha(e.status)) {
+            setVersion((v) => v + 1);
+            return;
+          }
+          setDatos((prev) =>
+            prev
+              ? { ...prev, meeting: { ...prev.meeting, status: e.status, stage: e.stage, progress: e.progress, errorMessage: e.errorMessage, hechas: e.tareas.hechas, total: e.tareas.total } }
+              : prev,
+          );
+        })
+        .catch(() => {});
+    }, REFRESCO_PROCESO_MS);
+    return () => clearInterval(t);
+  }, [procesando, id]);
+
+  const [reintentando, setReintentando] = useState(false);
+  const reintentar = async () => {
+    setReintentando(true);
+    try {
+      await reintentarReunion(id);
+      setVersion((v) => v + 1);
+    } catch (err) {
+      avisar({ tipo: "error", titulo: err instanceof ErrorApi ? err.message : "No pudimos reintentar. Inténtalo de nuevo." });
+    } finally {
+      setReintentando(false);
+    }
+  };
 
   const m = datos?.meeting ?? null;
 
@@ -263,6 +302,11 @@ export function DetalleReunion({ id }: { id: string }) {
               {(m.status === "en_cola" || m.status === "procesando") && (
                 <Panel titulo="Estamos trabajando en esta reunión" nivel={2}>
                   <div className="re-proceso">
+                    <p className="re-etapa">
+                      {m.status === "en_cola" || !m.stage
+                        ? "Esperando turno…"
+                        : `${TEXTO_ETAPA[m.stage as EtapaReunion] ?? "Procesando"} · ${m.total ? `${m.hechas ?? 0} de ${m.total}` : `${m.progress} %`}`}
+                    </p>
                     <BarraProgreso valor={m.progress} etiquetaAccesible={`Avance: ${descripcion.texto}`} />
                     <p className="re-nota">Puedes cerrar esta página: el trabajo sigue en nuestros servidores.</p>
                   </div>
@@ -276,6 +320,7 @@ export function DetalleReunion({ id }: { id: string }) {
                   tipo="error"
                   titulo="No pudimos terminar de procesar esta reunión."
                   texto={m.errorMessage ?? "Inténtalo de nuevo en unos minutos."}
+                  accion={reintentando ? undefined : { etiqueta: "Reintentar", alElegir: () => void reintentar() }}
                 />
               )}
 
