@@ -192,6 +192,21 @@ describe("POST live (una parte de la grabadora)", () => {
     expect(db.meetingLivePart.filas).toEqual([]);
   });
 
+  it("un cuerpo que se pasa del tope sin declarar su tamaño (envío por trozos) se corta: 413 y sin Blob", async () => {
+    await nuevaReunion();
+    const trozos = new ReadableStream<Uint8Array>({
+      pull(control) {
+        control.enqueue(new Uint8Array(512 * 1024));
+      },
+    });
+    const req = new NextRequest("http://localhost/api/x", {
+      method: "POST", body: trozos, duplex: "half",
+      headers: { "content-type": "audio/webm", "x-sesion": "1", "x-secuencia": "0", "x-duracion-ms": "30000" },
+    } as unknown as ConstructorParameters<typeof NextRequest>[1]);
+    expect((await registrarParte(req, raiz)).status).toBe(413);
+    expect(put).not.toHaveBeenCalled();
+  });
+
   it("rechaza lo inválido sin llamar a Blob", async () => {
     await nuevaReunion();
     for (const o of [{ tipo: "audio/mpeg" }, { session: 0 }, { seq: -3 }, { durMs: 0 }, { bytes: 0 }]) {

@@ -79,3 +79,17 @@ export function formatearRestante(segundos: number | null | undefined): string {
   const m = minutos % 60;
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
+
+/** Cuánto pasó desde `iso`, para leer: «hace unos segundos», «hace 3 min», «hace 2 h», «hace 3 días». */
+export function haceCuanto(iso: string, ahora: Date = new Date()): string {
+  const d = leer(iso);
+  if (!d) return "";
+  const segundos = Math.max(0, Math.round((ahora.getTime() - d.getTime()) / 1000));
+  if (segundos < 45) return "hace unos segundos";
+  const minutos = Math.round(segundos / 60);
+  if (minutos < 60) return `hace ${minutos} min`;
+  const horas = Math.round(minutos / 60);
+  if (horas < 24) return `hace ${horas} h`;
+  const dias = Math.round(horas / 24);
+  return dias === 1 ? "hace 1 día" : `hace ${dias} días`;
+}

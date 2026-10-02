@@ -84,7 +84,7 @@ export function NuevaReunion({ modoInicial, propiedadInicial }: { modoInicial: M
         title: tituloMostrado.trim() || undefined,
         date: fechaElegida.toISOString(),
       });
-      router.push(`/dashboard/reuniones/${reunion.id}?modo=${modo}`);
+      router.push(modo === "grabar" ? `/dashboard/reuniones/${reunion.id}/grabar` : `/dashboard/reuniones/${reunion.id}`);
     } catch (err) {
       setErrorEnvio(err instanceof ErrorApi ? err.message : "No pudimos crear la reunión. Inténtalo de nuevo.");
       setEnviando(false);

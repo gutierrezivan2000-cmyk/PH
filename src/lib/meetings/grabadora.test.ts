@@ -18,7 +18,7 @@ const asentar = async () => {
   for (let i = 0; i < 8; i++) await new Promise<void>((r) => setImmediate(r));
 };
 
-function entornoFalso() {
+function entornoFalso(fraccionado = false) {
   let t = 1_000_000;
   let enLinea = true;
   const dormidos: Array<{ en: number; resolver: () => void }> = [];
@@ -26,7 +26,9 @@ function entornoFalso() {
   const intervalos: Array<{ cada: number; proximo: number; fn: () => void; vivo: boolean }> = [];
 
   const entorno: EntornoGrabadora = {
-    ahora: () => t,
+    // `performance.now()` del navegador: milisegundos con decimales que no se cancelan al restar.
+    ahora: () => (fraccionado ? t + ((t * 0.7311) % 1) : t),
+    epoca: () => t + 1_700_000_000_000,
     dormir: (ms, senal) =>
       new Promise<void>((resolver, rechazar) => {
         if (senal.aborted) return rechazar(errorDeAborto());
@@ -219,11 +221,11 @@ function servidorFalso() {
 
 type Contexto = ReturnType<typeof montar>;
 
-function montar(opciones: { almacen?: AlmacenGrabacionesEnMemoria; meetingId?: string; micFalla?: Error; micNoPuedeEmpezar?: boolean } = {}) {
+function montar(opciones: { almacen?: AlmacenGrabacionesEnMemoria; meetingId?: string; micFalla?: Error; micNoPuedeEmpezar?: boolean; fraccionado?: boolean } = {}) {
   const meetingId = opciones.meetingId ?? "reunion-1";
   const almacen = opciones.almacen ?? new AlmacenGrabacionesEnMemoria();
   const servidor = servidorFalso();
-  const reloj = entornoFalso();
+  const reloj = entornoFalso(opciones.fraccionado);
   const mics: Array<ReturnType<typeof micFalso>> = [];
   const abrir = vi.fn(async () => {
     if (opciones.micFalla) throw opciones.micFalla;
@@ -425,6 +427,14 @@ describe("grabadora · pausa, silencio y avisos", () => {
     expect(c.g.estado().silencioMs).toBe(0);
   });
 
+  it("un nivel que no se puede medir no cuenta como silencio", async () => {
+    const c = montar();
+    await c.g.iniciar();
+    c.mic().ponerNivel(Number.NaN);
+    await grabar(c, 30); // 150 s
+    expect(c.g.estado()).toMatchObject({ silencioMs: 0, nivel: 0 });
+  });
+
   it("avisa si el micrófono deja de entregar datos y lo quita al volver", async () => {
     const c = montar();
     await c.g.iniciar();
@@ -458,6 +468,21 @@ describe("grabadora · marcas", () => {
     await grabar(c, 1); // el próximo trozo vuelve a intentarlo
     expect(c.servidor.marcas).toEqual([expect.objectContaining({ atMs: 12_000, kind: "tema", note: "Presupuesto 2026" })]);
     expect(await c.almacen.listarMarcas(c.meetingId)).toEqual([expect.objectContaining({ enviada: true })]);
+  });
+
+  it("el reloj del navegador tiene fracciones de milisegundo y el servidor pide enteros: marcas y duraciones salen redondeadas", async () => {
+    const c = montar({ fraccionado: true });
+    await c.g.iniciar();
+    await c.reloj.avanzar(12_000);
+    await c.g.marcar("tema");
+    await grabar(c, 2);
+    await asentar();
+    expect(c.servidor.marcas).toHaveLength(1);
+    expect(Number.isInteger(c.servidor.marcas[0].atMs)).toBe(true);
+    expect(c.g.estado().transcurridoMs % 1).not.toBe(0); // el reloj del motor sí lleva decimales
+    expect(await c.almacen.listarMarcas(c.meetingId)).toEqual([expect.objectContaining({ enviada: true })]);
+    await c.g.terminar();
+    for (const cierre of c.servidor.llamadas.cerrar[0]) expect(Number.isInteger(cierre.duracionMs)).toBe(true);
   });
 
   it("una marca que el servidor rechaza se descarta en vez de reintentarse para siempre", async () => {
@@ -579,6 +604,24 @@ describe("grabadora · cortes del micrófono y del navegador", () => {
     expect((await fin).ok).toBe(true);
   });
 
+  it("abre el micrófono antes de esperar al servidor (el permiso exige el gesto reciente de la persona)", async () => {
+    const c = montar();
+    c.servidor.guion.sesion = "colgada";
+    const inicio = c.g.iniciar();
+    await asentar();
+    expect(c.abrir).toHaveBeenCalledTimes(1);
+    expect(c.mic().grabador.inicios).toEqual([]); // abierto, pero sin grabar todavía
+    await c.reloj.avanzar(3000);
+    await inicio;
+    expect(c.mic().grabador.inicios).toEqual([VIVO_TROZO_MS]);
+  });
+
+  it("si el micrófono no abre, no reserva una sesión en el servidor", async () => {
+    const c = montar({ micFalla: new Error("Permiso del micrófono denegado.") });
+    await c.g.iniciar();
+    expect(c.servidor.llamadas.nuevaSesion).toBe(0);
+  });
+
   it("si el servidor no contesta pronto, empieza igual con un número local", async () => {
     const c = montar();
     c.servidor.guion.sesion = "colgada";
@@ -616,6 +659,17 @@ describe("grabadora · recuperar tras un cierre brusco", () => {
     const r = await c.g.terminar();
     expect(r.ok).toBe(true);
     expect(c.servidor.llamadas.cerrar[0].map((s) => [s.session, s.ultimaSecuencia])).toEqual([[1, 1], [2, 0]]);
+  });
+
+  it("inicializar varias veces (la página se vuelve a montar) no duplica nada", async () => {
+    const almacen = new AlmacenGrabacionesEnMemoria();
+    await sesionAbandonada(almacen, { idxGuardados: [0, 1, 2, 3, 4, 5, 6], ultimoIdxAnotado: 6 });
+    const c = montar({ almacen });
+    await Promise.all([c.g.inicializar(), c.g.inicializar()]);
+    await c.g.inicializar();
+    await asentar();
+    expect(c.servidor.llamadas.subir).toEqual(["1:0", "1:1"]);
+    expect(c.g.estado().recuperadas).toMatchObject({ sesiones: 1 });
   });
 
   it("sin conexión con el servidor, la sesión nueva sigue la numeración local", async () => {

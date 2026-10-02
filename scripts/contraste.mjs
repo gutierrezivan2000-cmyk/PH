@@ -16,7 +16,7 @@ const PAGES = [
   ["reuniones", "/dashboard/reuniones", true], ["reunion-nueva", "/dashboard/reuniones/nueva?modo=grabar", true],
   ["reunion-lista", "/dashboard/reuniones/reunion-demo-001", true], ["reunion-proceso", "/dashboard/reuniones/reunion-demo-002", true],
   ["reunion-borrador", "/dashboard/reuniones/reunion-demo-003", true], ["reunion-error", "/dashboard/reuniones/reunion-demo-004", true],
-  ["reunion-sincupo", "/dashboard/reuniones/reunion-demo-005", true],
+  ["reunion-sincupo", "/dashboard/reuniones/reunion-demo-005", true], ["reunion-grabar", "/dashboard/reuniones/reunion-demo-003/grabar", true],
 ];
 
 const AUDIT = `(() => {

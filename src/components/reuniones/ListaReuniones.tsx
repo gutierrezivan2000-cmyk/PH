@@ -4,13 +4,15 @@ import { ArrowRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
 import {
-  AccionesFila, Boton, BotonFila, CabeceraPieza, ErrorCarga, Esqueleto, Estado, Pagina, PestanasUnidas, PieTabla, Pieza,
+  AccionesFila, Aviso, Boton, BotonFila, CabeceraPieza, ErrorCarga, Esqueleto, Estado, Pagina, PestanasUnidas, PieTabla, Pieza,
   Tabla, Vacio, type ColumnaTabla,
 } from "@/components/kit";
+import { grabacionesPendientes, type GrabacionPendiente } from "@/lib/meetings/almacen-navegador";
 import { ErrorApi, listarReuniones } from "@/lib/meetings/cliente";
 import type { ReunionResumen } from "@/lib/meetings/dto";
 import { fechaCorta, horaCorta } from "@/lib/meetings/formato";
-import { cortoTipoReunion, describirEstado, estaEnMarcha, formatearDuracion } from "@/lib/meetings/tipos";
+import { grabacionEnCurso } from "./useGrabadora";
+import { cortoTipoReunion, describirEstado, estaEnMarcha, formatearDuracion, puedeAgregarFuentes } from "@/lib/meetings/tipos";
 
 type Propiedad = { id: string; name: string };
 
@@ -19,6 +21,11 @@ const REFRESCO_MS = 15_000;
 
 const CSS = `
 .re-ctx { margin: 0 0 16px; }
+.re-pendientes { display: grid; gap: 10px; margin: 0 0 16px; }
+@media (max-width: 860px) {
+  .re-pendientes .k-aviso { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+  .re-pendientes .k-aviso > .acc { grid-column: 2; justify-self: start; }
+}
 .re-fecha { display: grid; gap: 2px; line-height: 1.2; }
 .re-fecha b { font-size: 15px; font-weight: 600; white-space: nowrap; }
 .re-fecha small { font-size: 13px; font-weight: 500; color: var(--ink-3); white-space: nowrap; }
@@ -34,6 +41,8 @@ export function ListaReuniones() {
   const [error, setError] = useState<string | null>(null);
   const [filtro, setFiltro] = useState("todas");
   const [intento, setIntento] = useState(0);
+  // Grabaciones que quedaron a medias EN ESTE dispositivo (se cerró la pestaña o se cortó la batería).
+  const [locales, setLocales] = useState<GrabacionPendiente[]>([]);
 
   useEffect(() => {
     let vivo = true;
@@ -54,6 +63,22 @@ export function ListaReuniones() {
       vivo = false;
     };
   }, [intento]);
+
+  useEffect(() => {
+    let vivo = true;
+    void grabacionesPendientes().then((l) => {
+      if (vivo) setLocales(l);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [intento]);
+
+  // Solo las de reuniones que existen y todavía admiten audio (lo demás es un resto que ya no sirve).
+  const sinTerminar = locales.flatMap((l) => {
+    const r = (items ?? []).find((x) => x.id === l.meetingId);
+    return r && puedeAgregarFuentes(r.status) ? [{ reunion: r, local: l }] : [];
+  });
 
   const hayEnMarcha = items?.some(enMarcha) ?? false;
   useEffect(() => {
@@ -126,10 +151,12 @@ export function ListaReuniones() {
       alinear: "fin",
       ancho: "auto",
       celda: (r) => {
-        const verbo = r.status === "borrador" ? "Continuar" : "Abrir";
+        const verbo = r.status === "borrador" || r.status === "grabando" ? "Continuar" : "Abrir";
+        // Una reunión grabando se continúa en la grabadora; un borrador, donde se elige cómo agregar el audio.
+        const destino = r.status === "grabando" ? `/dashboard/reuniones/${r.id}/grabar` : `/dashboard/reuniones/${r.id}`;
         return (
           <AccionesFila>
-            <BotonFila href={`/dashboard/reuniones/${r.id}`} icono={ArrowRight} tono="violet" aria-label={`${verbo}: ${r.title}`}>
+            <BotonFila href={destino} icono={ArrowRight} tono="violet" aria-label={`${verbo}: ${r.title}`}>
               {verbo}
             </BotonFila>
           </AccionesFila>
@@ -160,6 +187,29 @@ export function ListaReuniones() {
               ) : undefined
             }
           />
+
+          {sinTerminar.length > 0 && (
+            <div className="re-pendientes">
+              {sinTerminar.map(({ reunion, local }) => {
+                // Si esta misma pestaña la está grabando ahora, no es «sin terminar»: se vuelve a ella.
+                const enCurso = grabacionEnCurso(reunion.id);
+                return (
+                  <Aviso
+                    key={reunion.id}
+                    enLinea
+                    rol={null}
+                    tipo={enCurso ? "info" : "aviso"}
+                    titulo={
+                      enCurso
+                        ? `Estás grabando esta reunión: ${reunion.title}`
+                        : `Tienes una grabación sin terminar: ${reunion.title} · ${formatearDuracion(local.durMs)}`
+                    }
+                    accion={{ etiqueta: enCurso ? "Ir a la grabadora" : "Continuar", href: `/dashboard/reuniones/${reunion.id}/grabar` }}
+                  />
+                );
+              })}
+            </div>
+          )}
 
           {cargando && <Esqueleto variante="completo" filas={5} etiquetaAccesible="Cargando tus reuniones…" />}
 

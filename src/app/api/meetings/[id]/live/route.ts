@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { ensureMeetingsSchema } from "@/lib/ensure-meetings-schema";
 import { exigirVisible, reunionDelUsuario } from "@/lib/meetings/acceso";
 import { rutaDeParteViva } from "@/lib/meetings/almacen";
+import { leerCuerpoAcotado } from "@/lib/meetings/cuerpo";
 import { demoRegistrarParteViva } from "@/lib/meetings/demo";
 import { VIVO_PARTE_MAX_BYTES, puedeAgregarFuentes } from "@/lib/meetings/tipos";
 import { validarParteViva } from "@/lib/meetings/validar";
@@ -28,13 +29,15 @@ export async function POST(req: NextRequest, { params }: Contexto) {
   const { ctx } = acceso;
   const { id } = await params;
 
-  // Se mira el tamaño ANTES de leer: un cuerpo enorme no debe llegar a la memoria.
+  // Un cuerpo enorme no debe llegar a la memoria: se mira la cabecera y, además, se lee con tope (puede faltar o mentir).
   const declarado = Number(req.headers.get("content-length") ?? "0");
   if (Number.isFinite(declarado) && declarado > VIVO_PARTE_MAX_BYTES) {
     return NextResponse.json({ error: "La parte de audio es demasiado grande." }, { status: 413 });
   }
-  const cuerpo = await req.arrayBuffer().catch(() => null);
-  if (!cuerpo) return NextResponse.json({ error: "No pudimos leer la parte de audio." }, { status: 400 });
+  const leido = await leerCuerpoAcotado(req, VIVO_PARTE_MAX_BYTES);
+  if (leido === "excede") return NextResponse.json({ error: "La parte de audio es demasiado grande." }, { status: 413 });
+  if (leido === null) return NextResponse.json({ error: "No pudimos leer la parte de audio." }, { status: 400 });
+  const cuerpo = leido;
 
   const valida = validarParteViva(
     {
@@ -62,7 +65,7 @@ export async function POST(req: NextRequest, { params }: Contexto) {
     if (!reunion.consentAt) return NextResponse.json({ error: SIN_CONSTANCIA }, { status: 409 });
 
     const { put } = await import("@vercel/blob");
-    const blob = await put(rutaDeParteViva(id, parte.session, parte.seq, parte.ext), Buffer.from(cuerpo), {
+    const blob = await put(rutaDeParteViva(id, parte.session, parte.seq, parte.ext), Buffer.from(cuerpo.buffer, cuerpo.byteOffset, cuerpo.byteLength), {
       access: "private",
       addRandomSuffix: false,
       allowOverwrite: true,

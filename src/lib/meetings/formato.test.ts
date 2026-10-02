@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aValorLocal, deValorLocal, fechaCorta, fechaLarga, formatearRestante, formatearVelocidad, horaCorta } from "./formato";
+import { aValorLocal, deValorLocal, fechaCorta, fechaLarga, formatearRestante, formatearVelocidad, haceCuanto, horaCorta } from "./formato";
 
 // Se construyen con el constructor local para que las pruebas valgan en cualquier zona horaria.
 const iso = (y: number, m: number, d: number, h = 0, min = 0) => new Date(y, m - 1, d, h, min).toISOString();
@@ -74,5 +74,24 @@ describe("formatearRestante", () => {
   });
   it("sin dato, nada", () => {
     for (const v of [null, undefined, -1, Number.NaN, Number.POSITIVE_INFINITY]) expect(formatearRestante(v), String(v)).toBe("");
+  });
+});
+
+describe("haceCuanto", () => {
+  const ahora = new Date("2026-10-02T15:00:00Z");
+  const antes = (ms: number) => new Date(ahora.getTime() - ms).toISOString();
+  it("se lee como una persona lo diría", () => {
+    expect(haceCuanto(antes(10_000), ahora)).toBe("hace unos segundos");
+    expect(haceCuanto(antes(44_000), ahora)).toBe("hace unos segundos");
+    expect(haceCuanto(antes(60_000), ahora)).toBe("hace 1 min");
+    expect(haceCuanto(antes(3 * 60_000 + 20_000), ahora)).toBe("hace 3 min");
+    expect(haceCuanto(antes(59 * 60_000), ahora)).toBe("hace 59 min");
+    expect(haceCuanto(antes(2 * 3_600_000), ahora)).toBe("hace 2 h");
+    expect(haceCuanto(antes(30 * 3_600_000), ahora)).toBe("hace 1 día");
+    expect(haceCuanto(antes(3 * 24 * 3_600_000), ahora)).toBe("hace 3 días");
+  });
+  it("una fecha en el futuro o inválida no rompe", () => {
+    expect(haceCuanto(antes(-60_000), ahora)).toBe("hace unos segundos");
+    expect(haceCuanto("no es fecha", ahora)).toBe("");
   });
 });

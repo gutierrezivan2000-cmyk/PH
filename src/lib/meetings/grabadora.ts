@@ -169,7 +169,10 @@ export type MicrofonoAbierto = {
 };
 
 export type EntornoGrabadora = {
+  /** Reloj que no salta (para medir cuánto se grabó): `performance.now()` en el navegador. */
   ahora(): number;
+  /** Fecha y hora reales en milisegundos: para ordenar sesiones y poner identificadores únicos. */
+  epoca(): number;
   /** Espera `ms`; rechaza con un AbortError si la señal se activa. */
   dormir(ms: number, senal: AbortSignal): Promise<void>;
   /** ¿Hay conexión ahora mismo? */
@@ -483,8 +486,10 @@ export function crearGrabadora(dep: DependenciasGrabadora) {
     ultimoTick = ahora;
     if (!actual || !mic) return;
     const grabando = estado.fase === "grabando";
-    const nivel = mic.nivel();
-    const silencio = grabando && nivel < UMBRAL_SILENCIO ? estado.silencioMs + dt : 0;
+    // Un nivel que no se puede medir (el navegador no dejó arrancar el analizador) no es silencio.
+    const medido = mic.nivel();
+    const nivel = Number.isFinite(medido) ? medido : 0;
+    const silencio = grabando && Number.isFinite(medido) && medido < UMBRAL_SILENCIO ? estado.silencioMs + dt : 0;
     const sinDatos = grabando && mic.grabador.state === "recording" && ahora - ultimoDato > SIN_DATOS_MS;
     emitirProgreso({
       nivel, silencioMs: silencio, sinDatos, sinConexion: !entorno.hayConexion(),
@@ -553,8 +558,14 @@ export function crearGrabadora(dep: DependenciasGrabadora) {
     });
   }
 
-  /** Carga lo que quedó de visitas anteriores (cierre brusco) y empieza a subirlo. */
-  async function inicializar(): Promise<void> {
+  /** Carga lo que quedó de visitas anteriores (cierre brusco) y empieza a subirlo. Solo se hace una vez por motor. */
+  let preparada: Promise<void> | null = null;
+  function inicializar(): Promise<void> {
+    preparada ??= cargarLoGuardado();
+    return preparada;
+  }
+
+  async function cargarLoGuardado(): Promise<void> {
     const guardadas = await almacen.listarSesiones(meetingId).catch(() => [] as SesionGuardada[]);
     let durMs = 0;
     let bytes = 0;
@@ -607,14 +618,17 @@ export function crearGrabadora(dep: DependenciasGrabadora) {
       rearmar();
       emitir({ fase: "iniciando", mensaje: null, errorEnvio: null, nivel: 0, silencioMs: 0, sinDatos: false });
       try {
-        const minimo = Math.max(0, ...sesiones.keys()) + 1;
-        const offsetLocal = [...sesiones.values()].reduce((suma, s) => suma + s.durMs, 0);
-        const { session, offsetMs } = await pedirSesion(minimo, offsetLocal);
+        // El micrófono se abre PRIMERO: pedir permiso exige que la persona acabe de tocar el botón (Safari es estricto),
+        // y esperar al servidor antes podría hacer que ya no cuente como un gesto suyo.
         const abierto = await dep.abrir(opciones);
         mic = abierto; // desde aquí, cualquier fallo debe soltar el micrófono
 
+        const minimo = Math.max(0, ...sesiones.keys()) + 1;
+        const offsetLocal = [...sesiones.values()].reduce((suma, s) => suma + s.durMs, 0);
+        const { session, offsetMs } = await pedirSesion(minimo, offsetLocal);
+
         const ses: SesionGuardada = {
-          meetingId, session, mime: abierto.mime, iniciada: entorno.ahora(), cerrada: false, ultimoIdx: -1, enviadas: [], durMs: 0, bytes: 0, offsetMs,
+          meetingId, session, mime: abierto.mime, iniciada: entorno.epoca(), cerrada: false, ultimoIdx: -1, enviadas: [], durMs: 0, bytes: 0, offsetMs,
         };
         sesiones.set(session, ses);
         actual = ses;
@@ -671,8 +685,8 @@ export function crearGrabadora(dep: DependenciasGrabadora) {
   /** Pone una marca en el minuto que se está grabando (nuevo tema, votación, compromiso, nota). */
   async function marcar(kind: string, note: string | null = null) {
     if (!actual || (estado.fase !== "grabando" && estado.fase !== "pausada")) return;
-    const atMs = actual.offsetMs + activoAhora();
-    const marca: MarcaGuardada = { id: `marca-${entorno.ahora()}-${++marcasHechas}`, meetingId, atMs, kind, note, enviada: false };
+    const atMs = Math.round(actual.offsetMs + activoAhora()); // el servidor exige milisegundos enteros
+    const marca: MarcaGuardada = { id: `marca-${entorno.epoca()}-${++marcasHechas}`, meetingId, atMs, kind, note, enviada: false };
     await almacen.guardarMarca(marca).catch(() => {});
     emitir({ marcas: marcasHechas });
     void bombearEnvios();
@@ -684,7 +698,7 @@ export function crearGrabadora(dep: DependenciasGrabadora) {
     const cierres: CierreSesion[] = [...sesiones.values()]
       .filter((s) => s.ultimoIdx >= 0)
       .sort((a, b) => a.session - b.session)
-      .map((s) => ({ session: s.session, ultimaSecuencia: partesCompletas(s.ultimoIdx, true).length - 1, mimeType: s.mime, duracionMs: s.durMs }));
+      .map((s) => ({ session: s.session, ultimaSecuencia: partesCompletas(s.ultimoIdx, true).length - 1, mimeType: s.mime, duracionMs: Math.round(s.durMs) }));
     if (cierres.length === 0) return { ok: false, motivo: "No se grabó nada. Empieza de nuevo cuando quieras." };
 
     let vueltasConFaltantes = 0;

@@ -652,8 +652,9 @@ usuario y que Reuniones es visible para él (si no, 404). Todas tienen rama demo
 | `GET /api/meetings/[id]/status` | `{ status, stage, progress, errorMessage, durationMs, coverage, tareas: { hechas, total } }` más el empujón |
 | `POST /api/meetings/[id]/upload-token` | `{ nombre, tamano, tipo }` → `{ token, pathname, partSize: 16777216, contentType }`. Valida el tipo (`TIPOS_REUNION` en `upload-limits.ts`: audio y video), el tope de 20 GB y `validUntil` de 24 h. Estado → `subiendo` |
 | `POST /api/meetings/[id]/sources` | `{ url, pathname, nombre, tamano, tipo, orden }` → `{ source }`. Solo URLs de Blob (`isAllowedBlobUrl`) bajo el prefijo de la reunión |
-| `POST /api/meetings/[id]/live` | Cuerpo binario de 2 MB como máximo. Cabeceras `Content-Type`, `X-Sesion`, `X-Secuencia` y `X-Duracion-Ms`. Idempotente por `(session, seq)`: siempre la misma ruta de blob, con `addRandomSuffix: false` y `allowOverwrite: true`. Estado → `grabando` |
-| `POST /api/meetings/[id]/markers` | `{ atMs, kind, note? }` |
+| `POST /api/meetings/[id]/live` | Cuerpo binario de 2 MB como máximo (leído con tope). Cabeceras `Content-Type`, `X-Sesion`, `X-Secuencia` y `X-Duracion-Ms`. Idempotente por `(session, seq)`: siempre la misma ruta de blob, con `addRandomSuffix: false` y `allowOverwrite: true`. Estado → `grabando`. Exige `consentAt` |
+| `POST /api/meetings/[id]/live/sesion` | → `{ session, offsetMs }`. Reserva el número de la próxima sesión de grabación (fila con `seq = -1`) y dice dónde empieza dentro de la reunión. Exige `consentAt` |
+| `POST /api/meetings/[id]/markers` | `{ id?, atMs, kind, note? }` → `{ marker }`. Idempotente por `id` (lo pone el dispositivo) |
 | `POST /api/meetings/[id]/process` | `{ sesiones?: [{ session, ultimaSecuencia, mimeType, duracionMs }] }` → `{ status: "en_cola" }`, o 409 con `{ faltan: [{ session, seq }] }`. Encola la primera etapa y empuja |
 | `POST /api/meetings/[id]/retry` | Reintenta las tareas fallidas |
 | `GET /api/meetings/[id]/utterances?desde=&hasta=&q=` | `{ items: [{ id, startMs, endMs, speaker, text }], nombres, siguienteMs? }`, en páginas de 30 min |
@@ -1165,12 +1166,72 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
   (`db-falsa.ts`, 25) y el recorrido completo en el navegador contra el demo (`subida-e2e.mjs`, fuera del repo:
   elegir, rechazo, orden, subida, pausa, **recarga a mitad y reanudación**, envío automático y quitar archivo).
 
+**Notas de M3 (desviaciones y decisiones al construir):**
+
+- **Flujo.** «Grabar reunión» crea el borrador y lleva directo a `/dashboard/reuniones/[id]/grabar` (la antigua
+  `?modo=grabar` de la reunión redirige ahí; el aviso provisional «La grabadora llega…» desapareció y `modo` ya no se
+  pasa a `DetalleReunion` ni a `SubidaReunion`). Un borrador ofrece «Grabar la reunión» en su cabecera. Una reunión
+  `grabando` muestra «Hay una grabación sin terminar» con lo que ya llegó al servidor, «Continuar en la grabadora» y
+  «Terminar y procesar lo recibido» (para cuando el dispositivo se perdió).
+- **El motor** (`grabadora.ts`, lógica pura: micrófono, almacén local, API, reloj y red entran por parámetros)
+  guarda cada trozo de 5 s en el dispositivo **antes** de pensar en el servidor; sube **partes de 30 s** (6 trozos,
+  numeradas por posición: parte k = trozos 6k…6k+5, así se reconstruyen idénticas tras un cierre brusco), en orden,
+  con reintentos sin límite (1-2-4-8-16-30 s) y sin gastar intentos mientras no hay red. Una **sesión** es una pasada
+  del grabador (concatenar sus trozos da un archivo válido); «Continuar» abre otra. Un cierre brusco se rescata en la
+  siguiente visita: lo guardado se sube solo y la sesión nueva sigue la numeración y la línea de tiempo (las marcas
+  suman lo ya grabado). Terminar sube lo pendiente, declara la última parte de cada sesión y, si el servidor dice que
+  faltan (409), las vuelve a subir desde el dispositivo (máx. 3 vueltas; los fallos de red no cuentan).
+- **Defectos reales que destapó la batería de pruebas** (arreglados y cubiertos): el bucle de envío que termina sin
+  esperar nada (hay un rechazo pendiente) quedaba registrado como «en marcha» para siempre; `atMs` y duraciones
+  llevaban decimales (`performance.now()`) y el servidor, que exige enteros, **descartaba las marcas** — lo vio el
+  recorrido en el navegador, no las pruebas unitarias, por eso hay una prueba con reloj fraccionario (y se comprobó
+  que falla sin el redondeo).
+- **Suposición central, verificada con Chromium + ffmpeg:** las partes de una sesión, **unidas en orden**, forman un
+  archivo que `ffmpeg` decodifica sin errores (70 s grabados → 70,4 s; 3 partes de 116, 124 y 41 KB, ≈ 4 KB/s); una
+  parte suelta que no es la primera **no** se abre sola. **M4 debe ensamblar por sesión, en orden de `seq`**, antes de
+  normalizar. No pudimos probar Safari/iOS aquí (graba MP4 fragmentado; mismo principio, sin verificar).
+- **Servidor.** `POST …/live/sesion` reserva el número de sesión con una fila de `MeetingLivePart` con **`seq = -1`**
+  (la clave única evita que dos dispositivos que empiezan a la vez obtengan el mismo número) y devuelve también dónde
+  empieza la sesión dentro de la reunión. **Toda consulta de audio filtra `seq >= 0`** (M4 incluido). `POST …/live`
+  recibe la parte (cuerpo binario ≤ 2 MB leído con tope, aunque falte `Content-Length`), es idempotente por
+  (sesión, parte) —ruta fija `meetings/<id>/vivo/<sesión>/<seq>.<ext>`, `allowOverwrite`— y pone la reunión en
+  «grabando». `POST …/markers` es idempotente por el identificador que pone el dispositivo (se ata a la reunión).
+  `POST …/process` acepta `{ sesiones }`: comprueba que no falte ninguna parte (409 `{ faltan }`), crea una fuente
+  `kind = grabacion` por sesión y deja la reunión «en cola»; las sesiones con audio que nadie declaró (dispositivo
+  perdido) se cierran con lo recibido. Es idempotente (repetirlo tras perder la respuesta no duplica fuentes).
+- **La constancia del aviso se exige en el servidor** (`consentAt`; 409 «Antes de grabar, confirma que avisaste a
+  los asistentes») al reservar sesión y al recibir cada parte, no solo en la casilla. Si la constancia no pudo
+  guardarse al empezar (sin conexión), la pantalla la guarda cuando el servidor la pide y reintenta los envíos.
+- **`puedeAgregarFuentes` ahora incluye «grabando»**: se puede subir un archivo y grabar el resto, y cerrar todo junto.
+- **Almacén local** (`almacen-navegador.ts`, IndexedDB v2): `grab-sesiones`, `grab-trozos` (clave compuesta
+  reunión-sesión-posición: leer un rango es leer en orden) y `grab-marcas`; escritura con durabilidad «strict»; se
+  reabre la conexión si el navegador la cierra (Safari lo hace al pasar a segundo plano); sin IndexedDB cae a memoria y
+  la pantalla lo avisa («si cierras la pestaña perderás lo que no haya subido»).
+- **Una sola pestaña por reunión** (Web Locks): una segunda pestaña ve «Esta reunión ya está abierta en otra pestaña»
+  en vez de pisar lo guardado. **La grabación no se corta si la persona navega a otra pantalla de la app**: el motor
+  vive en un registro de la pestaña y al volver la pantalla se reconecta; la lista lo dice («Estás grabando esta
+  reunión»). *Pendiente (M9):* un indicador global de «grabando» fuera de estas pantallas.
+- **Navegador.** Condiciones de audio y tipo MIME como en §11; reloj de medir con `performance.now()` (no salta ni
+  cuenta el equipo dormido); medidor con caída suave (el micrófono falso de Chromium solo «pita» 20 ms por segundo);
+  un nivel que no se puede medir (el analizador no arrancó) **no** cuenta como silencio. El micrófono se abre antes de
+  esperar al servidor (el permiso exige el toque reciente de la persona). Wake Lock con reintento al volver a la
+  pestaña, `beforeunload` mientras se graba, espacio bajo (< 300 MB) y `storage.persist()`.
+- **Texto pendiente de M6:** el modal de terminar dice «Puedes cerrar esta página: el trabajo sigue en nuestros
+  servidores». La frase del plan «te avisamos por correo cuando esté lista» se agrega cuando exista el correo (M6).
+- **Pruebas:** motor 48, cliente de la API 15, micrófono/candado/espacio 34, cierre 15, cuerpo acotado 6, rutas con
+  base falsa 27, validadores y demo en `rutas.test.ts`/`validar.test.ts`. Recorridos en el navegador contra el demo
+  (fuera del repo, micrófono falso de Chromium): grabar, probar el micrófono, marcas, pausa, **sin internet**,
+  **recargar a mitad → «Continuar» abre la sesión 2**, terminar y verificar en el servidor (dos fuentes, marcas,
+  partes contiguas y en orden); una grabación de 80 s con **60 s sin internet** (las partes 0 y 1 suben juntas, en
+  orden, al volver); dos pestañas; navegación dentro de la app; y la comprobación con ffmpeg. Auditoría de contraste y
+  desbordes limpia en oscuro/claro × 1440/390 (`reunion-grabar` ya está en `scripts/contraste.mjs`).
+
 | Hito | Estado | Commit | Notas |
 |---|---|---|---|
-| M0 Fundaciones | hecho | (ver `git log`) | Ver «Notas de M0» abajo. |
-| M1 Lista y creación | hecho | (ver `git log`) | Ver «Notas de M1» abajo. |
-| M2 Subida reanudable | hecho | (ver `git log`) | Ver «Notas de M2» abajo. |
-| M3 Grabadora | pendiente | | |
+| M0 Fundaciones | hecho | (ver `git log`) | Ver «Notas de M0» arriba. |
+| M1 Lista y creación | hecho | (ver `git log`) | Ver «Notas de M1» arriba. |
+| M2 Subida reanudable | hecho | (ver `git log`) | Ver «Notas de M2» arriba. |
+| M3 Grabadora | hecho | (ver `git log`) | Ver «Notas de M3» arriba. |
 | M4 Cola y audio | pendiente | | |
 | M5 Transcripción | pendiente | | |
 | M6 Ficha, hablantes, cupos | pendiente | | |

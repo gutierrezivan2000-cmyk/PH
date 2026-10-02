@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil } from "lucide-react";
+import { CircleStop, Mic, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { Header } from "@/components/dashboard/Header";
@@ -9,9 +9,9 @@ import {
   Aviso, BarraProgreso, Boton, CabeceraPieza, Campo, Entrada, ErrorCarga, Esqueleto, Estado, MenuMas, Modal, Pagina, Panel,
   Pieza, Segmentos, Selector, Vacio, avisar, type ItemMenu,
 } from "@/components/kit";
-import { ErrorApi, actualizarReunion, eliminarReunion, obtenerReunion } from "@/lib/meetings/cliente";
+import { ErrorApi, actualizarReunion, eliminarReunion, obtenerReunion, procesarReunion } from "@/lib/meetings/cliente";
 import type { ReunionDetalle } from "@/lib/meetings/dto";
-import { aValorLocal, deValorLocal, fechaLarga } from "@/lib/meetings/formato";
+import { aValorLocal, deValorLocal, fechaLarga, haceCuanto } from "@/lib/meetings/formato";
 import {
   CLAVES_TIPO_REUNION, TIPOS_DE_REUNION, cortoTipoReunion, describirEstado, esTipoReunion, estaEnMarcha, formatearDuracion,
 } from "@/lib/meetings/tipos";
@@ -34,21 +34,21 @@ const CSS = `
 .re-estado .cob { font-size: 14.5px; font-weight: 600; color: var(--ink-2); }
 .re-nota { margin: 0 0 16px; max-width: 64ch; font-size: 15px; line-height: 1.5; color: var(--ink-2); }
 .re-proceso { display: grid; gap: 12px; max-width: 560px; }
+.re-acciones { display: flex; flex-wrap: wrap; gap: 10px; }
+@media (max-width: 560px) { .re-acciones > .k-btn { flex: 1 1 auto; } }
 .re-pestanas { margin: 0 0 16px; }
 .re-modal-campos .k-fld { margin-bottom: 14px; }
 .re-modal-texto { margin: 0 0 12px; font-size: 15.5px; line-height: 1.5; color: var(--ink-2); }
 `;
 
-type Modo = "grabar" | "subir" | null;
-
-export function DetalleReunion({ id, modo }: { id: string; modo: Modo }) {
+export function DetalleReunion({ id }: { id: string }) {
   const router = useRouter();
   const [datos, setDatos] = useState<ReunionDetalle | null>(null);
   const [error, setError] = useState<{ mensaje: string; noExiste: boolean } | null>(null);
   const [version, setVersion] = useState(0);
   const [pestana, setPestana] = useState<Pestana>("resumen");
 
-  const [modal, setModal] = useState<"editar" | "eliminar" | null>(null);
+  const [modal, setModal] = useState<"editar" | "eliminar" | "terminar" | null>(null);
   const [trabajando, setTrabajando] = useState(false);
   const [errorModal, setErrorModal] = useState("");
   const [edit, setEdit] = useState({ title: "", type: "consejo", fecha: "" });
@@ -113,6 +113,21 @@ export function DetalleReunion({ id, modo }: { id: string; modo: Modo }) {
       avisar({ tipo: "ok", titulo: "Cambios guardados." });
     } catch (err) {
       setErrorModal(err instanceof ErrorApi ? err.message : "No pudimos guardar los cambios.");
+    } finally {
+      setTrabajando(false);
+    }
+  };
+
+  const terminarLoRecibido = async () => {
+    setTrabajando(true);
+    setErrorModal("");
+    try {
+      await procesarReunion(id);
+      setModal(null);
+      setVersion((v) => v + 1);
+      avisar({ tipo: "ok", titulo: "Enviamos la reunión a transcribir." });
+    } catch (err) {
+      setErrorModal(err instanceof ErrorApi ? err.message : "No pudimos enviar la reunión a transcribir.");
     } finally {
       setTrabajando(false);
     }
@@ -187,7 +202,16 @@ export function DetalleReunion({ id, modo }: { id: string; modo: Modo }) {
               <CabeceraPieza
                 titulo={m.title}
                 subtitulo={subtitulo}
-                acciones={<MenuMas etiquetaAccesible="Más acciones de la reunión" items={menu} />}
+                acciones={
+                  <>
+                    {m.status === "borrador" && (
+                      <Boton variante="secundario" icono={Mic} tono="violet" href={`/dashboard/reuniones/${id}/grabar`}>
+                        Grabar la reunión
+                      </Boton>
+                    )}
+                    <MenuMas etiquetaAccesible="Más acciones de la reunión" items={menu} />
+                  </>
+                }
               />
 
               <div className="re-estado">
@@ -203,12 +227,40 @@ export function DetalleReunion({ id, modo }: { id: string; modo: Modo }) {
                 <SubidaReunion
                   meetingId={id}
                   fuentes={datos?.sources ?? []}
-                  modo={modo}
                   alCambiar={() => setVersion((v) => v + 1)}
                 />
               )}
 
-              {(m.status === "grabando" || m.status === "en_cola" || m.status === "procesando") && (
+              {m.status === "grabando" && (
+                <Panel titulo="Hay una grabación sin terminar" nivel={2} icono={Mic} tono="red">
+                  <div className="re-proceso">
+                    <p className="re-nota">
+                      {datos?.live
+                        ? `Ya recibimos ${formatearDuracion(datos.live.durMs)} de audio${datos.live.ultimaParteEn ? `; la última parte llegó ${haceCuanto(datos.live.ultimaParteEn)}` : ""}. `
+                        : "Todavía no llegó audio al servidor. "}
+                      Puedes seguir grabando o enviar a transcribir lo que ya llegó.
+                    </p>
+                    <div className="re-acciones">
+                      <Boton icono={Mic} href={`/dashboard/reuniones/${id}/grabar`}>
+                        Continuar en la grabadora
+                      </Boton>
+                      <Boton
+                        variante="secundario"
+                        icono={CircleStop}
+                        onClick={() => {
+                          setErrorModal("");
+                          setModal("terminar");
+                        }}
+                      >
+                        Terminar y procesar lo recibido
+                      </Boton>
+                    </div>
+                    <p className="re-nota">Si grabaste desde otro dispositivo, ábrelo y pulsa «Terminar» allí.</p>
+                  </div>
+                </Panel>
+              )}
+
+              {(m.status === "en_cola" || m.status === "procesando") && (
                 <Panel titulo="Estamos trabajando en esta reunión" nivel={2}>
                   <div className="re-proceso">
                     <BarraProgreso valor={m.progress} etiquetaAccesible={`Avance: ${descripcion.texto}`} />
@@ -298,6 +350,30 @@ export function DetalleReunion({ id, modo }: { id: string; modo: Modo }) {
                   </Campo>
                   {errorModal && <Aviso enLinea tipo="error" titulo={errorModal} />}
                 </form>
+              </Modal>
+
+              <Modal
+                abierto={modal === "terminar"}
+                alCerrar={cerrarModal}
+                titulo="¿Terminar y procesar lo recibido?"
+                icono={CircleStop}
+                tono="violet"
+                acciones={
+                  <>
+                    <Boton variante="secundario" onClick={cerrarModal} disabled={trabajando}>
+                      Cancelar
+                    </Boton>
+                    <Boton icono={CircleStop} cargando={trabajando} textoCargando="Enviando…" onClick={() => void terminarLoRecibido()}>
+                      Terminar y procesar
+                    </Boton>
+                  </>
+                }
+              >
+                <p className="re-modal-texto">
+                  Enviamos a transcribir lo que ya llegó al servidor{datos?.live ? ` (${formatearDuracion(datos.live.durMs)})` : ""}. Si otro dispositivo sigue
+                  grabando, lo que grabe después ya no se incluirá.
+                </p>
+                {errorModal && <Aviso enLinea tipo="error" titulo={errorModal} />}
               </Modal>
 
               <Modal

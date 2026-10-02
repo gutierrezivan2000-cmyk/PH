@@ -110,12 +110,11 @@ function FilaItem({ it, gestor, puedeSubir, puedeBajar }: { it: ItemSubida; gest
 }
 
 export function SubidaReunion({
-  meetingId, fuentes, modo, alCambiar,
+  meetingId, fuentes, alCambiar,
 }: {
   meetingId: string;
   /** Archivos ya registrados en la reunión. */
   fuentes: FuenteDTO[];
-  modo: "grabar" | "subir" | null;
   /** Algo cambió en el servidor (se registró un archivo, se quitó uno, se envió a procesar): recargar la reunión. */
   alCambiar: () => void;
 }) {
@@ -174,17 +173,6 @@ export function SubidaReunion({
       <style href="k-reuniones-subida-local" precedence="default">
         {CSS}
       </style>
-
-      {modo === "grabar" && (
-        <Aviso
-          enLinea
-          rol={null}
-          tipo="info"
-          titulo="La grabadora llega en el siguiente paso."
-          texto="Mientras tanto, si ya tienes la grabación, súbela aquí."
-          className="re-aviso"
-        />
-      )}
 
       <ZonaSubida
         titulo="Suelta aquí la grabación"
