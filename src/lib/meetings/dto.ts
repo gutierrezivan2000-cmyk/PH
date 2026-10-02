@@ -83,6 +83,16 @@ export type IntervencionDTO = {
   text: string;
 };
 
+/**
+ * Una página de la transcripción (`GET /api/meetings/[id]/utterances`): las intervenciones que EMPIEZAN en el tramo
+ * pedido, cómo se llama cada voz (solo las que ya tienen nombre) y desde dónde pedir la siguiente (null si no hay más).
+ */
+export type PaginaDeIntervenciones = {
+  items: IntervencionDTO[];
+  nombres: Record<string, string>;
+  siguienteMs: number | null;
+};
+
 export type RangoMs = { desdeMs: number; hastaMs: number };
 
 export type FichaVotacion = {

@@ -5,7 +5,7 @@ vi.mock("@/lib/db", () => ({ get db() { return fake.db; } }));
 
 import { crearDbFalsa, type DbFalsa } from "./db-falsa";
 import {
-  avanzar, contarTareasDeEtapa, fraccionDeFuente, planificarSiguientes, progresoDePreparacion, type FuenteDeProceso,
+  avanzar, contarTareasDeEtapa, fraccionDeFuente, planificarSiguientes, progresoDePreparacion, type FuenteDeProceso, type TareaDeProceso,
 } from "./orquestador";
 
 const f = (id: string, extra: Partial<FuenteDeProceso> = {}): FuenteDeProceso => ({
@@ -67,6 +67,88 @@ describe("planificarSiguientes", () => {
   });
 });
 
+describe("planificarSiguientes · transcripción", () => {
+  const MIN = 60_000;
+  const fuentes = [f("a", { status: "normalizada" })];
+  const armado: TareaDeProceso = { kind: "armar_audio", key: "armar_audio", status: "hecha" };
+  const tramo = (i: number, status: string): TareaDeProceso => ({ kind: "transcribir_tramo", key: `tramo:${i}`, status });
+  const voces = (status: string): TareaDeProceso => ({ kind: "voces", key: "voces", status });
+  const unir = (status: string): TareaDeProceso => ({ kind: "unir", key: "unir", status });
+  /** 25 min: 3 tramos. */
+  const plan = (tareas: TareaDeProceso[], extra: { duracionMs?: number | null } = {}) =>
+    planificarSiguientes({ fuentes, tareas: [armado, ...tareas], duracionMs: 25 * MIN, ...extra });
+
+  it("con el audio armado y su duración se encola solo el tramo 0, con todo lo que hace falta para transcribirlo", () => {
+    const p = plan([]);
+    expect(p.encolar).toEqual([
+      { kind: "transcribir_tramo", key: "tramo:0", payload: { i: 0, total: 3, desdeMs: 0, hastaMs: 10 * MIN + 30_000, nucleoDesdeMs: 0, nucleoHastaMs: 10 * MIN } },
+    ]);
+    expect(p).toMatchObject({ etapa: "transcribiendo", progreso: 0, audioListo: true, lista: false });
+  });
+
+  it("sin la duración todavía no se puede planificar: no se encola nada y se espera", () => {
+    for (const d of [null, undefined, 0]) {
+      expect(plan([], { duracionMs: d })).toMatchObject({ encolar: [], etapa: "transcribiendo", lista: false });
+    }
+  });
+
+  it("con el tramo 0 hecho se encolan las voces, y los demás tramos todavía no", () => {
+    const p = plan([tramo(0, "hecha")]);
+    expect(p.encolar.map((t) => t.key)).toEqual(["voces"]);
+    expect(p.progreso).toBe(33);
+  });
+
+  it("mientras el tramo 0 no esté hecho no se encolan las voces", () => {
+    for (const status of ["pendiente", "en_curso", "fallida"]) expect(plan([tramo(0, status)]).encolar, status).toEqual([]);
+  });
+
+  it("con las voces hechas se encolan todos los demás tramos de una vez", () => {
+    const p = plan([tramo(0, "hecha"), voces("hecha")]);
+    expect(p.encolar.map((t) => t.key)).toEqual(["tramo:1", "tramo:2"]);
+    expect(p.encolar[1].payload).toMatchObject({ i: 2, total: 3, desdeMs: 20 * MIN - 30_000, hastaMs: 25 * MIN, nucleoDesdeMs: 20 * MIN, nucleoHastaMs: 25 * MIN });
+  });
+
+  it("con las voces sin terminar los demás tramos esperan", () => {
+    for (const status of ["pendiente", "en_curso", "fallida"]) expect(plan([tramo(0, "hecha"), voces(status)]).encolar, status).toEqual([]);
+  });
+
+  it("el avance es la fracción de tramos hechos", () => {
+    const base = [tramo(0, "hecha"), voces("hecha")];
+    expect(plan([...base, tramo(1, "hecha"), tramo(2, "en_curso")]).progreso).toBe(67);
+    expect(plan([...base, tramo(1, "pendiente"), tramo(2, "pendiente")]).progreso).toBe(33);
+  });
+
+  it("con todos los tramos hechos se encola unir, una sola vez, y la etapa pasa a «uniendo»", () => {
+    const todos = [tramo(0, "hecha"), voces("hecha"), tramo(1, "hecha"), tramo(2, "hecha")];
+    const p = plan(todos);
+    expect(p.encolar).toEqual([{ kind: "unir", key: "unir", payload: {} }]);
+    expect(p).toMatchObject({ etapa: "uniendo", progreso: 0, lista: false });
+    expect(plan([...todos, unir("pendiente")]).encolar).toEqual([]);
+    expect(plan([...todos, unir("en_curso")])).toMatchObject({ encolar: [], etapa: "uniendo" });
+  });
+
+  it("con unir hecho la reunión está lista (hasta que M6 agregue el análisis)", () => {
+    const p = plan([tramo(0, "hecha"), voces("hecha"), tramo(1, "hecha"), tramo(2, "hecha"), unir("hecha")]);
+    expect(p).toMatchObject({ encolar: [], etapa: null, progreso: 100, lista: true });
+  });
+
+  it("no repite nada que ya esté encolado, sea cual sea su estado", () => {
+    for (const status of ["pendiente", "en_curso", "hecha", "fallida"]) {
+      expect(plan([tramo(0, status)]).encolar.filter((t) => t.key === "tramo:0"), status).toEqual([]);
+    }
+  });
+
+  it("un tramo fallido frena todo lo que depende de él hasta «Reintentar»", () => {
+    const p = plan([tramo(0, "hecha"), voces("hecha"), tramo(1, "hecha"), tramo(2, "fallida")]);
+    expect(p).toMatchObject({ encolar: [], etapa: "transcribiendo" });
+  });
+
+  it("acepta otro tamaño de tramo y de solape", () => {
+    const p = planificarSiguientes({ fuentes, tareas: [armado, tramo(0, "hecha"), voces("hecha")], duracionMs: 150_000, tramoMs: 60_000, solapeMs: 5_000 });
+    expect(p.encolar.map((t) => [t.key, t.payload.desdeMs, t.payload.hastaMs])).toEqual([["tramo:1", 55_000, 125_000], ["tramo:2", 115_000, 150_000]]);
+  });
+});
+
 describe("avance de «Preparando el audio»", () => {
   it("cada fuente vale lo que lleva normalizado de su duración, y todo termina en 100 solo con el audio armado", () => {
     expect(fraccionDeFuente(f("a"))).toBe(0);
@@ -93,6 +175,18 @@ describe("contarTareasDeEtapa", () => {
     expect(contarTareasDeEtapa(tareas, "preparando_audio")).toEqual({ hechas: 1, total: 3 });
     expect(contarTareasDeEtapa(tareas, "transcribiendo")).toEqual({ hechas: 1, total: 1 });
     expect(contarTareasDeEtapa(tareas, null)).toEqual({ hechas: 0, total: 0 });
+  });
+
+  it("en «transcribiendo» el total son todos los tramos de la reunión, aunque aún no se hayan encolado", () => {
+    const tareas = [
+      { kind: "transcribir_tramo", key: "tramo:0", status: "hecha" },
+      { kind: "voces", key: "voces", status: "en_curso" },
+    ];
+    expect(contarTareasDeEtapa(tareas, "transcribiendo", 8 * 3_600_000)).toEqual({ hechas: 1, total: 48 });
+    // «voces» es un paso interno: no cuenta como un tramo.
+    expect(contarTareasDeEtapa(tareas, "transcribiendo")).toEqual({ hechas: 1, total: 1 });
+    // Si por alguna razón hay más tareas que tramos previstos, manda lo que hay.
+    expect(contarTareasDeEtapa(tareas, "transcribiendo", 5 * 60_000)).toEqual({ hechas: 1, total: 1 });
   });
 });
 
@@ -146,6 +240,46 @@ describe("avanzar", () => {
     await db.meetingTask.create({ data: { meetingId: ID, kind: "armar_audio", key: "armar_audio", status: "hecha" } });
     await avanzar(ID);
     expect(db.meeting.filas[0]).toMatchObject({ stage: "transcribiendo", progress: 0 });
+  });
+
+  describe("la transcripción", () => {
+    const tarea = (kind: string, key: string, status: string) => db.meetingTask.create({ data: { meetingId: ID, kind, key, status } });
+
+    it("con el audio listo encola el tramo 0 y el avance de «transcribiendo» sube con los tramos hechos", async () => {
+      await reunion({ status: "procesando", stage: "preparando_audio", progress: 92, durationMs: 25 * 60_000 });
+      await fuente("a", { status: "normalizada" });
+      await tarea("armar_audio", "armar_audio", "hecha");
+      await avanzar(ID);
+      expect(db.meetingTask.filas.map((t) => t.key).sort()).toEqual(["armar_audio", "tramo:0"]);
+      expect(db.meeting.filas[0]).toMatchObject({ stage: "transcribiendo", progress: 0 });
+
+      db.meetingTask.filas.find((t) => t.key === "tramo:0")!.status = "hecha";
+      await avanzar(ID);
+      expect(db.meetingTask.filas.map((t) => t.key).sort()).toEqual(["armar_audio", "tramo:0", "voces"]);
+      expect(db.meeting.filas[0]).toMatchObject({ stage: "transcribiendo", progress: 33 });
+    });
+
+    it("cuando unir termina, la reunión queda lista con su hora de término", async () => {
+      await reunion({ status: "procesando", stage: "uniendo", progress: 0, durationMs: 25 * 60_000, errorMessage: "viejo" });
+      await fuente("a", { status: "normalizada" });
+      for (const [kind, key] of [["armar_audio", "armar_audio"], ["transcribir_tramo", "tramo:0"], ["voces", "voces"], ["transcribir_tramo", "tramo:1"], ["transcribir_tramo", "tramo:2"], ["unir", "unir"]]) {
+        await tarea(kind, key, "hecha");
+      }
+      await avanzar(ID);
+      expect(db.meeting.filas[0]).toMatchObject({ status: "lista", stage: null, progress: 100, errorMessage: null });
+      expect(db.meeting.filas[0].readyAt).toBeInstanceOf(Date);
+      expect(await avanzar(ID)).toBeNull(); // ya lista: no se vuelve a tocar
+    });
+
+    it("una reunión «en cola» no pasa a lista por aquí (primero un trabajador la toma)", async () => {
+      await reunion({ status: "en_cola", durationMs: 25 * 60_000 });
+      await fuente("a", { status: "normalizada" });
+      for (const [kind, key] of [["armar_audio", "armar_audio"], ["transcribir_tramo", "tramo:0"], ["voces", "voces"], ["transcribir_tramo", "tramo:1"], ["transcribir_tramo", "tramo:2"], ["unir", "unir"]]) {
+        await tarea(kind, key, "hecha");
+      }
+      await avanzar(ID);
+      expect(db.meeting.filas[0].status).toBe("en_cola");
+    });
   });
 
   it("no toca una reunión en error, lista, borrador o inexistente", async () => {

@@ -94,6 +94,12 @@ export class TablaFalsa {
     return this.filas.filter((f) => coincide(f, where)).length;
   }
 
+  /** Inserta varias filas (como `createMany` de Prisma). */
+  async createMany({ data }: { data: Fila[] }) {
+    for (const fila of data) await this.create({ data: fila });
+    return { count: data.length };
+  }
+
   async create({ data }: { data: Fila }) {
     if (this.unico.length && this.filas.some((f) => this.unico.every((c) => f[c] === data[c]))) throw errorUnico();
     const fila: Fila = { id: `${this.prefijo}${++this.secuencia}`, createdAt: new Date(), updatedAt: new Date(), ...this.defaults(), ...data };
@@ -184,6 +190,8 @@ export function crearDbFalsa() {
       status: "pendiente", attempts: 0, payload: {}, result: null, runAfter: new Date(), lockedAt: null, error: null,
     })),
     meetingMarker: new TablaFalsa("k"),
+    meetingUtterance: new TablaFalsa("u"),
+    meetingSpeaker: new TablaFalsa("h", ["meetingId", "label"], () => ({ name: null, role: null, personId: null, confirmed: false, suggestion: null, talkMs: 0, sampleStartMs: null, sampleEndMs: null })),
     generation: new TablaFalsa("g"),
     propertyPerson: new TablaFalsa("p"),
     property: new TablaFalsa("c"),

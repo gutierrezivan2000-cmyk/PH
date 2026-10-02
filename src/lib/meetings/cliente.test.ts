@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  ErrorApi, actualizarReunion, crearPersona, crearReunion, eliminarReunion, listarPersonas, listarReuniones, obtenerEstado, obtenerReunion,
-  procesarReunion, quitarFuente, reintentarReunion,
+  ErrorApi, actualizarReunion, crearPersona, crearReunion, eliminarReunion, listarIntervenciones, listarPersonas, listarReuniones, obtenerEstado,
+  obtenerReunion, procesarReunion, quitarFuente, reintentarReunion, urlDeTranscripcion,
 } from "./cliente";
 
 const respuesta = (status: number, cuerpo: unknown, comoTexto = false) =>
@@ -128,5 +128,34 @@ describe("procesamiento", () => {
   it("un 409 trae el mensaje del servidor", async () => {
     fetchMock.mockResolvedValue(respuesta(409, { error: "No hay nada que reintentar en esta reunión." }));
     await expect(reintentarReunion("m1")).rejects.toMatchObject({ status: 409, message: "No hay nada que reintentar en esta reunión." });
+  });
+});
+
+describe("transcripción", () => {
+  const pagina = { items: [{ id: "u1", startMs: 5000, endMs: 9000, speaker: "V1", text: "Hola" }], nombres: { V1: "Ana" }, siguienteMs: 1_800_000 };
+
+  it("pide la primera página sin parámetros y escapa la id", async () => {
+    fetchMock.mockResolvedValue(respuesta(200, pagina));
+    expect(await listarIntervenciones("a/b")).toEqual(pagina);
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/meetings/a%2Fb/utterances", undefined);
+  });
+
+  it("pide un tramo por minutos enteros y una búsqueda por texto", async () => {
+    fetchMock.mockResolvedValue(respuesta(200, pagina));
+    await listarIntervenciones("m1", { desdeMs: 1_800_000.4, hastaMs: 3_600_000 });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/meetings/m1/utterances?desde=1800000&hasta=3600000", undefined);
+    await listarIntervenciones("m1", { q: "cámaras y vigilancia" });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/meetings/m1/utterances?q=c%C3%A1maras+y+vigilancia", undefined);
+    await listarIntervenciones("m1", { desdeMs: -5 });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/meetings/m1/utterances?desde=0", undefined);
+  });
+
+  it("traduce los rechazos del servidor", async () => {
+    fetchMock.mockResolvedValue(respuesta(400, { error: "El minuto de inicio («desde») no es válido." }));
+    await expect(listarIntervenciones("m1", { desdeMs: 1 })).rejects.toMatchObject({ status: 400, message: expect.stringMatching(/no es válido/) });
+  });
+
+  it("la descarga apunta a la ruta del .txt", () => {
+    expect(urlDeTranscripcion("m/1")).toBe("/api/meetings/m%2F1/transcript");
   });
 });

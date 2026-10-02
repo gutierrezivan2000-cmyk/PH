@@ -6,7 +6,7 @@
  * el estado (una respuesta HTML de un 504 de la plataforma no se puede leer, y
  * «Unexpected token <» no es un mensaje para una persona).
  */
-import type { EstadoProcesoDTO, PersonaDTO, ReunionDetalle, ReunionResumen } from "./dto";
+import type { EstadoProcesoDTO, PaginaDeIntervenciones, PersonaDTO, ReunionDetalle, ReunionResumen } from "./dto";
 
 export class ErrorApi extends Error {
   readonly status: number;
@@ -112,3 +112,24 @@ export function obtenerEstado(meetingId: string): Promise<EstadoProcesoDTO> {
 export async function reintentarReunion(meetingId: string): Promise<{ status: string }> {
   return pedir<{ status: string }>(`/api/meetings/${encodeURIComponent(meetingId)}/retry`, { method: "POST" });
 }
+
+/* ── Transcripción ───────────────────────────────────────────────────── */
+
+/**
+ * Una página de la transcripción: las intervenciones que empiezan en `[desdeMs, hastaMs)` (30 min como mucho) o, con `q`,
+ * las coincidencias de toda la reunión. `siguienteMs` dice desde dónde pedir lo que sigue (null: no hay más).
+ */
+export function listarIntervenciones(
+  meetingId: string,
+  { desdeMs, hastaMs, q }: { desdeMs?: number; hastaMs?: number; q?: string } = {},
+): Promise<PaginaDeIntervenciones> {
+  const params = new URLSearchParams();
+  if (desdeMs !== undefined) params.set("desde", String(Math.max(0, Math.round(desdeMs))));
+  if (hastaMs !== undefined) params.set("hasta", String(Math.round(hastaMs)));
+  if (q) params.set("q", q);
+  const qs = params.toString();
+  return pedir<PaginaDeIntervenciones>(`/api/meetings/${encodeURIComponent(meetingId)}/utterances${qs ? `?${qs}` : ""}`);
+}
+
+/** Dirección de la descarga de la transcripción completa (.txt). */
+export const urlDeTranscripcion = (meetingId: string): string => `/api/meetings/${encodeURIComponent(meetingId)}/transcript`;

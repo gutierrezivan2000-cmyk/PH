@@ -1,15 +1,18 @@
 "use client";
 
-import { CircleStop, Mic, Pencil } from "lucide-react";
+import { CircleStop, Download, Mic, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { SubidaReunion } from "@/components/reuniones/SubidaReunion";
+import { VisorTranscripcion } from "@/components/reuniones/VisorTranscripcion";
 import {
   Aviso, BarraProgreso, Boton, CabeceraPieza, Campo, Entrada, ErrorCarga, Esqueleto, Estado, MenuMas, Modal, Pagina, Panel,
   Pieza, Segmentos, Selector, Vacio, avisar, type ItemMenu,
 } from "@/components/kit";
-import { ErrorApi, actualizarReunion, eliminarReunion, obtenerEstado, obtenerReunion, procesarReunion, reintentarReunion } from "@/lib/meetings/cliente";
+import {
+  ErrorApi, actualizarReunion, eliminarReunion, obtenerEstado, obtenerReunion, procesarReunion, reintentarReunion, urlDeTranscripcion,
+} from "@/lib/meetings/cliente";
 import type { ReunionDetalle } from "@/lib/meetings/dto";
 import { aValorLocal, deValorLocal, fechaLarga, haceCuanto } from "@/lib/meetings/formato";
 import {
@@ -26,6 +29,16 @@ const PESTANAS: Array<{ id: Pestana; etiqueta: string; texto: string }> = [
   { id: "acta", etiqueta: "Acta", texto: "Aquí redactas el acta a partir de la reunión completa." },
   { id: "preguntar", etiqueta: "Preguntar", texto: "Aquí le preguntas a la reunión: responde con la transcripción completa y te dice en qué minuto se habló." },
 ];
+
+/** Descarga un archivo sin salir de la página (la ruta responde con `Content-Disposition: attachment`). */
+function descargar(url: string): void {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "";
+  document.body.append(a);
+  a.click();
+  a.remove();
+}
 
 /** Mientras algo se sube o graba, la página se refresca sola. */
 const REFRESCO_MS = 8_000;
@@ -50,7 +63,7 @@ export function DetalleReunion({ id }: { id: string }) {
   const [datos, setDatos] = useState<ReunionDetalle | null>(null);
   const [error, setError] = useState<{ mensaje: string; noExiste: boolean } | null>(null);
   const [version, setVersion] = useState(0);
-  const [pestana, setPestana] = useState<Pestana>("resumen");
+  const [elegida, setPestana] = useState<Pestana | null>(null);
 
   const [modal, setModal] = useState<"editar" | "eliminar" | "terminar" | null>(null);
   const [trabajando, setTrabajando] = useState(false);
@@ -121,6 +134,8 @@ export function DetalleReunion({ id }: { id: string }) {
   };
 
   const m = datos?.meeting ?? null;
+  // Mientras la reunión no tenga resumen (llega con el análisis con IA), se abre en lo que ya sirve: la transcripción.
+  const pestana: Pestana = elegida ?? (datos?.digest ? "resumen" : "transcripcion");
 
   const abrirEditar = () => {
     if (!m) return;
@@ -186,6 +201,7 @@ export function DetalleReunion({ id }: { id: string }) {
   };
 
   const menu: ItemMenu[] = [
+    ...(m?.status === "lista" ? [{ etiqueta: "Descargar transcripción", icono: Download, tono: "blue" as const, alElegir: () => descargar(urlDeTranscripcion(id)) }] : []),
     { etiqueta: "Editar datos", icono: Pencil, tono: "amber", alElegir: abrirEditar },
     { etiqueta: "Eliminar reunión…", peligro: true, nota: "pide confirmación", alElegir: abrirEliminar },
   ];
@@ -349,7 +365,11 @@ export function DetalleReunion({ id }: { id: string }) {
                   </div>
                   <div id={`re-panel-${pestana}`} role="tabpanel">
                     <Panel titulo={PESTANAS.find((p) => p.id === pestana)?.etiqueta} nivel={2}>
-                      <p className="re-nota">{PESTANAS.find((p) => p.id === pestana)?.texto}</p>
+                      {pestana === "transcripcion" ? (
+                        <VisorTranscripcion key={id} meetingId={id} marcas={datos?.markers ?? []} silencios={datos?.silences ?? []} />
+                      ) : (
+                        <p className="re-nota">{PESTANAS.find((p) => p.id === pestana)?.texto}</p>
+                      )}
                     </Panel>
                   </div>
                 </>

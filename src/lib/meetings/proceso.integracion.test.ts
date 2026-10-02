@@ -18,6 +18,8 @@ import { AlmacenLocal } from "./almacen-local";
 import { empiezaConTrama, leerSegmentos } from "./audio";
 import { reintentarFallidas } from "./cola";
 import { crearDbFalsa, type DbFalsa } from "./db-falsa";
+import { MANEJADORES } from "./manejadores";
+import type { ProveedorDeTranscripcion, Segmento } from "./transcripcion/tipos";
 import { avanzar } from "./orquestador";
 import { MP3_TRAMA_BYTES } from "./tipos";
 import { trabajar } from "./trabajador";
@@ -46,8 +48,10 @@ const relojQueAvanza = () => {
   const inicio = Date.now();
   return () => base + (Date.now() - inicio);
 };
+/** Esta prueba es del AUDIO: el trabajador solo ejecuta los pasos de audio (la transcripción tiene la suya). */
+const SOLO_AUDIO = { ensamblar_sesion: MANEJADORES.ensamblar_sesion, normalizar: MANEJADORES.normalizar, armar_audio: MANEJADORES.armar_audio };
 const opciones = (extra: Record<string, unknown> = {}) => ({
-  presupuestoMs: 600_000, margenMinimoMs: 1000, reloj: relojQueAvanza(), deps: { almacen, ffmpeg: FFMPEG, tramoMs: 30_000 }, ...extra,
+  presupuestoMs: 600_000, margenMinimoMs: 1000, reloj: relojQueAvanza(), manejadores: SOLO_AUDIO, deps: { almacen, ffmpeg: FFMPEG, tramoMs: 30_000 }, ...extra,
 });
 const fuente = (id: string) => db.meetingSource.filas.find((f) => f.id === id)!;
 const tarea = (key: string) => db.meetingTask.filas.find((x) => x.key === key);
@@ -123,8 +127,11 @@ describe.skipIf(!hayFfmpeg)("el procesamiento con ffmpeg real", () => {
 
     const r = await trabajar(opciones());
     expect(r.fallidas).toBe(0);
-    expect(db.meetingTask.filas.every((x) => x.status === "hecha")).toBe(true);
-    expect(db.meetingTask.filas.map((x) => x.key).sort()).toEqual(["armar_audio", "ensamblar_sesion:b", "normalizar:a", "normalizar:b"]);
+    const deAudio = db.meetingTask.filas.filter((x) => x.kind !== "transcribir_tramo");
+    expect(deAudio.every((x) => x.status === "hecha")).toBe(true);
+    expect(deAudio.map((x) => x.key).sort()).toEqual(["armar_audio", "ensamblar_sesion:b", "normalizar:a", "normalizar:b"]);
+    // Con el audio armado y su duración, lo que sigue ya está encolado: transcribir el primer tramo (160 s: un solo tramo).
+    expect(db.meetingTask.filas.filter((x) => x.kind === "transcribir_tramo").map((x) => [x.key, x.status])).toEqual([["tramo:0", "pendiente"]]);
 
     // La sesión quedó ensamblada como UN archivo WebM, byte por byte igual a la suma de sus partes.
     expect(fuente("b")).toMatchObject({ pathname: `${PREFIJO}fuentes/sesion-1.webm`, status: "normalizada" });
@@ -229,4 +236,60 @@ describe.skipIf(!hayFfmpeg)("el procesamiento con ffmpeg real", () => {
     expect(tarea("ensamblar_sesion:b")).toMatchObject({ status: "fallida", attempts: 1 });
     expect(db.meeting.filas[0]).toMatchObject({ status: "error", errorMessage: expect.stringMatching(/no llegó audio de esta sesión/) });
   }, 120_000);
+  it("de la grabación al texto: los tramos y las muestras de voz que se mandan a transcribir son MP3 válidos de la duración pedida", async () => {
+    await montarReunion({ archivoMin: 12, sesionSeg: 20 });
+    // ffmpeg hace de decodificador del servicio: si lo que se manda no es un MP3 que se pueda leer, falla aquí.
+    const decodificar = (audio: Uint8Array): number => {
+      const pcm = execFileSync(FFMPEG, ["-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-f", "s16le", "-ac", "1", "-ar", "16000", "pipe:1"], {
+        input: audio, maxBuffer: 64 * 1024 * 1024, stdio: ["pipe", "pipe", "pipe"],
+      });
+      return pcm.length / 2 / 16_000;
+    };
+    const llamadas: Array<{ desdeMs: number; duracionMs: number; segundos: number; voces: Array<{ nombre: string; segundos: number }> }> = [];
+    const proveedor: ProveedorDeTranscripcion = {
+      nombre: "demo", modo: "tramos", tramoMs: 600_000, solapeMs: 30_000, costoUsdPorMinuto: 0.006,
+      async transcribirTramo(audio, o): Promise<Segmento[]> {
+        llamadas.push({ desdeMs: o.desdeMs, duracionMs: o.duracionMs, segundos: decodificar(audio), voces: o.referencias.map((r) => ({ nombre: r.nombre, segundos: decodificar(r.audio) })) });
+        // La voz «A» habla 70 s seguidos y «B» 20 s en el primer tramo; en el segundo, «V1» (si llegó la muestra) y una nueva.
+        if (o.desdeMs === 0) {
+          return [
+            { inicioMs: 5_000, finMs: 75_000, hablante: "A", texto: "Buenas noches, damos inicio a la reunión de consejo." },
+            { inicioMs: 80_000, finMs: 100_000, hablante: "B", texto: "Verifico el quórum." },
+          ];
+        }
+        return [{ inicioMs: 100_000, finMs: 110_000, hablante: o.referencias.length ? "V1" : "A", texto: "Seguimos con el orden del día." }];
+      },
+    };
+    await avanzar(ID);
+    for (let pasada = 0; pasada < 12 && db.meeting.filas[0].status !== "lista"; pasada++) {
+      await trabajar(opciones({ manejadores: MANEJADORES, deps: { almacen, ffmpeg: FFMPEG, tramoMs: 30_000, proveedor } }));
+      t += 12 * 60_000;
+    }
+    expect(db.meeting.filas[0]).toMatchObject({ status: "lista", coverage: 1, provider: "demo" });
+
+    // 12 min de archivo + 20 s de sesión: dos tramos. El segundo empieza 30 s antes de su núcleo (9:30), en la trama de 36 ms
+    // que contiene ese instante (9:29,988).
+    expect(llamadas.map((l) => l.desdeMs)).toEqual([0, 569_988]);
+    for (const l of llamadas) expect(Math.abs(l.segundos * 1000 - l.duracionMs), `tramo desde ${l.desdeMs}`).toBeLessThan(120);
+    // El primer tramo va sin voces conocidas; el segundo lleva la de «A» (V1), cortada del mismo audio: de 2 a 10 s y decodificable.
+    expect(llamadas[0].voces).toEqual([]);
+    expect(llamadas[1].voces.map((v) => v.nombre)).toEqual(["V1"]);
+    expect(llamadas[1].voces[0].segundos).toBeGreaterThanOrEqual(3.9);
+    expect(llamadas[1].voces[0].segundos).toBeLessThanOrEqual(8.2);
+
+    // Lo que quedó: la transcripción unida, con V1 reconocida en los dos tramos y la otra voz con etiqueta nueva.
+    const u = [...db.meetingUtterance.filas].sort((a, b) => (a.idx as number) - (b.idx as number));
+    expect(u.map((x) => [x.speaker, x.text])).toEqual([
+      ["V1", "Buenas noches, damos inicio a la reunión de consejo."],
+      ["H5", "Verifico el quórum."],
+      ["V1", "Seguimos con el orden del día."],
+    ]);
+    const texto = new TextDecoder().decode(await leerTodo(almacen, db.meeting.filas[0].transcriptUrl as string));
+    expect(texto.split("\n")).toEqual([
+      "[00:00:05] V1: Buenas noches, damos inicio a la reunión de consejo.",
+      "[00:01:20] H5: Verifico el quórum.",
+      "[00:01:40] (Sin voz hasta 00:11:09)",
+      "[00:11:09] V1: Seguimos con el orden del día.",
+    ]);
+  }, 240_000);
 });

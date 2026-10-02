@@ -3,9 +3,17 @@ import {
   BLOQUE_MS, CLAVES_TIPO_REUNION, ESPERAS_REINTENTO_MS, ESTADOS_REUNION, MAX_INTENTOS_TAREA, MP3_BYTES_POR_MS,
   MP3_KBPS, MP3_TRAMA_BYTES, MP3_TRAMA_MS, PARTE_SUBIDA_BYTES, SOLAPE_MS, TRAMO_MS,
   cortoTipoReunion, describirEstado, duracionMp3Cbr, esEstadoReunion, esTipoReunion, estaEnMarcha,
-  ROLES_PERSONA, esRolPersona, formatearDuracion, formatearReloj, leerReloj, nombreRolPersona, nombreTipoReunion,
+  ROLES_PERSONA, esRolPersona, formatearDuracion, formatearReloj, formatearRelojCorto, leerReloj, nombreRolPersona, nombreTipoReunion,
   esTipoMarcador, puedeAgregarFuentes, tituloSugerido, TIPOS_MARCADOR,
 } from "./tipos";
+
+describe("formatearRelojCorto", () => {
+  it("es el reloj sin el cero a la izquierda de las horas", () => {
+    expect(formatearRelojCorto(0)).toBe("0:00:00");
+    expect(formatearRelojCorto(7_800_000)).toBe("2:10:00");
+    expect(formatearRelojCorto(36_000_000)).toBe("10:00:00");
+  });
+});
 
 describe("formatearReloj", () => {
   it("siempre lleva horas, minutos y segundos", () => {

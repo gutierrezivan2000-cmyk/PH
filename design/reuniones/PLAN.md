@@ -1278,6 +1278,78 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
 - **El `db-falsa.ts` ahora se parece más a Prisma** (devuelve copias, respeta `select`, valores por omisión, fechas por
   valor, `increment`, `take`): destapó dos pruebas mal escritas, ningún defecto del código.
 
+**Notas de M5 (desviaciones y decisiones al construir):**
+
+- **Los tramos se cosen en un punto de corte, no en el punto medio del borde (cambia el §8).** La regla del plan («cada
+  frase es del tramo cuyo núcleo contiene su punto medio») pierde o repite palabras cuando los dos tramos *parten
+  distinto* la misma frase del borde: uno se queda con una mitad y el otro con la otra mitad de lo que el primero partió.
+  Lo medimos con el proveedor sintético: ~10 palabras perdidas cada 50 min. Ahora `puntoDeCorte` (`tramos.ts`) busca,
+  dentro del solape y sin los últimos 5 s del audio de cada tramo, el instante más cercano al borde donde **ninguna
+  intervención de ninguno de los dos tramos lo atraviesa** (tolerancia 150 ms): lo anterior es del primer tramo y lo
+  posterior del segundo, y ninguna frase queda a caballo. Si alguien habla sin parar los 50 s (no hay instante limpio) se
+  usa el borde y `eliminarRepetidosDeBorde` quita lo que quede repetido (tiempo en común y ≥ 80 % de las palabras dentro
+  de la otra intervención; dos personas hablando a la vez no se tocan). Probado con 8 reuniones sintéticas, con y sin
+  frases partidas distinto en cada tramo: **el texto, los minutos y las etiquetas salen exactamente iguales al guion**
+  (y las pruebas fallan si se cambia la regla: se comprobó). `asignarANucleo` sigue siendo la regla de reparto, pero
+  entre cortes elegidos.
+- **Voces de referencia.** `elegirVoces` mira el tramo 0: hasta 4 etiquetas con ≥ 60 s de habla, de la que más habla a la
+  que menos (V1…V4), cada una con un trozo limpio de 4–8 s (una sola voz, sin otra a menos de 300 ms; si no hay, uno de
+  ≥ 2,5 s). Se guardan en `Meeting.speakerRefs` como `{ nombre, etiquetaLocal, desdeMs, hastaMs }` (un poco más que lo
+  del plan: hace falta saber qué etiqueta local fue cada una). Las muestras se cortan del `audio.mp3` y se mandan como
+  MP3 en data URL (el servicio acepta «cualquiera de los formatos del archivo»: no hizo falta convertir a WAV). **Si el
+  servicio rechaza las muestras** (400/413/415/422) el tramo se transcribe otra vez *sin ellas* en vez de dejar la
+  reunión en error: la unión empareja por el solape y, en el peor caso, una voz recibe otra etiqueta.
+- **Reconciliación** (`hablantes.ts`): lo que el proveedor llama V1…V4 ya es global y **no se ofrece a ninguna otra
+  etiqueta** del mismo tramo; el resto se empareja con el tramo anterior por el tiempo en que hablaron a la vez en el
+  solape (≥ 1,5 s, de mayor a menor, uno a uno); lo que no empareja recibe `H5`, `H6`… (V1…V4 quedan reservadas). **Límite
+  conocido:** quien no habla en el solape de dos tramos recibe una etiqueta nueva (se fragmenta, no se mezcla): el
+  usuario lo arregla fusionando en «Hablantes» (M6). Probado: una etiqueta nunca mezcla a dos personas.
+- **Tiempos exactos.** El audio se corta por tramas de 36 ms, así que lo que se transcribe empieza en la trama que contiene
+  el inicio pedido (hasta 35 ms antes). El resultado del tramo guarda **ese** inicio, y los tiempos del proveedor (relativos
+  a él) quedan exactos al milisegundo. La prueba con el ffmpeg real comprueba que los tramos y las muestras que se mandan
+  son MP3 decodificables de la duración pedida.
+- **Tareas y orden.** `tramo:0` → `voces` → `tramo:1…N-1` (se encolan solo cuando `voces` termina, porque llevan sus
+  muestras) → `unir`. El payload de cada tramo trae su plan (audio y núcleo) y el total; su `result` es autocontenido
+  (tramo, segmentos, costo, proveedor), así `unir` no depende de cómo se planifique después. `transcribir_tramo`: tiempo
+  de la llamada = mín(150 s, presupuesto − 30 s), **sin reintentos del SDK** (los hace la cola: 30 s / 2 min / 10 min),
+  un recorte de menos de 1 s se omite. Fallos que reintentar no arregla (clave, cuenta sin saldo, modelo, audio rechazado)
+  dejan la reunión en «error» al primer intento, con el motivo en español; los del momento (red, saturación, 5xx) se
+  reintentan. `unir` exige cobertura 1,0; es idempotente (reemplaza las intervenciones en lotes de 1.000, conserva los
+  nombres que ya tengan los hablantes, sube `transcripcion.txt`, anota cobertura, silencios, proveedor y costo).
+  El mensaje de error nombra el tramo: «No pudimos transcribir el tramo 2:10:00–2:20:00 después de 3 intentos…».
+- **Hasta M6, `unir` deja la reunión «lista»** (`PlanDeProceso.lista`): M6 inserta «Analizando con IA» entre medias.
+  `Meeting.speakerRefs`, `coverage`, `silences`, `transcriptUrl`, `provider` y `costUsd` ya se llenan. El avance de
+  «Transcribiendo» son los tramos hechos de **todos** los tramos (no solo los ya encolados): «23 de 48».
+- **Silencios:** huecos de ≥ 2 min sin voz, con el del principio y el final de la grabación; un tramo en silencio cuenta
+  como cubierto y se ve como «Sin voz entre 2:10:00 y 2:24:30».
+- **Rutas** (con rama demo y en la tabla de la bandera): `GET …/utterances?desde=&hasta=&q=` entrega las intervenciones que
+  **empiezan** en el rango (páginas de 30 min; `siguienteMs` salta los bloques vacíos), o con `q` las coincidencias de toda
+  la reunión (sin tildes ni mayúsculas, todas las palabras, hasta 200; recorre la base por lotes de 2.000); `GET
+  …/transcript` arma el `.txt` desde la base (con los nombres *actuales*, no desde el archivo guardado) con un
+  encabezado y los silencios intercalados; 409 mientras no está lista. Ninguna devuelve URLs de Blob.
+- **Visor** (`VisorTranscripcion`): por hora, con `00:00:05`, el nombre o «Voz N» (V1…V4 y H5… nunca repiten número), marcas
+  y silencios intercalados solo dentro de lo ya cargado, «Cargar los siguientes 30 min» y descarga (botón y menú «Más»).
+  Con la reunión lista y sin resumen todavía, abre en «Transcripción». *Falta (M7):* reproductor, buscador y saltos al minuto.
+- **Demo:** 8 s preparando el audio → 18 s «Transcribiendo n de 14» → 4 s «Uniendo» → lista, con la transcripción de
+  septiembre y las voces **sin nombre** («Voz 1…5»: así se ve el estado real antes de M6).
+- **Simuladores de prueba** (`transcripcion/sintetico.ts`): una reunión inventada de ~50 min con la verdad conocida (cinco
+  personas, una que casi no habla, un receso y una frase que cruza **cada** borde) y un simulador de OpenAI que solo ve lo
+  que recibiría el servicio: los bytes del audio (cada milisegundo dice quién habla) y las muestras en data URL. Con eso las
+  pruebas de punta a punta (trabajador real + base falsa + almacén en carpeta) comprueban que el recorte, las muestras y
+  las etiquetas caen donde deben, no solo que el código «corre».
+- **`contratos.ts`:** `ErrorTarea`, `aErrorTarea` y los tipos del manejador salen de `manejadores.ts` (que los reexporta)
+  para que los manejadores de otros módulos no dependan de ese archivo.
+- **Para verificar en la primera vista previa** (no se puede aquí): (a) cuánto tarda `gpt-4o-transcribe-diarize` con un
+  tramo de 10,5 min frente al límite de 150 s (si es lento, bajar `TRAMO_MS`); (b) que acepta las muestras MP3 y devuelve
+  los nombres V1…V4 (hay respaldo); (c) cómo etiqueta a las voces desconocidas cuando hay voces conocidas; (d) el costo real
+  por minuto (`COSTO_USD_POR_MINUTO = 0,006` es una estimación); (e) los límites de uso con 4 tramos a la vez; (f) la calidad
+  del corte automático (VAD) en salas con eco.
+- **Pruebas** (de 972 a 1190 en total): `transcripcion/` 171 (tramos 22, hablantes 31, unir 37 —incluida la reunión sintética
+  con 8 semillas—, proveedores 30, manejadores de punta a punta 15, páginas 19, presentación 10, guardado 7), rutas de
+  transcripción 13 + demo 7, orquestador 34 (+16), y una integración más con el **ffmpeg real** (de la grabación al texto).
+  Se verificaron por mutación las reglas del borde, las voces conocidas, la reconciliación, el recorte de las muestras, la
+  alineación de tiempos y la idempotencia de `unir`.
+
 | Hito | Estado | Commit | Notas |
 |---|---|---|---|
 | M0 Fundaciones | hecho | (ver `git log`) | Ver «Notas de M0» arriba. |
@@ -1285,7 +1357,7 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
 | M2 Subida reanudable | hecho | (ver `git log`) | Ver «Notas de M2» arriba. |
 | M3 Grabadora | hecho | (ver `git log`) | Ver «Notas de M3» arriba. |
 | M4 Cola y audio | hecho | (ver `git log`) | Ver «Notas de M4» arriba. |
-| M5 Transcripción | pendiente | | |
+| M5 Transcripción | hecho | (ver `git log`) | Ver «Notas de M5» arriba. |
 | M6 Ficha, hablantes, cupos | pendiente | | |
 | M7 Página de la reunión | pendiente | | |
 | M8 Acta y Preguntar | pendiente | | |

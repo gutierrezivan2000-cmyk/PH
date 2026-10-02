@@ -42,7 +42,7 @@ export async function GET(_req: NextRequest, { params }: Contexto) {
     let tareas: { hechas: number | null; total: number | null } = { hechas: null, total: null };
     if (estaEnMarcha(reunion.status)) {
       const filas = await db.meetingTask.findMany({ where: { meetingId: id }, select: { kind: true, key: true, status: true } });
-      tareas = esEtapa(reunion.stage) ? contarTareasDeEtapa(filas, reunion.stage) : { hechas: 0, total: 0 };
+      tareas = esEtapa(reunion.stage) ? contarTareasDeEtapa(filas, reunion.stage, reunion.durationMs) : { hechas: 0, total: 0 };
       if (await hayTrabajoSinAtender(id)) empujar();
     }
     return NextResponse.json({ ...reunion, tareas });

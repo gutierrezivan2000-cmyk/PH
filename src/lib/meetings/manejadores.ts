@@ -7,59 +7,19 @@
  * dejar el mismo resultado sin duplicar nada.
  */
 import { db } from "@/lib/db";
-import { ErrorAlmacen, prefijoDeReunion, type Almacen } from "./almacen";
+import { prefijoDeReunion } from "./almacen";
 import {
   armarAudio, ensamblarSesion, leerSegmentos, normalizadoMs, rutaDeSegmento, siguienteSegmento, type SegmentoGuardado,
 } from "./audio";
-import type { TareaReclamada } from "./cola";
-import { ErrorAudio, normalizarFuente } from "./ffmpeg";
+import { ErrorTarea, type Manejador } from "./contratos";
+import { normalizarFuente } from "./ffmpeg";
 import { detectarHuecos, extensionDeGrabacion, mimeBase } from "./grabadora-partes";
 import { avanzar } from "./orquestador";
+import { transcribirTramoTarea, unirTarea, vocesTarea } from "./transcripcion/manejadores";
 
-/* ════════════════════════════════════════════════════════════════════
-   Contratos
-   ════════════════════════════════════════════════════════════════════ */
-
-export type DepsProceso = {
-  almacen: Almacen;
-  ahora: () => Date;
-  /** Para pruebas: otra ruta de ffmpeg y otro tamaño de segmento. */
-  ffmpeg?: string;
-  tramoMs?: number;
-};
-
-export type ContextoTarea = {
-  tarea: TareaReclamada;
-  /** Cuánto tiempo (ms) tiene esta pasada para terminar, contando cerrar con calma. */
-  presupuestoMs: number;
-  senal: AbortSignal;
-  deps: DepsProceso;
-};
-
-export type ResultadoManejador = void | { resultado?: Record<string, unknown> } | { continuar: true };
-export type Manejador = (c: ContextoTarea) => Promise<ResultadoManejador>;
-
-export class ErrorTarea extends Error {
-  readonly reintentable: boolean;
-  constructor(mensaje: string, opciones: { reintentable: boolean }) {
-    super(mensaje);
-    this.name = "ErrorTarea";
-    this.reintentable = opciones.reintentable;
-  }
-}
-
-/** Lo que lance un manejador, como el `ErrorTarea` que entiende el trabajador. */
-export function aErrorTarea(e: unknown): ErrorTarea {
-  if (e instanceof ErrorTarea) return e;
-  if (e instanceof ErrorAudio) return new ErrorTarea(e.message, { reintentable: e.tipo === "transitorio" });
-  if (e instanceof ErrorAlmacen) {
-    if (e.tipo === "no_encontrado") {
-      return new ErrorTarea("No pudimos leer este archivo: ya no está en el almacenamiento. Vuelve a subirlo.", { reintentable: false });
-    }
-    return new ErrorTarea(e.message, { reintentable: e.tipo === "transitorio" });
-  }
-  return new ErrorTarea(e instanceof Error ? e.message : String(e), { reintentable: true });
-}
+// Los contratos viven en `contratos.ts` (para que los manejadores de otros módulos no dependan de este archivo).
+export { ErrorTarea, aErrorTarea } from "./contratos";
+export type { ContextoTarea, DepsProceso, Manejador, ResultadoManejador } from "./contratos";
 
 /* ════════════════════════════════════════════════════════════════════
    ensamblar_sesion
@@ -180,4 +140,7 @@ export const MANEJADORES: Record<string, Manejador> = {
   ensamblar_sesion: ensamblarSesionTarea,
   normalizar: normalizarTarea,
   armar_audio: armarAudioTarea,
+  transcribir_tramo: transcribirTramoTarea,
+  voces: vocesTarea,
+  unir: unirTarea,
 };

@@ -6,7 +6,7 @@
  * Las drena el cron cada minuto (solo producción) y las empujan las rutas con `after()`.
  */
 import { db } from "@/lib/db";
-import { ESPERAS_REINTENTO_MS, MAX_INTENTOS_TAREA, TAREA_MUERTA_MS } from "./tipos";
+import { ESPERAS_REINTENTO_MS, MAX_INTENTOS_TAREA, TAREA_MUERTA_MS, formatearRelojCorto } from "./tipos";
 
 export type TareaReclamada = {
   id: string;
@@ -105,6 +105,16 @@ export function describirTarea(kind: string, payload: unknown): string {
       return nombre ? `preparar el audio de «${nombre}»` : "preparar el audio";
     case "armar_audio":
       return "unir el audio de la reunión";
+    case "transcribir_tramo": {
+      // «2:10:00–2:20:00»: el tramo es lo que la persona oye como «de la hora 2:10 a la 2:20», sin el solape.
+      const desde = typeof p.nucleoDesdeMs === "number" ? p.nucleoDesdeMs : null;
+      const hasta = typeof p.nucleoHastaMs === "number" ? p.nucleoHastaMs : null;
+      return desde !== null && hasta !== null ? `transcribir el tramo ${formatearRelojCorto(desde)}–${formatearRelojCorto(hasta)}` : "transcribir un tramo de la reunión";
+    }
+    case "voces":
+      return "reconocer las voces de la reunión";
+    case "unir":
+      return "unir la transcripción de la reunión";
     default:
       return "procesar un paso de la reunión";
   }

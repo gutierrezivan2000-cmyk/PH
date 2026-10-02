@@ -219,6 +219,11 @@ export function formatearReloj(ms: number): string {
   return `${dos(h)}:${dos(m)}:${dos(s)}`;
 }
 
+/** «2:10:00»: como `formatearReloj`, pero sin el cero a la izquierda de las horas (para frases: «el tramo 2:10:00–2:20:00»). */
+export function formatearRelojCorto(ms: number): string {
+  return formatearReloj(ms).replace(/^0/, "");
+}
+
 /** Lo inverso: «01:23:10» o «23:10» → milisegundos; null si no es un reloj válido. */
 export function leerReloj(texto: string): number | null {
   const m = /^(?:(\d{1,3}):)?(\d{1,2}):(\d{2})$/.exec(texto.trim());

@@ -13,6 +13,8 @@ import { POST as marcar } from "@/app/api/meetings/[id]/markers/route";
 import { POST as procesar } from "@/app/api/meetings/[id]/process/route";
 import { POST as reintentar } from "@/app/api/meetings/[id]/retry/route";
 import { GET as estadoDeReunion } from "@/app/api/meetings/[id]/status/route";
+import { GET as descargarTranscripcion } from "@/app/api/meetings/[id]/transcript/route";
+import { GET as leerIntervenciones } from "@/app/api/meetings/[id]/utterances/route";
 import { DELETE as quitarFuente } from "@/app/api/meetings/[id]/sources/[sourceId]/route";
 import { POST as registrarFuente } from "@/app/api/meetings/[id]/sources/route";
 import { POST as pedirToken } from "@/app/api/meetings/[id]/upload-token/route";
@@ -20,6 +22,7 @@ import { DELETE as eliminarPersona, PATCH as editarPersona } from "@/app/api/pro
 import { GET as listarPersonas, POST as crearPersona } from "@/app/api/properties/[propertyId]/people/route";
 import { DELETE as eliminarReunion, GET as leerReunion, PATCH as editarReunion } from "@/app/api/meetings/[id]/route";
 import { GET as listarReuniones, POST as crearReunion } from "@/app/api/meetings/route";
+import { construirIntervenciones } from "./demo-datos";
 import { reiniciarDemoReuniones } from "./demo";
 
 const URL_BASE = "http://localhost/api";
@@ -373,8 +376,33 @@ describe("procesamiento simulado en demo: en cola → preparando el audio", () =
     expect(mitad).toMatchObject({ status: "procesando", stage: "preparando_audio", progress: 50, errorMessage: null });
     expect((await json(await leerReunion(pedir("/m"), raiz))).cuerpo.meeting).toMatchObject({ status: "procesando", stage: "preparando_audio", progress: 50 });
 
+    vi.setSystemTime(new Date("2026-10-02T12:00:19Z")); // 2 s de cola + 8 s de audio + 9 de 18 s transcribiendo
+    expect((await json(await estadoDeReunion(pedir("/s"), raiz))).cuerpo).toMatchObject({ status: "procesando", stage: "transcribiendo", progress: 50, tareas: { hechas: 7, total: 14 } });
+
     vi.setSystemTime(new Date("2026-10-02T12:00:30Z"));
-    expect((await json(await estadoDeReunion(pedir("/s"), raiz))).cuerpo).toMatchObject({ status: "procesando", stage: "transcribiendo" });
+    expect((await json(await estadoDeReunion(pedir("/s"), raiz))).cuerpo).toMatchObject({ status: "procesando", stage: "uniendo", progress: 50 });
+  });
+
+  it("al terminar queda lista, con la transcripción de ejemplo, sus voces sin nombre y la cobertura completa", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-02T12:00:00Z"));
+    await enviarAProcesar();
+    vi.setSystemTime(new Date("2026-10-02T12:00:40Z")); // pasados los 32 s del recorrido
+    expect((await json(await estadoDeReunion(pedir("/s"), raiz))).cuerpo).toMatchObject({ status: "lista", stage: null, progress: 100, coverage: 1, tareas: { hechas: null, total: null } });
+    const { meeting, speakers, digest, silences, sources } = (await json(await leerReunion(pedir("/m"), raiz))).cuerpo;
+    expect(meeting).toMatchObject({ status: "lista", coverage: 1, durationMs: 8_040_000, hasAudio: true, provider: "demo" });
+    expect(meeting.readyAt).toBe("2026-10-02T12:00:40.000Z");
+    expect(speakers.map((h: { label: string }) => h.label)).toEqual(["V1", "V2", "V3", "V4", "H5"]);
+    expect(speakers.every((h: { name: unknown; confirmed: boolean }) => h.name === null && !h.confirmed)).toBe(true);
+    expect(digest).toBeNull();
+    expect(silences).toHaveLength(1);
+    expect(sources.every((f: { status: string; durationMs: number }) => f.status === "normalizada" && f.durationMs === 8_040_000)).toBe(true);
+
+    const pagina = (await json(await leerIntervenciones(pedir(`/meetings/${ID}/utterances`), raiz))).cuerpo;
+    expect(pagina.items).toHaveLength(17);
+    expect(pagina.nombres).toEqual({});
+    // Y no vuelve a «procesar»: leerla de nuevo no cambia nada.
+    expect((await json(await estadoDeReunion(pedir("/s"), raiz))).cuerpo.status).toBe("lista");
   });
 
   it("una reunión que no existe: 404; una lista (sin procesar) no inventa tareas", async () => {
@@ -389,6 +417,85 @@ describe("procesamiento simulado en demo: en cola → preparando el audio", () =
     expect((await json(await estadoDeReunion(pedir("/s"), ctx({ id: "reunion-demo-004" })))).cuerpo).toMatchObject({ status: "procesando", errorMessage: null });
     expect((await json(await reintentar(pedir("/r", "POST"), ctx({ id: "reunion-demo-001" })))).cuerpo).toEqual({ status: "lista" });
     expect((await reintentar(pedir("/r", "POST"), ctx({ id: "no-existe" }))).status).toBe(404);
+  });
+});
+
+/* ════════════════════════════════════════════════════════════════════
+   Transcripción (demo)
+   ════════════════════════════════════════════════════════════════════ */
+
+describe("GET /api/meetings/[id]/utterances (demo)", () => {
+  const pedirPagina = (qs = "", id = "reunion-demo-001") => leerIntervenciones(pedir(`/meetings/${id}/utterances${qs}`), ctx({ id }));
+
+  it("la primera página trae los primeros 30 min, con los nombres confirmados y dónde sigue", async () => {
+    const { status, cuerpo } = await json(await pedirPagina());
+    expect(status).toBe(200);
+    expect(cuerpo.items).toHaveLength(17);
+    expect(cuerpo.items[0]).toMatchObject({ startMs: 5_000, speaker: "V1" });
+    expect(cuerpo.items.every((x: { startMs: number }) => x.startMs < 1_800_000)).toBe(true);
+    expect(cuerpo.nombres).toEqual({ V1: "Martha López", V2: "Jorge Pardo", V3: "Carolina Ríos", V4: "Hernán Sierra" }); // H5 es solo una sugerencia
+    expect(cuerpo.siguienteMs).toBe(1_800_000);
+  });
+
+  it("recorrer las páginas con siguienteMs entrega toda la reunión sin repetir nada", async () => {
+    const vistas: string[] = [];
+    let desde: number | null = 0;
+    for (let guardia = 0; desde !== null && guardia < 10; guardia++) {
+      const { cuerpo } = await json(await pedirPagina(`?desde=${desde}`));
+      vistas.push(...cuerpo.items.map((x: { id: string }) => x.id));
+      desde = cuerpo.siguienteMs;
+    }
+    expect(new Set(vistas).size).toBe(vistas.length);
+    expect(vistas.length).toBe(construirIntervenciones().length);
+  });
+
+  it("busca sin distinguir tildes ni mayúsculas, en toda la reunión", async () => {
+    const { cuerpo } = await json(await pedirPagina("?q=CAMARAS"));
+    expect(cuerpo.items.length).toBeGreaterThanOrEqual(3);
+    expect(cuerpo.items.every((x: { text: string }) => /c[aá]maras/i.test(x.text))).toBe(true);
+    expect(cuerpo.siguienteMs).toBeNull();
+  });
+
+  it("parámetros que no valen: 400 con un mensaje en español", async () => {
+    for (const qs of ["?desde=-5", "?desde=abc", "?desde=10&hasta=5", `?q=${"x".repeat(150)}`]) {
+      const { status, cuerpo } = await json(await pedirPagina(qs));
+      expect(status, qs).toBe(400);
+      expect(cuerpo.error).toMatch(/[a-záéíóú]/i);
+    }
+  });
+
+  it("una reunión que no existe o todavía no tiene transcripción", async () => {
+    expect((await pedirPagina("", "no-existe")).status).toBe(404);
+    const { status, cuerpo } = await json(await pedirPagina("", "reunion-demo-003"));
+    expect(status).toBe(200);
+    expect(cuerpo).toEqual({ items: [], nombres: {}, siguienteMs: null });
+  });
+});
+
+describe("GET /api/meetings/[id]/transcript (demo)", () => {
+  const descargar = (id = "reunion-demo-001") => descargarTranscripcion(pedir(`/meetings/${id}/transcript`), ctx({ id }));
+
+  it("descarga un .txt con el encabezado, una línea por intervención, los nombres y los silencios", async () => {
+    const r = await descargar();
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(r.headers.get("content-disposition")).toBe('attachment; filename="transcripcion-reunion-de-consejo-septiembre.txt"');
+    expect(r.headers.get("cache-control")).toBe("private, no-store");
+    const texto = await r.text();
+    const lineas = texto.split("\n");
+    expect(lineas[0]).toBe("Reunión de consejo — septiembre");
+    expect(lineas[1]).toMatch(/^Conjunto Residencial Los Pinos · Consejo · \d{1,2} de \p{L}+ de \d{4} · 2 h 14 min$/u);
+    expect(lineas[2]).toBe("Transcripción completa · cobertura 100 %");
+    expect(lineas[3]).toBe("");
+    expect(lineas[4]).toMatch(/^\[00:00:05\] V1 \(Martha López\): Buenas noches a todos\./);
+    expect(texto).toContain("[00:45:25] H5: La conozco, es seria");
+    expect(texto).toContain("[00:30:20] (Sin voz hasta 00:41:00)");
+    expect(lineas.filter((l) => /^\[\d\d:\d\d:\d\d\] [VH]\d/.test(l))).toHaveLength(construirIntervenciones().length);
+  });
+
+  it("una reunión que todavía se procesa: 409; una que no existe: 404", async () => {
+    expect((await descargar("reunion-demo-002")).status).toBe(409);
+    expect((await descargar("no-existe")).status).toBe(404);
   });
 });
 
@@ -415,6 +522,8 @@ const TODAS: Array<[string, () => Promise<Response>]> = [
   ["POST live/sesion", () => nuevaSesion(pedir("/m", "POST"), ctx({ id: "a" }))],
   ["POST live", () => registrarParte(pedirParte(), ctx({ id: "a" }))],
   ["POST markers", () => marcar(pedir("/m", "POST", { atMs: 1, kind: "tema" }), ctx({ id: "a" }))],
+  ["GET utterances", () => leerIntervenciones(pedir("/m"), ctx({ id: "a" }))],
+  ["GET transcript", () => descargarTranscripcion(pedir("/m"), ctx({ id: "a" }))],
 ];
 
 describe("piloto: ninguna ruta responde a quien no debe (y ninguna toca la base de datos antes de decidirlo)", () => {

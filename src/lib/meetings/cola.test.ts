@@ -278,10 +278,20 @@ describe("mensajes", () => {
     expect(describirTarea("normalizar", {})).toBe("preparar el audio");
     expect(describirTarea("armar_audio", null)).toBe("unir el audio de la reunión");
     expect(describirTarea("otro", {})).toBe("procesar un paso de la reunión");
+    // El tramo se dice por su núcleo, con horas sin cero a la izquierda: «de la hora 2:10 a la 2:20».
+    expect(describirTarea("transcribir_tramo", { i: 13, nucleoDesdeMs: 7_800_000, nucleoHastaMs: 8_400_000 })).toBe("transcribir el tramo 2:10:00–2:20:00");
+    expect(describirTarea("transcribir_tramo", { nucleoDesdeMs: 0, nucleoHastaMs: 600_000 })).toBe("transcribir el tramo 0:00:00–0:10:00");
+    expect(describirTarea("transcribir_tramo", { nucleoDesdeMs: 36_000_000, nucleoHastaMs: 36_600_000 })).toBe("transcribir el tramo 10:00:00–10:10:00");
+    expect(describirTarea("transcribir_tramo", {})).toBe("transcribir un tramo de la reunión");
+    expect(describirTarea("voces", {})).toBe("reconocer las voces de la reunión");
+    expect(describirTarea("unir", {})).toBe("unir la transcripción de la reunión");
   });
   it("agotados los intentos, nombran el paso; un motivo ya legible se usa tal cual", () => {
     expect(mensajeDeFallo("armar_audio", {}, "x", true)).toBe("No pudimos unir el audio de la reunión después de 3 intentos. Reintenta: solo se vuelve a procesar ese paso.");
     expect(mensajeDeFallo("normalizar", { nombre: "a.mp3" }, "No pudimos leer este archivo.", false)).toBe("No pudimos leer este archivo.");
     expect(mensajeDeFallo("normalizar", { nombre: "a.mp3" }, "connection reset", false)).toBe("No pudimos preparar el audio de «a.mp3». connection reset");
+    expect(mensajeDeFallo("transcribir_tramo", { nucleoDesdeMs: 7_800_000, nucleoHastaMs: 8_400_000 }, "x", true)).toBe(
+      "No pudimos transcribir el tramo 2:10:00–2:20:00 después de 3 intentos. Reintenta: solo se vuelve a procesar ese paso.",
+    );
   });
 });

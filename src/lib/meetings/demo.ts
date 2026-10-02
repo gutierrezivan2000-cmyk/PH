@@ -16,6 +16,7 @@ import {
 } from "./demo-datos";
 import { nombreDeSesion, offsetAntesDe, planificarCierre, type ParteRecibida } from "./cierre";
 import { MAX_FUENTES_POR_REUNION, MAX_MARCADORES, MAX_SESIONES_VIVO, estaEnMarcha, puedeAgregarFuentes, type EtapaReunion } from "./tipos";
+import { cantidadDeTramos } from "./transcripcion/tramos";
 import type { CambiosPersona, CambiosReunion, NuevaMarca, NuevaPersona, ParteViva, SesionDeCierre } from "./validar";
 
 type ReunionDemo = {
@@ -240,8 +241,42 @@ function nombreDePropiedad(userId: string, propertyId: string): string {
 
 /** Cuánto «espera en cola» una reunión recién enviada, antes de que un trabajador la tome. */
 export const COLA_DEMO_MS = 2_000;
-/** Los pasos que el demo simula. Cada hito agrega los suyos (transcribir, unir, analizar). */
-export const PASOS_DEMO: ReadonlyArray<{ etapa: EtapaReunion; ms: number }> = [{ etapa: "preparando_audio", ms: 8_000 }];
+/** Los pasos que el demo simula, con lo que dura cada uno. El hito del análisis con IA agrega el suyo al final. */
+export const PASOS_DEMO: ReadonlyArray<{ etapa: EtapaReunion; ms: number }> = [
+  { etapa: "preparando_audio", ms: 8_000 },
+  { etapa: "transcribiendo", ms: 18_000 },
+  { etapa: "uniendo", ms: 4_000 },
+];
+
+/**
+ * Termina el procesamiento simulado: la reunión queda lista con la transcripción de ejemplo (la de septiembre), sus voces
+ * sin nombre todavía (así se ve cómo es «Voz 1») y los silencios. El audio simulado dura lo de esa reunión.
+ */
+function completarDemo(r: ReunionDemo, ahora: number): void {
+  const intervenciones = construirIntervenciones();
+  r.status = "lista";
+  r.stage = null;
+  r.progress = 100;
+  r.hechas = null;
+  r.total = null;
+  r.errorMessage = null;
+  r.durationMs = DURACION_SEPTIEMBRE_MS;
+  r.coverage = 1;
+  r.provider = "demo";
+  r.costUsd = 0;
+  r.hasAudio = true;
+  r.readyAt = new Date(ahora).toISOString();
+  r.intervenciones = intervenciones;
+  r.hablantes = construirHablantes(intervenciones).map((h) => ({ ...h, name: null, role: null, personId: null, confirmed: false, suggestion: null }));
+  r.silencios = SILENCIOS_SEPTIEMBRE.map((x) => ({ ...x }));
+  let desde = 0;
+  for (const f of r.fuentes) {
+    f.status = "normalizada";
+    f.durationMs = Math.round(DURACION_SEPTIEMBRE_MS / r.fuentes.length);
+    f.offsetMs = desde;
+    desde += f.durationMs;
+  }
+}
 
 /** Pone la reunión en el estado que le toca según el tiempo que lleva «procesándose». */
 function avanzarDemo(r: ReunionDemo, ahora: number = Date.now()): void {
@@ -257,17 +292,18 @@ function avanzarDemo(r: ReunionDemo, ahora: number = Date.now()): void {
     if (resto < paso.ms) {
       r.stage = paso.etapa;
       r.progress = Math.round((resto / paso.ms) * 100);
-      r.hechas = null;
-      r.total = null;
+      if (paso.etapa === "transcribiendo") {
+        r.total = cantidadDeTramos(DURACION_SEPTIEMBRE_MS);
+        r.hechas = Math.floor((resto / paso.ms) * r.total);
+      } else {
+        r.hechas = null;
+        r.total = null;
+      }
       return;
     }
     resto -= paso.ms;
   }
-  // Hasta que existan los pasos siguientes, la simulación espera en la etapa que viene.
-  r.stage = "transcribiendo";
-  r.progress = 0;
-  r.hechas = 0;
-  r.total = null;
+  completarDemo(r, ahora);
 }
 
 function resumen(r: ReunionDemo): ReunionResumen {
