@@ -1350,6 +1350,90 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
   Se verificaron por mutación las reglas del borde, las voces conocidas, la reconciliación, el recorte de las muestras, la
   alineación de tiempos y la idempotencia de `unir`.
 
+**Notas de M6 (desviaciones y decisiones al construir):**
+
+- **La IA nunca tumba una reunión.** La transcripción completa es lo principal y ya está pagada. Un fallo *del momento*
+  de la IA (red, 408/409/429/5xx/529, respuesta cortada, vacía o ilegible) se reintenta con la cola (30 s / 2 min / 10 min,
+  3 intentos); uno *sin arreglo* (credenciales, saldo, modelo que no existe, petición rechazada, `refusal`) o los
+  reintentos agotados **omiten el paso y lo anotan**: un bloque omitido queda como «pendiente» en la ficha; si falla la
+  llamada de la ficha, esta se arma con lo que ya salió de los bloques (`fichaSinIA`, sin resumen) y la reunión queda
+  «lista» con `errorMessage` = «El resumen con IA no se pudo generar: la transcripción está completa y puedes revisarla.»
+  (la pantalla muestra «Falta el resumen de la reunión.»). Solo un fallo de la base de datos o del código puede dejar la
+  reunión en «error». Con menos de 40 palabras (una prueba de micrófono) no se llama a la IA.
+- **Etapa «Analizando con IA»** (`analizando`, entre «Uniendo» y «lista»): al terminar `unir` se encolan una tarea
+  `bloque:<k>` por bloque y, cuando todas terminaron (hechas u omitidas), la tarea `ficha`; la reunión pasa a «lista» al
+  terminar `ficha` (o directo desde `unir` si no hay nada que analizar). El avance es «n de N» bloques. Reintentar una
+  reunión rehace solo lo que falta.
+- **La ficha** (`ficha.ts`, todo funciones puras y probadas sin red): `planificarBloques` (~25 min, cortados entre
+  intervenciones, ≤ 9.000 palabras; un último bloque de < 4 min se une al anterior solo si no pasa el tope) → `analizar_bloque`
+  (temas, decisiones, compromisos, votaciones, cifras y pistas de quién es quién; **se valida lo que vuelve**: nada fuera
+  del bloque, nada de etiquetas que no existen, textos acotados) → `consolidar` **con reglas** (quita los repetidos de las
+  costuras —ventana de 15 min, igualdad o contención ≥ 0,85—, numera D1…, C1…, V1… por tiempo) → **una** llamada `ficha`
+  (resumen, orden del día, asistentes, pendientes y nombres sugeridos) → `armarFicha`. **Las decisiones, compromisos y
+  votaciones nunca pasan por la última llamada para reescribirse:** el modelo no puede perderlas ni inventarlas en la
+  consolidación. Se guarda en `Meeting.digest`; la sugerencia de cada voz (nombre, rol, evidencia con el minuto, confianza,
+  «igual a» otra voz) en `MeetingSpeaker.suggestion`. `Ficha.hablantes[].t` es el minuto de la evidencia.
+- **Cliente de Claude** (`ia.ts`, interfaz `ClienteIA.generarJson`): `claude-opus-5-5` (`MEETINGS_MODEL`), esfuerzo
+  `MEETINGS_EFFORT` (por omisión `high`; **los reintentos bajan a `medium`**: una respuesta que se corta o tarda suele
+  arreglarse pensando menos), sin `thinking` ni `temperature` (en Opus 5.5 siempre piensa y los modelos 5 rechazan
+  `temperature`), **salida estructurada** (`output_config.format` con JSON Schema), *streaming* + `finalMessage()` para no
+  chocar con timeouts, `max_tokens` 32.000, `maxRetries: 0` (reintenta la cola) y timeout de la llamada = mín(200 s,
+  presupuesto − 25 s, y no menos de 30 s). Se mira `stop_reason` **antes** del contenido (`refusal` → no se reintenta;
+  `max_tokens` → sí). **Respaldo del servicio** (`fallbacks: "default"` + beta `server-side-fallback-2026-07-01`): si la
+  organización no tiene la beta (400 que nombra `anthropic-beta`) se repite la llamada sin ella y se deja de pedirla en ese
+  proceso; `MEETINGS_FALLBACKS=off` la apaga. **Se dejó el SDK en 0.88.0** (no se subió de versión): `betas` y `fallbacks`
+  viajan en un tipo mínimo (`ClienteDeAnthropic`) sin tipar, y las pruebas fijan los parámetros exactos que se envían.
+- **Costos y registro de uso** (`terminado.ts`, **una sola vez** al pasar a «lista»): `calcularUso` suma `usage.iterations`
+  cuando hubo respaldo (cada intento cuesta) con la tabla `PRECIOS_USD_POR_MTOK` (**estimación a verificar con los precios
+  de Anthropic**; un modelo que no está en la tabla se cobra como Opus 5: mejor pasarse que quedarse corto).
+  `Meeting.costUsd` = transcripción + IA; dos `UsageRecord`: `reunion_audio` (segundos de audio y el costo de transcribir)
+  y `reunion_ia` (tokens y costo de la IA). Estimación para 8 h: ≈ US$ 2,9 de transcripción + US$ 2,8–4,8 de IA;
+  `MEETINGS_EFFORT=medium` es la palanca para bajar lo segundo. El registro, el correo y el costo son pasos
+  independientes: ninguno puede tumbar a los otros ni a la reunión.
+- **Correo «tu reunión está lista»** (`sendMeetingReadyEmail` en `email.ts`, devuelve `{ sent }`): una vez, a quien la
+  grabó, con título, copropiedad, duración y el enlace a la reunión. No sale si la reunión no llega a «lista».
+- **Cupos** (`cupos.ts`): Pro 10 h/mes, Business 40, Élite 120 (de `PLANS.*.limits.meetingHoursPerMonth`); la prueba
+  gratis 2 h **en total**; las cuentas beta y la fase `OPEN_TESTING` sin tope. **Lo consumido se deriva de
+  `Meeting.durationMs`** de las reuniones del mes (mes de Bogotá, UTC−5), no de un contador aparte: reintentar o reprocesar
+  nunca cuenta dos veces (la reunión que se evalúa no se cuenta a sí misma). Se comprueba en `armar_audio`, cuando ya se
+  sabe cuánto dura: si no alcanza la reunión pasa a **`sin_cupo`** (el audio se conserva) con un mensaje claro («Esta
+  reunión dura 8 h y te quedan 2 h este mes.» / «Ya usaste las 10 h de reuniones de este mes.») y el botón «Ver planes».
+  Una falla al consultar el cupo **no bloquea** (se deja pasar y se registra), como el resto de los topes de la plataforma.
+- **Nombres de las voces** — `PUT /api/meetings/[id]/speakers` con `{ hablantes: [{ label, name, role?, personId? }] }`
+  (hasta 60; un nombre vacío = «sin nombre»; las personas deben ser de **esa** copropiedad). **Dos voces con el mismo
+  nombre (sin mayúsculas ni tildes) son la misma persona que el reconocimiento partió: se fusionan** en la que más habla,
+  sus intervenciones pasan a ella (`planificarGuardado` decide todo sin tocar la base; la ruta y el demo hacen lo mismo),
+  y todo va en una `$transaction`. Responde `{ speakers }` ordenado por habla. Una voz con nombre queda `confirmed` (en
+  pantalla, «Con nombre») y la sugerencia de la IA deja de ofrecerse cuando el nombre elegido ya es el sugerido.
+- **Pestaña «Hablantes»** (`TabHablantes.tsx`; la lógica sin React está en `nombres-pantalla.ts`): una fila por voz con el
+  tiempo que habla, selector de persona de la copropiedad (o «Otra persona…» con el nombre escrito: se crea la persona al
+  guardar), rol, y —si la IA sugirió algo— la sugerencia con su evidencia y el minuto, «Usar este nombre» y, si cree que es
+  la misma voz que otra, «Unir con …»; un aviso dice qué voces se van a unir antes de guardar.
+- **Pestaña por omisión: «Transcripción»** cuando la reunión está lista (M7 la pasa a «Resumen» cuando exista).
+- **Demo:** la simulación ahora dura 38 s: 2 s en cola, 8 s preparando el audio, 18 s «Transcribiendo n de 14», 4 s
+  «Uniendo» y 6 s «Analizando con IA n de 6»; termina «lista» con la transcripción de septiembre, `FICHA_SEPTIEMBRE` y las
+  voces **sin nombre pero con sugerencias de la IA**; guardar nombres y fusionar funciona igual que en producción
+  (`demoGuardarHablantes`).
+- **Simulador de la IA para pruebas** (`ia-simulada.ts`): contesta como lo haría Claude con las instrucciones de `ficha.ts`
+  pero con reglas fijas sobre el texto que recibe (lee del prompt las mismas líneas `[hh:mm:ss] V1: texto`); con la reunión
+  sintética de M5 las pruebas de punta a punta comprueban el recorrido entero (bloques → ficha → hablantes → costos →
+  correo → «lista») sabiendo cuál debe ser el resultado.
+- **Para verificar en la primera vista previa** (no se puede aquí): (a) latencia y calidad reales de Opus 5.5 con
+  `high` frente al timeout de 200 s por llamada (si un bloque no cabe, bajar `MEETINGS_EFFORT` o `BLOQUE_MS`); (b) que la
+  organización de Anthropic tenga la beta del respaldo (si no, se ve el aviso en el registro y sigue sin ella); (c) el
+  costo real por reunión frente a la estimación; (d) que la IA reconoce bien a quién es quién en reuniones reales (la
+  sugerencia siempre pasa por la persona); (e) lo de M4/M5 que sigue pendiente (ffmpeg y *loopback* en Vercel, latencia de
+  `gpt-4o-transcribe-diarize`, muestras MP3 de las voces).
+- **Límites conocidos (planeados):** si la IA no está disponible la reunión queda «lista» sin resumen y **todavía no hay
+  «Generar el resumen otra vez»** (M7); una reunión en `sin_cupo` **no tiene «Procesar de nuevo»** al renovar el cupo
+  (M9); el botón «Escuchar» de las voces necesita la ruta de audio de M7.
+- **Pruebas** (de 1190 a 1353 en total): `ia` 24, `ficha` 37, `analisis` 25 (con el simulador y con fallos de la IA en cada
+  paso), `terminado` 9, `cupos` 13 + 2 (en `armar_audio`), correo 6, `nombres` 12 y `nombres-pantalla` 14, ruta de hablantes 7
+  + 86 de rutas (la tabla de la bandera y el demo), orquestador 42 (+8: la etapa de análisis) e integración de punta a punta.
+  Se verificaron por mutación la consolidación, la validación de lo que devuelve la IA, el esfuerzo de los reintentos, el
+  cupo y la fusión de voces. Siguen en verde `tsc`, `eslint`, `next build` y el barrido de pantallas (oscuro/claro,
+  escritorio/móvil).
+
 | Hito | Estado | Commit | Notas |
 |---|---|---|---|
 | M0 Fundaciones | hecho | (ver `git log`) | Ver «Notas de M0» arriba. |
@@ -1358,7 +1442,7 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
 | M3 Grabadora | hecho | (ver `git log`) | Ver «Notas de M3» arriba. |
 | M4 Cola y audio | hecho | (ver `git log`) | Ver «Notas de M4» arriba. |
 | M5 Transcripción | hecho | (ver `git log`) | Ver «Notas de M5» arriba. |
-| M6 Ficha, hablantes, cupos | pendiente | | |
+| M6 Ficha, hablantes, cupos | hecho | (ver `git log`) | Ver «Notas de M6» arriba. |
 | M7 Página de la reunión | pendiente | | |
 | M8 Acta y Preguntar | pendiente | | |
 | M9 Cupos visibles, retención, piloto | pendiente | | |

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { SubidaReunion } from "@/components/reuniones/SubidaReunion";
+import { TabHablantes } from "@/components/reuniones/TabHablantes";
 import { VisorTranscripcion } from "@/components/reuniones/VisorTranscripcion";
 import {
   Aviso, BarraProgreso, Boton, CabeceraPieza, Campo, Entrada, ErrorCarga, Esqueleto, Estado, MenuMas, Modal, Pagina, Panel,
@@ -134,8 +135,8 @@ export function DetalleReunion({ id }: { id: string }) {
   };
 
   const m = datos?.meeting ?? null;
-  // Mientras la reunión no tenga resumen (llega con el análisis con IA), se abre en lo que ya sirve: la transcripción.
-  const pestana: Pestana = elegida ?? (datos?.digest ? "resumen" : "transcripcion");
+  // Se abre en lo que ya funciona del todo: la transcripción. (Cuando «Resumen» esté completo, será la pestaña de entrada.)
+  const pestana: Pestana = elegida ?? "transcripcion";
 
   const abrirEditar = () => {
     if (!m) return;
@@ -324,7 +325,7 @@ export function DetalleReunion({ id }: { id: string }) {
                         : `${TEXTO_ETAPA[m.stage as EtapaReunion] ?? "Procesando"} · ${m.total ? `${m.hechas ?? 0} de ${m.total}` : `${m.progress} %`}`}
                     </p>
                     <BarraProgreso valor={m.progress} etiquetaAccesible={`Avance: ${descripcion.texto}`} />
-                    <p className="re-nota">Puedes cerrar esta página: el trabajo sigue en nuestros servidores.</p>
+                    <p className="re-nota">Puedes cerrar esta página: te avisamos por correo cuando esté lista.</p>
                   </div>
                 </Panel>
               )}
@@ -353,6 +354,15 @@ export function DetalleReunion({ id }: { id: string }) {
 
               {m.status === "lista" && (
                 <>
+                  {m.errorMessage && (
+                    <Aviso
+                      enLinea
+                      rol={null}
+                      tipo="aviso"
+                      titulo="Falta el resumen de la reunión."
+                      texto={`${m.errorMessage} La transcripción está completa y puedes leerla.`}
+                    />
+                  )}
                   <div className="re-pestanas">
                     <Segmentos
                       modo="pestanas"
@@ -367,6 +377,14 @@ export function DetalleReunion({ id }: { id: string }) {
                     <Panel titulo={PESTANAS.find((p) => p.id === pestana)?.etiqueta} nivel={2}>
                       {pestana === "transcripcion" ? (
                         <VisorTranscripcion key={id} meetingId={id} marcas={datos?.markers ?? []} silencios={datos?.silences ?? []} />
+                      ) : pestana === "hablantes" ? (
+                        <TabHablantes
+                          key={id}
+                          meetingId={id}
+                          propertyId={m.propertyId}
+                          hablantes={datos?.speakers ?? []}
+                          alGuardar={(speakers) => setDatos((prev) => (prev ? { ...prev, speakers } : prev))}
+                        />
                       ) : (
                         <p className="re-nota">{PESTANAS.find((p) => p.id === pestana)?.texto}</p>
                       )}

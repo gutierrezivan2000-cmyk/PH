@@ -15,6 +15,7 @@ import {
   construirHablantes, construirIntervenciones,
 } from "./demo-datos";
 import { nombreDeSesion, offsetAntesDe, planificarCierre, type ParteRecibida } from "./cierre";
+import { planificarGuardado, type PedidoDeHablante } from "./nombres";
 import { MAX_FUENTES_POR_REUNION, MAX_MARCADORES, MAX_SESIONES_VIVO, estaEnMarcha, puedeAgregarFuentes, type EtapaReunion } from "./tipos";
 import { cantidadDeTramos } from "./transcripcion/tramos";
 import type { CambiosPersona, CambiosReunion, NuevaMarca, NuevaPersona, ParteViva, SesionDeCierre } from "./validar";
@@ -239,6 +240,9 @@ function nombreDePropiedad(userId: string, propertyId: string): string {
 
 /* ── Procesamiento simulado ───────────────────────────────────────────── */
 
+/** Cuántas tareas tiene el análisis simulado: 5 bloques de ~25 min y la ficha. */
+const TAREAS_DE_ANALISIS_DEMO = 6;
+
 /** Cuánto «espera en cola» una reunión recién enviada, antes de que un trabajador la tome. */
 export const COLA_DEMO_MS = 2_000;
 /** Los pasos que el demo simula, con lo que dura cada uno. El hito del análisis con IA agrega el suyo al final. */
@@ -246,6 +250,7 @@ export const PASOS_DEMO: ReadonlyArray<{ etapa: EtapaReunion; ms: number }> = [
   { etapa: "preparando_audio", ms: 8_000 },
   { etapa: "transcribiendo", ms: 18_000 },
   { etapa: "uniendo", ms: 4_000 },
+  { etapa: "analizando", ms: 6_000 },
 ];
 
 /**
@@ -267,7 +272,15 @@ function completarDemo(r: ReunionDemo, ahora: number): void {
   r.hasAudio = true;
   r.readyAt = new Date(ahora).toISOString();
   r.intervenciones = intervenciones;
-  r.hablantes = construirHablantes(intervenciones).map((h) => ({ ...h, name: null, role: null, personId: null, confirmed: false, suggestion: null }));
+  // Las voces sin nombre, con lo que la IA sugiere de cada una (la persona decide).
+  r.ficha = structuredClone(FICHA_SEPTIEMBRE);
+  r.hablantes = construirHablantes(intervenciones).map((h) => {
+    const sug = FICHA_SEPTIEMBRE.hablantes.find((x) => x.etiqueta === h.label);
+    return {
+      ...h, name: null, role: null, personId: null, confirmed: false,
+      suggestion: sug ? { nombre: sug.nombreSugerido, rol: sug.rol, evidencia: sug.evidencia, t: sug.t, confianza: sug.confianza } : null,
+    };
+  });
   r.silencios = SILENCIOS_SEPTIEMBRE.map((x) => ({ ...x }));
   let desde = 0;
   for (const f of r.fuentes) {
@@ -292,8 +305,9 @@ function avanzarDemo(r: ReunionDemo, ahora: number = Date.now()): void {
     if (resto < paso.ms) {
       r.stage = paso.etapa;
       r.progress = Math.round((resto / paso.ms) * 100);
-      if (paso.etapa === "transcribiendo") {
-        r.total = cantidadDeTramos(DURACION_SEPTIEMBRE_MS);
+      if (paso.etapa === "transcribiendo" || paso.etapa === "analizando") {
+        // Los tramos de la transcripción, o los bloques de análisis más la ficha que los junta.
+        r.total = paso.etapa === "transcribiendo" ? cantidadDeTramos(DURACION_SEPTIEMBRE_MS) : TAREAS_DE_ANALISIS_DEMO;
         r.hechas = Math.floor((resto / paso.ms) * r.total);
       } else {
         r.hechas = null;
@@ -372,6 +386,25 @@ function resumenVivoDemo(r: ReunionDemo): VivoDTO | null {
 export function demoIntervenciones(userId: string, id: string): IntervencionDTO[] | null {
   const r = almacen().reuniones.find((x) => x.id === id && x.userId === userId);
   return r ? r.intervenciones : null;
+}
+
+/**
+ * Guarda los nombres de las voces y fusiona las que se llaman igual (la que más habla se queda con las intervenciones de la
+ * otra), con las mismas reglas que la ruta de verdad. Devuelve las voces que quedan, la que más habla primero.
+ */
+export function demoGuardarHablantes(userId: string, id: string, pedidos: readonly PedidoDeHablante[]): HablanteDTO[] | null {
+  const r = almacen().reuniones.find((x) => x.id === id && x.userId === userId);
+  if (!r) return null;
+  const plan = planificarGuardado(r.hablantes, pedidos);
+  for (const f of plan.fusiones) {
+    for (const i of r.intervenciones) if (f.absorbidas.includes(i.speaker)) i.speaker = f.canonica;
+    r.hablantes = r.hablantes.filter((h) => !f.absorbidas.includes(h.label));
+  }
+  for (const a of plan.actualizar) {
+    const h = r.hablantes.find((x) => x.label === a.label);
+    if (h) Object.assign(h, { name: a.name, role: a.role, personId: a.personId, confirmed: a.confirmed, talkMs: a.talkMs });
+  }
+  return r.hablantes.map((h) => ({ ...h })).sort((a, b) => b.talkMs - a.talkMs || a.label.localeCompare(b.label, "es", { numeric: true }));
 }
 
 export function demoPersonas(propertyId: string): PersonaDTO[] {

@@ -113,6 +113,13 @@ export function describirTarea(kind: string, payload: unknown): string {
     }
     case "voces":
       return "reconocer las voces de la reunión";
+    case "analizar_bloque": {
+      const desde = typeof p.desdeMs === "number" ? p.desdeMs : null;
+      const hasta = typeof p.hastaMs === "number" ? p.hastaMs : null;
+      return desde !== null && hasta !== null ? `analizar con IA el fragmento ${formatearRelojCorto(desde)}–${formatearRelojCorto(hasta)}` : "analizar un fragmento con IA";
+    }
+    case "ficha":
+      return "armar la ficha de la reunión";
     case "unir":
       return "unir la transcripción de la reunión";
     default:

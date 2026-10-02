@@ -12,6 +12,7 @@ import { POST as nuevaSesion } from "@/app/api/meetings/[id]/live/sesion/route";
 import { POST as marcar } from "@/app/api/meetings/[id]/markers/route";
 import { POST as procesar } from "@/app/api/meetings/[id]/process/route";
 import { POST as reintentar } from "@/app/api/meetings/[id]/retry/route";
+import { PUT as guardarNombres } from "@/app/api/meetings/[id]/speakers/route";
 import { GET as estadoDeReunion } from "@/app/api/meetings/[id]/status/route";
 import { GET as descargarTranscripcion } from "@/app/api/meetings/[id]/transcript/route";
 import { GET as leerIntervenciones } from "@/app/api/meetings/[id]/utterances/route";
@@ -381,20 +382,25 @@ describe("procesamiento simulado en demo: en cola → preparando el audio", () =
 
     vi.setSystemTime(new Date("2026-10-02T12:00:30Z"));
     expect((await json(await estadoDeReunion(pedir("/s"), raiz))).cuerpo).toMatchObject({ status: "procesando", stage: "uniendo", progress: 50 });
+
+    vi.setSystemTime(new Date("2026-10-02T12:00:35Z")); // 2 s de cola + 8 + 18 + 4 de los pasos anteriores, y 3 de 6 s analizando
+    expect((await json(await estadoDeReunion(pedir("/s"), raiz))).cuerpo).toMatchObject({ status: "procesando", stage: "analizando", progress: 50, tareas: { hechas: 3, total: 6 } });
   });
 
-  it("al terminar queda lista, con la transcripción de ejemplo, sus voces sin nombre y la cobertura completa", async () => {
+  it("al terminar queda lista, con la transcripción de ejemplo, la ficha, las voces sin nombre (con la sugerencia de la IA) y la cobertura completa", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-02T12:00:00Z"));
     await enviarAProcesar();
-    vi.setSystemTime(new Date("2026-10-02T12:00:40Z")); // pasados los 32 s del recorrido
+    vi.setSystemTime(new Date("2026-10-02T12:00:40Z")); // pasados los 38 s del recorrido (2 de cola y 36 de pasos)
     expect((await json(await estadoDeReunion(pedir("/s"), raiz))).cuerpo).toMatchObject({ status: "lista", stage: null, progress: 100, coverage: 1, tareas: { hechas: null, total: null } });
     const { meeting, speakers, digest, silences, sources } = (await json(await leerReunion(pedir("/m"), raiz))).cuerpo;
     expect(meeting).toMatchObject({ status: "lista", coverage: 1, durationMs: 8_040_000, hasAudio: true, provider: "demo" });
     expect(meeting.readyAt).toBe("2026-10-02T12:00:40.000Z");
     expect(speakers.map((h: { label: string }) => h.label)).toEqual(["V1", "V2", "V3", "V4", "H5"]);
     expect(speakers.every((h: { name: unknown; confirmed: boolean }) => h.name === null && !h.confirmed)).toBe(true);
-    expect(digest).toBeNull();
+    expect(speakers.find((h: { label: string }) => h.label === "V1").suggestion).toMatchObject({ nombre: "Martha López", rol: "Presidente del consejo", confianza: "alta", t: 34 });
+    expect(speakers.find((h: { label: string }) => h.label === "H5").suggestion).toMatchObject({ nombre: "Andrés Gómez", confianza: "media", t: 2_710 });
+    expect(digest.decisiones).toHaveLength(3);
     expect(silences).toHaveLength(1);
     expect(sources.every((f: { status: string; durationMs: number }) => f.status === "normalizada" && f.durationMs === 8_040_000)).toBe(true);
 
@@ -499,6 +505,54 @@ describe("GET /api/meetings/[id]/transcript (demo)", () => {
   });
 });
 
+describe("PUT /api/meetings/[id]/speakers (demo)", () => {
+  const ID = "reunion-demo-001";
+  const guardar = (hablantes: unknown, id = ID) => guardarNombres(pedir(`/meetings/${id}/speakers`, "PUT", { hablantes }), ctx({ id }));
+  const verHablantes = async (id = ID) => (await json(await leerReunion(pedir(`/meetings/${id}`), ctx({ id })))).cuerpo.speakers as Array<{ label: string; name: string | null; confirmed: boolean; talkMs: number }>;
+
+  it("le pone nombre a una voz sin confirmar y la deja confirmada; quitarle el nombre la desconfirma", async () => {
+    const { status, cuerpo } = await json(await guardar([{ label: "H5", name: "  Andrés   Gómez ", role: "consejero", personId: "persona-demo-H5" }]));
+    expect(status).toBe(200);
+    expect(cuerpo.speakers.find((h: { label: string }) => h.label === "H5")).toMatchObject({ name: "Andrés Gómez", role: "consejero", personId: "persona-demo-H5", confirmed: true });
+    expect((await verHablantes()).find((h) => h.label === "H5")).toMatchObject({ name: "Andrés Gómez", confirmed: true });
+    const quitar = await json(await guardar([{ label: "H5", name: "" }]));
+    expect(quitar.cuerpo.speakers.find((h: { label: string }) => h.label === "H5")).toMatchObject({ name: null, confirmed: false });
+  });
+
+  it("dos voces con el mismo nombre se fusionan: la que más habla se queda con las intervenciones de la otra", async () => {
+    const antes = await verHablantes();
+    const talk = (l: string) => antes.find((h) => h.label === l)!.talkMs;
+    const { cuerpo } = await json(await guardar([{ label: "V3", name: "Martha López" }]));
+    // V1 ya se llama «Martha López» y habla más que V3: V3 desaparece y V1 suma su habla.
+    expect(cuerpo.speakers.map((h: { label: string }) => h.label)).toEqual(["V1", "V2", "V4", "H5"]);
+    expect(cuerpo.speakers.find((h: { label: string }) => h.label === "V1").talkMs).toBe(talk("V1") + talk("V3"));
+    const pagina = (await json(await leerIntervenciones(pedir(`/meetings/${ID}/utterances?q=cotizaci%C3%B3n`), ctx({ id: ID })))).cuerpo;
+    expect(pagina.items.some((x: { speaker: string }) => x.speaker === "V3")).toBe(false);
+    const todas = (await json(await leerIntervenciones(pedir(`/meetings/${ID}/utterances?desde=0&hasta=1800000`), ctx({ id: ID })))).cuerpo;
+    expect(todas.items.filter((x: { speaker: string }) => x.speaker === "V3")).toEqual([]);
+    expect(todas.items.find((x: { startMs: number }) => x.startMs === 110_000)).toMatchObject({ speaker: "V1" }); // «Claro, Carolina…» de V3 en el guion: ahora de V1
+  });
+
+  it("repetir el mismo pedido no cambia nada y las etiquetas que ya no existen se ignoran", async () => {
+    await guardar([{ label: "V3", name: "Martha López" }]);
+    const antes = await verHablantes();
+    const { status, cuerpo } = await json(await guardar([{ label: "V3", name: "Martha López" }, { label: "V1", name: "Martha López" }]));
+    expect(status).toBe(200);
+    expect(cuerpo.speakers).toEqual(antes.map((h) => expect.objectContaining({ label: h.label, talkMs: h.talkMs })));
+  });
+
+  it("pedidos que no valen: 400 con un mensaje en español; una reunión que no existe: 404", async () => {
+    for (const hablantes of [[], "x", [{ label: "Z9", name: "Ana" }], [{ label: "V1", name: "a" }, { label: "V1", name: "b" }], [{ label: "V1", name: "x".repeat(200) }], [{ label: "V1", name: "Ana", personId: "../x" }]]) {
+      const { status, cuerpo } = await json(await guardar(hablantes));
+      expect(status, JSON.stringify(hablantes)).toBe(400);
+      expect(cuerpo.error).toMatch(/[a-záéíóú]/i);
+    }
+    expect((await guardar([{ label: "V1", name: "Ana" }], "no-existe")).status).toBe(404);
+    const noJson = new NextRequest(`${URL_BASE}/meetings/x/speakers`, { method: "PUT", body: "no es json" });
+    expect((await guardarNombres(noJson, ctx({ id: ID }))).status).toBe(400);
+  });
+});
+
 /* ════════════════════════════════════════════════════════════════════
    La bandera del piloto cierra TODAS las rutas
    ════════════════════════════════════════════════════════════════════ */
@@ -522,6 +576,7 @@ const TODAS: Array<[string, () => Promise<Response>]> = [
   ["POST live/sesion", () => nuevaSesion(pedir("/m", "POST"), ctx({ id: "a" }))],
   ["POST live", () => registrarParte(pedirParte(), ctx({ id: "a" }))],
   ["POST markers", () => marcar(pedir("/m", "POST", { atMs: 1, kind: "tema" }), ctx({ id: "a" }))],
+  ["PUT speakers", () => guardarNombres(pedir("/m", "PUT", { hablantes: [{ label: "V1", name: "Ana" }] }), ctx({ id: "a" }))],
   ["GET utterances", () => leerIntervenciones(pedir("/m"), ctx({ id: "a" }))],
   ["GET transcript", () => descargarTranscripcion(pedir("/m"), ctx({ id: "a" }))],
 ];

@@ -5,6 +5,7 @@
 import { ErrorAlmacen, type Almacen } from "./almacen";
 import type { TareaReclamada } from "./cola";
 import { ErrorAudio } from "./ffmpeg";
+import { ErrorIA, type ClienteIA } from "./ia";
 import { ErrorTranscripcion, type ProveedorDeTranscripcion } from "./transcripcion/tipos";
 
 export type DepsProceso = {
@@ -15,6 +16,8 @@ export type DepsProceso = {
   tramoMs?: number;
   /** Para pruebas: otro proveedor de transcripción (por omisión, el que elige `elegirProveedor`). */
   proveedor?: ProveedorDeTranscripcion;
+  /** Para pruebas: otro cliente de IA (por omisión, Claude). */
+  ia?: ClienteIA;
 };
 
 export type ContextoTarea = {
@@ -42,6 +45,7 @@ export function aErrorTarea(e: unknown): ErrorTarea {
   if (e instanceof ErrorTarea) return e;
   if (e instanceof ErrorAudio) return new ErrorTarea(e.message, { reintentable: e.tipo === "transitorio" });
   if (e instanceof ErrorTranscripcion) return new ErrorTarea(e.message, { reintentable: e.reintentable });
+  if (e instanceof ErrorIA) return new ErrorTarea(e.message, { reintentable: e.reintentable });
   if (e instanceof ErrorAlmacen) {
     if (e.tipo === "no_encontrado") {
       return new ErrorTarea("No pudimos leer este archivo: ya no está en el almacenamiento. Vuelve a subirlo.", { reintentable: false });

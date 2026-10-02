@@ -397,7 +397,7 @@ export function Grabadora({ id }: { id: string }) {
                 {/* ── Terminada ── */}
                 {terminada && (
                   <Panel titulo="Listo: enviamos la reunión a transcribir." nivel={2}>
-                    <p className="re-gr-nota">Puedes cerrar esta página: el trabajo sigue en nuestros servidores.</p>
+                    <p className="re-gr-nota">Puedes cerrar esta página: te avisamos por correo cuando esté lista.</p>
                     <Boton href={`/dashboard/reuniones/${id}`} flecha="avanza">Abrir la reunión</Boton>
                   </Panel>
                 )}
@@ -587,7 +587,7 @@ export function Grabadora({ id }: { id: string }) {
               >
                 <p className="re-modal-texto">
                   {estado.transcurridoMs > 0 ? `Llevas ${formatearDuracion(estado.transcurridoMs)}. ` : ""}
-                  Al terminar la enviamos a transcribir. Puedes cerrar esta página: el trabajo sigue en nuestros servidores.
+                  Al terminar la enviamos a transcribir y te avisamos por correo cuando esté lista.
                 </p>
               </Modal>
 

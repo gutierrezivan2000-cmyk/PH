@@ -149,6 +149,52 @@ describe("planificarSiguientes · transcripción", () => {
   });
 });
 
+describe("planificarSiguientes · análisis con IA", () => {
+  const MIN = 60_000;
+  const fuentes = [f("a", { status: "normalizada" })];
+  const t = (kind: string, key: string, status: string): TareaDeProceso => ({ kind, key, status });
+  /** 25 min: 3 tramos, todos transcritos y unidos. */
+  const transcrita = [t("armar_audio", "armar_audio", "hecha"), t("transcribir_tramo", "tramo:0", "hecha"), t("voces", "voces", "hecha"), t("transcribir_tramo", "tramo:1", "hecha"), t("transcribir_tramo", "tramo:2", "hecha"), t("unir", "unir", "hecha")];
+  const bloque = (k: number, status: string) => t("analizar_bloque", `bloque:${k}`, status);
+  const plan = (...tareas: TareaDeProceso[]) => planificarSiguientes({ fuentes, tareas: [...transcrita, ...tareas], duracionMs: 25 * MIN });
+
+  it("con la transcripción unida y bloques por analizar, la etapa es «analizando» y todavía no se pide la ficha", () => {
+    const p = plan(bloque(0, "pendiente"), bloque(1, "en_curso"), bloque(2, "pendiente"));
+    expect(p).toMatchObject({ encolar: [], etapa: "analizando", progreso: 0, lista: false });
+  });
+
+  it("el avance cuenta los bloques hechos sobre los bloques MÁS la ficha que los junta", () => {
+    expect(plan(bloque(0, "hecha"), bloque(1, "pendiente"), bloque(2, "pendiente")).progreso).toBe(25); // 1 de 4
+    expect(plan(bloque(0, "hecha"), bloque(1, "hecha"), bloque(2, "en_curso")).progreso).toBe(50);
+  });
+
+  it("con todos los bloques hechos se encola la ficha, una sola vez", () => {
+    const todos = [bloque(0, "hecha"), bloque(1, "hecha")];
+    const p = plan(...todos);
+    expect(p.encolar).toEqual([{ kind: "ficha", key: "ficha", payload: {} }]);
+    expect(p).toMatchObject({ etapa: "analizando", progreso: 67, lista: false });
+    for (const status of ["pendiente", "en_curso"]) expect(plan(...todos, t("ficha", "ficha", status)).encolar, status).toEqual([]);
+  });
+
+  it("con la ficha hecha la reunión está lista", () => {
+    expect(plan(bloque(0, "hecha"), bloque(1, "hecha"), t("ficha", "ficha", "hecha"))).toMatchObject({ encolar: [], etapa: null, progreso: 100, lista: true });
+  });
+
+  it("sin bloques (una grabación casi sin palabras) la reunión ya está lista", () => {
+    expect(plan()).toMatchObject({ encolar: [], etapa: null, progreso: 100, lista: true });
+  });
+
+  it("un bloque fallido (de infraestructura: la IA nunca falla) frena la ficha hasta «Reintentar»", () => {
+    const p = plan(bloque(0, "hecha"), bloque(1, "fallida"));
+    expect(p).toMatchObject({ encolar: [], etapa: "analizando", lista: false });
+  });
+
+  it("mientras unir no termina no se habla de análisis", () => {
+    const sinUnir = transcrita.filter((x) => x.kind !== "unir");
+    expect(planificarSiguientes({ fuentes, tareas: [...sinUnir, bloque(0, "hecha")], duracionMs: 25 * MIN })).toMatchObject({ etapa: "uniendo", lista: false });
+  });
+});
+
 describe("avance de «Preparando el audio»", () => {
   it("cada fuente vale lo que lleva normalizado de su duración, y todo termina en 100 solo con el audio armado", () => {
     expect(fraccionDeFuente(f("a"))).toBe(0);
@@ -187,6 +233,17 @@ describe("contarTareasDeEtapa", () => {
     expect(contarTareasDeEtapa(tareas, "transcribiendo")).toEqual({ hechas: 1, total: 1 });
     // Si por alguna razón hay más tareas que tramos previstos, manda lo que hay.
     expect(contarTareasDeEtapa(tareas, "transcribiendo", 5 * 60_000)).toEqual({ hechas: 1, total: 1 });
+  });
+
+  it("en «analizando» el total son los bloques más la ficha, aunque la ficha todavía no esté encolada", () => {
+    const tareas = [
+      { kind: "analizar_bloque", key: "bloque:0", status: "hecha" },
+      { kind: "analizar_bloque", key: "bloque:1", status: "hecha" },
+      { kind: "analizar_bloque", key: "bloque:2", status: "en_curso" },
+    ];
+    expect(contarTareasDeEtapa(tareas, "analizando")).toEqual({ hechas: 2, total: 4 });
+    expect(contarTareasDeEtapa([...tareas, { kind: "ficha", key: "ficha", status: "pendiente" }], "analizando")).toEqual({ hechas: 2, total: 4 });
+    expect(contarTareasDeEtapa([], "analizando")).toEqual({ hechas: 0, total: 0 });
   });
 });
 
@@ -260,13 +317,13 @@ describe("avanzar", () => {
     });
 
     it("cuando unir termina, la reunión queda lista con su hora de término", async () => {
-      await reunion({ status: "procesando", stage: "uniendo", progress: 0, durationMs: 25 * 60_000, errorMessage: "viejo" });
+      await reunion({ status: "procesando", stage: "uniendo", progress: 0, durationMs: 25 * 60_000 });
       await fuente("a", { status: "normalizada" });
       for (const [kind, key] of [["armar_audio", "armar_audio"], ["transcribir_tramo", "tramo:0"], ["voces", "voces"], ["transcribir_tramo", "tramo:1"], ["transcribir_tramo", "tramo:2"], ["unir", "unir"]]) {
         await tarea(kind, key, "hecha");
       }
       await avanzar(ID);
-      expect(db.meeting.filas[0]).toMatchObject({ status: "lista", stage: null, progress: 100, errorMessage: null });
+      expect(db.meeting.filas[0]).toMatchObject({ status: "lista", stage: null, progress: 100 });
       expect(db.meeting.filas[0].readyAt).toBeInstanceOf(Date);
       expect(await avanzar(ID)).toBeNull(); // ya lista: no se vuelve a tocar
     });

@@ -9,6 +9,7 @@ import { isAllowedBlobUrl } from "@/lib/blob-url";
 import { esArchivoDeReunion, esTipoDeReunionPermitido, formatoTamano, tipoDeArchivoReunion } from "@/lib/upload-limits";
 import { esRutaDeFuente, urlCorrespondeARuta } from "./almacen";
 import { extensionDeGrabacion, mimeBase, parteCabe } from "./grabadora-partes";
+import type { PedidoDeHablante } from "./nombres";
 import {
   MAX_DURACION_PARTE_MS, MAX_FUENTE_BYTES, MAX_MS_REUNION, MAX_NOTA_MARCADOR, MAX_SECUENCIA_VIVO, MAX_SESIONES_VIVO, VIVO_PARTE_MAX_BYTES,
   esRolPersona, esTipoMarcador, esTipoReunion, type RolPersona, type TipoMarcador, type TipoReunion,
@@ -328,4 +329,36 @@ export function validarCierre(body: unknown): Validacion<{ sesiones: SesionDeCie
     sesiones.push({ session, ultimaSecuencia, mimeType: mimeBase(mimeType), duracionMs: Math.round(duracionMs) });
   }
   return { ok: true, valor: { sesiones } };
+}
+
+/* ── Nombres de las voces ────────────────────────────────────────────── */
+
+export const MAX_ROL_HABLANTE = 60;
+export const MAX_HABLANTES_POR_PEDIDO = 60;
+
+/** `{ hablantes: [{ label, name, role?, personId? }] }`: un nombre vacío es «sin nombre». */
+export function validarHablantes(body: unknown): Validacion<{ hablantes: PedidoDeHablante[] }> {
+  if (!esObjeto(body) || !Array.isArray(body.hablantes)) return { ok: false, error: "Falta la lista de voces." };
+  if (body.hablantes.length === 0 || body.hablantes.length > MAX_HABLANTES_POR_PEDIDO) return { ok: false, error: "La lista de voces no es válida." };
+  const vistas = new Set<string>();
+  const hablantes: PedidoDeHablante[] = [];
+  for (const x of body.hablantes) {
+    if (!esObjeto(x)) return { ok: false, error: "Una de las voces no es válida." };
+    const label = typeof x.label === "string" ? x.label.trim() : "";
+    if (!/^[VH]\d{1,3}$/.test(label)) return { ok: false, error: "Una de las voces no tiene una etiqueta válida." };
+    if (vistas.has(label)) return { ok: false, error: `La voz ${label} está repetida.` };
+    vistas.add(label);
+
+    const name = vacio(x.name) ? null : limpiarTexto(x.name);
+    if (name !== null && name.length > MAX_NOMBRE_PERSONA) return { ok: false, error: `El nombre es demasiado largo (máximo ${MAX_NOMBRE_PERSONA} caracteres).` };
+    const role = vacio(x.role) ? null : limpiarTexto(x.role);
+    if (role !== null && role.length > MAX_ROL_HABLANTE) return { ok: false, error: `El rol es demasiado largo (máximo ${MAX_ROL_HABLANTE} caracteres).` };
+    let personId: string | null = null;
+    if (!vacio(x.personId)) {
+      if (typeof x.personId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(x.personId)) return { ok: false, error: "Una de las personas no es válida." };
+      personId = x.personId;
+    }
+    hablantes.push({ label, name: name || null, role: role || null, personId });
+  }
+  return { ok: true, valor: { hablantes } };
 }

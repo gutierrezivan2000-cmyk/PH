@@ -88,6 +88,7 @@ export function leerFicha(json: unknown): Ficha | null {
             rol: texto(h.rol),
             confianza: confianza(h.confianza) ?? "baja",
             evidencia: h.evidencia as string,
+            t: numero(h.t),
             igualA: texto(h.igualA),
           }]
         : [],

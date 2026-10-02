@@ -285,6 +285,9 @@ describe("mensajes", () => {
     expect(describirTarea("transcribir_tramo", {})).toBe("transcribir un tramo de la reunión");
     expect(describirTarea("voces", {})).toBe("reconocer las voces de la reunión");
     expect(describirTarea("unir", {})).toBe("unir la transcripción de la reunión");
+    expect(describirTarea("analizar_bloque", { desdeMs: 1_500_000, hastaMs: 3_000_000 })).toBe("analizar con IA el fragmento 0:25:00–0:50:00");
+    expect(describirTarea("analizar_bloque", {})).toBe("analizar un fragmento con IA");
+    expect(describirTarea("ficha", {})).toBe("armar la ficha de la reunión");
   });
   it("agotados los intentos, nombran el paso; un motivo ya legible se usa tal cual", () => {
     expect(mensajeDeFallo("armar_audio", {}, "x", true)).toBe("No pudimos unir el audio de la reunión después de 3 intentos. Reintenta: solo se vuelve a procesar ese paso.");

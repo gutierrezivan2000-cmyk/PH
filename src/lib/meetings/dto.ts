@@ -122,6 +122,8 @@ export type Ficha = {
     rol?: string;
     confianza: "alta" | "media" | "baja";
     evidencia: string;
+    /** Segundos desde el inicio donde está la pista. */
+    t?: number;
     igualA?: string;
   }[];
 };

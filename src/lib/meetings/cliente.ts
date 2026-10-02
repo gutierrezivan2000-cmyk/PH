@@ -6,7 +6,8 @@
  * el estado (una respuesta HTML de un 504 de la plataforma no se puede leer, y
  * «Unexpected token <» no es un mensaje para una persona).
  */
-import type { EstadoProcesoDTO, PaginaDeIntervenciones, PersonaDTO, ReunionDetalle, ReunionResumen } from "./dto";
+import type { EstadoProcesoDTO, HablanteDTO, PaginaDeIntervenciones, PersonaDTO, ReunionDetalle, ReunionResumen } from "./dto";
+import type { PedidoDeHablante } from "./nombres";
 
 export class ErrorApi extends Error {
   readonly status: number;
@@ -133,3 +134,11 @@ export function listarIntervenciones(
 
 /** Dirección de la descarga de la transcripción completa (.txt). */
 export const urlDeTranscripcion = (meetingId: string): string => `/api/meetings/${encodeURIComponent(meetingId)}/transcript`;
+
+/**
+ * Guarda los nombres de las voces. Dos voces con el mismo nombre se fusionan en una (la que más habla); la respuesta trae las
+ * voces que quedan, para que la pantalla se ponga al día.
+ */
+export async function guardarHablantes(meetingId: string, hablantes: PedidoDeHablante[]): Promise<HablanteDTO[]> {
+  return (await pedir<{ speakers: HablanteDTO[] }>(`/api/meetings/${encodeURIComponent(meetingId)}/speakers`, enJson("PUT", { hablantes }))).speakers;
+}

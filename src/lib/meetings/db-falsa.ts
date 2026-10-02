@@ -21,6 +21,8 @@ function coincide(fila: Fila, donde: Donde): boolean {
     if (valor && typeof valor === "object" && !(valor instanceof Date)) {
       const operadores = valor as Record<string, unknown>;
       if ("in" in operadores) return (operadores.in as unknown[]).includes(fila[clave]);
+      // `{ not: valor }`: distinto de ese valor (y `{ not: null }` es «tiene algo», como en Prisma).
+      if ("not" in operadores) return operadores.not === null ? fila[clave] !== null && fila[clave] !== undefined : fila[clave] !== operadores.not;
       const comparadores = Object.keys(operadores).filter((k) => k in COMPARADORES);
       if (comparadores.length > 0) {
         return comparadores.every((k) => COMPARADORES[k](Number(fila[clave]), Number(operadores[k])));
@@ -57,6 +59,11 @@ export class TablaFalsa {
   async findFirst({ where, select }: { where?: Donde; select?: Record<string, unknown> } = {}) {
     const f = this.filas.find((x) => coincide(x, where));
     return f ? this.copia(f, select) : null;
+  }
+
+  /** `findUnique` de Prisma: aquí es lo mismo que buscar el primero (los `where` únicos ya identifican una fila). */
+  async findUnique(args: { where: Donde; select?: Record<string, unknown> }) {
+    return this.findFirst(args);
   }
 
   async findMany({ where, orderBy, distinct, take, select }: {
@@ -194,6 +201,9 @@ export function crearDbFalsa() {
     meetingSpeaker: new TablaFalsa("h", ["meetingId", "label"], () => ({ name: null, role: null, personId: null, confirmed: false, suggestion: null, talkMs: 0, sampleStartMs: null, sampleEndMs: null })),
     generation: new TablaFalsa("g"),
     propertyPerson: new TablaFalsa("p"),
+    usageRecord: new TablaFalsa("r"),
+    subscription: new TablaFalsa("b"),
+    user: new TablaFalsa("x"),
     property: new TablaFalsa("c"),
     // Las operaciones ya se lanzaron al armar la lista: basta con esperarlas todas.
     $transaction: async (operaciones: Promise<unknown>[]) => Promise.all(operaciones),

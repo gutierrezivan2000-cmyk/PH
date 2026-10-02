@@ -156,11 +156,11 @@ export const FICHA_SEPTIEMBRE: Ficha = {
     "Al revisar el parque infantil (tubos sueltos en el cerramiento) no se fijó fecha de arreglo.",
   ],
   hablantes: [
-    { etiqueta: "V1", nombreSugerido: "Martha López", rol: "Presidente del consejo", confianza: "alta", evidencia: "El administrador la nombra como presidente del consejo a las 0:00:34 y ella modera la reunión." },
-    { etiqueta: "V2", nombreSugerido: "Jorge Pardo", rol: "Administrador", confianza: "alta", evidencia: "Verifica el quórum y presenta los informes; la presidente lo llama «Jorge» a las 0:15:40." },
-    { etiqueta: "V3", nombreSugerido: "Carolina Ríos", rol: "Consejera", confianza: "alta", evidencia: "La presidente le responde «Claro, Carolina» a las 0:02:17." },
-    { etiqueta: "V4", nombreSugerido: "Hernán Sierra", rol: "Revisor fiscal", confianza: "alta", evidencia: "Dice «como revisor fiscal» a las 0:13:30 y la presidente le habla como «Hernán» a las 0:15:40." },
-    { etiqueta: "H5", nombreSugerido: "Andrés Gómez", rol: "Consejero", confianza: "media", evidencia: "La presidente pregunta «Andrés, ¿tú qué opinas?» a las 0:45:10 y esta voz responde." },
+    { etiqueta: "V1", t: 34, nombreSugerido: "Martha López", rol: "Presidente del consejo", confianza: "alta", evidencia: "El administrador la nombra como presidente del consejo a las 0:00:34 y ella modera la reunión." },
+    { etiqueta: "V2", t: 940, nombreSugerido: "Jorge Pardo", rol: "Administrador", confianza: "alta", evidencia: "Verifica el quórum y presenta los informes; la presidente lo llama «Jorge» a las 0:15:40." },
+    { etiqueta: "V3", t: 137, nombreSugerido: "Carolina Ríos", rol: "Consejera", confianza: "alta", evidencia: "La presidente le responde «Claro, Carolina» a las 0:02:17." },
+    { etiqueta: "V4", t: 810, nombreSugerido: "Hernán Sierra", rol: "Revisor fiscal", confianza: "alta", evidencia: "Dice «como revisor fiscal» a las 0:13:30 y la presidente le habla como «Hernán» a las 0:15:40." },
+    { etiqueta: "H5", t: 2710, nombreSugerido: "Andrés Gómez", rol: "Consejero", confianza: "media", evidencia: "La presidente pregunta «Andrés, ¿tú qué opinas?» a las 0:45:10 y esta voz responde." },
   ],
 };
 

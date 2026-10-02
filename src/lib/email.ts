@@ -202,6 +202,57 @@ export async function sendPortalLinkEmails(params: {
   return { sent, failed, failedUnits };
 }
 
+/**
+ * Avisa a quien grabó una reunión que ya está lista (transcripción completa y, si salió, el resumen). Solo lleva el título,
+ * la copropiedad, la duración y el enlace: nada del contenido de la reunión viaja por correo. Best-effort: nunca lanza, un
+ * correo que no sale no puede tumbar el procesamiento.
+ */
+export async function sendMeetingReadyEmail(params: {
+  to: string;
+  title: string;
+  propertyName: string;
+  duration: string;
+  url: string;
+}): Promise<{ sent: boolean }> {
+  if (!params.to || !process.env.RESEND_API_KEY) return { sent: false };
+  const titulo = params.title.replace(/\s+/g, " ").trim().slice(0, 140) || "Reunión";
+  try {
+    const resend = getResend();
+    const res = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: params.to,
+      subject: `Tu reunión «${titulo}» ya está lista — SOPH.IA`,
+      html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f4f5;">
+  <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:28px 24px;text-align:center;">
+      <h1 style="color:#fff;font-size:26px;margin:0;font-weight:800;letter-spacing:-0.5px;">SOPH.IA</h1>
+    </div>
+    <div style="padding:28px 24px;">
+      <h2 style="color:#1f2937;font-size:19px;margin:0 0 8px;">Tu reunión ya está lista</h2>
+      <p style="color:#374151;font-size:15px;font-weight:600;margin:0 0 4px;">${escapeHtml(titulo)}</p>
+      <p style="color:#6b7280;font-size:13px;line-height:1.5;margin:0 0 20px;">${escapeHtml(params.propertyName)}${params.duration ? ` · ${escapeHtml(params.duration)}` : ""}</p>
+      <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 24px;">
+        Ya puedes leer la transcripción completa, con quién habla y en qué minuto, y revisar los nombres de cada voz.
+      </p>
+      <div style="text-align:center;margin:0 0 20px;">
+        <a href="${escapeHtml(params.url)}" style="display:inline-block;background:#7c3aed;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;">Abrir la reunión</a>
+      </div>
+      <p style="color:#9ca3af;font-size:12px;line-height:1.5;margin:0;">Por privacidad, este correo no incluye nada del contenido de la reunión.</p>
+    </div>
+    <div style="border-top:1px solid #f3f4f6;padding:16px 24px;text-align:center;">
+      <p style="color:#d1d5db;font-size:11px;margin:0;">SOPH.IA &copy; ${new Date().getFullYear()}</p>
+    </div>
+  </div>
+</body></html>`,
+    });
+    return { sent: !res.error };
+  } catch (e) {
+    console.error("[email] meeting ready failed:", e);
+    return { sent: false };
+  }
+}
+
 export interface AnnouncementEmailParams {
   recipients: string[];
   subject: string;

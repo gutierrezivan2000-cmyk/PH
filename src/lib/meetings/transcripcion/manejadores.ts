@@ -14,9 +14,11 @@
 import { db } from "@/lib/db";
 import { prefijoDeReunion, type Almacen } from "../almacen";
 import { rangoDeBytes, recortar } from "../audio";
+import { encolar } from "../cola";
 import { ErrorTarea, type Manejador } from "../contratos";
+import { planificarBloques } from "../ficha";
 import { MP3_BYTES_POR_MS } from "../tipos";
-import { KIND_TRAMO, claveTramo } from "./claves";
+import { KIND_BLOQUE, KIND_TRAMO, claveBloque, claveTramo } from "./claves";
 import { leerReferenciasElegidas, leerResultadoDeTramo, tramoDeResultado } from "./guardado";
 import { elegirVoces } from "./hablantes";
 import { elegirProveedor } from "./elegir";
@@ -172,12 +174,20 @@ export const unirTarea: Manejador = async ({ tarea, deps }) => {
       costUsd: costoUsd,
     },
   });
+
+  // Lo que sigue: el análisis con IA, un bloque de ~25 min cada tarea. Con muy poco texto no hay nada que analizar.
+  const bloques = planificarBloques(union.segmentos.map((s) => ({ startMs: s.inicioMs, text: s.texto })), reunion.durationMs);
+  for (const b of bloques) {
+    await encolar(meetingId, KIND_BLOQUE, claveBloque(b.k), { k: b.k, total: bloques.length, desdeMs: b.desdeMs, hastaMs: b.hastaMs });
+  }
+
   return {
     resultado: {
       intervenciones: union.segmentos.length,
       hablantes: union.etiquetas.length,
       cobertura: union.cobertura,
       silencios: union.silencios.length,
+      bloques: bloques.length,
       costoUsd,
     },
   };

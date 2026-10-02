@@ -14,6 +14,8 @@ import {
 import { ErrorTarea, type Manejador } from "./contratos";
 import { normalizarFuente } from "./ffmpeg";
 import { detectarHuecos, extensionDeGrabacion, mimeBase } from "./grabadora-partes";
+import { analizarBloqueTarea, fichaTarea } from "./analisis";
+import { comprobarCupoDeReuniones } from "./cupos";
 import { avanzar } from "./orquestador";
 import { transcribirTramoTarea, unirTarea, vocesTarea } from "./transcripcion/manejadores";
 
@@ -131,8 +133,18 @@ export const armarAudioTarea: Manejador = async ({ tarea, senal, deps }) => {
   for (const f of utiles) {
     await db.meetingSource.update({ where: { id: f.id }, data: { offsetMs: Math.round(armado.offsets.get(f.id) ?? 0) } });
   }
-  await db.meeting.update({ where: { id: tarea.meetingId }, data: { audioUrl: armado.url, durationMs: Math.round(armado.durationMs) } });
-  return { resultado: { durationMs: armado.durationMs, bytes: armado.bytes } };
+  const duracionMs = Math.round(armado.durationMs);
+
+  // El cupo de horas del plan: con la duración ya conocida. Si no alcanza, el audio se conserva y la reunión espera en
+  // «sin_cupo» (con el motivo) en vez de gastar la transcripción.
+  const dueno = await db.meeting.findFirst({ where: { id: tarea.meetingId }, select: { userId: true } });
+  const cupo = dueno ? await comprobarCupoDeReuniones(dueno.userId, duracionMs, tarea.meetingId) : null;
+  const sinCupo = cupo !== null && !cupo.permitido;
+  await db.meeting.update({
+    where: { id: tarea.meetingId },
+    data: { audioUrl: armado.url, durationMs: duracionMs, ...(sinCupo ? { status: "sin_cupo", stage: null, progress: 0, errorMessage: cupo.mensaje } : {}) },
+  });
+  return { resultado: { durationMs: armado.durationMs, bytes: armado.bytes, ...(sinCupo ? { sinCupo: true } : {}) } };
 };
 
 /** Todos los manejadores de la cola. Cada hito agrega los suyos aquí. */
@@ -143,4 +155,6 @@ export const MANEJADORES: Record<string, Manejador> = {
   transcribir_tramo: transcribirTramoTarea,
   voces: vocesTarea,
   unir: unirTarea,
+  analizar_bloque: analizarBloqueTarea,
+  ficha: fichaTarea,
 };

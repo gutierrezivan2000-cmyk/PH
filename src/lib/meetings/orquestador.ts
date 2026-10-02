@@ -11,7 +11,8 @@
  */
 import { db } from "@/lib/db";
 import { encolar } from "./cola";
-import { CLAVE_UNIR, CLAVE_VOCES, KIND_TRAMO, KIND_UNIR, KIND_VOCES, claveTramo } from "./transcripcion/claves";
+import { alPasarALista } from "./terminado";
+import { CLAVE_FICHA, CLAVE_UNIR, CLAVE_VOCES, KIND_BLOQUE, KIND_FICHA, KIND_TRAMO, KIND_UNIR, KIND_VOCES, claveTramo } from "./transcripcion/claves";
 import type { Tramo } from "./transcripcion/tipos";
 import { cantidadDeTramos, planificarTramos } from "./transcripcion/tramos";
 import { ETAPAS, SOLAPE_MS, TRAMO_MS, type EtapaReunion } from "./tipos";
@@ -49,7 +50,7 @@ export const TAREAS_DE_ETAPA: Record<EtapaReunion, readonly string[]> = {
   preparando_audio: ["ensamblar_sesion", "normalizar", "armar_audio"],
   transcribiendo: [KIND_TRAMO],
   uniendo: [KIND_UNIR],
-  analizando: ["analizar_bloque", "ficha"],
+  analizando: [KIND_BLOQUE, KIND_FICHA],
 };
 
 export const CLAVE_ARMAR_AUDIO = "armar_audio";
@@ -129,8 +130,18 @@ export function planificarSiguientes(e: EntradaDelPlan): PlanDeProceso {
   const todosHechos = hechos === tramos.length;
   if (todosHechos && !claves.has(CLAVE_UNIR)) porEncolar.push({ kind: KIND_UNIR, key: CLAVE_UNIR, payload: {} });
 
-  // Hasta que M6 agregue el análisis con IA, la reunión está lista en cuanto la transcripción está unida.
-  if (estado(CLAVE_UNIR) === "hecha") return { encolar: porEncolar, etapa: null, progreso: 100, audioListo: true, lista: true };
+  if (estado(CLAVE_UNIR) === "hecha") {
+    // El análisis con IA: un bloque por tarea (los encola `unir` todos juntos) y al final la ficha que los junta. Sin bloques
+    // (una grabación casi sin palabras) no hay nada que analizar y la reunión ya está lista. La IA nunca deja una tarea
+    // «fallida» (omite el paso y lo anota), así que «hecha» es el único estado final.
+    const bloques = e.tareas.filter((t) => t.kind === KIND_BLOQUE);
+    if (bloques.length === 0) return { encolar: porEncolar, etapa: null, progreso: 100, audioListo: true, lista: true };
+    const bloquesHechos = bloques.filter((t) => t.status === "hecha").length;
+    if (bloquesHechos === bloques.length && !claves.has(CLAVE_FICHA)) porEncolar.push({ kind: KIND_FICHA, key: CLAVE_FICHA, payload: {} });
+    if (estado(CLAVE_FICHA) === "hecha") return { encolar: porEncolar, etapa: null, progreso: 100, audioListo: true, lista: true };
+    const hechas = bloquesHechos + (estado(CLAVE_FICHA) === "hecha" ? 1 : 0);
+    return { encolar: porEncolar, etapa: "analizando", progreso: entre0y100((hechas / (bloques.length + 1)) * 100), audioListo: true, lista: false };
+  }
   if (todosHechos) return { encolar: porEncolar, etapa: "uniendo", progreso: 0, audioListo: true, lista: false };
   return { encolar: porEncolar, etapa: "transcribiendo", progreso: entre0y100((hechos / tramos.length) * 100), audioListo: true, lista: false };
 }
@@ -147,7 +158,14 @@ export function contarTareasDeEtapa(
 ): { hechas: number; total: number } {
   if (!etapa) return { hechas: 0, total: 0 };
   const propias = tareas.filter((t) => TAREAS_DE_ETAPA[etapa].includes(t.kind));
-  const total = etapa === "transcribiendo" && duracionMs ? Math.max(propias.length, cantidadDeTramos(duracionMs, tramoMs)) : propias.length;
+  const bloques = propias.filter((t) => t.kind === KIND_BLOQUE).length;
+  // Transcribiendo: todos los tramos de la reunión. Analizando: los bloques más la ficha que los junta.
+  const total =
+    etapa === "transcribiendo" && duracionMs
+      ? Math.max(propias.length, cantidadDeTramos(duracionMs, tramoMs))
+      : etapa === "analizando" && bloques > 0
+        ? bloques + 1
+        : propias.length;
   return { hechas: propias.filter((t) => t.status === "hecha").length, total };
 }
 
@@ -179,10 +197,14 @@ export async function avanzar(meetingId: string): Promise<PlanDeProceso | null> 
   if (reunion.status === "en_cola") return plan;
 
   if (plan.lista) {
-    await db.meeting.updateMany({
+    // Quien gana la carrera (el `updateMany` condicionado a «procesando» devuelve 1 solo a una llamada) hace lo que se hace
+    // una vez: sumar el costo, dejar el registro de uso y avisar por correo. `errorMessage` no se toca: la ficha deja ahí el
+    // aviso de que el resumen con IA no se pudo generar, para que la pantalla lo diga.
+    const r = await db.meeting.updateMany({
       where: { id: meetingId, status: "procesando" },
-      data: { status: "lista", stage: null, progress: 100, errorMessage: null, readyAt: new Date() },
+      data: { status: "lista", stage: null, progress: 100, readyAt: new Date() },
     });
+    if (r.count === 1) await alPasarALista(meetingId).catch((e) => console.error("[meetings/orquestador] al pasar a lista", meetingId, e));
     return plan;
   }
 

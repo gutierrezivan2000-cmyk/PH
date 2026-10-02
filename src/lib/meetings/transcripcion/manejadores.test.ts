@@ -17,6 +17,8 @@ import { crearDbFalsa, type DbFalsa } from "../db-falsa";
 import { MANEJADORES, type Manejador } from "../manejadores";
 import { avanzar } from "../orquestador";
 import { trabajar } from "../trabajador";
+import { crearIASimulada } from "../ia-simulada";
+import { sumarCostos } from "../terminado";
 import { crearProveedorOpenAI } from "./openai";
 import {
   audioSintetico, crearProveedorSintetico, crearSimuladorDeOpenAI, generarGuion, personaDeAudio, type Intervencion,
@@ -67,12 +69,13 @@ async function reunionConAudio(extra: Record<string, unknown> = {}) {
 
 const meeting = () => db.meeting.filas[0];
 const tarea = (key: string) => db.meetingTask.filas.find((x) => x.key === key);
-const llaves = () => db.meetingTask.filas.map((x) => x.key).sort();
+const llaves = () => db.meetingTask.filas.map((x) => String(x.key)).sort();
 
 /** Pasadas del trabajador hasta que se cumple la condición; entre pasada y pasada el reloj salta lo que dura una espera de reintento. */
 async function correr(hasta: () => boolean, deps: { proveedor?: ProveedorDeTranscripcion } = {}, manejadores: Record<string, Manejador> = MANEJADORES, maximo = 40) {
+  const ia = crearIASimulada(); // el análisis con IA tiene sus pruebas aparte: aquí solo se necesita que no estorbe
   for (let pasada = 0; pasada < maximo && !hasta(); pasada++) {
-    await trabajar({ presupuestoMs: 600_000, margenMinimoMs: 1000, reloj: () => t, manejadores, deps: { almacen, ...deps } });
+    await trabajar({ presupuestoMs: 600_000, margenMinimoMs: 1000, reloj: () => t, manejadores, deps: { almacen, ia, ...deps } });
     t += 12 * 60_000;
   }
 }
@@ -86,7 +89,8 @@ describe("el recorrido completo", () => {
 
     await correr(() => meeting().status === "lista", { proveedor });
 
-    expect(llaves()).toEqual(["armar_audio", "tramo:0", "tramo:1", "tramo:2", "tramo:3", "tramo:4", "unir", "voces"]);
+    expect(llaves().filter((k) => !k.startsWith("bloque:"))).toEqual(["armar_audio", "ficha", "tramo:0", "tramo:1", "tramo:2", "tramo:3", "tramo:4", "unir", "voces"]);
+    expect(llaves().filter((k) => k.startsWith("bloque:")).length).toBeGreaterThanOrEqual(2); // 50 min: bloques de ~25 min
     expect(db.meetingTask.filas.every((x) => x.status === "hecha")).toBe(true);
     expect(meeting()).toMatchObject({ status: "lista", stage: null, progress: 100, coverage: 1, provider: "openai" });
     expect(meeting().readyAt).toBeInstanceOf(Date);
@@ -151,7 +155,9 @@ describe("el recorrido completo", () => {
     await reunionConAudio();
     await correr(() => meeting().status === "lista", { proveedor });
     const minutos = planificarTramos(DURACION).reduce((s, x) => s + (x.hastaMs - x.desdeMs) / 60_000, 0);
-    expect(meeting().costUsd as number).toBeCloseTo(minutos * 0.006, 3);
+    const costos = sumarCostos(db.meetingTask.filas.map((x) => ({ kind: x.kind as string, result: x.result })));
+    expect(costos.transcripcionUsd).toBeCloseTo(minutos * 0.006, 3);
+    expect(meeting().costUsd as number).toBeCloseTo(costos.transcripcionUsd + costos.iaUsd, 6);
     expect(minutos).toBeGreaterThan(DURACION / 60_000); // los solapes se pagan
   });
 
