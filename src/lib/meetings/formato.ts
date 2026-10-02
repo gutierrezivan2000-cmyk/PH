@@ -56,3 +56,26 @@ export function deValorLocal(valor: string): Date | null {
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
   return Number.isNaN(d.getTime()) ? null : d;
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   Subida: velocidad, tiempo restante y avance
+   ════════════════════════════════════════════════════════════════════ */
+
+/** «12.3 MB/s» (mismo estilo de decimales que el peso de los archivos); nada si no hay una velocidad fiable. */
+export function formatearVelocidad(bytesPorSegundo: number | null | undefined): string {
+  if (!bytesPorSegundo || !Number.isFinite(bytesPorSegundo) || bytesPorSegundo <= 0) return "";
+  const kb = bytesPorSegundo / 1024;
+  if (kb < 1000) return `${Math.max(1, Math.round(kb))} KB/s`;
+  return `${(kb / 1024).toFixed(1)} MB/s`;
+}
+
+/** Tiempo que falta, redondeado hacia arriba y sin segundos: «menos de 1 min», «3 min», «1 h 5 min». */
+export function formatearRestante(segundos: number | null | undefined): string {
+  if (segundos === null || segundos === undefined || !Number.isFinite(segundos) || segundos < 0) return "";
+  if (segundos <= 60) return "menos de 1 min";
+  const minutos = Math.ceil(segundos / 60);
+  if (minutos < 60) return `${minutos} min`;
+  const h = Math.floor(minutos / 60);
+  const m = minutos % 60;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}

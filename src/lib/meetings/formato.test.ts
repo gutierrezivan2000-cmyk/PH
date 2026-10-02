@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aValorLocal, deValorLocal, fechaCorta, fechaLarga, horaCorta } from "./formato";
+import { aValorLocal, deValorLocal, fechaCorta, fechaLarga, formatearRestante, formatearVelocidad, horaCorta } from "./formato";
 
 // Se construyen con el constructor local para que las pruebas valgan en cualquier zona horaria.
 const iso = (y: number, m: number, d: number, h = 0, min = 0) => new Date(y, m - 1, d, h, min).toISOString();
@@ -45,5 +45,34 @@ describe("valor de datetime-local", () => {
   });
   it("rechaza vacío y formatos raros", () => {
     for (const v of ["", "2026-10-12", "12/10/2026 19:05", "2026-10-12T19:05:30", "no"]) expect(deValorLocal(v), v).toBeNull();
+  });
+});
+
+describe("formatearVelocidad", () => {
+  it("KB/s por debajo de 1 MB/s y MB/s con un decimal desde ahí", () => {
+    expect(formatearVelocidad(512 * 1024)).toBe("512 KB/s");
+    expect(formatearVelocidad(1.5 * 1024 * 1024)).toBe("1.5 MB/s");
+    expect(formatearVelocidad(24 * 1024 * 1024)).toBe("24.0 MB/s");
+    expect(formatearVelocidad(300)).toBe("1 KB/s");
+  });
+  it("sin velocidad fiable, nada", () => {
+    for (const v of [0, -5, Number.NaN, Number.POSITIVE_INFINITY, null, undefined]) expect(formatearVelocidad(v), String(v)).toBe("");
+  });
+});
+
+describe("formatearRestante", () => {
+  it("redondea hacia arriba y no muestra segundos", () => {
+    expect(formatearRestante(0)).toBe("menos de 1 min");
+    expect(formatearRestante(45)).toBe("menos de 1 min");
+    expect(formatearRestante(60)).toBe("menos de 1 min");
+    expect(formatearRestante(61)).toBe("2 min");
+    expect(formatearRestante(134)).toBe("3 min");
+    expect(formatearRestante(3599)).toBe("1 h"); // 59 min 59 s sube a 60 min = 1 h
+    expect(formatearRestante(3600)).toBe("1 h");
+    expect(formatearRestante(3900)).toBe("1 h 5 min");
+    expect(formatearRestante(8 * 3600 + 1)).toBe("8 h 1 min");
+  });
+  it("sin dato, nada", () => {
+    for (const v of [null, undefined, -1, Number.NaN, Number.POSITIVE_INFINITY]) expect(formatearRestante(v), String(v)).toBe("");
   });
 });

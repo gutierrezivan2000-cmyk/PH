@@ -5,7 +5,10 @@
  * devuelve el valor ya limpio o un mensaje en español que la pantalla puede
  * mostrar tal cual.
  */
-import { esRolPersona, esTipoReunion, type RolPersona, type TipoReunion } from "./tipos";
+import { isAllowedBlobUrl } from "@/lib/blob-url";
+import { esArchivoDeReunion, esTipoDeReunionPermitido, formatoTamano, tipoDeArchivoReunion } from "@/lib/upload-limits";
+import { esRutaDeFuente, urlCorrespondeARuta } from "./almacen";
+import { MAX_FUENTE_BYTES, esRolPersona, esTipoReunion, type RolPersona, type TipoReunion } from "./tipos";
 
 export type Validacion<T> = { ok: true; valor: T } | { ok: false; error: string };
 
@@ -171,4 +174,69 @@ export function validarCambiosPersona(body: unknown): Validacion<CambiosPersona>
   }
   if (Object.keys(cambios).length === 0) return { ok: false, error: "No hay nada que cambiar." };
   return { ok: true, valor: cambios };
+}
+
+/* ── Archivos de la reunión (subida directa y reanudable) ────────────── */
+
+const MAX_NOMBRE_ARCHIVO = 200;
+
+type DatosArchivo = { nombre: string; tamano: number; tipo: string };
+
+/** Lo común al pedir el token y al registrar: nombre, tamaño y tipo de una grabación de audio o video. */
+function leerArchivo(body: Record<string, unknown>): Validacion<DatosArchivo> {
+  const nombre = limpiarTexto(body.nombre);
+  if (!nombre) return { ok: false, error: "Falta el nombre del archivo." };
+  if (nombre.length > MAX_NOMBRE_ARCHIVO) return { ok: false, error: "El nombre del archivo es demasiado largo." };
+  if (!esArchivoDeReunion(nombre)) {
+    return { ok: false, error: `«${nombre}» no parece una grabación. Sube audio o video (MP3, M4A, WAV, MP4, MOV…).` };
+  }
+
+  const tamano = body.tamano;
+  if (typeof tamano !== "number" || !Number.isFinite(tamano) || !Number.isInteger(tamano) || tamano < 1) {
+    return { ok: false, error: `«${nombre}» está vacío o su tamaño no es válido.` };
+  }
+  if (tamano > MAX_FUENTE_BYTES) {
+    return {
+      ok: false,
+      error: `«${nombre}» pesa ${formatoTamano(tamano)} y el máximo por archivo es ${formatoTamano(MAX_FUENTE_BYTES)}. Si la grabación es más larga, pártela en varios archivos y súbelos todos: se unen en orden.`,
+    };
+  }
+
+  // El tipo que manda el navegador se respeta si es de audio o video; si no (vacío, genérico), se deduce del nombre.
+  const declarado = typeof body.tipo === "string" ? body.tipo : "";
+  const tipo = esTipoDeReunionPermitido(declarado) ? declarado : tipoDeArchivoReunion({ name: nombre });
+  if (!esTipoDeReunionPermitido(tipo)) {
+    return { ok: false, error: `«${nombre}» no es un archivo de audio ni de video que podamos leer.` };
+  }
+  return { ok: true, valor: { nombre, tamano, tipo } };
+}
+
+export type PedidoToken = DatosArchivo & {
+  /** Solo al reanudar: la ruta de la subida que ya empezó. null = subida nueva. */
+  pathname: string | null;
+};
+
+export function validarPedidoToken(body: unknown, meetingId: string): Validacion<PedidoToken> {
+  if (!esObjeto(body)) return { ok: false, error: "Solicitud no válida." };
+  const archivo = leerArchivo(body);
+  if (!archivo.ok) return archivo;
+  let pathname: string | null = null;
+  if (!vacio(body.pathname)) {
+    if (!esRutaDeFuente(meetingId, body.pathname)) return { ok: false, error: "La ruta de la subida no es válida." };
+    pathname = body.pathname;
+  }
+  return { ok: true, valor: { ...archivo.valor, pathname } };
+}
+
+export type RegistroFuente = DatosArchivo & { url: string; pathname: string };
+
+export function validarRegistroFuente(body: unknown, meetingId: string): Validacion<RegistroFuente> {
+  if (!esObjeto(body)) return { ok: false, error: "Solicitud no válida." };
+  const archivo = leerArchivo(body);
+  if (!archivo.ok) return archivo;
+  if (!esRutaDeFuente(meetingId, body.pathname)) return { ok: false, error: "La ruta del archivo no es válida." };
+  if (!isAllowedBlobUrl(body.url) || !urlCorrespondeARuta(body.url as string, body.pathname)) {
+    return { ok: false, error: "La dirección del archivo no es válida." };
+  }
+  return { ok: true, valor: { ...archivo.valor, url: body.url as string, pathname: body.pathname } };
 }

@@ -91,3 +91,14 @@ export async function listarPersonas(propertyId: string): Promise<PersonaDTO[]> 
 export async function crearPersona(propertyId: string, datos: { name: string; role?: string | null }): Promise<PersonaDTO> {
   return (await pedir<{ person: PersonaDTO }>(`/api/properties/${encodeURIComponent(propertyId)}/people`, enJson("POST", datos))).person;
 }
+
+/* ── Archivos de la reunión ──────────────────────────────────────────── */
+
+export async function quitarFuente(meetingId: string, sourceId: string): Promise<void> {
+  await pedir<{ ok: true }>(`/api/meetings/${encodeURIComponent(meetingId)}/sources/${encodeURIComponent(sourceId)}`, { method: "DELETE" });
+}
+
+/** Cierra la captura y manda la reunión a procesar (idempotente en el servidor). */
+export async function procesarReunion(meetingId: string): Promise<{ status: string }> {
+  return pedir<{ status: string }>(`/api/meetings/${encodeURIComponent(meetingId)}/process`, { method: "POST" });
+}

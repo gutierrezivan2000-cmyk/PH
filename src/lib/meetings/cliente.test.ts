@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ErrorApi, actualizarReunion, crearPersona, crearReunion, eliminarReunion, listarPersonas, listarReuniones, obtenerReunion } from "./cliente";
+import { ErrorApi, actualizarReunion, crearPersona, crearReunion, eliminarReunion, listarPersonas, listarReuniones, obtenerReunion, procesarReunion, quitarFuente } from "./cliente";
 
 const respuesta = (status: number, cuerpo: unknown, comoTexto = false) =>
   ({
@@ -91,5 +91,21 @@ describe("errores con mensaje para personas", () => {
     expect(((await listarReuniones().catch((e) => e)) as Error).message).toMatch(/Algo salió mal/);
     fetchMock.mockResolvedValueOnce(respuesta(400, { error: { code: 1 } }));
     expect(((await listarReuniones().catch((e) => e)) as Error).message).toMatch(/Algo salió mal/);
+  });
+});
+
+describe("archivos de la reunión", () => {
+  it("quita un archivo y procesa con el método y la ruta correctos", async () => {
+    fetchMock.mockResolvedValue(respuesta(200, { ok: true, status: "en_cola" }));
+    await quitarFuente("m/1", "s 2");
+    expect(fetchMock.mock.calls[0]).toEqual(["/api/meetings/m%2F1/sources/s%202", { method: "DELETE" }]);
+    expect(await procesarReunion("m1")).toEqual({ ok: true, status: "en_cola" });
+    expect(fetchMock.mock.calls[1]).toEqual(["/api/meetings/m1/process", { method: "POST" }]);
+  });
+  it("traduce los rechazos del servidor", async () => {
+    fetchMock.mockResolvedValue(respuesta(400, { error: "Sube al menos un archivo antes de procesar la reunión." }));
+    const e = await procesarReunion("m1").catch((x) => x);
+    expect(e).toBeInstanceOf(ErrorApi);
+    expect(e.message).toMatch(/al menos un archivo/);
   });
 });

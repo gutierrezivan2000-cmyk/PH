@@ -1125,11 +1125,51 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
   de una copropiedad y el filtro es «Todas».
 - **Auditoría de interfaz** (`scripts/contraste.mjs`) ya incluye las siete pantallas de Reuniones del demo.
 
+**Notas de M2 (desviaciones y decisiones al construir):**
+
+- **Flujo de la persona.** Los archivos elegidos esperan en una lista («Por subir») que se puede ordenar con flechas
+  y a la que se le quitan archivos; «Subir y transcribir» los sube **de uno en uno, en el orden de la lista** (el
+  orden de la reunión es el de subida) y al terminar los envía solos a procesar. Archivos sueltos de una misma
+  selección se ordenan por nombre de forma natural («parte 2» antes que «parte 10»). Ya no hay endpoint de
+  reordenar: una vez subido, un archivo se puede quitar (con confirmación) pero no mover.
+- **El envío automático se frena** si queda algo sin resolver: un archivo con error, archivos «por subir» o una
+  subida **interrumpida** de una visita anterior (transcribir sin una parte de la grabación es peor que esperar).
+  En esos casos hay un aviso y, cuando todo está resuelto, un botón «Transcribir la reunión».
+- **Rutas del servidor.** `upload-token` emite un token para UNA ruta, con el tipo declarado y 24 h de vigencia
+  (`allowOverwrite: true` para poder completar de nuevo tras un corte); `sources` comprueba con `head()` que el
+  archivo existe y toma su tamaño **del almacenamiento**, es idempotente por ruta y nunca devuelve la URL privada;
+  `sources/[sourceId]` borra el original y renumera; `process` es idempotente. El cliente solo puede mandar una
+  ruta al reanudar, y solo con la forma exacta `meetings/<id>/fuentes/<8>-<nombre>` (`esRutaDeFuente`).
+  `proceso.ts` (`iniciarProcesamiento`) hoy solo deja la reunión «en cola»; **M4 lo completa** (encolar tareas).
+- **Motor** (`subida-reanudable.ts`, sin navegador ni red: todo entra por parámetros). Partes de 16 MB (más
+  grandes si no cupieran en 10.000), 3 a la vez; estado guardado tras cada parte en IndexedDB (con respaldo en
+  memoria) bajo `meetingId:huella` (nombre, tamaño, fecha y SHA-256 del primer y último MB). Errores clasificados
+  por el **texto** del SDK (en inglés; los nombres de clase se pierden al minificar): permiso vencido → se
+  renueva sin gastar intentos; subida caducada o archivo que no llegó completo → se empieza de cero (máx. 2
+  veces) avisando; fallo pasajero → 1-2-4-8-16-30 s (6 intentos); rechazo definitivo → se muestra tal cual.
+  Pausar corta lo que va en vuelo y no gasta intentos; sin conexión espera sin gastarlos.
+- **Defectos reales que destapó la batería de pruebas** (los tres arreglados): con varios trabajadores en pausa,
+  `reanudar()` solo despertaba a uno; pausar y reanudar al instante trataba el aborto propio como un fallo; una
+  subida nueva pedía el token dos veces.
+- **Gestor** (`gestor-subidas.ts`) y registro por reunión (`useSubidas.ts`): la subida **no se interrumpe** si la
+  persona navega a otra pantalla de la app y vuelve. Mientras sube se pide el bloqueo de pantalla (Wake Lock).
+- **Demo.** Token y registro van al servidor real (en memoria); solo Blob es simulado (16 MB/s por parte).
+  Perilla solo-demo: `localStorage["soph-demo-subida-mbps"]` cambia esa velocidad (la usa el E2E).
+- **Estado «Subiendo».** El servidor lo pone al entregar el primer token; si la persona abandona a medias queda
+  «Subiendo» (verdad: hay una subida sin terminar). **M9 debe** devolver a `borrador` las reuniones `subiendo`
+  sin archivos y sin actividad desde hace 48 h, y limpiar los blobs de `meetings/<id>/fuentes/` que no estén en
+  ninguna fila de `MeetingSource` (subidas completas que nunca se registraron).
+- **Accesibilidad.** La línea de avance NO es una región viva (se anunciaría 4 veces por segundo): hay una región
+  oculta que solo anuncia los cambios gordos («Subiendo archivos», «Subida en pausa», «Enviando a transcribir»).
+- **Pruebas:** motor (47), API de Blob y clasificación de errores (21), gestor (38), rutas con base de datos falsa
+  (`db-falsa.ts`, 25) y el recorrido completo en el navegador contra el demo (`subida-e2e.mjs`, fuera del repo:
+  elegir, rechazo, orden, subida, pausa, **recarga a mitad y reanudación**, envío automático y quitar archivo).
+
 | Hito | Estado | Commit | Notas |
 |---|---|---|---|
 | M0 Fundaciones | hecho | (ver `git log`) | Ver «Notas de M0» abajo. |
 | M1 Lista y creación | hecho | (ver `git log`) | Ver «Notas de M1» abajo. |
-| M2 Subida reanudable | pendiente | | |
+| M2 Subida reanudable | hecho | (ver `git log`) | Ver «Notas de M2» abajo. |
 | M3 Grabadora | pendiente | | |
 | M4 Cola y audio | pendiente | | |
 | M5 Transcripción | pendiente | | |

@@ -7,6 +7,10 @@ vi.mock("@/lib/db", () => ({
   db: new Proxy({}, { get: () => { throw new Error("db tocada: ¿falta la rama demo o la puerta de acceso?"); } }),
 }));
 
+import { POST as procesar } from "@/app/api/meetings/[id]/process/route";
+import { DELETE as quitarFuente } from "@/app/api/meetings/[id]/sources/[sourceId]/route";
+import { POST as registrarFuente } from "@/app/api/meetings/[id]/sources/route";
+import { POST as pedirToken } from "@/app/api/meetings/[id]/upload-token/route";
 import { DELETE as eliminarPersona, PATCH as editarPersona } from "@/app/api/properties/[propertyId]/people/[personId]/route";
 import { GET as listarPersonas, POST as crearPersona } from "@/app/api/properties/[propertyId]/people/route";
 import { DELETE as eliminarReunion, GET as leerReunion, PATCH as editarReunion } from "@/app/api/meetings/[id]/route";
@@ -155,6 +159,58 @@ describe("personas de la copropiedad", () => {
   });
 });
 
+describe("subida de una grabación en demo: token → registro → procesar", () => {
+  const ID = "reunion-demo-003"; // borrador
+  const nombre = "consejo.m4a";
+  const pathname = `meetings/${ID}/fuentes/abcd1234-consejo.m4a`;
+
+  it("recorre el flujo completo y la reunión termina «en cola» con su archivo", async () => {
+    const tok = await json(await pedirToken(pedir(`/meetings/${ID}/upload-token`, "POST", { nombre, tamano: 64_000_000, tipo: "audio/mp4" }), ctx({ id: ID })));
+    expect(tok.status).toBe(200);
+    expect(tok.cuerpo).toMatchObject({ demo: true, token: "demo", contentType: "audio/mp4", partSize: 16 * 1024 * 1024 });
+    expect(tok.cuerpo.pathname).toMatch(new RegExp(`^meetings/${ID}/fuentes/[a-z0-9]{8}-consejo\\.m4a$`));
+    expect((await json(await leerReunion(pedir(`/meetings/${ID}`), ctx({ id: ID })))).cuerpo.meeting.status).toBe("subiendo");
+
+    const body = { url: `https://demo.private.blob.vercel-storage.com/${pathname}`, pathname, nombre, tamano: 64_000_000, tipo: "audio/mp4" };
+    const reg = await json(await registrarFuente(pedir(`/meetings/${ID}/sources`, "POST", body), ctx({ id: ID })));
+    expect(reg.status).toBe(201);
+    expect(reg.cuerpo.source).toMatchObject({ name: nombre, sizeBytes: 64_000_000, status: "recibida", idx: 0 });
+    expect((await registrarFuente(pedir(`/meetings/${ID}/sources`, "POST", body), ctx({ id: ID }))).status).toBe(200);
+
+    const proc = await json(await procesar(pedir(`/meetings/${ID}/process`, "POST"), ctx({ id: ID })));
+    expect(proc).toEqual({ status: 200, cuerpo: { status: "en_cola" } });
+    const det = (await json(await leerReunion(pedir(`/meetings/${ID}`), ctx({ id: ID })))).cuerpo;
+    expect(det.meeting.status).toBe("en_cola");
+    expect(det.sources).toHaveLength(1);
+    // Cerrada la captura, ya no entran archivos.
+    expect((await pedirToken(pedir(`/meetings/${ID}/upload-token`, "POST", { nombre, tamano: 10, tipo: "audio/mp4" }), ctx({ id: ID }))).status).toBe(409);
+  });
+
+  it("procesar sin archivos es un 400 claro", async () => {
+    const r = await json(await procesar(pedir(`/meetings/${ID}/process`, "POST"), ctx({ id: ID })));
+    expect(r.status).toBe(400);
+    expect(r.cuerpo.error).toMatch(/al menos un archivo/);
+  });
+
+  it("quitar un archivo lo borra y la reunión vuelve a borrador", async () => {
+    const tok = await json(await pedirToken(pedir("/x", "POST", { nombre, tamano: 10, tipo: "audio/mp4" }), ctx({ id: ID })));
+    const body = { url: `https://demo.private.blob.vercel-storage.com/${tok.cuerpo.pathname}`, pathname: tok.cuerpo.pathname, nombre, tamano: 10, tipo: "audio/mp4" };
+    const reg = await json(await registrarFuente(pedir("/x", "POST", body), ctx({ id: ID })));
+    expect((await quitarFuente(pedir("/x", "DELETE"), ctx({ id: ID, sourceId: reg.cuerpo.source.id }))).status).toBe(200);
+    expect((await json(await leerReunion(pedir("/x"), ctx({ id: ID })))).cuerpo.meeting.status).toBe("borrador");
+  });
+
+  it("rechaza rutas ajenas y archivos que no son grabaciones, también en demo", async () => {
+    const mal = [
+      { nombre: "acta.pdf", tamano: 10, tipo: "application/pdf" },
+      { nombre, tamano: 10, tipo: "audio/mp4", pathname: "meetings/otra/fuentes/abcd1234-x.m4a" },
+    ];
+    for (const c of mal) expect((await pedirToken(pedir("/x", "POST", c), ctx({ id: ID }))).status).toBe(400);
+    const sin = await registrarFuente(pedir("/x", "POST", { url: "https://x.com/a", pathname, nombre, tamano: 10, tipo: "audio/mp4" }), ctx({ id: ID }));
+    expect(sin.status).toBe(400);
+  });
+});
+
 /* ════════════════════════════════════════════════════════════════════
    La bandera del piloto cierra TODAS las rutas
    ════════════════════════════════════════════════════════════════════ */
@@ -169,6 +225,10 @@ const TODAS: Array<[string, () => Promise<Response>]> = [
   ["POST people", () => crearPersona(pedir("/p", "POST", { name: "Ana" }), ctx({ propertyId: "p" }))],
   ["PATCH person", () => editarPersona(pedir("/p", "PATCH", { name: "Ana" }), ctx({ propertyId: "p", personId: "q" }))],
   ["DELETE person", () => eliminarPersona(pedir("/p", "DELETE"), ctx({ propertyId: "p", personId: "q" }))],
+  ["POST upload-token", () => pedirToken(pedir("/m", "POST", { nombre: "a.mp3", tamano: 10, tipo: "audio/mpeg" }), ctx({ id: "a" }))],
+  ["POST sources", () => registrarFuente(pedir("/m", "POST", {}), ctx({ id: "a" }))],
+  ["DELETE source", () => quitarFuente(pedir("/m", "DELETE"), ctx({ id: "a", sourceId: "s" }))],
+  ["POST process", () => procesar(pedir("/m", "POST"), ctx({ id: "a" }))],
 ];
 
 describe("piloto: ninguna ruta responde a quien no debe (y ninguna toca la base de datos antes de decidirlo)", () => {

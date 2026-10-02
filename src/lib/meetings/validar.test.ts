@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { MAX_FUENTE_BYTES } from "./tipos";
 import {
   MAX_NOMBRE_PERSONA, MAX_TITULO, leerFecha, limpiarTexto, validarCambiosPersona, validarCambiosReunion,
-  validarNuevaReunion, validarPersona,
+  validarNuevaReunion, validarPedidoToken, validarPersona, validarRegistroFuente,
 } from "./validar";
 
 const AHORA = new Date("2026-10-01T15:00:00Z");
@@ -124,5 +125,96 @@ describe("validarCambiosPersona", () => {
     expect(validarCambiosPersona({ role: "rey" }).ok).toBe(false);
     expect(validarCambiosPersona({ active: "no" })).toEqual({ ok: false, error: "El estado no es válido." });
     expect(validarCambiosPersona({ propertyId: "otra" })).toEqual({ ok: false, error: "No hay nada que cambiar." });
+  });
+});
+
+describe("validarPedidoToken", () => {
+  const ID = "m1abcdefg";
+  const ok = { nombre: "consejo.m4a", tamano: 64_000_000, tipo: "audio/mp4" };
+
+  it("acepta una grabación de audio o de video", () => {
+    expect(validarPedidoToken(ok, ID)).toEqual({ ok: true, valor: { ...ok, pathname: null } });
+    const video = validarPedidoToken({ nombre: "zoom.mp4", tamano: 1_500_000_000, tipo: "video/mp4" }, ID);
+    expect(video.ok && video.valor.tipo).toBe("video/mp4");
+  });
+  it("acepta archivos de varios GB (una reunión de 8 h en WAV pesa ~5,5 GB) y hasta el tope", () => {
+    expect(validarPedidoToken({ nombre: "a.wav", tamano: 5_900_000_000, tipo: "audio/wav" }, ID).ok).toBe(true);
+    expect(validarPedidoToken({ nombre: "a.wav", tamano: MAX_FUENTE_BYTES, tipo: "audio/wav" }, ID).ok).toBe(true);
+  });
+  it("sobre el tope explica qué hacer (partir en varios archivos)", () => {
+    const r = validarPedidoToken({ nombre: "enorme.wav", tamano: MAX_FUENTE_BYTES + 1, tipo: "audio/wav" }, ID);
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error).toMatch(/20\.0 GB.*pártela en varios archivos/);
+  });
+  it("si el navegador no sabe el tipo, lo deduce de la extensión", () => {
+    const vacio = validarPedidoToken({ nombre: "nota.m4a", tamano: 10, tipo: "" }, ID);
+    expect(vacio.ok && vacio.valor.tipo).toBe("audio/mp4");
+    const generico = validarPedidoToken({ nombre: "iphone.MOV", tamano: 10, tipo: "application/octet-stream" }, ID);
+    expect(generico.ok && generico.valor.tipo).toBe("video/quicktime");
+    const sin = validarPedidoToken({ nombre: "x.mp3", tamano: 10 }, ID);
+    expect(sin.ok && sin.valor.tipo).toBe("audio/mpeg");
+  });
+  it("un tipo declarado que no es de audio ni video se ignora, pero la extensión manda", () => {
+    const r = validarPedidoToken({ nombre: "x.mp3", tamano: 10, tipo: "application/pdf" }, ID);
+    expect(r.ok && r.valor.tipo).toBe("audio/mpeg");
+  });
+  it("rechaza lo que no es una grabación", () => {
+    for (const nombre of ["acta.pdf", "presupuesto.xlsx", "foto.jpg", "sin-extension", "script.exe"]) {
+      const r = validarPedidoToken({ nombre, tamano: 10, tipo: "audio/mpeg" }, ID);
+      expect(r.ok, nombre).toBe(false);
+      expect(!r.ok && r.error).toMatch(/no parece una grabación/);
+    }
+  });
+  it("rechaza tamaños inválidos y nombres vacíos o larguísimos", () => {
+    for (const tamano of [0, -5, 1.5, Number.NaN, Number.POSITIVE_INFINITY, "10", null, undefined]) {
+      expect(validarPedidoToken({ nombre: "a.mp3", tamano }, ID).ok, String(tamano)).toBe(false);
+    }
+    expect(validarPedidoToken({ tamano: 10 }, ID)).toEqual({ ok: false, error: "Falta el nombre del archivo." });
+    expect(validarPedidoToken({ nombre: `${"a".repeat(300)}.mp3`, tamano: 10 }, ID).ok).toBe(false);
+  });
+  it("al reanudar acepta SOLO la ruta de esta reunión con la forma exacta", () => {
+    const propia = `meetings/${ID}/fuentes/ab12cd34-consejo.m4a`;
+    const r = validarPedidoToken({ ...ok, pathname: propia }, ID);
+    expect(r.ok && r.valor.pathname).toBe(propia);
+    for (const mala of ["meetings/otra12345/fuentes/ab12cd34-x.mp3", `meetings/${ID}/norm/ab12cd34-x.mp3`, `meetings/${ID}/fuentes/../../otra/x.mp3`, "../x", 5, {}]) {
+      expect(validarPedidoToken({ ...ok, pathname: mala }, ID), String(mala)).toEqual({ ok: false, error: "La ruta de la subida no es válida." });
+    }
+    // Vacío o null equivale a una subida nueva.
+    expect(validarPedidoToken({ ...ok, pathname: null }, ID).ok).toBe(true);
+    expect(validarPedidoToken({ ...ok, pathname: "" }, ID).ok).toBe(true);
+  });
+  it("no acepta cuerpos que no son objetos", () => {
+    for (const b of [null, undefined, "x", 3, []]) expect(validarPedidoToken(b, ID)).toEqual({ ok: false, error: "Solicitud no válida." });
+  });
+});
+
+describe("validarRegistroFuente", () => {
+  const ID = "m1abcdefg";
+  const pathname = `meetings/${ID}/fuentes/ab12cd34-consejo.m4a`;
+  const url = `https://abc123.private.blob.vercel-storage.com/${pathname}`;
+  const ok = { url, pathname, nombre: "consejo.m4a", tamano: 64_000_000, tipo: "audio/mp4" };
+
+  it("acepta un archivo ya subido a ESTA reunión", () => {
+    expect(validarRegistroFuente(ok, ID)).toEqual({ ok: true, valor: ok });
+  });
+  it("exige una URL de Blob (https y dominio de Vercel) que corresponda a la ruta", () => {
+    for (const u of [
+      `http://abc123.private.blob.vercel-storage.com/${pathname}`,
+      `https://servidor-del-atacante.com/${pathname}`,
+      `https://abc123.private.blob.vercel-storage.com/meetings/${ID}/fuentes/zz99zz99-otro.m4a`,
+      "no es una url", "", null, 5,
+    ]) {
+      expect(validarRegistroFuente({ ...ok, url: u }, ID), String(u)).toEqual({ ok: false, error: "La dirección del archivo no es válida." });
+    }
+  });
+  it("exige una ruta de esta reunión", () => {
+    for (const p of [`meetings/otra12345/fuentes/ab12cd34-x.m4a`, "", null, undefined, `meetings/${ID}/audio.mp3`]) {
+      expect(validarRegistroFuente({ ...ok, pathname: p }, ID), String(p)).toEqual({ ok: false, error: "La ruta del archivo no es válida." });
+    }
+  });
+  it("valida también nombre, tamaño y tipo", () => {
+    expect(validarRegistroFuente({ ...ok, nombre: "acta.pdf" }, ID).ok).toBe(false);
+    expect(validarRegistroFuente({ ...ok, tamano: 0 }, ID).ok).toBe(false);
+    expect(validarRegistroFuente(null, ID)).toEqual({ ok: false, error: "Solicitud no válida." });
   });
 });

@@ -45,3 +45,64 @@ export async function borrarPrefijo(prefijo: string): Promise<number> {
 export function borrarArchivosDeReunion(meetingId: string): Promise<number> {
   return borrarPrefijo(prefijoDeReunion(meetingId));
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   Rutas de los originales subidos
+   ════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Nombre apto para una ruta de Blob: sin tildes, sin espacios ni símbolos, con su
+ * extensión, de hasta 120 caracteres. «Reunión consejo (1).m4a» → «Reunion-consejo-1.m4a».
+ */
+export function nombreSeguro(nombre: string): string {
+  const limpio = nombre
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/-+\./g, ".") // «1-.m4a» → «1.m4a»
+    .replace(/\.-+/g, ".")
+    .replace(/\.{2,}/g, ".") // sin «..»: esRutaDeFuente lo rechaza
+    .replace(/-{2,}/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "");
+  if (!limpio) return "grabacion";
+  if (limpio.length <= 120) return limpio;
+  // Recorta el cuerpo, no la extensión.
+  const punto = limpio.lastIndexOf(".");
+  const ext = punto > 0 && limpio.length - punto <= 10 ? limpio.slice(punto) : "";
+  return limpio.slice(0, 120 - ext.length) + ext;
+}
+
+/** `meetings/<id>/fuentes/<aleatorio de 8>-<nombre seguro>` */
+export function rutaDeFuente(meetingId: string, nombre: string, aleatorio: string): string {
+  if (!/^[a-z0-9]{8}$/.test(aleatorio)) throw new Error("Sufijo de ruta no válido.");
+  return `${prefijoDeReunion(meetingId)}fuentes/${aleatorio}-${nombreSeguro(nombre)}`;
+}
+
+/**
+ * ¿Es esta ruta un original de ESTA reunión? El cliente puede mandar una ruta al
+ * reanudar una subida: solo se acepta con la forma exacta que genera `rutaDeFuente`
+ * (nunca otra carpeta, ni otra reunión, ni `..`).
+ */
+export function esRutaDeFuente(meetingId: string, pathname: unknown): pathname is string {
+  if (typeof pathname !== "string" || !ID_REUNION.test(meetingId)) return false;
+  const base = `${PREFIJO_REUNIONES}${meetingId}/fuentes/`;
+  if (!pathname.startsWith(base)) return false;
+  return /^[a-z0-9]{8}-[A-Za-z0-9._-]{1,120}$/.test(pathname.slice(base.length)) && !pathname.includes("..");
+}
+
+/** Sufijo aleatorio de 8 caracteres [a-z0-9] para una ruta nueva. */
+export function sufijoAleatorio(): string {
+  const alfabeto = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = new Uint8Array(8);
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => alfabeto[b % alfabeto.length]).join("");
+}
+
+/** ¿Esta URL de Blob corresponde a esta ruta? (la URL lleva la ruta tras el dominio) */
+export function urlCorrespondeARuta(url: string, pathname: string): boolean {
+  try {
+    return decodeURIComponent(new URL(url).pathname) === `/${pathname}`;
+  } catch {
+    return false;
+  }
+}

@@ -14,6 +14,7 @@ import {
   DURACION_SEPTIEMBRE_MS, FICHA_SEPTIEMBRE, MARCADORES_SEPTIEMBRE, PERSONAS_LOS_PINOS, SILENCIOS_SEPTIEMBRE,
   construirHablantes, construirIntervenciones,
 } from "./demo-datos";
+import { MAX_FUENTES_POR_REUNION, puedeAgregarFuentes } from "./tipos";
 import type { CambiosPersona, CambiosReunion, NuevaPersona } from "./validar";
 
 type ReunionDemo = {
@@ -259,11 +260,12 @@ export function demoReunion(userId: string, id: string): ReunionDetalle | null {
       costUsd: r.costUsd,
       hasAudio: r.hasAudio,
     },
-    sources: r.fuentes,
-    speakers: r.hablantes,
-    markers: r.marcadores,
-    digest: r.ficha,
-    silences: r.silencios,
+    // Copias: el almacén es mutable y quien lee no debe poder (ni sufrir) cambiar lo que guarda.
+    sources: r.fuentes.map((f) => ({ ...f })),
+    speakers: r.hablantes.map((h) => ({ ...h })),
+    markers: r.marcadores.map((m) => ({ ...m })),
+    digest: r.ficha ? structuredClone(r.ficha) : null,
+    silences: r.silencios.map((x) => ({ ...x })),
   };
 }
 
@@ -366,4 +368,89 @@ export function demoEliminarPersona(propertyId: string, id: string): boolean {
   if (i < 0) return false;
   a.personas.splice(i, 1);
   return true;
+}
+
+/* ── Archivos de la reunión (subida simulada) ────────────────────────── */
+
+export type ResultadoDemo<T> = { ok: true; valor: T } | { ok: false; codigo: "no_existe" | "cerrada" | "tope" | "vacia" | "pendiente"; error: string };
+
+const NO_EXISTE = { ok: false, codigo: "no_existe", error: "Reunión no encontrada" } as const;
+const CERRADA = {
+  ok: false, codigo: "cerrada",
+  error: "Esta reunión ya no admite más archivos: se está procesando o ya está lista.",
+} as const;
+
+/** Antes de subir: la reunión pasa a «Subiendo» (si era borrador o tenía un error). */
+export function demoPrepararSubida(userId: string, id: string): ResultadoDemo<null> {
+  const r = buscar(userId, id);
+  if (!r) return NO_EXISTE;
+  if (!puedeAgregarFuentes(r.status)) return CERRADA;
+  if (r.fuentes.length >= MAX_FUENTES_POR_REUNION) {
+    return { ok: false, codigo: "tope", error: `Máximo ${MAX_FUENTES_POR_REUNION} archivos por reunión.` };
+  }
+  if (r.status === "borrador" || r.status === "error") {
+    r.status = "subiendo";
+    r.errorMessage = null;
+  }
+  return { ok: true, valor: null };
+}
+
+/** Registra un archivo ya «subido». Idempotente por ruta. */
+export function demoRegistrarFuente(
+  userId: string,
+  id: string,
+  datos: { nombre: string; tamano: number; tipo: string; pathname: string },
+): ResultadoDemo<{ fuente: FuenteDTO; creada: boolean }> {
+  const r = buscar(userId, id);
+  if (!r) return NO_EXISTE;
+  const existente = r.fuentes.find((f) => f.id === `src-${datos.pathname}`);
+  if (existente) return { ok: true, valor: { fuente: existente, creada: false } };
+  if (!puedeAgregarFuentes(r.status)) return CERRADA;
+  if (r.fuentes.length >= MAX_FUENTES_POR_REUNION) {
+    return { ok: false, codigo: "tope", error: `Máximo ${MAX_FUENTES_POR_REUNION} archivos por reunión.` };
+  }
+  const fuente: FuenteDTO = {
+    id: `src-${datos.pathname}`,
+    idx: r.fuentes.length,
+    kind: "archivo",
+    name: datos.nombre,
+    sizeBytes: datos.tamano,
+    mimeType: datos.tipo,
+    status: "recibida",
+    durationMs: null,
+    offsetMs: null,
+  };
+  r.fuentes.push(fuente);
+  if (r.status === "borrador" || r.status === "error") r.status = "subiendo";
+  return { ok: true, valor: { fuente, creada: true } };
+}
+
+/** Quita un archivo y renumera; sin archivos, la reunión vuelve a borrador. */
+export function demoQuitarFuente(userId: string, id: string, sourceId: string): ResultadoDemo<null> {
+  const r = buscar(userId, id);
+  if (!r) return NO_EXISTE;
+  if (!puedeAgregarFuentes(r.status)) return CERRADA;
+  const i = r.fuentes.findIndex((f) => f.id === sourceId);
+  if (i < 0) return { ok: false, codigo: "no_existe", error: "Archivo no encontrado" };
+  r.fuentes.splice(i, 1);
+  r.fuentes.forEach((f, n) => (f.idx = n));
+  if (r.fuentes.length === 0 && r.status === "subiendo") r.status = "borrador";
+  return { ok: true, valor: null };
+}
+
+/** Cierra la captura y manda la reunión a la cola. Idempotente. */
+export function demoProcesar(userId: string, id: string): ResultadoDemo<{ status: string }> {
+  const r = buscar(userId, id);
+  if (!r) return NO_EXISTE;
+  if (r.status === "en_cola" || r.status === "procesando" || r.status === "lista") return { ok: true, valor: { status: r.status } };
+  if (!puedeAgregarFuentes(r.status)) return CERRADA;
+  if (r.fuentes.length === 0) return { ok: false, codigo: "vacia", error: "Sube al menos un archivo antes de procesar la reunión." };
+  if (r.fuentes.some((f) => f.status !== "recibida")) {
+    return { ok: false, codigo: "pendiente", error: "Algún archivo todavía se está preparando. Espera un momento." };
+  }
+  r.status = "en_cola";
+  r.stage = null;
+  r.progress = 0;
+  r.errorMessage = null;
+  return { ok: true, valor: { status: "en_cola" } };
 }

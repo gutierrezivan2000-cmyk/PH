@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { DEMO_USER } from "@/lib/demo-store";
 import {
   MAX_PERSONAS_DEMO, MAX_REUNIONES_DEMO, demoActualizarPersona, demoActualizarReunion, demoCrearPersona, demoCrearReunion,
-  demoEliminarPersona, demoEliminarReunion, demoIntervenciones, demoPersonas, demoReunion, demoReuniones, reiniciarDemoReuniones,
+  demoEliminarPersona, demoEliminarReunion, demoIntervenciones, demoPersonas, demoPrepararSubida, demoProcesar, demoQuitarFuente,
+  demoRegistrarFuente, demoReunion, demoReuniones, reiniciarDemoReuniones,
 } from "./demo";
+import { MAX_FUENTES_POR_REUNION } from "./tipos";
 import { DURACION_SEPTIEMBRE_MS, FICHA_SEPTIEMBRE, construirHablantes, construirIntervenciones } from "./demo-datos";
 import { ESTADOS_REUNION, esEstadoReunion, esTipoReunion, formatearReloj } from "./tipos";
 
@@ -215,5 +217,75 @@ describe("el demo permite crear, editar y borrar (con tope)", () => {
     let creadas = 0;
     for (let i = 0; i < MAX_PERSONAS_DEMO + 5; i++) if (demoCrearPersona("prop-demo-001", { name: `Persona ${i}`, role: null })) creadas++;
     expect(creadas).toBe(MAX_PERSONAS_DEMO - 6); // ya hay 6 sembradas
+  });
+});
+
+describe("el demo entrega copias, no su estado interno", () => {
+  beforeEach(() => reiniciarDemoReuniones());
+  it("modificar lo leído no cambia el almacén", () => {
+    const a = demoReunion(DEMO_USER.id, "reunion-demo-001")!;
+    a.sources.push({ id: "x", idx: 9, kind: "archivo", name: "x", sizeBytes: 1, mimeType: null, status: "ok", durationMs: null, offsetMs: null });
+    a.speakers[0].name = "Cambiado";
+    a.digest!.decisiones.length = 0;
+    a.meeting.title = "Otro";
+    const b = demoReunion(DEMO_USER.id, "reunion-demo-001")!;
+    expect(b.sources.length).toBe(1);
+    expect(b.speakers[0].name).toBe("Martha López");
+    expect(b.digest!.decisiones.length).toBe(3);
+    expect(b.meeting.title).toBe("Reunión de consejo — septiembre");
+  });
+});
+
+describe("el demo simula la subida de archivos", () => {
+  beforeEach(() => reiniciarDemoReuniones());
+  const U = DEMO_USER.id;
+  const reg = (id: string, n: number) => demoRegistrarFuente(U, id, { nombre: `parte-${n}.mp3`, tamano: 1000 + n, tipo: "audio/mpeg", pathname: `meetings/${id}/fuentes/aaaaaaa${n}-parte-${n}.mp3` });
+
+  it("preparar una subida pasa el borrador a «Subiendo»", () => {
+    expect(demoPrepararSubida(U, "reunion-demo-003")).toEqual({ ok: true, valor: null });
+    expect(demoReunion(U, "reunion-demo-003")!.meeting.status).toBe("subiendo");
+  });
+  it("no se suben archivos a una reunión que ya se procesa o ya está lista; ni a una que no existe", () => {
+    expect(demoPrepararSubida(U, "reunion-demo-001")).toMatchObject({ ok: false, codigo: "cerrada" });
+    expect(demoPrepararSubida(U, "reunion-demo-002")).toMatchObject({ ok: false, codigo: "cerrada" });
+    expect(demoPrepararSubida(U, "no-existe")).toMatchObject({ ok: false, codigo: "no_existe" });
+    expect(demoPrepararSubida("otro", "reunion-demo-003")).toMatchObject({ ok: false, codigo: "no_existe" });
+  });
+  it("registra archivos en orden, y registrar dos veces el mismo no lo duplica", () => {
+    const a = reg("reunion-demo-003", 1);
+    const b = reg("reunion-demo-003", 2);
+    expect(a.ok && a.valor.creada).toBe(true);
+    expect(b.ok && b.valor.fuente.idx).toBe(1);
+    const otra = reg("reunion-demo-003", 1);
+    expect(otra.ok && otra.valor.creada).toBe(false);
+    const d = demoReunion(U, "reunion-demo-003")!;
+    expect(d.sources.map((f) => f.name)).toEqual(["parte-1.mp3", "parte-2.mp3"]);
+    expect(d.meeting.status).toBe("subiendo");
+    expect(d.sources.every((f) => f.status === "recibida")).toBe(true);
+  });
+  it("respeta el tope de archivos por reunión", () => {
+    for (let n = 0; n < MAX_FUENTES_POR_REUNION; n++) expect(reg("reunion-demo-003", n).ok).toBe(true);
+    expect(reg("reunion-demo-003", 999)).toMatchObject({ ok: false, codigo: "tope" });
+  });
+  it("quitar un archivo renumera; sin archivos la reunión vuelve a borrador", () => {
+    reg("reunion-demo-003", 1);
+    reg("reunion-demo-003", 2);
+    reg("reunion-demo-003", 3);
+    const d = demoReunion(U, "reunion-demo-003")!;
+    expect(demoQuitarFuente(U, "reunion-demo-003", d.sources[0].id)).toEqual({ ok: true, valor: null });
+    expect(demoReunion(U, "reunion-demo-003")!.sources.map((f) => [f.name, f.idx])).toEqual([["parte-2.mp3", 0], ["parte-3.mp3", 1]]);
+    for (const f of demoReunion(U, "reunion-demo-003")!.sources) demoQuitarFuente(U, "reunion-demo-003", f.id);
+    expect(demoReunion(U, "reunion-demo-003")!.meeting.status).toBe("borrador");
+    expect(demoQuitarFuente(U, "reunion-demo-003", "no-existe")).toMatchObject({ ok: false, codigo: "no_existe" });
+  });
+  it("procesar: pide archivos, pasa a «en cola» y es idempotente", () => {
+    expect(demoProcesar(U, "reunion-demo-003")).toMatchObject({ ok: false, codigo: "vacia" });
+    reg("reunion-demo-003", 1);
+    expect(demoProcesar(U, "reunion-demo-003")).toEqual({ ok: true, valor: { status: "en_cola" } });
+    expect(demoReunion(U, "reunion-demo-003")!.meeting.status).toBe("en_cola");
+    expect(demoProcesar(U, "reunion-demo-003")).toEqual({ ok: true, valor: { status: "en_cola" } });
+    // Ya cerrada a la captura: no admite más archivos.
+    expect(reg("reunion-demo-003", 2)).toMatchObject({ ok: false, codigo: "cerrada" });
+    expect(demoProcesar(U, "reunion-demo-001")).toEqual({ ok: true, valor: { status: "lista" } });
   });
 });

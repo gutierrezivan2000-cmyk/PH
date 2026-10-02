@@ -4,6 +4,7 @@ import { Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { Header } from "@/components/dashboard/Header";
+import { SubidaReunion } from "@/components/reuniones/SubidaReunion";
 import {
   Aviso, BarraProgreso, Boton, CabeceraPieza, Campo, Entrada, ErrorCarga, Esqueleto, Estado, MenuMas, Modal, Pagina, Panel,
   Pieza, Segmentos, Selector, Vacio, avisar, type ItemMenu,
@@ -198,18 +199,16 @@ export function DetalleReunion({ id, modo }: { id: string; modo: Modo }) {
                 )}
               </div>
 
-              {m.status === "borrador" && (
-                <Panel titulo="Esta reunión todavía no tiene audio" nivel={2}>
-                  <p className="re-nota">
-                    {modo === "grabar"
-                      ? "El siguiente paso es empezar a grabar."
-                      : "El siguiente paso es subir la grabación: audio o video, de cualquier duración y tamaño."}{" "}
-                    Los datos de la reunión ya están guardados; puedes cambiarlos desde «Más».
-                  </p>
-                </Panel>
+              {(m.status === "borrador" || m.status === "subiendo") && (
+                <SubidaReunion
+                  meetingId={id}
+                  fuentes={datos?.sources ?? []}
+                  modo={modo}
+                  alCambiar={() => setVersion((v) => v + 1)}
+                />
               )}
 
-              {(m.status === "grabando" || m.status === "subiendo" || m.status === "en_cola" || m.status === "procesando") && (
+              {(m.status === "grabando" || m.status === "en_cola" || m.status === "procesando") && (
                 <Panel titulo="Estamos trabajando en esta reunión" nivel={2}>
                   <div className="re-proceso">
                     <BarraProgreso valor={m.progress} etiquetaAccesible={`Avance: ${descripcion.texto}`} />
