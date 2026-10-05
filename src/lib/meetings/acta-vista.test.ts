@@ -36,6 +36,17 @@ describe("fragmentosDe", () => {
     expect(fragmentosDe("a [[t=00:75:00]] b")).toEqual([t("a "), t(" b")]);
   });
 
+  it("con un límite, un minuto que pasa de la duración de la reunión no existe (también dentro de negritas, listas y tablas)", () => {
+    const limite = { maxSegundos: 3600 };
+    expect(fragmentosDe("a [[t=00:59:59]] b [[t=01:00:00]] c [[t=01:00:01]] d", {}, limite)).toEqual([t("a "), min(3599), t(" b "), min(3600), t(" c "), t(" d")]);
+    expect(fragmentosDe("**x [[t=09:00:00]]**", {}, limite)).toEqual([t("x ", { negrita: true })]);
+    const bloques = leerActa("- uno [[t=09:00:00]]\n\n| A |\n|---|\n| [[t=00:10:00]] [[t=09:00:00]] |", limite);
+    expect(bloques[0]).toEqual({ tipo: "lista", ordenada: false, items: [[t("uno ")]] });
+    expect(bloques[1]).toMatchObject({ tipo: "tabla", filas: [[[min(600), t(" ")]]] });
+    // Sin límite, todo se conserva.
+    expect(fragmentosDe("[[t=09:00:00]]")).toEqual([min(32400)]);
+  });
+
   it("un asterisco suelto o una multiplicación no son cursiva", () => {
     expect(fragmentosDe("5 * 3 * 2 = 30")).toEqual([t("5 * 3 * 2 = 30")]);
     expect(fragmentosDe("sin cierre *abierta")).toEqual([t("sin cierre *abierta")]);

@@ -23,8 +23,14 @@ const TOKEN = /\[\[(D\d{1,4}|C\d{1,4}|t=\d{1,3}:\d{2}:\d{2})\]\]|\*\*(.+?)\*\*|\
 
 type Estilo = { negrita?: boolean; cursiva?: boolean };
 
+/** Lo que cambia cómo se lee un texto. */
+export type OpcionesDeLectura = {
+  /** Un minuto que pasa de aquí (la duración de la reunión) no existe: se descarta. El acta ya viene limpia; las respuestas de «Preguntar», no. */
+  maxSegundos?: number;
+};
+
 /** Una línea en sus fragmentos. Las entidades (`&amp;`, `&lt;`, `&gt;`) vuelven a ser el carácter: React ya escapa al dibujar. */
-export function fragmentosDe(linea: string, estilo: Estilo = {}): Fragmento[] {
+export function fragmentosDe(linea: string, estilo: Estilo = {}, opciones: OpcionesDeLectura = {}): Fragmento[] {
   const salida: Fragmento[] = [];
   const texto = (t: string, e: Estilo) => {
     if (t) salida.push({ tipo: "texto", texto: desescaparHtml(t), ...(e.negrita ? { negrita: true } : {}), ...(e.cursiva ? { cursiva: true } : {}) });
@@ -36,12 +42,12 @@ export function fragmentosDe(linea: string, estilo: Estilo = {}): Fragmento[] {
     if (m[1] !== undefined) {
       if (m[1].startsWith("t=")) {
         const s = segundosDeHora(m[1].slice(2));
-        if (s !== null) salida.push({ tipo: "minuto", segundos: s });
+        if (s !== null && (opciones.maxSegundos === undefined || s <= opciones.maxSegundos)) salida.push({ tipo: "minuto", segundos: s });
       } else {
         salida.push({ tipo: "ref", id: m[1] });
       }
     } else if (m[2] !== undefined) {
-      salida.push(...fragmentosDe(m[2], { ...estilo, negrita: true }));
+      salida.push(...fragmentosDe(m[2], { ...estilo, negrita: true }, opciones));
     } else {
       texto(m[3], { ...estilo, cursiva: true });
     }
@@ -57,17 +63,17 @@ const SEPARADOR_DE_TABLA = /^:?-{3,}:?$/;
 
 const celdasDe = (fila: string): string[] => fila.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
 
-function leerTabla(filas: string[]): BloqueDeActa {
+function leerTabla(filas: string[], opciones: OpcionesDeLectura): BloqueDeActa {
   const celdas = filas.map(celdasDe);
   const encabezado = celdas[0];
   const cuerpo = celdas.slice(celdas[1]?.every((c) => SEPARADOR_DE_TABLA.test(c)) ? 2 : 1);
   // Una fila corta no desalinea la tabla y una larga se recorta al ancho del encabezado.
-  const ajustar = (fila: string[]) => encabezado.map((_, i) => fragmentosDe(fila[i] ?? ""));
-  return { tipo: "tabla", encabezado: encabezado.map((c) => fragmentosDe(c)), filas: cuerpo.filter((f) => f.some((c) => c !== "")).map(ajustar) };
+  const ajustar = (fila: string[]) => encabezado.map((_, i) => fragmentosDe(fila[i] ?? "", {}, opciones));
+  return { tipo: "tabla", encabezado: encabezado.map((c) => fragmentosDe(c, {}, opciones)), filas: cuerpo.filter((f) => f.some((c) => c !== "")).map(ajustar) };
 }
 
 /** El acta (markdown con marcadores) en bloques. Lo que no se entiende queda como párrafo: nunca se pierde texto. */
-export function leerActa(markdown: string): BloqueDeActa[] {
+export function leerActa(markdown: string, opciones: OpcionesDeLectura = {}): BloqueDeActa[] {
   const lineas = markdown.replace(/\r\n?/g, "\n").split("\n");
   const bloques: BloqueDeActa[] = [];
   let parrafo: Fragmento[][] = [];
@@ -90,7 +96,7 @@ export function leerActa(markdown: string): BloqueDeActa[] {
     const titulo = TITULO.exec(t);
     if (titulo) {
       cerrarParrafo();
-      bloques.push({ tipo: "titulo", nivel: titulo[1].length >= 3 ? 3 : 2, fragmentos: fragmentosDe(titulo[2]) });
+      bloques.push({ tipo: "titulo", nivel: titulo[1].length >= 3 ? 3 : 2, fragmentos: fragmentosDe(titulo[2], {}, opciones) });
       continue;
     }
     if (t.startsWith("|")) {
@@ -98,7 +104,7 @@ export function leerActa(markdown: string): BloqueDeActa[] {
       const filas: string[] = [];
       while (i < lineas.length && lineas[i].trim().startsWith("|")) filas.push(lineas[i++]);
       i--;
-      bloques.push(leerTabla(filas));
+      bloques.push(leerTabla(filas, opciones));
       continue;
     }
     const vineta = VINETA.exec(t);
@@ -110,14 +116,14 @@ export function leerActa(markdown: string): BloqueDeActa[] {
       while (i < lineas.length) {
         const siguiente = (ordenada ? NUMERAL : VINETA).exec(lineas[i].trim());
         if (!siguiente) break;
-        items.push(fragmentosDe(siguiente[1]));
+        items.push(fragmentosDe(siguiente[1], {}, opciones));
         i++;
       }
       i--;
       bloques.push({ tipo: "lista", ordenada, items });
       continue;
     }
-    parrafo.push(fragmentosDe(t));
+    parrafo.push(fragmentosDe(t, {}, opciones));
   }
   cerrarParrafo();
   return bloques;

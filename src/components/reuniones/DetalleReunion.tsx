@@ -7,9 +7,11 @@ import { Header } from "@/components/dashboard/Header";
 import { SubidaReunion } from "@/components/reuniones/SubidaReunion";
 import { TabActa } from "@/components/reuniones/TabActa";
 import { TabHablantes } from "@/components/reuniones/TabHablantes";
+import { TabPreguntar } from "@/components/reuniones/TabPreguntar";
 import { TabResumen } from "@/components/reuniones/TabResumen";
 import { useActa } from "@/components/reuniones/useActa";
 import { useMotorDeAudio } from "@/components/reuniones/useMotorDeAudio";
+import { usePreguntar } from "@/components/reuniones/usePreguntar";
 import { VisorTranscripcion } from "@/components/reuniones/VisorTranscripcion";
 import {
   Aviso, BarraProgreso, Boton, CabeceraPieza, Campo, Entrada, ErrorCarga, Esqueleto, Estado, MenuMas, Modal, Pagina, Panel,
@@ -245,6 +247,8 @@ export function DetalleReunion({ id }: { id: string }) {
   const verContenido = m !== null && (m.status === "lista" || (estaEnMarcha(m.status) && m.readyAt !== null));
   // El acta vive en la página (no en la pestaña): así su avance sigue aunque se cambie de pestaña.
   const acta = useActa(id, verContenido);
+  // La conversación con la reunión también vive en la página: no se pierde al cambiar de pestaña mientras responde.
+  const conversacion = usePreguntar(id);
   const marcaDelActa = marcaDePestanaDeActa(acta.acta);
   const redactarOtraVez = async () => {
     setTrabajando(true);
@@ -453,6 +457,17 @@ export function DetalleReunion({ id }: { id: string }) {
                             setModal("acta");
                           }}
                           alAvisar={(tipo, titulo) => avisar({ tipo, titulo })}
+                        />
+                      </>
+                    ) : pestana === "preguntar" ? (
+                      <>
+                        <h2 className="k-sr">Preguntar</h2>
+                        <TabPreguntar
+                          conversacion={conversacion}
+                          ficha={datos?.digest ?? null}
+                          duracionMs={m.durationMs ?? 0}
+                          puedePreguntar={m.status === "lista"}
+                          alIrAlMinuto={irAlMinuto}
                         />
                       </>
                     ) : (

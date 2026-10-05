@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ErrorApi, actualizarReunion, clienteDeActa, crearPersona, crearReunion, eliminarReunion, listarIntervenciones, listarPersonas, listarReuniones,
-  obtenerActa, obtenerEstado, obtenerReunion, pedirActa, procesarReunion, quitarFuente, reanudarActa, reintentarReunion, urlDeTranscripcion,
+  obtenerActa, obtenerEstado, obtenerReunion, pedirActa, preguntarALaReunion, procesarReunion, quitarFuente, reanudarActa, reintentarReunion, urlDeTranscripcion,
 } from "./cliente";
+import { codificarEvento } from "./sse";
 
 const respuesta = (status: number, cuerpo: unknown, comoTexto = false) =>
   ({
@@ -193,5 +194,78 @@ describe("acta", () => {
     await c.reanudar("g7");
     expect(fetchMock.mock.calls.map((x) => x[0])).toEqual(["/api/meetings/m9/acta?texto=1", "/api/meetings/m9/acta", "/api/meetings/m9/acta"]);
     expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ reanudar: "g7" });
+  });
+});
+
+describe("preguntar", () => {
+  const sse = (...eventos: Array<[string, unknown]>) => {
+    const cuerpo = new ReadableStream<Uint8Array>({
+      start(c) {
+        for (const [e, d] of eventos) c.enqueue(codificarEvento(e, d));
+        c.close();
+      },
+    });
+    return { ok: true, status: 200, body: cuerpo, json: async () => ({}) } as unknown as Response;
+  };
+  const pedido = { pregunta: "¿Qué se decidió?", historial: [{ rol: "user" as const, texto: "p" }, { rol: "assistant" as const, texto: "r" }] };
+  const control = () => new AbortController();
+
+  it("manda la pregunta con el historial y entrega la respuesta por trozos; devuelve si se cortó", async () => {
+    fetchMock.mockResolvedValue(sse(["inicio", {}], ["delta", { texto: "Se aprobó " }], ["delta", { texto: "la prórroga." }], ["done", { cortada: false, modelo: "m" }]));
+    const trozos: string[] = [];
+    const c = control();
+    const r = await preguntarALaReunion("a/b")(pedido, { alTexto: (t) => trozos.push(t), senal: c.signal });
+    expect(r).toEqual({ cortada: false });
+    expect(trozos).toEqual(["Se aprobó ", "la prórroga."]);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/meetings/a%2Fb/preguntar");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual(pedido);
+    expect(init.signal).toBe(c.signal);
+  });
+
+  it("una respuesta cortada por su largo lo dice", async () => {
+    fetchMock.mockResolvedValue(sse(["delta", { texto: "x" }], ["done", { cortada: true }]));
+    expect(await preguntarALaReunion("m")(pedido, { alTexto: () => {}, senal: control().signal })).toEqual({ cortada: true });
+  });
+
+  it("los errores de antes de empezar llegan con el mensaje del servidor (cupo, reunión sin terminar…)", async () => {
+    fetchMock.mockResolvedValue(respuesta(429, { error: "Has alcanzado el límite diario de 30 mensajes. Intenta mañana." }));
+    await expect(preguntarALaReunion("m")(pedido, { alTexto: () => {}, senal: control().signal })).rejects.toMatchObject({
+      name: "ErrorApi", status: 429, message: "Has alcanzado el límite diario de 30 mensajes. Intenta mañana.",
+    });
+    fetchMock.mockResolvedValue(respuesta(502, null, true));
+    await expect(preguntarALaReunion("m")(pedido, { alTexto: () => {}, senal: control().signal })).rejects.toMatchObject({ status: 502, message: "Tuvimos un problema de nuestro lado. Inténtalo de nuevo en un momento." });
+  });
+
+  it("un evento «error» a mitad de la respuesta se lanza con su mensaje, después de entregar lo que llegó", async () => {
+    fetchMock.mockResolvedValue(sse(["delta", { texto: "a medias" }], ["error", { mensaje: "El servicio de IA está saturado." }]));
+    const trozos: string[] = [];
+    await expect(preguntarALaReunion("m")(pedido, { alTexto: (t) => trozos.push(t), senal: control().signal })).rejects.toMatchObject({ message: "El servicio de IA está saturado." });
+    expect(trozos).toEqual(["a medias"]);
+  });
+
+  it("si el flujo se acaba sin «done» (se perdió la conexión), no se da por terminada", async () => {
+    fetchMock.mockResolvedValue(sse(["delta", { texto: "x" }]));
+    await expect(preguntarALaReunion("m")(pedido, { alTexto: () => {}, senal: control().signal })).rejects.toMatchObject({ message: "La respuesta se cortó antes de terminar. Inténtalo de nuevo." });
+  });
+
+  it("sin conexión: un mensaje claro; si la persona detuvo la respuesta, el AbortError tal cual", async () => {
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    await expect(preguntarALaReunion("m")(pedido, { alTexto: () => {}, senal: control().signal })).rejects.toMatchObject({ status: 0, message: "No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo." });
+    const c = control();
+    const abortado = new DOMException("Detenida", "AbortError");
+    fetchMock.mockImplementation(async () => {
+      c.abort();
+      throw abortado;
+    });
+    await expect(preguntarALaReunion("m")(pedido, { alTexto: () => {}, senal: c.signal })).rejects.toBe(abortado);
+  });
+
+  it("los eventos con datos raros no rompen: se ignoran", async () => {
+    fetchMock.mockResolvedValue(sse(["delta", { texto: 7 }], ["delta", null], ["delta", { texto: "ok" }], ["otro", {}], ["done", null]));
+    const trozos: string[] = [];
+    expect(await preguntarALaReunion("m")(pedido, { alTexto: (t) => trozos.push(t), senal: control().signal })).toEqual({ cortada: false });
+    expect(trozos).toEqual(["ok"]);
   });
 });

@@ -8,7 +8,8 @@ import { transcripcionParaIA, vocesDeReunion } from "./contexto-reunion";
 import { demoContextoDeActa } from "./demo";
 import type { RespuestaTexto } from "./ia";
 import { crearIASimulada } from "./ia-simulada";
-import { MAX_TOKENS_DE_RESPUESTA, SISTEMA_DE_PREGUNTAR, construirContextoDePreguntar, type PedidoDePreguntar } from "./preguntar";
+import { MAX_TOKENS_DE_RESPUESTA, SISTEMA_DE_PREGUNTAR, construirContextoDePreguntar } from "./preguntar";
+import type { PedidoDePreguntar } from "./preguntar-pedido";
 
 export type PuedePreguntarDemo = { ok: true } | { ok: false; codigo: "no_existe" | "no_lista" | "sin_transcripcion"; error: string };
 

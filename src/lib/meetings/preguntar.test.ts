@@ -10,10 +10,10 @@ import { crearDbFalsa, type DbFalsa } from "./db-falsa";
 import { DURACION_SEPTIEMBRE_MS, FICHA_SEPTIEMBRE, construirHablantes, construirIntervenciones } from "./demo-datos";
 import { ErrorIA } from "./ia";
 import { crearIASimulada } from "./ia-simulada";
-import {
-  MAX_PREGUNTA, MAX_TEXTO_DE_TURNO, MAX_TOKENS_DE_RESPUESTA, MAX_TURNOS_DE_HISTORIAL, SISTEMA_DE_PREGUNTAR, construirContextoDePreguntar,
-  leerPedido, normalizarHistorial, resumenParaPreguntar, responderPregunta, type TurnoDePreguntar,
-} from "./preguntar";
+import { sugerenciasDePregunta } from "./preguntar-pantalla";
+import { MAX_TOKENS_DE_RESPUESTA, SISTEMA_DE_PREGUNTAR, construirContextoDePreguntar, resumenParaPreguntar } from "./preguntar";
+import { MAX_PREGUNTA, MAX_TEXTO_DE_TURNO, MAX_TURNOS_DE_HISTORIAL, leerPedido, normalizarHistorial, type TurnoDePreguntar } from "./preguntar-pedido";
+import { responderPregunta } from "./preguntar-servidor";
 
 const ID = "reunionprueba1";
 let db: DbFalsa;
@@ -286,5 +286,60 @@ describe("responderPregunta", () => {
     const control = new AbortController();
     await responderPregunta({ meetingId: ID, userId: "u1", ia, senal: control.signal, pedido: { pregunta: "hola", historial: [] } });
     expect(ia.textos[0].senal).toBe(control.signal);
+  });
+});
+
+describe("el modelo simulado contesta con lo que trae el bloque compartido", () => {
+  const preguntar = async (pregunta: string) => {
+    if (db.meeting.filas.length === 0) await sembrarReunion();
+    const ia = crearIASimulada();
+    const r = await responderPregunta({ meetingId: ID, userId: "u1", ia, pedido: { pregunta, historial: [] } });
+    if (!r.ok) throw new Error(r.error);
+    return r.respuesta.texto;
+  };
+
+  it("lo que se decidió: las decisiones del resumen, cada una con su minuto", async () => {
+    const t = await preguntar("¿Qué se decidió en la reunión?");
+    expect(t).toContain("Estas fueron las decisiones de la reunión:");
+    expect(t).toContain("- **Prorrogar por doce meses el contrato de mantenimiento de ascensores con Schindler, con ajuste del 6 % y cláusula de tiempos de respuesta (4 h para personas atrapadas, 24 h para el resto).** [[t=01:05:30]]");
+    expect(marcadoresDe(t).segundos).toEqual([3930, 6360, 7500]);
+  });
+
+  it("si además pregunta por un tema, solo lo que lo menciona", async () => {
+    const t = await preguntar("¿Qué se decidió sobre las cámaras?");
+    expect(t).toContain("instalación de ocho cámaras");
+    expect(t).not.toContain("Schindler");
+    expect(marcadoresDe(t).segundos).toEqual([6360]);
+  });
+
+  it("los compromisos, con responsable y fecha; las votaciones; y lo pendiente (sin minuto)", async () => {
+    const c = await preguntar("¿Qué compromisos quedaron y quién los asumió?");
+    expect(c).toContain("- **Solicitar a la contadora el cálculo de la provisión por deudas de difícil cobro.**, a cargo de Jorge Pardo, con fecha Próxima reunión [[t=00:15:40]]");
+    expect(marcadoresDe(c).segundos).toHaveLength(6);
+    const v = await preguntar("¿Cómo salieron las votaciones?");
+    expect(v).toContain("Así salieron las votaciones:");
+    expect(v).toContain("- **Prórroga por doce meses del contrato de ascensores con Schindler**: 3 a favor, 0 en contra, 0 abstenciones; resultado: Aprobada por unanimidad de los consejeros presentes [[t=01:05:30]]");
+    const p = await preguntar("¿Qué quedó pendiente?");
+    expect(p).toContain("- No se mencionó el lugar de la reunión.");
+    expect(marcadoresDe(p).segundos).toEqual([]);
+  });
+
+  it("si la lista no tiene lo que pide (un tema que no está), busca en la transcripción; y si tampoco, lo dice", async () => {
+    expect(await preguntar("¿Qué se decidió sobre el paintball?")).toBe("No encuentro eso en la reunión: no aparece en la transcripción.");
+  });
+
+  it("las cuatro preguntas que la pantalla sugiere reciben una respuesta de verdad, con sus minutos (no un «no encuentro»)", async () => {
+    for (const sugerida of sugerenciasDePregunta(FICHA_SEPTIEMBRE)) {
+      const t = await preguntar(sugerida);
+      expect(t, sugerida).not.toContain("No encuentro eso");
+      if (!/pendiente/.test(sugerida)) expect(marcadoresDe(t).segundos.length, sugerida).toBeGreaterThan(0);
+    }
+  });
+
+  it("sin resumen (la IA no pudo hacerlo) busca en la transcripción", async () => {
+    await sembrarReunion({ digest: null });
+    const ia = crearIASimulada();
+    const r = await responderPregunta({ meetingId: ID, userId: "u1", ia, pedido: { pregunta: "¿Qué se decidió sobre las cámaras?", historial: [] } });
+    expect(r.ok && r.respuesta.texto).toMatch(/cámaras/i);
   });
 });

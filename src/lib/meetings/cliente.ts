@@ -7,8 +7,10 @@
  * «Unexpected token <» no es un mensaje para una persona).
  */
 import type { ClienteDeActa } from "./controlador-acta";
+import type { Respondedor } from "./controlador-preguntar";
 import type { ActaDTO, EstadoProcesoDTO, HablanteDTO, PaginaDeIntervenciones, PersonaDTO, RespuestaActa, ReunionDetalle, ReunionResumen } from "./dto";
 import type { PedidoDeHablante } from "./nombres";
+import { leerEventosSSE } from "./sse";
 
 export class ErrorApi extends Error {
   readonly status: number;
@@ -178,3 +180,55 @@ export const clienteDeActa = (meetingId: string): ClienteDeActa => ({
   pedir: () => pedirActa(meetingId),
   reanudar: (actaId) => reanudarActa(meetingId, actaId),
 });
+
+/* ── Preguntar ───────────────────────────────────────────────────────── */
+
+/**
+ * Le pregunta a la reunión: manda la pregunta (y la conversación anterior) y entrega la respuesta por trozos a `alTexto` apenas
+ * llega. Devuelve si se cortó por su largo. Lanza `ErrorApi` con un mensaje listo para mostrar si no se pudo (sin cupo, la
+ * reunión aún se procesa, la IA falló a mitad de camino…); si `senal` se cancela, lanza el `AbortError` del navegador.
+ */
+export const preguntarALaReunion = (meetingId: string): Respondedor => async (pedido, { alTexto, senal }) => {
+  let res: Response;
+  try {
+    res = await fetch(`/api/meetings/${encodeURIComponent(meetingId)}/preguntar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pedido),
+      signal: senal,
+    });
+  } catch (e) {
+    if (senal.aborted) throw e;
+    throw new ErrorApi("No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.", 0);
+  }
+  if (!res.ok || !res.body) {
+    let cuerpo: unknown = null;
+    try {
+      cuerpo = await res.json();
+    } catch {
+      /* sin cuerpo JSON */
+    }
+    const mensaje = (cuerpo as { error?: unknown } | null)?.error;
+    throw new ErrorApi(typeof mensaje === "string" && mensaje ? mensaje : mensajePorEstado(res.status), res.status);
+  }
+
+  let cortada = false;
+  let terminado = false;
+  try {
+    for await (const e of leerEventosSSE(res.body)) {
+      const datos = (e.datos ?? {}) as { texto?: unknown; mensaje?: unknown; cortada?: unknown };
+      if (e.evento === "delta" && typeof datos.texto === "string") alTexto(datos.texto);
+      else if (e.evento === "error") throw new ErrorApi(typeof datos.mensaje === "string" && datos.mensaje ? datos.mensaje : "No pudimos terminar la respuesta. Inténtalo de nuevo.", 502);
+      else if (e.evento === "done") {
+        cortada = datos.cortada === true;
+        terminado = true;
+      }
+    }
+  } catch (e) {
+    if (senal.aborted) throw e;
+    if (e instanceof ErrorApi) throw e;
+    throw new ErrorApi("Se perdió la conexión mientras llegaba la respuesta. Inténtalo de nuevo.", 0);
+  }
+  if (!terminado) throw new ErrorApi("La respuesta se cortó antes de terminar. Inténtalo de nuevo.", 0);
+  return { cortada };
+};

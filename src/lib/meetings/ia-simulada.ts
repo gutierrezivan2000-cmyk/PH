@@ -67,7 +67,11 @@ export function leerLeyenda(compartido: string): Map<string, string> {
 const recortar = (t: string, n: number) => (t.length <= n ? t : `${t.slice(0, n - 1).trimEnd()}…`);
 const sinTildes = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const tokens = (t: string) => Math.ceil(t.length / 4);
-const PALABRAS_VACIAS = new Set(["cual", "cuales", "como", "cuando", "donde", "quien", "quienes", "sobre", "para", "que", "los", "las", "una", "uno", "unos", "unas", "del", "con", "por", "fue", "fueron", "hay", "dice", "dijo", "reunion", "quedaron"]);
+const PALABRAS_VACIAS = new Set([
+  "cual", "cuales", "como", "cuando", "donde", "quien", "quienes", "sobre", "para", "que", "los", "las", "una", "uno", "unos", "unas", "del", "con", "por",
+  "fue", "fueron", "hay", "hubo", "dice", "dijo", "dijeron", "reunion", "quedaron", "quedo", "queda", "quedan", "salieron", "salio", "hablaron", "tomaron",
+  "hicieron", "asumio", "asumieron", "cuantos", "cuantas",
+]);
 
 /** `n` elementos repartidos a lo largo de la lista (el primero y el último incluidos). */
 function repartidos<T>(items: readonly T[], n: number): T[] {
@@ -111,9 +115,63 @@ export function textoDeSeccionSimulado(compartido: string, pedido: string, olvid
 const responderSeccion = (entrada: EntradaTexto, olvidar: ReadonlySet<string>): string =>
   textoDeSeccionSimulado(entrada.compartido, entrada.turnos[entrada.turnos.length - 1].texto, olvidar);
 
-/** Lo que contestaría «Preguntar»: lo que más se parece a la pregunta, citado con su hora entre corchetes. */
+/**
+ * Lo que la pregunta pide cuando es por una de las listas del resumen que lleva el bloque compartido (decisiones, compromisos,
+ * votaciones, pendientes): el modelo de verdad las lee de ahí, así que el simulado también.
+ */
+const INTENCIONES: Array<{ patron: RegExp; seccion: string; intro: string }> = [
+  { patron: /decisi|decidi|acord|aprob/, seccion: "Decisiones:", intro: "Estas fueron las decisiones de la reunión:" },
+  { patron: /compromis|tarea|encarg|asum|responsab/, seccion: "Compromisos:", intro: "Estos fueron los compromisos que quedaron:" },
+  { patron: /votaci|votos|votaron|voto/, seccion: "Votaciones:", intro: "Así salieron las votaciones:" },
+  { patron: /pendient/, seccion: "Pendientes que dejó la reunión:", intro: "Esto quedó pendiente:" },
+];
+
+/** Las líneas `- …` de una sección del resumen (hasta la línea en blanco). */
+function lineasDeSeccion(compartido: string, seccion: string): string[] {
+  const lineas = compartido.split("\n");
+  const i = lineas.indexOf(seccion);
+  if (i < 0) return [];
+  const salida: string[] = [];
+  for (let k = i + 1; k < lineas.length && lineas[k].startsWith("- "); k++) salida.push(lineas[k].slice(2));
+  return salida;
+}
+
+/** `D1 [01:05:30] texto — responsable: X — fecha: Y` → `**texto**, a cargo de X, con fecha Y [[t=01:05:30]]`. */
+function citarElemento(linea: string): { texto: string; cita: string } {
+  const m = /^(?:[DC]\d+ )?\[(\d{1,3}:\d{2}:\d{2})\] (.*)$/.exec(linea);
+  const cuerpo = m ? m[2] : linea;
+  const s = m ? segundosDeHora(m[1]) : null;
+  // Sin minuto (lo pendiente): tal cual, sin énfasis.
+  if (!m) return { texto: cuerpo, cita: "" };
+  const cita = s !== null ? ` ${marcaDeTiempo(s)}` : "";
+  // Una votación: `asunto: cifras; resultado: …` → en negrita solo el asunto.
+  const voto = /^(.+?): (.*; resultado: .*)$/.exec(cuerpo);
+  if (voto) return { texto: `**${voto[1].trim()}**: ${voto[2]}`, cita };
+  const [texto, ...resto] = cuerpo.split(" — ");
+  const responsable = resto.find((r) => r.startsWith("responsable: "))?.slice(13);
+  const fecha = resto.find((r) => r.startsWith("fecha: "))?.slice(7);
+  const detalle = [responsable ? `a cargo de ${responsable}` : "", fecha ? `con fecha ${fecha}` : ""].filter(Boolean).join(", ");
+  return { texto: `**${texto.trim()}**${detalle ? `, ${detalle}` : ""}`, cita };
+}
+
+function responderPorLista(pregunta: string, compartido: string): string | null {
+  const sin = sinTildes(pregunta);
+  const intencion = INTENCIONES.find((i) => i.patron.test(sin));
+  if (!intencion) return null;
+  const todas = lineasDeSeccion(compartido, intencion.seccion);
+  if (todas.length === 0) return null;
+  // Si además pregunta por un tema («…sobre los ascensores»), solo lo que lo menciona.
+  const tema = [...new Set(sin.split(/[^a-z0-9]+/).filter((p) => p.length >= 4 && !PALABRAS_VACIAS.has(p) && !INTENCIONES.some((i) => i.patron.test(p))))];
+  const filtradas = tema.length > 0 ? todas.filter((l) => tema.some((p) => sinTildes(l).includes(p))) : todas;
+  if (filtradas.length === 0) return null;
+  return `${intencion.intro}\n\n${filtradas.map((l) => { const c = citarElemento(l); return `- ${c.texto}${c.cita}`; }).join("\n")}`;
+}
+
+/** Lo que contestaría «Preguntar»: lo que pide de las listas del resumen o, si no, lo que más se parece a la pregunta, citado con su hora. */
 function responderPregunta(entrada: EntradaTexto): string {
   const pregunta = entrada.turnos[entrada.turnos.length - 1].texto;
+  const porLista = responderPorLista(pregunta, entrada.compartido);
+  if (porLista) return porLista;
   const palabras = [...new Set(sinTildes(pregunta).split(/[^a-z0-9]+/).filter((p) => p.length >= 4 && !PALABRAS_VACIAS.has(p)))];
   const nombres = leerLeyenda(entrada.compartido);
   const quien = (etiqueta: string) => nombres.get(etiqueta) ?? "Una persona";

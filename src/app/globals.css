@@ -2192,7 +2192,8 @@ select.ui-input:focus-visible {
 :root[data-paleta="calma"] .k-barra.excede > i { background: var(--danger); }
 :root[data-paleta="calma"] .k-celdas > i { background: var(--accent); }
 :root[data-paleta="calma"] .k-semana > .hoy, :root[data-paleta="calma"] .k-mes:has(> :checked), :root[data-paleta="calma"] .k-cornisa > button[aria-pressed="true"] { background: var(--accent); box-shadow: none; }
-:root[data-paleta="calma"] .k-msg-u { background: var(--accent); box-shadow: none; }
+/* La burbuja redefine --accent como blanco para lo que lleva dentro: el fondo no puede leerlo (saldría blanco sobre blanco). */
+:root[data-paleta="calma"] .k-msg-u { background: var(--brand); box-shadow: none; }
 :root[data-paleta="calma"] .k-marca-s, :root[data-paleta="calma"] .k-yo-a { background: var(--accent); box-shadow: none; }
 :root[data-paleta="calma"] .k-dock > [aria-current="page"] > .ico, :root[data-paleta="calma"] .k-dock > [aria-expanded="true"] > .ico { background: var(--accent); color: var(--on-accent); }
 

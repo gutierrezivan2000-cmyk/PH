@@ -8,7 +8,8 @@ import { exigirVisible, reunionDelUsuario } from "@/lib/meetings/acceso";
 import { TIPO_DE_USO_PREGUNTA, comprobarCupoDePreguntas } from "@/lib/meetings/cupo-preguntas";
 import { demoPuedePreguntar, demoResponderPregunta } from "@/lib/meetings/demo-preguntar";
 import { ErrorIA, crearClienteIA, tokensDeUso } from "@/lib/meetings/ia";
-import { leerPedido, responderPregunta } from "@/lib/meetings/preguntar";
+import { leerPedido } from "@/lib/meetings/preguntar-pedido";
+import { responderPregunta } from "@/lib/meetings/preguntar-servidor";
 import { crearFlujoSSE } from "@/lib/meetings/sse";
 
 type Contexto = { params: Promise<{ id: string }> };
