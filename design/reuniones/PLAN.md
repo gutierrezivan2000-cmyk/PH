@@ -150,7 +150,7 @@ Todo queda separado por copropiedad.
        `[[t=01:23:45]]`.
      - Una verificación determinista confirma que están todas las decisiones y compromisos.
    - Modelo en la variable `MEETINGS_MODEL`; por defecto `claude-opus-5-5`, según la skill `claude-api`.
-   - Esfuerzo en `MEETINGS_EFFORT`; por defecto `high`, y `medium` en Preguntar.
+   - Esfuerzo en `MEETINGS_EFFORT`; por defecto `high`, y `medium` en Preguntar (`MEETINGS_EFFORT_PREGUNTAR`).
    - `fallbacks: "default"` activado.
 8. **El acta se guarda como `Generation`** con `meetingId`. Así aparece en Historial y se descarga con las
    rutas actuales, sin tocarlas.
@@ -571,7 +571,7 @@ implementaciones:
 **`src/lib/meetings/ia.ts`**: cliente según la skill `claude-api`.
 
 - Modelo `process.env.MEETINGS_MODEL ?? "claude-opus-5-5"`.
-- `output_config.effort = process.env.MEETINGS_EFFORT ?? "high"` (`medium` en Preguntar). En Opus 5.5 el
+- `output_config.effort = process.env.MEETINGS_EFFORT ?? "high"` (`medium` en Preguntar, con `MEETINGS_EFFORT_PREGUNTAR`). En Opus 5.5 el
   pensamiento no se desactiva y el esfuerzo por defecto es `medium`, así que se fija explícito.
 - Streaming con `finalMessage()`.
 - `fallbacks: "default"` con la cabecera beta que indique la skill; está vigente
@@ -662,8 +662,10 @@ usuario y que Reuniones es visible para él (si no, 404). Todas tienen rama demo
 | `PUT /api/meetings/[id]/speakers` | `{ hablantes: [{ label, name, role?, personId? }] }`. Varias etiquetas con el mismo nombre equivalen a una fusión |
 | `GET /api/meetings/[id]/audio` | `audio.mp3` con `Range`: 206, `Content-Range`, `Accept-Ranges` y `Content-Length` (Safari las exige). Cada respuesta pasa de 4 MiB como mucho: el navegador pide el resto. También `HEAD` |
 | `GET /api/meetings/[id]/transcript` | `.txt` con nombres |
-| `POST /api/meetings/[id]/acta` | `{}` → `{ generationId }` |
-| `POST /api/meetings/[id]/preguntar` | SSE: `delta`, luego `done` |
+| `GET /api/meetings/[id]/acta[?texto=1]` | `{ acta, texto }`. `acta` es la más reciente de la reunión (`null` si no se pidió): `{ id, estado: procesando\|lista\|error, progreso, etapa, secciones: { hechas, total }, creadaEn, terminadaEn, error, pendientes[], requisitos[], archivos: { html, markdown } }`. Con `?texto=1` y el acta lista, `texto` trae el acta con sus marcadores (`[[t=…]]`, `[[D1]]`) para la vista. Mientras se redacta, empuja al trabajador |
+| `POST /api/meetings/[id]/acta` | `{ reanudar?: id }` → `{ acta, yaEnCurso }`. 201 si empezó, 200 si ya había una en curso (un doble clic no gasta dos) o si se retomó (`reanudar`: un acta con error; lo ya redactado se conserva). 400 (`reanudar` no es un identificador válido), 404, 409 (la reunión aún se procesa, sin transcripción, o el acta no está en error), 429 (cupo de generaciones del plan) |
+| `POST /api/meetings/[id]/preguntar` | `{ pregunta, historial?: [{ rol, texto }] }` → SSE: `inicio`, `delta { texto }` (por trozos), `done { cortada, modelo }` o `error { mensaje }`. Antes de responder: 400, 404, 409, 429 (cuenta como un mensaje de agente del plan) o 503 (sin clave de IA). La conversación no se guarda: el navegador manda el historial (máximo 10 turnos) |
+| `GET /api/download/[generationId]/acta-markdown` | El acta en markdown (sin marcadores), como archivo |
 | `GET/POST /api/properties/[propertyId]/people` y `PATCH/DELETE …/people/[personId]` | Personas de la copropiedad |
 | `GET /api/cron/process-meetings` | Cron cada minuto |
 | `GET /api/cron/cleanup-meetings` | Cron diario (`17 4 * * *`) |
@@ -1517,6 +1519,107 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
   oscuro y claro × 1440 y 390 px): **contraste 0 textos bajo el mínimo, 0 desbordes, 0 errores de consola**, uso por teclado
   (Tab y Espacio) y el barrido de todo el sitio limpio.
 
+**Notas de M8 (desviaciones y decisiones al construir):**
+
+- **Sin cambios de esquema.** El acta es una `Generation` (`type: "acta"`, `meetingId`) más tareas de la misma cola de la reunión; Preguntar
+  no guarda la conversación (solo el registro de uso). Las tareas llevan el identificador del acta en la clave (`acta:<gen>:calentar`, `acta:<gen>:s<k>` y `acta:<gen>:final`),
+  así que una reunión puede tener varias actas sin que una pise a otra. **El plan hablaba solo de `s<k>` y `final`: `calentar` (escribir
+  la transcripción completa en la caché de 1 h) es ahora una tarea propia**, para que se reintente y cuente en el avance (5 % calentar ·
+  85 % secciones · 10 % armar). Un filtro `NO_ES_DE_ACTA` en `cola.ts` evita que el congelado y el reintento de la *reunión* toquen las
+  tareas del acta.
+- **El plan de secciones se fija al empezar** y viaja en el payload de `calentar`: el acta se redacta con el plan con que empezó, aunque
+  la ficha cambie después (si se «Genera el resumen otra vez» a mitad, los `D*`/`C*` pueden dejar de coincidir y la verificación lo
+  dice en «Pendientes de verificación»). Hasta 12 secciones, una por tema del orden del día (los temas mínimos se agrupan); sin orden
+  del día, tramos de 30 min.
+- **Un fallo del acta detiene el acta, no la reunión** (al revés que el análisis, que omite lo que la IA no pudo: un acta con una
+  sección que falta no sirve). Se reintenta solo (30 s, 2 min, 10 min; 3 intentos) y, si no hay arreglo, la `Generation` queda `failed`
+  con un mensaje que dice qué sección falló (`marcarActaEnError`) y la reunión sigue «lista». **«Intentar de nuevo»** (`reanudarActa`)
+  conserva lo ya redactado (cada sección hecha ya se pagó) y solo repite lo que falló; al retomarla vuelve a contar para el cupo. Si el
+  calentamiento no logra dejar la caché (por ejemplo, si el servicio rechaza `max_tokens: 0`), la primera sección va sola —la escribe— y
+  las demás la leen. **El sistema y el esfuerzo son idénticos en todas las llamadas del acta, también en los reintentos**: cambiarlos invalida la caché.
+- **Rescate de actas cortadas.** Si el proceso muere entre crear la `Generation` y encolar `calentar`, nada la haría avanzar nunca (y
+  «Intentar de nuevo» tampoco: no habría qué reintentar). `avanzarActa` —que llama el trabajador, el cron `process-meetings` cada minuto y
+  ahora también `iniciarActa` cuando ya hay una en curso— vuelve a encolar `calentar` con un plan nuevo de la reunión de quien pidió el
+  acta; sin la reunión, falla con su mensaje en vez de quedarse esperando. Un doble clic devuelve la misma acta (no gasta dos); dos
+  clics casi a la vez dejan la más antigua y borran la otra.
+- **Qué arma el acta con reglas y qué redacta la IA.** La IA solo redacta las secciones (con la transcripción completa en la caché y,
+  para cada una, su tema, su tramo y los `D*`/`C*` que caen en él); `armarActa` pone el encabezado, los asistentes, el orden del día,
+  el cuadro de decisiones, las votaciones, los compromisos, el cierre y las firmas, y **verifica que cada `D*` y `C*` de la ficha quedó
+  recogido** (lo que falte va a «Pendientes de verificación»). Lo que no se dijo queda `[PENDIENTE DE COMPLETAR]`. Se suben
+  `acta.html` (con `generatePdfHtml`, sin cambiarlo), `acta.md` (sin marcadores) y `acta-referencias.md` (con marcadores, para la
+  vista) a `generations/<id>/`; `analyzeActaRequirements` revisa los requisitos de la Ley 675 (si falla, el acta igual sale); el
+  uso queda en `UsageRecord` como `reunion_acta`. **`generatePdfHtml` no escapa el contenido**, así que todo texto del acta se guarda
+  como «markdown seguro» (`&`, `<`, `>` como entidades) y solo `acta.md` se des-escapa al exportar.
+- **Marcadores.** `[[D1]]`, `[[C2]]`, `[[t=hh:mm:ss]]`. Un único lector (`acta-vista.ts`, puro) los convierte en bloques tipados que la
+  pantalla dibuja con sus propios componentes (`VistaDeTexto`): **nunca como HTML**. El minuto es un botón que lleva a ese punto de la
+  transcripción; `D1`/`C2` son una marca discreta; lo `[PENDIENTE DE COMPLETAR]` se resalta. Para las respuestas de Preguntar, que no
+  vienen limpias, el lector descarta los minutos que pasan de la duración de la reunión (`maxSegundos`).
+- **Rutas.** `GET/POST /api/meetings/[id]/acta` (el GET empuja el trabajo si hay tareas listas y nadie las atiende: las vistas previas
+  no tienen cron) y `POST /api/meetings/[id]/preguntar` (SSE; antes de empezar responde JSON con 400/404/409/429/503). Las dos con su
+  rama demo antes de tocar `db` y en la tabla `TODAS` de `rutas.test.ts`. **Corregido de paso un error latente de M7:** `/reanalyze`
+  tenía `maxDuration = 60` pero `empujar()` corre un trabajador de 230 s; ahora 300, y `empujon-rutas.test.ts` exige que **toda** ruta que
+  llame a `empujar()` dure más que el trabajador.
+- **Pestaña «Acta».** Cuatro estados: *sin acta* (explica qué hará y que cuenta como una generación del plan), *redactando* (barra por
+  etapas: preparando · redactando n de N · armando), *error* (dice qué falló; «Intentar de nuevo») y *lista* (el acta con los minutos
+  enlazados, «Abrir el documento» para imprimir o guardar como PDF, «Descargar en markdown», «Redactar de nuevo…» —avisa que gasta otra
+  generación—, «Pendientes de verificación» y los requisitos de la Ley 675 con su cumplimiento). Aparece en Historial como cualquier otra
+  generación y se descarga con las rutas de siempre (se añadió el tipo `acta-markdown`). El controlador (`controlador-acta.ts`) es puro,
+  con el cliente y los temporizadores inyectados, y la pantalla lo lee con `useSyncExternalStore`; seguro bajo StrictMode.
+- **Preguntar.** El bloque compartido (datos, voces, el resumen —«una ayuda: manda la transcripción»— y la transcripción COMPLETA) va
+  primero y se guarda 1 h en la caché; después, el historial (máximo 10 turnos que manda el navegador, con tope de 6.000 caracteres por
+  turno) y la pregunta (máximo 2.000). El sistema es fijo y el esfuerzo es `medium` (`MEETINGS_EFFORT_PREGUNTAR`). La respuesta
+  se corta a 6.000 tokens (`cortada`) y tiene un tope de 110 s. Se emite por SSE (`inicio`, `delta`, `done`, `error`); el lector del
+  cliente aguanta `\r\n` y un `\r` suelto al final de un trozo (lo encontró una prueba con saltos de línea de Windows).
+- **Cupo de Preguntar** (`cupo-preguntas.ts`): cada pregunta es **un mensaje de agente del plan, en la misma bolsa del chat de agentes**
+  (Pro 30 al día y 150 a la semana; Business 60 y 400; Élite 150 y 1.000; prueba gratis 15 al día; sin tope en cuentas beta y en
+  `OPEN_TESTING`). Se cuentan los mensajes que la persona le escribió a los agentes más sus preguntas registradas como `reunion_pregunta`
+  (con tokens y costo, al terminar). Una falla al consultar **no bloquea** (como el resto de los topes de la plataforma). Los días y las
+  semanas son los de Bogotá.
+- **Pestaña «Preguntar».** Sin conversación: título, qué hace y cuatro preguntas para empezar (una de ellas del primer tema de *esta*
+  reunión). Con conversación: la respuesta se escribe a medida que llega («Detener» la corta y lo dice; «Volver a preguntar»), un marcador
+  a medias (`[[t=00:4`) no se dibuja roto, cada minuto citado es un botón que abre la transcripción en ese punto, un error a mitad de
+  camino conserva lo que llegó y ofrece «Intentar de nuevo», y «Nueva conversación» la borra (**la conversación no se guarda**: se dice
+  en la pantalla). Al historial solo entran los pares completos: una respuesta detenida, cortada por error o aún escribiéndose no
+  se manda como contexto. **La pantalla sigue la respuesta** (su final queda sobre el cuadro de la pregunta) y deja de seguirla si la persona
+  sube a releer: la rueda, el dedo y el teclado avisan *antes* de que la pantalla se mueva (si no, un trozo que llega justo después la
+  devolvería), y la posición (`subioAReleer`) cubre lo que no avisa —arrastrar la barra de desplazamiento—. Con la reunión
+  reprocesándose el cuadro se desactiva y dice por qué.
+- **El cliente no importa nada del servidor.** Al armar la pestaña salió un error de empaquetado (`@prisma/client`/`pg` en el navegador) porque
+  `TabPreguntar` importaba `preguntar.ts` y este, `contexto-reunion` → `db`. Se partió en `preguntar-pedido.ts` (límites y lectura del
+  pedido, seguro para el cliente), `preguntar.ts` (solo lo que se le dice a la IA) y `preguntar-servidor.ts` (`responderPregunta`, que sí
+  usa la base de datos), y **`cliente-puro.test.ts` recorre lo que importa cada módulo del navegador y falla si llega a `db`, `prisma`,
+  `node:*` o el SDK de Anthropic** (se comprobó que atrapa el error original).
+- **Demo.** El acta y Preguntar usan el MISMO código de verdad y el modelo simulado (`ia-simulada.ts`), que ahora redacta secciones y
+  contesta Preguntar con reglas fijas sobre las listas de la ficha: lo que se ve es un acta real, con sus minutos. El avance es por tiempo
+  (calentar 1,5 s · una sección cada 1,8 s · armar 1,5 s). La reunión «agosto» falla la primera vez en una sección para ver el error y
+  «Intentar de nuevo». Las cuatro preguntas sugeridas tienen respuesta, y lo que la reunión no dice se contesta «No encuentro eso en la
+  reunión». Todo vive en memoria: **reiniciar el servidor antes de cada recorrido**.
+- **Cosas de la interfaz que salieron al probar:** el kit fija `--accent: #fff` dentro de `.k-msg-u`, así que en Calma el globo del
+  mensaje de la persona (`background: var(--accent)`) quedaba blanco sobre blanco → ahora usa `var(--brand)` (con su
+  comentario en `globals.css`); la rueda del ratón fuera de una pantalla de 390 px movía la página sin avisarle (era un error de
+  la prueba, pero destapó el hueco de la barra de desplazamiento, ya cubierto).
+- **Para verificar en la primera vista previa** (no se puede aquí: no hay clave de Anthropic): (a) que `max_tokens: 0` caliente la
+  caché en el servicio real y los `cache_read_input_tokens` de las secciones y de la segunda pregunta sean altos; (b) la latencia de
+  una sección con `high` frente al timeout de 200 s por llamada (si no cabe, bajar `MEETINGS_EFFORT`); (c) el costo real del acta y de
+  la primera pregunta frente a la estimación de §12 (≈ US$ 1,5 y ≈ US$ 0,6 en 8 h); (d) que el SSE de Vercel no junte los trozos (se mandan
+  `Cache-Control: no-transform` y `X-Accel-Buffering: no`); (e) la calidad de las actas con reuniones reales: que cada cita
+  `[[t=…]]` caiga donde se dijo.
+- **Límites conocidos (planeados):** la conversación de Preguntar no se guarda; el plan de secciones del acta no se rehace si cambia la
+  ficha a mitad; el «Redactar de nuevo…» no tiene tope aparte del cupo de generaciones; **`/api/agents/usage` todavía no suma las
+  preguntas a reuniones** (M9: «Horas y mensajes» visibles en Suscripción y `UsageCard`); el chat de agentes cuenta sus días con la hora
+  del servidor y Preguntar con la de Bogotá (la diferencia solo importa entre las 7 p. m. y la medianoche si el servidor está en UTC);
+  `acta.md` se descarga sin escapar y sin marcadores (pensado para llevarlo a Word); una reunión en `sin_cupo` sigue sin «Procesar de
+  nuevo» (M9).
+- **Pruebas** (de 1489 a 1905 en total): el acta —puro 53, tareas 39, orquestador 44 (con el rescate), estado 18, vista 20, pantalla 7, controlador 21, demo 16 y rutas 22—,
+  Preguntar —pedido, contexto y servidor 31, pantalla 17, controlador 19, cupo 15 y ruta 17—, el SSE 17, la guarda de pureza del cliente 4 y
+  las tablas de `rutas` (la bandera cubre las rutas nuevas) y del cliente. Se verificaron por mutación las reglas de las secciones, la limpieza, la cobertura de
+  `D*`/`C*`, la orquestación, el rescate de actas cortadas, la reanudación, el SSE, el cupo, los controladores y `subioAReleer` (las
+  mutaciones que sobrevivieron eran guardas redundantes: se quitó la que sobraba). Navegador (Playwright, oscuro y claro × 1440 y
+  390 px), recorridos del acta y de Preguntar —estados vacío, escribiendo, respondida, detenida, sin cupo, interrumpida y reintento,
+  historial en el segundo pedido, nueva conversación, lo que no dice la reunión, resumen reprocesándose, y el seguimiento de la
+  pantalla (sigue y se suelta al releer con la rueda y con la barra)—: **contraste 0 textos bajo el mínimo, 0 desbordes, 0 errores de
+  consola**; `tsc`, `eslint`, `next build` y el barrido de todo el sitio, limpios.
+
 | Hito | Estado | Commit | Notas |
 |---|---|---|---|
 | M0 Fundaciones | hecho | (ver `git log`) | Ver «Notas de M0» arriba. |
@@ -1527,6 +1630,6 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
 | M5 Transcripción | hecho | (ver `git log`) | Ver «Notas de M5» arriba. |
 | M6 Ficha, hablantes, cupos | hecho | (ver `git log`) | Ver «Notas de M6» arriba. |
 | M7 Página de la reunión | hecho | (ver `git log`) | Ver «Notas de M7» arriba. |
-| M8 Acta y Preguntar | pendiente | | |
+| M8 Acta y Preguntar | hecho | (ver `git log`) | Ver «Notas de M8» arriba. |
 | M9 Cupos visibles, retención, piloto | pendiente | | |
 | M10 AssemblyAI (opcional) | pendiente | | |
