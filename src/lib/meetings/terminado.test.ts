@@ -121,4 +121,62 @@ describe("al pasar a «lista»", () => {
     await avanzar(ID); // y ya lista, no se vuelve a tocar
     expect(correo).toHaveBeenCalledTimes(1);
   });
+
+  describe("cuando se vuelve a pedir el resumen (la reunión ya había estado lista)", () => {
+    const ANTES = new Date("2026-10-01T12:00:00Z");
+    const DESPUES = new Date("2026-10-01T13:00:00Z");
+
+    /** Las tareas de la primera vez son de antes de `ANTES`; las que se rehicieron, de después. */
+    async function conReanalisis() {
+      await reunionTerminada({ costUsd: 0.063 + 0.5, readyAt: ANTES });
+      for (const t of db.meetingTask.filas) t.updatedAt = new Date("2026-10-01T11:00:00Z");
+      // El fragmento omitido la primera vez (sin costo) y la ficha se rehicieron después: cuestan 0,3 y 0,2.
+      const bloque = db.meetingTask.filas.find((x) => x.key === "bloque:0")!;
+      bloque.result = uso(0.3, 12_000, 1_500);
+      bloque.updatedAt = DESPUES;
+      const ficha = db.meetingTask.filas.find((x) => x.key === "ficha")!;
+      ficha.result = uso(0.2, 8_000, 1_000);
+      ficha.updatedAt = DESPUES;
+      // Un fragmento hecho la primera vez y que se conserva: ya se pagó y ya se registró.
+      await db.meetingTask.create({ data: { meetingId: ID, kind: "analizar_bloque", key: "bloque:1", status: "hecha", result: uso(0.5, 30_000, 4_000) } });
+      db.meetingTask.filas.find((x) => x.key === "bloque:1")!.updatedAt = new Date("2026-10-01T11:30:00Z");
+    }
+
+    it("suma solo lo nuevo al costo de la reunión y deja solo el registro de la IA (sin el del audio ni otro correo)", async () => {
+      await conReanalisis();
+      await alPasarALista(ID, undefined, { desde: ANTES });
+      expect(db.meeting.filas[0].costUsd).toBeCloseTo(0.063 + 0.5 + 0.5, 9); // lo de antes + 0,3 + 0,2
+      expect(db.usageRecord.filas.map((x) => ({ type: x.type, tokens: x.tokens, costUsd: x.costUsd }))).toEqual([
+        { type: "reunion_ia", tokens: 12_000 + 1_500 + 8_000 + 1_000, costUsd: 0.5 },
+      ]);
+      expect(correo).not.toHaveBeenCalled();
+    });
+
+    it("si la IA no costó nada esta vez (volvió a fallar), no cambia el costo ni deja registros", async () => {
+      await conReanalisis();
+      for (const t of db.meetingTask.filas) t.updatedAt = new Date("2026-10-01T11:00:00Z");
+      await alPasarALista(ID, undefined, { desde: ANTES });
+      expect(db.meeting.filas[0].costUsd).toBeCloseTo(0.563, 9);
+      expect(db.usageRecord.filas).toEqual([]);
+      expect(correo).not.toHaveBeenCalled();
+    });
+
+    it("sin «desde» (la primera vez) cuenta todo, registra el audio y avisa", async () => {
+      await conReanalisis();
+      await alPasarALista(ID);
+      expect(db.usageRecord.filas.map((x) => x.type)).toEqual(["reunion_audio", "reunion_ia"]);
+      expect(correo).toHaveBeenCalledTimes(1);
+    });
+
+    it("el orquestador pasa a «lista» sabiendo desde cuándo estuvo lista la vez anterior", async () => {
+      await conReanalisis();
+      db.meeting.filas[0].status = "procesando";
+      db.meeting.filas[0].stage = "analizando";
+      await avanzar(ID);
+      expect(db.meeting.filas[0]).toMatchObject({ status: "lista" });
+      expect((db.meeting.filas[0].readyAt as Date).getTime()).toBeGreaterThan(DESPUES.getTime());
+      expect(db.usageRecord.filas.map((x) => x.type)).toEqual(["reunion_ia"]);
+      expect(correo).not.toHaveBeenCalled();
+    });
+  });
 });

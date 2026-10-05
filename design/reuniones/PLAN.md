@@ -657,9 +657,10 @@ usuario y que Reuniones es visible para él (si no, 404). Todas tienen rama demo
 | `POST /api/meetings/[id]/markers` | `{ id?, atMs, kind, note? }` → `{ marker }`. Idempotente por `id` (lo pone el dispositivo) |
 | `POST /api/meetings/[id]/process` | `{ sesiones?: [{ session, ultimaSecuencia, mimeType, duracionMs }] }` → `{ status: "en_cola" }`, o 409 con `{ faltan: [{ session, seq }] }`. Encola la primera etapa y empuja |
 | `POST /api/meetings/[id]/retry` | Reintenta las tareas fallidas |
+| `POST /api/meetings/[id]/reanalyze` | «Generar el resumen otra vez»: solo si la IA falló (o dejó fragmentos sin analizar). Rehace esos fragmentos y la ficha → `{ status: "procesando", fragmentos }`; 409 si ya tiene su resumen completo o todavía se procesa |
 | `GET /api/meetings/[id]/utterances?desde=&hasta=&q=` | `{ items: [{ id, startMs, endMs, speaker, text }], nombres, siguienteMs? }`, en páginas de 30 min |
 | `PUT /api/meetings/[id]/speakers` | `{ hablantes: [{ label, name, role?, personId? }] }`. Varias etiquetas con el mismo nombre equivalen a una fusión |
-| `GET /api/meetings/[id]/audio` | `audio.mp3` con `Range`: 206, `Content-Range`, `Accept-Ranges` y `Content-Length` (Safari las exige) |
+| `GET /api/meetings/[id]/audio` | `audio.mp3` con `Range`: 206, `Content-Range`, `Accept-Ranges` y `Content-Length` (Safari las exige). Cada respuesta pasa de 4 MiB como mucho: el navegador pide el resto. También `HEAD` |
 | `GET /api/meetings/[id]/transcript` | `.txt` con nombres |
 | `POST /api/meetings/[id]/acta` | `{}` → `{ generationId }` |
 | `POST /api/meetings/[id]/preguntar` | SSE: `delta`, luego `done` |
@@ -1434,6 +1435,88 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
   cupo y la fusión de voces. Siguen en verde `tsc`, `eslint`, `next build` y el barrido de pantallas (oscuro/claro,
   escritorio/móvil).
 
+**Notas de M7 (desviaciones y decisiones al construir):**
+
+- **Audio por rangos** (`GET /api/meetings/[id]/audio`, también `HEAD`; `audio-http.ts` puro). Un solo rango `bytes=a-b`, `a-` o `-n`
+  → 206 con `Content-Range`, `Accept-Ranges` y `Content-Length` exactos (el primer sondeo de Safari, `bytes=0-1`, es un 206 de dos
+  bytes); más allá del final → 416 con `bytes */total`; varios rangos o una cabecera mal escrita se ignoran (RFC 9110) y sale
+  el archivo entero. **Cada respuesta pasa de 4 MiB como mucho** (≈ 17 min de audio): un «hasta el final» se corta ahí y el
+  navegador pide el siguiente trozo. Es *menos* de lo que habíamos pensado (8 MiB) porque Vercel deja 4,5 MB en el cuerpo de una
+  respuesta de función: una respuesta en flujo no tiene ese tope, pero no hace falta apostarle (cuesta una petición más cada
+  17 min). Pide el tamaño (`tamano`) y lee solo el rango del Blob privado; nunca entrega su URL; 404 con motivo (reunión ajena o
+  sin audio, o el archivo ya no está), 503 con `Retry-After` si el almacén falla de momento. Verificado por mutación (el tope, el
+  `+1` de `Content-Length`, no leer el archivo entero, la pertenencia).
+- **Audio del demo:** un MP3 *de verdad* (CBR 32 kbps, 16 kHz, mono) hecho solo de tramas en silencio, calculado por posición
+  (`audio-demo.ts`): una reunión de 8 h «pesa» 115 MB y se sirve por rangos sin memoria. Se comprobó con el **ffmpeg real** que se
+  decodifica sin un solo error (también un trozo del minuto 5:12:40). **En el demo no suena nada** (el reproductor, los saltos y la
+  velocidad funcionan igual): conviene saberlo antes de enseñarlo.
+- **Un solo motor de audio por página** (`motor-audio.ts`, sin React): lo usan el reproductor de la transcripción, el «Escuchar»
+  de las voces y los saltos desde el resumen. Es un almacén que la pantalla lee con `useSyncExternalStore` y selectores de *valores*
+  (número, texto, booleano): lo que cambia cuatro veces por segundo (el minuto) solo vuelve a pintar quien lo muestra, no las
+  miles de intervenciones. El `<audio>` se crea **la primera vez que hace falta sonar**: llevar el reproductor a un minuto desde
+  una decisión solo anota la posición y no pide nada al servidor. Una *muestra* (la voz de alguien) suena a 1× aunque se oiga a 2×
+  y se corta sola; cada error de `<audio>` sale en español con «Reintentar»; `destruir()` suelta la red y se puede reutilizar (React
+  vuelve a montar en desarrollo). Todo entra por `AudioLike`: 30 pruebas con un `<audio>` falso, 6 mutaciones detectadas.
+- **Reproductor** (`ReproductorReunion`): Reproducir/Pausar, ±15 s, velocidad 1 / 1,25 / 1,5 / 2×, deslizador de posición (salta
+  *una vez* a los 220 ms, no por cada píxel que se arrastra; dice «1:05:30 de 2:14:00» a los lectores de pantalla), «Seguir la
+  lectura» y la hora. Fijo bajo la cabecera mientras se baja. Todo son controles nativos: **Tab** recorre Retroceder → Reproducir →
+  Adelantar → Velocidad → Seguir → Posición y **Espacio** reproduce/pausa (probado en el navegador). En el teléfono ocupa tres filas
+  (el botón de reproducir solo con su icono, que sigue llamándose «Reproducir» para los lectores).
+- **Visor de la transcripción** (`VisorTranscripcion`): la hora de cada intervención es un botón («Reproducir desde 01:05:30»); la
+  que suena queda marcada (búsqueda binaria `intervencionEnCurso`, 2 s de gracia entre dos para que no parpadee; filas
+  memoizadas) y **la lectura la sigue** (solo mueve la pantalla si la intervención no se ve; mover la página a mano —rueda,
+  dedo, teclas— apaga «Seguir la lectura»; si el audio salta a un minuto que no está cargado, y se está siguiendo, se carga la
+  página de ese minuto). Se pide lo siguiente 2 min antes de llegar al final de lo cargado. **Saltos:** una decisión del resumen o un
+  resultado de la búsqueda carga SOLO la página de 30 min donde cae (`ventana.ts`: lo cargado es una tira continua que se amplía
+  hacia los dos lados, con «Cargar los 30 min anteriores»), lleva allí la pantalla, destaca un momento la intervención y deja el
+  reproductor en ese minuto *sin sonar*. Al cargar lo anterior lo que se lee **no se corre** (se compensa la altura; con
+  `behavior: "instant"`, porque la página tiene `scroll-behavior: smooth` y se vería deslizarse: lo medimos, 0 px de diferencia).
+- **Búsqueda:** `utterances?q=` (toda la reunión, sin tildes ni mayúsculas) con 350 ms de espera, desde 2 letras; «N coincidencias para
+  «x»» o «Más de 200» con «Ver más resultados»; cada resultado se puede reproducir o «Ver en la transcripción»; Escape la limpia.
+  Lo buscado se marca (`resaltar.ts`): se normaliza carácter por carácter *recordando de cuál salió*, así la marca cae sobre
+  lo que se lee, también con «ñ», emojis y tildes sueltas (e + ´: la marca cubre las dos piezas). Dos palabras pegadas o que se
+  pisan quedan en una sola marca. 3 mutaciones detectadas.
+- **Pestaña «Resumen»** (ahora la de entrada) con `resumen-pantalla.ts`: cifras (duración, participantes, decisiones,
+  compromisos), el resumen con su rótulo «Generado con IA · revísalo contra la transcripción», Decisiones, Compromisos y Votaciones
+  (tablas), Temas tratados, Participantes y «Por confirmar»; **cada minuto lleva a ese punto de la transcripción**. Cinco estados:
+  *completo*; *parcial* (hay resumen pero la IA dejó N fragmentos sin analizar); *fallo* (la IA no pudo: lo dice y deja «Generar el
+  resumen otra vez»); *sin contenido* (la IA leyó y no halló qué resumir: no se ofrece gastar otra vez); *muy corta*. Para poder
+  distinguirlos, `leerFicha` ya no descarta una ficha que solo trae «por confirmar» o asistentes, y `Ficha` gana `fragmentosOmitidos?`.
+  Se probaron en el navegador los cinco, más «sin audio» (la hora es solo texto, sin «Escuchar») y «el audio no carga».
+- **Hablantes → «Escuchar»:** reproduce la muestra de cada voz (`sampleStartMs`–`sampleEndMs`, la que `unir` dejó limpia) con el mismo
+  reproductor; «Detener» mientras suena; si el audio falla, el aviso sale ahí mismo.
+- **«Generar el resumen otra vez»** (`reanalisis.ts`, `POST /api/meetings/[id]/reanalyze`): **solo cuando algo falló** (con el resumen
+  completo no tiene sentido pagar otra vez el análisis de 8 h) y **solo rehace lo que falló**: reinicia únicamente los fragmentos
+  omitidos y quita la tarea `ficha` (el orquestador la vuelve a encolar cuando todos estén hechos); lo ya analizado se conserva. El
+  cambio de estado a «procesando/analizando» va al final y condicionado a que siga «lista» (dos clics no la reinician dos veces; si
+  algo se corta a la mitad, volver a pulsar retoma). **Costos:** `readyAt` pasa a ser «la última vez que estuvo lista» y el
+  orquestador se lo da a `alPasarALista(…, { desde })`: solo cuenta las tareas que terminaron DESPUÉS (suma ese costo a la reunión y deja
+  *un* registro `reunion_ia`; no vuelve a registrar el audio ni manda otro correo). Una prueba de punta a punta lo calcula aparte
+  (los costos de las dos llamadas rehechas) para que no sea una tautología: sin el filtro por fecha, falla. Mientras se rehace, la
+  página muestra «Estamos generando el resumen otra vez · Analizando con IA n de N» **y las pestañas** (se puede leer y descargar
+  la transcripción: la reunión ya estuvo lista, `readyAt`).
+- **Demo:** una sexta reunión, «Reunión de consejo — agosto», lista pero con el resumen fallido, para probar el flujo (se rehace en
+  7 s y sale con el resumen completo). Las pruebas del demo pasan de 5 a 6 reuniones.
+- **Cosas de la interfaz que salieron al probar:** un aviso en línea con una acción larga se aplastaba a una palabra por línea en el
+  teléfono → ahora (≤ 560 px) la acción baja a su propia fila (`.k-aviso.k-linea`, vale para todo el producto); la fila que suena
+  usa un tinte del acento más fuerte (se veía poco en oscuro); las pestañas se separan del panel de proceso.
+- **Para verificar en la primera vista previa** (no se puede aquí): (a) en **Safari/iOS** que el reproductor salta y sigue (la
+  primera petición, `bytes=0-1`, y el corte a 4 MiB); (b) Chrome y Firefox con una reunión larga real (saltos a las horas
+  finales, 4 MiB por respuesta contra Vercel); (c) el `get` con `Range` del Blob privado bajo carga (y que cancelar un
+  salto corta la lectura); (d) que la reproducción en segundo plano del teléfono no se corta al bloquear la pantalla.
+- **Límites conocidos (planeados):** sin controles de pantalla de bloqueo (*Media Session*) ni atajos de teclado más allá de los
+  controles nativos; la búsqueda es por trozos de palabra (no por significado: eso es «Preguntar», M8); «Acta» y «Preguntar»
+  siguen siendo avisos hasta M8; una reunión en `sin_cupo` sigue sin «Procesar de nuevo» (M9); **el análisis usa las etiquetas V1…
+  y no los nombres que ya se pusieron a las voces** (con los nombres el resumen podría decir «Martha propuso…»: mejora para
+  después). Tampoco hay tope de veces para «Generar el resumen otra vez» (solo se paga lo que se rehace, y solo si falló).
+- **Pruebas** (de 1353 a 1489 en total): audio por rangos 17 + ruta 15 + demo 8 (con ffmpeg real), motor 30, resaltado 11,
+  ventana 11, resumen 12, reanálisis 13 (+ 4 de punta a punta con el trabajador, el orquestador y el modelo simulado, y 4 de
+  `alPasarALista`), línea de tiempo +1, demo y rutas (la tabla de la bandera cubre `audio`, `HEAD audio` y `reanalyze`; +4 del
+  reanálisis en demo). Se verificaron por mutación 23 reglas (rangos, motor, resaltado, ventana, línea de tiempo, estados del
+  resumen y todo el reanálisis); dos pruebas que pasaban por ser tautológicas se reescribieron al descubrirlo. Navegador (Playwright,
+  oscuro y claro × 1440 y 390 px): **contraste 0 textos bajo el mínimo, 0 desbordes, 0 errores de consola**, uso por teclado
+  (Tab y Espacio) y el barrido de todo el sitio limpio.
+
 | Hito | Estado | Commit | Notas |
 |---|---|---|---|
 | M0 Fundaciones | hecho | (ver `git log`) | Ver «Notas de M0» arriba. |
@@ -1443,7 +1526,7 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
 | M4 Cola y audio | hecho | (ver `git log`) | Ver «Notas de M4» arriba. |
 | M5 Transcripción | hecho | (ver `git log`) | Ver «Notas de M5» arriba. |
 | M6 Ficha, hablantes, cupos | hecho | (ver `git log`) | Ver «Notas de M6» arriba. |
-| M7 Página de la reunión | pendiente | | |
+| M7 Página de la reunión | hecho | (ver `git log`) | Ver «Notas de M7» arriba. |
 | M8 Acta y Preguntar | pendiente | | |
 | M9 Cupos visibles, retención, piloto | pendiente | | |
 | M10 AssemblyAI (opcional) | pendiente | | |

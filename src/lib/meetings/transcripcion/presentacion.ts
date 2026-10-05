@@ -44,19 +44,21 @@ export type GrupoDeHora = {
 const ORDEN: Record<EntradaDeLinea["tipo"], number> = { marca: 0, silencio: 1, intervencion: 2 };
 
 export function construirLinea({
-  intervenciones, silencios, marcas, cargadoHastaMs,
+  intervenciones, silencios, marcas, cargadoHastaMs, cargadoDesdeMs = 0,
 }: {
   intervenciones: readonly IntervencionDTO[];
   silencios: readonly RangoMs[];
   marcas: readonly MarcadorDTO[];
   /** Hasta dónde se ha cargado la transcripción (null: toda). Lo que empieza después no se muestra todavía. */
   cargadoHastaMs: number | null;
+  /** Desde dónde se ha cargado (0: desde el principio). Al saltar a un minuto lejano, lo anterior todavía no está. */
+  cargadoDesdeMs?: number;
 }): GrupoDeHora[] {
   const limite = cargadoHastaMs ?? Number.POSITIVE_INFINITY;
   const entradas: EntradaDeLinea[] = [
     ...intervenciones.map((i): EntradaDeLinea => ({ tipo: "intervencion", ms: i.startMs, clave: `i-${i.id}`, intervencion: i })),
-    ...silencios.filter((s) => s.desdeMs < limite).map((s): EntradaDeLinea => ({ tipo: "silencio", ms: s.desdeMs, clave: `s-${s.desdeMs}`, rango: s })),
-    ...marcas.filter((m) => m.atMs < limite).map((m): EntradaDeLinea => ({ tipo: "marca", ms: m.atMs, clave: `m-${m.id}`, marca: m })),
+    ...silencios.filter((s) => s.desdeMs >= cargadoDesdeMs && s.desdeMs < limite).map((s): EntradaDeLinea => ({ tipo: "silencio", ms: s.desdeMs, clave: `s-${s.desdeMs}`, rango: s })),
+    ...marcas.filter((m) => m.atMs >= cargadoDesdeMs && m.atMs < limite).map((m): EntradaDeLinea => ({ tipo: "marca", ms: m.atMs, clave: `m-${m.id}`, marca: m })),
   ].sort((a, b) => a.ms - b.ms || ORDEN[a.tipo] - ORDEN[b.tipo]);
 
   const grupos: GrupoDeHora[] = [];

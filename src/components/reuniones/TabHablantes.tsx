@@ -1,10 +1,12 @@
 "use client";
 
-import { CheckCircle2, Sparkles } from "lucide-react";
+import { CheckCircle2, Sparkles, Square, Volume2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useEstadoDeAudio } from "@/components/reuniones/useMotorDeAudio";
 import { Aviso, Boton, Campo, Entrada, Esqueleto, Etiqueta, Selector, Vacio, avisar } from "@/components/kit";
 import { ErrorApi, crearPersona, guardarHablantes, listarPersonas } from "@/lib/meetings/cliente";
 import type { HablanteDTO, PersonaDTO } from "@/lib/meetings/dto";
+import type { Motor } from "@/lib/meetings/motor-audio";
 import { claveDeNombre } from "@/lib/meetings/nombres";
 import {
   OTRA, alElegirPersona, aPedidos, aplicarSugerencia, eleccionInicial, hayCambios, nombreElegido, personasPorCrear, vocesQueSeUniran,
@@ -20,6 +22,7 @@ const CSS = `
 .re-voz-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .re-voz-nombre { margin: 0; font-size: 16px; font-weight: 600; color: var(--ink); }
 .re-voz-habla { margin: 0; font-size: 14px; color: var(--ink-3); font-feature-settings: "tnum" 1; }
+.re-voz-escuchar { margin-left: auto; }
 .re-voz-campos { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; }
 .re-voz-campos > * { margin: 0; }
 .re-voz-libre { grid-column: 1 / -1; }
@@ -36,18 +39,46 @@ const CSS = `
 const mensajeDe = (e: unknown, porDefecto: string) => (e instanceof ErrorApi ? e.message : porDefecto);
 const ROLES = Object.entries(ROLES_PERSONA) as Array<[RolPersona, string]>;
 
+/** «Escuchar»: reproduce la muestra de la voz (unos 6 s) con el reproductor de la página; «Detener» mientras suena. */
+function BotonEscuchar({ motor, etiqueta, nombre, desdeMs, hastaMs }: { motor: Motor; etiqueta: string; nombre: string; desdeMs: number; hastaMs: number }) {
+  const suena = useEstadoDeAudio(motor, (e) => e.tramo?.clave === etiqueta && e.reproduciendo);
+  return (
+    <span className="re-voz-escuchar">
+      <Boton
+        variante="secundario"
+        tam={40}
+        icono={suena ? Square : Volume2}
+        tono="slate"
+        aria-label={`${suena ? "Detener la muestra de" : "Escuchar una muestra de"} ${nombre}`}
+        onClick={() => (suena ? motor.detener() : motor.reproducirTramo(etiqueta, desdeMs, hastaMs))}
+      >
+        {suena ? "Detener" : "Escuchar"}
+      </Boton>
+    </span>
+  );
+}
+
+/** Si el audio no carga al darle «Escuchar», se dice aquí (el reproductor de la transcripción no está a la vista). */
+function AvisoDeAudio({ motor }: { motor: Motor }) {
+  const error = useEstadoDeAudio(motor, (e) => e.error);
+  if (!error) return null;
+  return <Aviso enLinea tipo="error" titulo={error} accion={{ etiqueta: "Reintentar", alElegir: () => motor.reintentar() }} />;
+}
+
 /**
  * La pestaña «Hablantes»: a cada voz de la reunión se le pone nombre (de las personas de la copropiedad, o una nueva) y rol.
  * La IA solo sugiere —con la evidencia a la vista— y la persona decide. Dos voces con el mismo nombre son la misma persona:
  * al guardar se unen en una sola.
  */
 export function TabHablantes({
-  meetingId, propertyId, hablantes, alGuardar,
+  meetingId, propertyId, hablantes, alGuardar, motor,
 }: {
   meetingId: string;
   propertyId: string;
   hablantes: HablanteDTO[];
   alGuardar: (hablantes: HablanteDTO[]) => void;
+  /** El reproductor de la página; null si la reunión ya no tiene audio (no hay «Escuchar»). */
+  motor: Motor | null;
 }) {
   const [personas, setPersonas] = useState<PersonaDTO[] | null>(null);
   const [errorPersonas, setErrorPersonas] = useState("");
@@ -120,6 +151,7 @@ export function TabHablantes({
       </p>
 
       {errorPersonas && <Aviso enLinea rol={null} tipo="aviso" titulo={errorPersonas} texto="Puedes escribir los nombres a mano con «Otra persona…»." />}
+      {motor && <AvisoDeAudio motor={motor} />}
 
       {hablantes.map((h) => {
         const el = elecciones[h.label];
@@ -144,6 +176,9 @@ export function TabHablantes({
                 <Etiqueta icono={CheckCircle2} tono="green">
                   Con nombre
                 </Etiqueta>
+              )}
+              {motor && h.sampleStartMs !== null && h.sampleEndMs !== null && h.sampleEndMs > h.sampleStartMs && (
+                <BotonEscuchar motor={motor} etiqueta={h.label} nombre={nombre} desdeMs={h.sampleStartMs} hastaMs={h.sampleEndMs} />
               )}
             </div>
 

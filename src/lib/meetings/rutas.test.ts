@@ -7,10 +7,12 @@ vi.mock("@/lib/db", () => ({
   db: new Proxy({}, { get: () => { throw new Error("db tocada: ¿falta la rama demo o la puerta de acceso?"); } }),
 }));
 
+import { GET as leerAudio, HEAD as cabecerasDeAudio } from "@/app/api/meetings/[id]/audio/route";
 import { POST as registrarParte } from "@/app/api/meetings/[id]/live/route";
 import { POST as nuevaSesion } from "@/app/api/meetings/[id]/live/sesion/route";
 import { POST as marcar } from "@/app/api/meetings/[id]/markers/route";
 import { POST as procesar } from "@/app/api/meetings/[id]/process/route";
+import { POST as reanalizar } from "@/app/api/meetings/[id]/reanalyze/route";
 import { POST as reintentar } from "@/app/api/meetings/[id]/retry/route";
 import { PUT as guardarNombres } from "@/app/api/meetings/[id]/speakers/route";
 import { GET as estadoDeReunion } from "@/app/api/meetings/[id]/status/route";
@@ -55,10 +57,10 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("GET /api/meetings", () => {
-  it("lista las 5 reuniones del demo, la más reciente primero", async () => {
+  it("lista las 6 reuniones del demo, la más reciente primero", async () => {
     const { status, cuerpo } = await json(await listarReuniones(pedir("/meetings")));
     expect(status).toBe(200);
-    expect(cuerpo.items).toHaveLength(5);
+    expect(cuerpo.items).toHaveLength(6);
     const fechas: string[] = cuerpo.items.map((r: { date: string }) => r.date);
     expect([...fechas].sort().reverse()).toEqual(fechas);
   });
@@ -553,6 +555,64 @@ describe("PUT /api/meetings/[id]/speakers (demo)", () => {
   });
 });
 
+describe("POST /api/meetings/[id]/reanalyze (demo): «Generar el resumen otra vez»", () => {
+  const SIN_RESUMEN = "reunion-demo-006";
+  const pedirOtraVez = (id = SIN_RESUMEN) => reanalizar(pedir(`/meetings/${id}/reanalyze`, "POST"), ctx({ id }));
+  const estado = async (id = SIN_RESUMEN) => (await json(await estadoDeReunion(pedir("/s"), ctx({ id })))).cuerpo;
+  afterEach(() => vi.useRealTimers());
+
+  it("la reunión de ejemplo sin resumen está lista, con la transcripción, y dice qué falló", async () => {
+    const { meeting, digest } = (await json(await leerReunion(pedir("/m"), ctx({ id: SIN_RESUMEN })))).cuerpo;
+    expect(meeting).toMatchObject({ status: "lista", errorMessage: expect.stringMatching(/^El resumen con IA no se pudo generar/), hasAudio: true });
+    expect(digest.resumen).toBe("");
+    expect(digest.decisiones).toHaveLength(3); // lo que sí salió de los fragmentos
+  });
+
+  it("vuelve a pedirlo: pasa a «analizando» (solo esa etapa) y termina lista con el resumen completo", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-02T12:00:00Z"));
+    expect(await json(await pedirOtraVez())).toEqual({ status: 200, cuerpo: { status: "procesando", fragmentos: 0 } });
+
+    expect(await estado()).toMatchObject({ status: "procesando", stage: "analizando", errorMessage: null });
+    vi.setSystemTime(new Date("2026-10-02T12:00:04Z")); // 1 s de cola y 3 de 6 s analizando
+    expect(await estado()).toMatchObject({ status: "procesando", stage: "analizando", progress: 50, tareas: { hechas: 3, total: 6 } });
+
+    // Mientras tanto la transcripción se puede leer y descargar: la reunión ya estuvo lista.
+    const mientras = (await json(await leerReunion(pedir("/m"), ctx({ id: SIN_RESUMEN })))).cuerpo;
+    expect(mientras.meeting.readyAt).not.toBeNull();
+    expect((await descargarTranscripcion(pedir("/t"), ctx({ id: SIN_RESUMEN }))).status).toBe(200);
+    expect((await json(await leerIntervenciones(pedir(`/meetings/${SIN_RESUMEN}/utterances`), ctx({ id: SIN_RESUMEN })))).cuerpo.items.length).toBeGreaterThan(0);
+
+    vi.setSystemTime(new Date("2026-10-02T12:00:08Z")); // pasados los 7 s (1 de cola y 6 de análisis)
+    expect(await estado()).toMatchObject({ status: "lista", stage: null, progress: 100, tareas: { hechas: null, total: null } });
+    const { meeting, digest, speakers } = (await json(await leerReunion(pedir("/m"), ctx({ id: SIN_RESUMEN })))).cuerpo;
+    expect(meeting).toMatchObject({ status: "lista", errorMessage: null });
+    expect(meeting.readyAt).toBe("2026-10-02T12:00:08.000Z");
+    expect(digest.resumen).toMatch(/Schindler/);
+    expect(digest.asistentes).toHaveLength(5);
+    // Las sugerencias llegan con la ficha, pero solo a las voces que todavía no tienen nombre confirmado (V1…V4 ya lo tienen).
+    expect(speakers.find((h: { label: string }) => h.label === "H5").suggestion).toMatchObject({ nombre: "Andrés Gómez", confianza: "media" });
+    expect(speakers.find((h: { label: string }) => h.label === "V1")).toMatchObject({ confirmed: true, name: "Martha López", suggestion: null });
+  });
+
+  it("no se puede volver a pedir dos veces seguidas, ni con el resumen completo, ni sin terminar de procesar, ni de una que no existe", async () => {
+    expect((await pedirOtraVez()).status).toBe(200);
+    const doble = await json(await pedirOtraVez());
+    expect(doble.status).toBe(409);
+    expect(doble.cuerpo.error).toMatch(/todavía se está procesando/);
+
+    const completa = await json(await pedirOtraVez("reunion-demo-001"));
+    expect(completa).toEqual({ status: 409, cuerpo: { error: "Esta reunión ya tiene su resumen." } });
+    expect((await pedirOtraVez("reunion-demo-002")).status).toBe(409); // transcribiendo
+    expect((await pedirOtraVez("reunion-demo-003")).status).toBe(409); // borrador
+    expect((await pedirOtraVez("no-existe")).status).toBe(404);
+  });
+
+  it("la transcripción de una reunión que nunca estuvo lista sigue sin poder descargarse", async () => {
+    expect((await descargarTranscripcion(pedir("/t"), ctx({ id: "reunion-demo-002" }))).status).toBe(409);
+  });
+});
+
 /* ════════════════════════════════════════════════════════════════════
    La bandera del piloto cierra TODAS las rutas
    ════════════════════════════════════════════════════════════════════ */
@@ -579,6 +639,9 @@ const TODAS: Array<[string, () => Promise<Response>]> = [
   ["PUT speakers", () => guardarNombres(pedir("/m", "PUT", { hablantes: [{ label: "V1", name: "Ana" }] }), ctx({ id: "a" }))],
   ["GET utterances", () => leerIntervenciones(pedir("/m"), ctx({ id: "a" }))],
   ["GET transcript", () => descargarTranscripcion(pedir("/m"), ctx({ id: "a" }))],
+  ["GET audio", () => leerAudio(pedir("/m"), ctx({ id: "a" }))],
+  ["HEAD audio", () => cabecerasDeAudio(pedir("/m", "HEAD"), ctx({ id: "a" }))],
+  ["POST reanalyze", () => reanalizar(pedir("/m", "POST"), ctx({ id: "a" }))],
 ];
 
 describe("piloto: ninguna ruta responde a quien no debe (y ninguna toca la base de datos antes de decidirlo)", () => {

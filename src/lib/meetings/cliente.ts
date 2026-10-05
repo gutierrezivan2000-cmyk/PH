@@ -114,6 +114,14 @@ export async function reintentarReunion(meetingId: string): Promise<{ status: st
   return pedir<{ status: string }>(`/api/meetings/${encodeURIComponent(meetingId)}/retry`, { method: "POST" });
 }
 
+/**
+ * «Generar el resumen otra vez»: vuelve a analizar solo los fragmentos que la IA no pudo (y rehace la ficha). La reunión pasa
+ * a «procesando» mientras tanto; la transcripción sigue a la vista.
+ */
+export async function reanalizarResumen(meetingId: string): Promise<{ status: string; fragmentos: number }> {
+  return pedir<{ status: string; fragmentos: number }>(`/api/meetings/${encodeURIComponent(meetingId)}/reanalyze`, { method: "POST" });
+}
+
 /* ── Transcripción ───────────────────────────────────────────────────── */
 
 /**
@@ -134,6 +142,9 @@ export function listarIntervenciones(
 
 /** Dirección de la descarga de la transcripción completa (.txt). */
 export const urlDeTranscripcion = (meetingId: string): string => `/api/meetings/${encodeURIComponent(meetingId)}/transcript`;
+
+/** Dirección del audio de la reunión (el reproductor lo pide por rangos). */
+export const urlDeAudio = (meetingId: string): string => `/api/meetings/${encodeURIComponent(meetingId)}/audio`;
 
 /**
  * Guarda los nombres de las voces. Dos voces con el mismo nombre se fusionan en una (la que más habla); la respuesta trae las

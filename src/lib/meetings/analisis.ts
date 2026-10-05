@@ -254,9 +254,11 @@ export const fichaTarea: Manejador = async ({ tarea, presupuestoMs, senal, deps 
     }
   });
 
-  const ficha = r.ok
+  const base = r.ok
     ? armarFicha(consolidado, r.valor.salida, pendientes)
     : fichaSinIA(consolidado, [...pendientes, sinNadaQueResumir ? "No se identificaron temas, decisiones ni compromisos en la reunión." : AVISO_SIN_RESUMEN]);
+  // Si quedaron fragmentos sin analizar, la ficha lo dice: la pantalla ofrece volver a analizar solo esos.
+  const ficha = omitidos.length > 0 ? { ...base, fragmentosOmitidos: omitidos.length } : base;
   const uso = r.ok ? r.valor.respuesta.uso : USO_VACIO;
   const aviso = r.ok || sinNadaQueResumir ? null : AVISO_SIN_RESUMEN;
 

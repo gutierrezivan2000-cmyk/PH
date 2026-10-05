@@ -65,6 +65,23 @@ describe("construirLinea", () => {
     expect(tipos(null)).toHaveLength(5);
   });
 
+  it("al saltar a un minuto lejano solo muestra silencios y marcas desde donde se cargó", () => {
+    const entrada = {
+      intervenciones: [u(100 * MIN), u(110 * MIN)],
+      silencios: [{ desdeMs: 40 * MIN, hastaMs: 50 * MIN }, { desdeMs: 105 * MIN, hastaMs: 108 * MIN }],
+      marcas: [m(45 * MIN), m(100 * MIN), m(120 * MIN)],
+    };
+    const tipos = (desde: number | undefined, hasta: number | null) =>
+      construirLinea({ ...entrada, cargadoHastaMs: hasta, ...(desde !== undefined ? { cargadoDesdeMs: desde } : {}) }).flatMap((g) => g.entradas.map((e) => `${e.tipo}@${e.ms / MIN}`));
+    // desde el principio (lo de siempre): todo lo que cae antes del límite superior
+    expect(tipos(undefined, null)).toEqual(["silencio@40", "marca@45", "marca@100", "intervencion@100", "silencio@105", "intervencion@110", "marca@120"]);
+    // desde el minuto 90 (30 min cargados hacia adelante): lo anterior no aparece
+    expect(tipos(90 * MIN, 130 * MIN)).toEqual(["marca@100", "intervencion@100", "silencio@105", "intervencion@110", "marca@120"]);
+    // el límite inferior es inclusivo: una marca justo en el minuto cargado sí se ve
+    expect(tipos(100 * MIN, 130 * MIN)).toContain("marca@100");
+    expect(tipos(100 * MIN + 1, 130 * MIN)).not.toContain("marca@100");
+  });
+
   it("las intervenciones que ya llegaron siempre se muestran, aunque pasen del límite", () => {
     expect(construirLinea({ intervenciones: [u(31 * MIN)], silencios: [], marcas: [], cargadoHastaMs: 30 * MIN })[0].entradas).toHaveLength(1);
   });

@@ -77,9 +77,9 @@ describe("reunión de ejemplo (septiembre): el guion es coherente", () => {
 });
 
 describe("almacén de demo", () => {
-  it("lista cinco reuniones, la más reciente primero, con los estados principales", () => {
+  it("lista seis reuniones, la más reciente primero, con los estados principales", () => {
     const todas = demoReuniones(DEMO_USER.id);
-    expect(todas.length).toBe(5);
+    expect(todas.length).toBe(6);
     const fechas = todas.map((r) => r.date);
     expect([...fechas].sort().reverse()).toEqual(fechas);
     const estados = new Set(todas.map((r) => r.status));
@@ -92,7 +92,7 @@ describe("almacén de demo", () => {
   });
 
   it("filtra por copropiedad y no muestra reuniones de otro usuario", () => {
-    expect(demoReuniones(DEMO_USER.id, "prop-demo-001").length).toBe(3);
+    expect(demoReuniones(DEMO_USER.id, "prop-demo-001").length).toBe(4);
     expect(demoReuniones(DEMO_USER.id, "prop-demo-002").length).toBe(2);
     expect(demoReuniones("otro-usuario")).toEqual([]);
     expect(demoReunion("otro-usuario", "reunion-demo-001")).toBeNull();
@@ -166,7 +166,7 @@ describe("el demo permite crear, editar y borrar (con tope)", () => {
     for (let i = 0; i < MAX_REUNIONES_DEMO + 5; i++) {
       if (demoCrearReunion(DEMO_USER.id, { propertyId: "prop-demo-001", type: "otra", title: `r${i}`, date: new Date() })) creadas++;
     }
-    expect(creadas).toBe(MAX_REUNIONES_DEMO - 5); // ya hay 5 sembradas
+    expect(creadas).toBe(MAX_REUNIONES_DEMO - 6); // ya hay 6 sembradas
     expect(demoReuniones(DEMO_USER.id).length).toBe(MAX_REUNIONES_DEMO);
   });
   it("edita título, tipo, fecha y constancia; no toca el estado", () => {
@@ -183,12 +183,12 @@ describe("el demo permite crear, editar y borrar (con tope)", () => {
     expect(demoActualizarReunion("otro", "reunion-demo-001", { title: "x" })).toBeNull();
     expect(demoEliminarReunion("otro", "reunion-demo-001")).toBe(false);
     expect(demoEliminarReunion(DEMO_USER.id, "no-existe")).toBe(false);
-    expect(demoReuniones(DEMO_USER.id).length).toBe(5);
+    expect(demoReuniones(DEMO_USER.id).length).toBe(6);
   });
   it("borra", () => {
     expect(demoEliminarReunion(DEMO_USER.id, "reunion-demo-003")).toBe(true);
     expect(demoReunion(DEMO_USER.id, "reunion-demo-003")).toBeNull();
-    expect(demoReuniones(DEMO_USER.id).length).toBe(4);
+    expect(demoReuniones(DEMO_USER.id).length).toBe(5);
   });
 
   it("personas: crea, no duplica por nombre (sin distinguir mayúsculas) y las lista por nombre", () => {

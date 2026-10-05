@@ -16,9 +16,13 @@ import {
 } from "./demo-datos";
 import { nombreDeSesion, offsetAntesDe, planificarCierre, type ParteRecibida } from "./cierre";
 import { planificarGuardado, type PedidoDeHablante } from "./nombres";
+import { estadoDelResumen, sePuedeReintentarElResumen } from "./resumen-pantalla";
 import { MAX_FUENTES_POR_REUNION, MAX_MARCADORES, MAX_SESIONES_VIVO, estaEnMarcha, puedeAgregarFuentes, type EtapaReunion } from "./tipos";
 import { cantidadDeTramos } from "./transcripcion/tramos";
 import type { CambiosPersona, CambiosReunion, NuevaMarca, NuevaPersona, ParteViva, SesionDeCierre } from "./validar";
+
+/** Lo que dice la reunión de ejemplo cuyo resumen falló (es el texto real que deja el análisis). */
+const AVISO_SIN_RESUMEN_DEMO = "El resumen con IA no se pudo generar: la transcripción está completa y puedes revisarla.";
 
 type ReunionDemo = {
   id: string;
@@ -54,6 +58,8 @@ type ReunionDemo = {
   reservas: number[];
   /** Cuándo empezó a «procesarse» en el demo (ms). La simulación avanza con el tiempo. */
   procesoDesde: number | null;
+  /** La simulación es solo el análisis con IA (se volvió a pedir el resumen): la transcripción ya estaba. */
+  soloAnalisis: boolean;
 };
 
 type ParteVivaDemo = ParteRecibida & { creadaEn: string };
@@ -97,6 +103,7 @@ function vacia(base: Pick<ReunionDemo, "id" | "propertyId" | "type" | "title" | 
     cerradas: [],
     reservas: [],
     procesoDesde: null,
+    soloAnalisis: false,
   };
 }
 
@@ -222,8 +229,39 @@ function sembrar(): Almacen {
     ],
   };
 
+  // 6 · Lista, pero la IA no pudo hacer el resumen: la transcripción está completa y se puede pedir el resumen otra vez.
+  const sinResumen: ReunionDemo = {
+    ...vacia({
+      id: "reunion-demo-006",
+      propertyId: "prop-demo-001",
+      type: "consejo",
+      title: "Reunión de consejo — agosto",
+      date: fechaA(52, 19),
+    }),
+    status: "lista",
+    durationMs: DURACION_SEPTIEMBRE_MS,
+    coverage: 1,
+    errorMessage: AVISO_SIN_RESUMEN_DEMO,
+    consentAt: fechaA(52, 18, 57),
+    readyAt: fechaA(52, 21, 35),
+    provider: "demo",
+    costUsd: 2.91,
+    hasAudio: true,
+    fuentes: [
+      {
+        id: "src-demo-006", idx: 0, kind: "archivo", name: "consejo-agosto.m4a", sizeBytes: 64_300_000,
+        mimeType: "audio/mp4", status: "normalizada", durationMs: DURACION_SEPTIEMBRE_MS, offsetMs: 0,
+      },
+    ],
+    hablantes: construirHablantes(intervenciones),
+    marcadores: [],
+    ficha: { ...structuredClone(FICHA_SEPTIEMBRE), resumen: "", asistentes: [], pendientes: [AVISO_SIN_RESUMEN_DEMO] },
+    intervenciones,
+    silencios: SILENCIOS_SEPTIEMBRE,
+  };
+
   return {
-    reuniones: [septiembre, octubre, comite, asamblea, sinCupo],
+    reuniones: [septiembre, octubre, comite, asamblea, sinCupo, sinResumen],
     personas: PERSONAS_LOS_PINOS.map((p) => ({ ...p })),
   };
 }
@@ -242,6 +280,8 @@ function nombreDePropiedad(userId: string, propertyId: string): string {
 
 /** Cuántas tareas tiene el análisis simulado: 5 bloques de ~25 min y la ficha. */
 const TAREAS_DE_ANALISIS_DEMO = 6;
+/** Cuánto «espera en cola» el análisis cuando solo se vuelve a pedir el resumen. */
+const COLA_REANALISIS_DEMO_MS = 1_000;
 
 /** Cuánto «espera en cola» una reunión recién enviada, antes de que un trabajador la tome. */
 export const COLA_DEMO_MS = 2_000;
@@ -291,17 +331,39 @@ function completarDemo(r: ReunionDemo, ahora: number): void {
   }
 }
 
+/** Termina el análisis que se volvió a pedir: la reunión queda lista con su resumen completo (la transcripción no cambia). */
+function completarAnalisisDemo(r: ReunionDemo, ahora: number): void {
+  r.status = "lista";
+  r.stage = null;
+  r.progress = 100;
+  r.hechas = null;
+  r.total = null;
+  r.errorMessage = null;
+  r.soloAnalisis = false;
+  r.procesoDesde = null;
+  r.readyAt = new Date(ahora).toISOString();
+  r.ficha = structuredClone(FICHA_SEPTIEMBRE);
+  // Las sugerencias de nombre llegan con la ficha, solo a las voces que todavía no tienen nombre confirmado.
+  for (const h of r.hablantes) {
+    const sug = FICHA_SEPTIEMBRE.hablantes.find((x) => x.etiqueta === h.label);
+    if (!h.confirmed && sug) h.suggestion = { nombre: sug.nombreSugerido, rol: sug.rol, evidencia: sug.evidencia, t: sug.t, confianza: sug.confianza };
+  }
+}
+
 /** Pone la reunión en el estado que le toca según el tiempo que lleva «procesándose». */
 function avanzarDemo(r: ReunionDemo, ahora: number = Date.now()): void {
   if (r.procesoDesde === null || !estaEnMarcha(r.status)) return;
   const t = ahora - r.procesoDesde;
-  if (t < COLA_DEMO_MS) {
-    r.status = "en_cola";
+  // Volver a pedir el resumen es solo la última etapa: no hay cola larga ni audio que preparar.
+  const cola = r.soloAnalisis ? COLA_REANALISIS_DEMO_MS : COLA_DEMO_MS;
+  const pasos = r.soloAnalisis ? PASOS_DEMO.filter((p) => p.etapa === "analizando") : PASOS_DEMO;
+  if (t < cola) {
+    r.status = r.soloAnalisis ? "procesando" : "en_cola";
     return;
   }
   r.status = "procesando";
-  let resto = t - COLA_DEMO_MS;
-  for (const paso of PASOS_DEMO) {
+  let resto = t - cola;
+  for (const paso of pasos) {
     if (resto < paso.ms) {
       r.stage = paso.etapa;
       r.progress = Math.round((resto / paso.ms) * 100);
@@ -317,7 +379,8 @@ function avanzarDemo(r: ReunionDemo, ahora: number = Date.now()): void {
     }
     resto -= paso.ms;
   }
-  completarDemo(r, ahora);
+  if (r.soloAnalisis) completarAnalisisDemo(r, ahora);
+  else completarDemo(r, ahora);
 }
 
 function resumen(r: ReunionDemo): ReunionResumen {
@@ -507,7 +570,7 @@ export function demoEliminarPersona(propertyId: string, id: string): boolean {
 export type FaltanDemo = Array<{ session: number; seq: number }>;
 export type ResultadoDemo<T> =
   | { ok: true; valor: T }
-  | { ok: false; codigo: "no_existe" | "cerrada" | "tope" | "vacia" | "pendiente" | "faltan" | "sin_constancia"; error: string; faltan?: FaltanDemo };
+  | { ok: false; codigo: "no_existe" | "cerrada" | "tope" | "vacia" | "pendiente" | "faltan" | "sin_constancia" | "no_lista" | "no_hace_falta"; error: string; faltan?: FaltanDemo };
 
 const NO_EXISTE = { ok: false, codigo: "no_existe", error: "Reunión no encontrada" } as const;
 const CERRADA = {
@@ -649,6 +712,30 @@ export function demoReintentar(userId: string, id: string): ResultadoDemo<{ stat
   r.errorMessage = null;
   r.procesoDesde = Date.now() - COLA_DEMO_MS;
   return { ok: true, valor: { status: "procesando" } };
+}
+
+/**
+ * «Generar el resumen otra vez»: solo si el resumen falló (o quedaron fragmentos sin analizar). La reunión vuelve a
+ * «procesando» (solo el análisis con IA) y termina lista con su resumen completo.
+ */
+export function demoReanalizar(userId: string, id: string): ResultadoDemo<{ status: string; fragmentos: number }> {
+  const r = buscar(userId, id);
+  if (!r) return NO_EXISTE;
+  avanzarDemo(r);
+  if (r.status !== "lista") return { ok: false, codigo: "no_lista", error: "Esta reunión todavía se está procesando." };
+  const estado = estadoDelResumen(r, r.ficha);
+  if (!sePuedeReintentarElResumen(estado)) {
+    return { ok: false, codigo: "no_hace_falta", error: estado === "completo" ? "Esta reunión ya tiene su resumen." : "No hay nada que resumir en esta reunión." };
+  }
+  r.status = "procesando";
+  r.stage = "analizando";
+  r.progress = 0;
+  r.hechas = 0;
+  r.total = TAREAS_DE_ANALISIS_DEMO;
+  r.errorMessage = null;
+  r.soloAnalisis = true;
+  r.procesoDesde = Date.now();
+  return { ok: true, valor: { status: "procesando", fragmentos: r.ficha?.fragmentosOmitidos ?? 0 } };
 }
 
 /* ── Grabadora en vivo ───────────────────────────────────────────────── */

@@ -80,6 +80,7 @@ export function leerFicha(json: unknown): Ficha | null {
     ),
     votaciones: lista(json.votaciones).flatMap(leerVotacion),
     pendientes: lista(json.pendientes).flatMap((p) => (texto(p) ? [p as string] : [])),
+    ...(esNumero(json.fragmentosOmitidos) && json.fragmentosOmitidos > 0 ? { fragmentosOmitidos: Math.floor(json.fragmentosOmitidos) } : {}),
     hablantes: lista(json.hablantes).flatMap((h) =>
       esObjeto(h) && texto(h.etiqueta) && texto(h.evidencia)
         ? [{
@@ -94,8 +95,10 @@ export function leerFicha(json: unknown): Ficha | null {
         : [],
     ),
   };
+  // Una ficha con solo «por confirmar» (la IA leyó la reunión y no encontró qué resumir) sí es una ficha: dice que se analizó.
   const vacia =
-    !ficha.resumen && !ficha.ordenDelDia.length && !ficha.decisiones.length && !ficha.compromisos.length && !ficha.votaciones.length;
+    !ficha.resumen && !ficha.ordenDelDia.length && !ficha.decisiones.length && !ficha.compromisos.length && !ficha.votaciones.length
+    && !ficha.asistentes.length && !ficha.pendientes.length;
   return vacia ? null : ficha;
 }
 

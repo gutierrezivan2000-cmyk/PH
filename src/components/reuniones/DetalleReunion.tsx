@@ -1,21 +1,25 @@
 "use client";
 
-import { CircleStop, Download, Mic, Pencil } from "lucide-react";
+import { CircleStop, Download, Mic, Pencil, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { SubidaReunion } from "@/components/reuniones/SubidaReunion";
 import { TabHablantes } from "@/components/reuniones/TabHablantes";
+import { TabResumen } from "@/components/reuniones/TabResumen";
+import { useMotorDeAudio } from "@/components/reuniones/useMotorDeAudio";
 import { VisorTranscripcion } from "@/components/reuniones/VisorTranscripcion";
 import {
   Aviso, BarraProgreso, Boton, CabeceraPieza, Campo, Entrada, ErrorCarga, Esqueleto, Estado, MenuMas, Modal, Pagina, Panel,
   Pieza, Segmentos, Selector, Vacio, avisar, type ItemMenu,
 } from "@/components/kit";
 import {
-  ErrorApi, actualizarReunion, eliminarReunion, obtenerEstado, obtenerReunion, procesarReunion, reintentarReunion, urlDeTranscripcion,
+  ErrorApi, actualizarReunion, eliminarReunion, obtenerEstado, obtenerReunion, procesarReunion, reanalizarResumen, reintentarReunion,
+  urlDeTranscripcion,
 } from "@/lib/meetings/cliente";
 import type { ReunionDetalle } from "@/lib/meetings/dto";
 import { aValorLocal, deValorLocal, fechaLarga, haceCuanto } from "@/lib/meetings/formato";
+import { estadoDelResumen, sePuedeReintentarElResumen } from "@/lib/meetings/resumen-pantalla";
 import {
   CLAVES_TIPO_REUNION, TEXTO_ETAPA, TIPOS_DE_REUNION, cortoTipoReunion, describirEstado, esTipoReunion, estaEnMarcha, formatearDuracion,
   type EtapaReunion,
@@ -55,6 +59,7 @@ const CSS = `
 .re-acciones { display: flex; flex-wrap: wrap; gap: 10px; }
 @media (max-width: 560px) { .re-acciones > .k-btn { flex: 1 1 auto; } }
 .re-pestanas { margin: 0 0 16px; }
+.k-panel + .re-pestanas { margin-top: 16px; }
 .re-modal-campos .k-fld { margin-bottom: 14px; }
 .re-modal-texto { margin: 0 0 12px; font-size: 15.5px; line-height: 1.5; color: var(--ink-2); }
 `;
@@ -65,6 +70,9 @@ export function DetalleReunion({ id }: { id: string }) {
   const [error, setError] = useState<{ mensaje: string; noExiste: boolean } | null>(null);
   const [version, setVersion] = useState(0);
   const [elegida, setPestana] = useState<Pestana | null>(null);
+  /** Una orden de «ir a este minuto de la transcripción» (desde el resumen); `n` cambia con cada una. */
+  const [saltoA, setSaltoA] = useState<{ ms: number; n: number } | null>(null);
+  const [reanalizando, setReanalizando] = useState(false);
 
   const [modal, setModal] = useState<"editar" | "eliminar" | "terminar" | null>(null);
   const [trabajando, setTrabajando] = useState(false);
@@ -135,8 +143,35 @@ export function DetalleReunion({ id }: { id: string }) {
   };
 
   const m = datos?.meeting ?? null;
-  // Se abre en lo que ya funciona del todo: la transcripción. (Cuando «Resumen» esté completo, será la pestaña de entrada.)
-  const pestana: Pestana = elegida ?? "transcripcion";
+  // Se abre en el resumen: es lo que casi siempre se busca primero (si falló, ahí mismo se dice y se puede volver a pedir).
+  const pestana: Pestana = elegida ?? "resumen";
+
+  // Un solo reproductor para toda la página: el de la transcripción, el «Escuchar» de las voces y los saltos desde el resumen.
+  const motorDeAudio = useMotorDeAudio(id, m?.durationMs ?? 0);
+  const motor = m?.hasAudio ? motorDeAudio : null;
+
+  /** Un minuto del resumen: se abre la transcripción en ese punto (el reproductor queda ahí, sin sonar). */
+  const irAlMinuto = useCallback(
+    (ms: number) => {
+      motor?.buscar(ms);
+      setPestana("transcripcion");
+      setSaltoA((previo) => ({ ms, n: (previo?.n ?? 0) + 1 }));
+    },
+    [motor],
+  );
+
+  const pedirResumenOtraVez = async () => {
+    setReanalizando(true);
+    try {
+      await reanalizarResumen(id);
+      avisar({ tipo: "ok", titulo: "Estamos generando el resumen otra vez." });
+      setVersion((v) => v + 1);
+    } catch (err) {
+      avisar({ tipo: "error", titulo: err instanceof ErrorApi ? err.message : "No pudimos pedir el resumen otra vez. Inténtalo de nuevo." });
+    } finally {
+      setReanalizando(false);
+    }
+  };
 
   const abrirEditar = () => {
     if (!m) return;
@@ -201,8 +236,13 @@ export function DetalleReunion({ id }: { id: string }) {
     }
   };
 
+  const estadoDelResumenActual = m ? estadoDelResumen(m, datos?.digest ?? null) : null;
+  const puedeRehacerResumen = m?.status === "lista" && estadoDelResumenActual !== null && sePuedeReintentarElResumen(estadoDelResumenActual);
+  // Se puede leer la transcripción mientras se rehace el resumen: la reunión ya estuvo lista antes (`readyAt`).
+  const verContenido = m !== null && (m.status === "lista" || (estaEnMarcha(m.status) && m.readyAt !== null));
   const menu: ItemMenu[] = [
-    ...(m?.status === "lista" ? [{ etiqueta: "Descargar transcripción", icono: Download, tono: "blue" as const, alElegir: () => descargar(urlDeTranscripcion(id)) }] : []),
+    ...(m?.status === "lista" || (m && verContenido) ? [{ etiqueta: "Descargar transcripción", icono: Download, tono: "blue" as const, alElegir: () => descargar(urlDeTranscripcion(id)) }] : []),
+    ...(puedeRehacerResumen ? [{ etiqueta: estadoDelResumenActual === "parcial" ? "Analizar lo que faltó" : "Generar el resumen otra vez", icono: RefreshCw, tono: "violet" as const, alElegir: () => void pedirResumenOtraVez() }] : []),
     { etiqueta: "Editar datos", icono: Pencil, tono: "amber", alElegir: abrirEditar },
     { etiqueta: "Eliminar reunión…", peligro: true, nota: "pide confirmación", alElegir: abrirEliminar },
   ];
@@ -317,7 +357,7 @@ export function DetalleReunion({ id }: { id: string }) {
               )}
 
               {(m.status === "en_cola" || m.status === "procesando") && (
-                <Panel titulo="Estamos trabajando en esta reunión" nivel={2}>
+                <Panel titulo={m.readyAt ? "Estamos generando el resumen otra vez" : "Estamos trabajando en esta reunión"} nivel={2}>
                   <div className="re-proceso">
                     <p className="re-etapa">
                       {m.status === "en_cola" || !m.stage
@@ -325,7 +365,11 @@ export function DetalleReunion({ id }: { id: string }) {
                         : `${TEXTO_ETAPA[m.stage as EtapaReunion] ?? "Procesando"} · ${m.total ? `${m.hechas ?? 0} de ${m.total}` : `${m.progress} %`}`}
                     </p>
                     <BarraProgreso valor={m.progress} etiquetaAccesible={`Avance: ${descripcion.texto}`} />
-                    <p className="re-nota">Puedes cerrar esta página: te avisamos por correo cuando esté lista.</p>
+                    <p className="re-nota">
+                      {m.readyAt
+                        ? "Solo se vuelve a analizar lo que faltó. Mientras tanto puedes leer la transcripción completa."
+                        : "Puedes cerrar esta página: te avisamos por correo cuando esté lista."}
+                    </p>
                   </div>
                 </Panel>
               )}
@@ -352,17 +396,8 @@ export function DetalleReunion({ id }: { id: string }) {
                 />
               )}
 
-              {m.status === "lista" && (
+              {verContenido && (
                 <>
-                  {m.errorMessage && (
-                    <Aviso
-                      enLinea
-                      rol={null}
-                      tipo="aviso"
-                      titulo="Falta el resumen de la reunión."
-                      texto={`${m.errorMessage} La transcripción está completa y puedes leerla.`}
-                    />
-                  )}
                   <div className="re-pestanas">
                     <Segmentos
                       modo="pestanas"
@@ -374,21 +409,44 @@ export function DetalleReunion({ id }: { id: string }) {
                     />
                   </div>
                   <div id={`re-panel-${pestana}`} role="tabpanel">
-                    <Panel titulo={PESTANAS.find((p) => p.id === pestana)?.etiqueta} nivel={2}>
-                      {pestana === "transcripcion" ? (
-                        <VisorTranscripcion key={id} meetingId={id} marcas={datos?.markers ?? []} silencios={datos?.silences ?? []} />
-                      ) : pestana === "hablantes" ? (
-                        <TabHablantes
-                          key={id}
-                          meetingId={id}
-                          propertyId={m.propertyId}
-                          hablantes={datos?.speakers ?? []}
-                          alGuardar={(speakers) => setDatos((prev) => (prev ? { ...prev, speakers } : prev))}
+                    {pestana === "resumen" ? (
+                      <>
+                        <h2 className="k-sr">Resumen</h2>
+                        <TabResumen
+                          meeting={m}
+                          digest={datos?.digest ?? null}
+                          speakers={datos?.speakers ?? []}
+                          alIrAlMinuto={irAlMinuto}
+                          alReintentar={() => void pedirResumenOtraVez()}
+                          reintentando={reanalizando || estaEnMarcha(m.status)}
                         />
-                      ) : (
-                        <p className="re-nota">{PESTANAS.find((p) => p.id === pestana)?.texto}</p>
-                      )}
-                    </Panel>
+                      </>
+                    ) : (
+                      <Panel titulo={PESTANAS.find((p) => p.id === pestana)?.etiqueta} nivel={2}>
+                        {pestana === "transcripcion" ? (
+                          <VisorTranscripcion
+                            key={id}
+                            meetingId={id}
+                            marcas={datos?.markers ?? []}
+                            silencios={datos?.silences ?? []}
+                            duracionMs={m.durationMs ?? 0}
+                            motor={motor}
+                            saltoA={saltoA}
+                          />
+                        ) : pestana === "hablantes" ? (
+                          <TabHablantes
+                            key={id}
+                            meetingId={id}
+                            propertyId={m.propertyId}
+                            hablantes={datos?.speakers ?? []}
+                            alGuardar={(speakers) => setDatos((prev) => (prev ? { ...prev, speakers } : prev))}
+                            motor={motor}
+                          />
+                        ) : (
+                          <p className="re-nota">{PESTANAS.find((p) => p.id === pestana)?.texto}</p>
+                        )}
+                      </Panel>
+                    )}
                   </div>
                 </>
               )}

@@ -116,6 +116,8 @@ export type Ficha = {
   compromisos: { id: string; texto: string; responsable?: string; fecha?: string; t: number }[];
   votaciones: FichaVotacion[];
   pendientes: string[];
+  /** Cuántos fragmentos de la reunión la IA no pudo analizar (se vuelven a pedir con «Analizar lo que faltó»). Falta si ninguno. */
+  fragmentosOmitidos?: number;
   hablantes: {
     etiqueta: string;
     nombreSugerido?: string;

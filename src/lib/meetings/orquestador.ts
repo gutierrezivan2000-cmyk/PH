@@ -179,7 +179,7 @@ const AVANZABLES = new Set(["en_cola", "procesando"]);
  * a la vez desde varias tareas: encolar es idempotente por clave y escribir la etapa, también.
  */
 export async function avanzar(meetingId: string): Promise<PlanDeProceso | null> {
-  const reunion = await db.meeting.findFirst({ where: { id: meetingId }, select: { id: true, status: true, stage: true, progress: true, durationMs: true } });
+  const reunion = await db.meeting.findFirst({ where: { id: meetingId }, select: { id: true, status: true, stage: true, progress: true, durationMs: true, readyAt: true } });
   if (!reunion || !AVANZABLES.has(reunion.status)) return null;
 
   const [fuentes, tareas] = await Promise.all([
@@ -200,11 +200,14 @@ export async function avanzar(meetingId: string): Promise<PlanDeProceso | null> 
     // Quien gana la carrera (el `updateMany` condicionado a «procesando» devuelve 1 solo a una llamada) hace lo que se hace
     // una vez: sumar el costo, dejar el registro de uso y avisar por correo. `errorMessage` no se toca: la ficha deja ahí el
     // aviso de que el resumen con IA no se pudo generar, para que la pantalla lo diga.
+    // Si la reunión ya había estado lista (se volvió a pedir el resumen), `readyAt` dice cuándo: solo se cuenta lo nuevo.
     const r = await db.meeting.updateMany({
       where: { id: meetingId, status: "procesando" },
       data: { status: "lista", stage: null, progress: 100, readyAt: new Date() },
     });
-    if (r.count === 1) await alPasarALista(meetingId).catch((e) => console.error("[meetings/orquestador] al pasar a lista", meetingId, e));
+    if (r.count === 1) {
+      await alPasarALista(meetingId, undefined, { desde: reunion.readyAt }).catch((e) => console.error("[meetings/orquestador] al pasar a lista", meetingId, e));
+    }
     return plan;
   }
 

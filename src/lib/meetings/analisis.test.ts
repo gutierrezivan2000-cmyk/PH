@@ -21,6 +21,7 @@ import { ErrorIA, type ClienteIA } from "./ia";
 import { crearIASimulada } from "./ia-simulada";
 import { MANEJADORES } from "./manejadores";
 import { avanzar } from "./orquestador";
+import { reanalizarResumen } from "./reanalisis";
 import { trabajar } from "./trabajador";
 import { crearProveedorOpenAI } from "./transcripcion/openai";
 import { audioSintetico, crearSimuladorDeOpenAI, generarGuion, type Intervencion } from "./transcripcion/sintetico";
@@ -520,5 +521,129 @@ describe("la reunión sintética, de punta a punta", () => {
     await correr(ia, () => reunion().status === "lista");
     expect(reunion().status).toBe("lista");
     vi.restoreAllMocks();
+  });
+
+  /* ── Volver a pedir el resumen ─────────────────────────────────────────────────────────────────────────── */
+
+  const sinCredenciales = () => new ErrorIA("No pudimos analizar la reunión con IA: el servicio no aceptó las credenciales. Avisa a soporte.", { reintentable: false });
+  const IA_CAIDA = () => crearIASimulada({ alLlamar: () => { throw sinCredenciales(); } });
+  /** Un respiro: las marcas de tiempo de la base falsa son de milisegundos y «lo nuevo» se separa de lo anterior por ellas. */
+  const respiro = () => new Promise((r) => setTimeout(r, 8));
+  const ficha = () => reunion().digest as { resumen: string; fragmentosOmitidos?: number; pendientes: string[]; decisiones: unknown[] };
+
+  it("«generar el resumen otra vez» tras una caída total de la IA: rehace todo lo omitido, deja el resumen, suma SOLO el costo nuevo y no manda otro correo", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await reunionConAudio();
+    await correr(IA_CAIDA(), () => reunion().status === "lista");
+    expect(reunion().errorMessage).toMatch(/^No pudimos generar el resumen con IA/);
+    const bloques = db.meetingTask.filas.filter((x) => x.kind === "analizar_bloque");
+    const costoSoloTranscripcion = reunion().costUsd as number;
+    expect(costoSoloTranscripcion).toBeGreaterThan(0);
+    expect(db.usageRecord.filas.map((x) => x.type)).toEqual(["reunion_audio"]);
+    expect(correo).toHaveBeenCalledTimes(1);
+    const listaDesde = reunion().readyAt as Date;
+
+    // La IA vuelve y la persona pide el resumen otra vez.
+    await respiro();
+    const ia = crearIASimulada();
+    expect(await reanalizarResumen(ID)).toEqual({ ok: true, fragmentos: bloques.length });
+    expect(reunion()).toMatchObject({ status: "procesando", stage: "analizando", errorMessage: null });
+    await correr(ia, () => reunion().status === "lista");
+
+    expect(reunion()).toMatchObject({ status: "lista", stage: null, progress: 100, errorMessage: null });
+    expect(ficha().resumen).toMatch(/^Resumen simulado/);
+    expect(ficha().fragmentosOmitidos).toBeUndefined();
+    expect(ia.llamadas).toHaveLength(bloques.length + 1); // un fragmento cada uno y la ficha: nada más
+    expect((reunion().readyAt as Date).getTime()).toBeGreaterThan(listaDesde.getTime());
+
+    // El costo: lo que ya estaba más lo nuevo (lo nuevo es todo el análisis, porque la primera vez no se pagó nada de IA).
+    const { sumarCostos } = await import("./terminado");
+    const c = sumarCostos(db.meetingTask.filas.map((x) => ({ kind: x.kind as string, result: x.result })));
+    expect(c.iaUsd).toBeGreaterThan(0);
+    expect(reunion().costUsd as number).toBeCloseTo(costoSoloTranscripcion + c.iaUsd, 8);
+    // El registro: se agrega el de la IA; el del audio NO se repite. Y no se avisa otra vez por correo.
+    expect(db.usageRecord.filas.map((x) => x.type)).toEqual(["reunion_audio", "reunion_ia"]);
+    expect(db.usageRecord.filas[1].tokens as number).toBeGreaterThan(0);
+    expect(correo).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+  });
+
+  it("si un solo fragmento falló, el resumen sale pero lo dice; al volver a pedirlo se rehace SOLO ese fragmento y la ficha", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await reunionConAudio();
+    const fallaElPrimero = crearIASimulada({ alLlamar: (e) => { if (e.etiqueta === "el fragmento 1") throw sinCredenciales(); } });
+    await correr(fallaElPrimero, () => reunion().status === "lista");
+
+    expect(reunion().errorMessage).toBeNull(); // la ficha sí salió
+    expect(ficha().resumen).toMatch(/^Resumen simulado/);
+    expect(ficha().fragmentosOmitidos).toBe(1);
+    expect(ficha().pendientes.some((x) => /No se pudo analizar con IA el fragmento/.test(x))).toBe(true);
+    const costoAntes = reunion().costUsd as number;
+    const registrosAntes = db.usageRecord.filas.length;
+
+    await respiro();
+    const ia = crearIASimulada();
+    const hechosAntes = db.meetingTask.filas.filter((x) => x.kind === "analizar_bloque" && !(x.result as { omitido?: string }).omitido).map((x) => String(x.key));
+    expect(await reanalizarResumen(ID)).toEqual({ ok: true, fragmentos: 1 });
+    await correr(ia, () => reunion().status === "lista");
+
+    expect(ia.llamadas).toHaveLength(2); // el fragmento que faltaba y la ficha: los demás no se vuelven a pagar
+    expect(ia.llamadas[0].etiqueta).toBe("el fragmento 1");
+    expect(ficha().fragmentosOmitidos).toBeUndefined();
+    expect(ficha().pendientes.some((x) => /No se pudo analizar con IA el fragmento/.test(x))).toBe(false);
+    expect(db.meetingTask.filas.filter((x) => x.kind === "analizar_bloque").every((x) => !(x.result as { omitido?: string }).omitido)).toBe(true);
+    for (const k of hechosAntes) expect(tarea(k)).toMatchObject({ status: "hecha" });
+
+    // Solo se suma lo de esas dos llamadas (el fragmento rehecho y la ficha), calculado aparte de lo que suma el código:
+    // los fragmentos que ya estaban hechos se pagaron la primera vez y no se cuentan de nuevo.
+    const usoDe = (key: string) => (tarea(key)!.result as { uso: { entrada: number; salida: number; cacheLectura: number; cacheEscritura: number; costoUsd: number } }).uso;
+    const esperado = [usoDe("bloque:0"), usoDe("ficha")];
+    const costoEsperado = esperado.reduce((suma, u) => suma + u.costoUsd, 0);
+    const tokensEsperados = esperado.reduce((suma, u) => suma + u.entrada + u.salida + u.cacheLectura + u.cacheEscritura, 0);
+    expect(costoEsperado).toBeGreaterThan(0);
+
+    const nuevas = db.usageRecord.filas.slice(registrosAntes);
+    expect(nuevas.map((x) => x.type)).toEqual(["reunion_ia"]);
+    expect((reunion().costUsd as number) - costoAntes).toBeCloseTo(costoEsperado, 8);
+    expect(nuevas[0].costUsd as number).toBeCloseTo(costoEsperado, 8);
+    expect(nuevas[0].tokens).toBe(Math.round(tokensEsperados));
+    expect(correo).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+  });
+
+  it("si la IA sigue caída, la reunión vuelve a quedar lista sin resumen (sin cobrar nada) y se puede intentar otra vez", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await reunionConAudio();
+    await correr(IA_CAIDA(), () => reunion().status === "lista");
+    const costoAntes = reunion().costUsd as number;
+    const registrosAntes = db.usageRecord.filas.length;
+
+    await respiro();
+    expect(await reanalizarResumen(ID)).toMatchObject({ ok: true });
+    await correr(IA_CAIDA(), () => reunion().status === "lista");
+    expect(reunion().status).toBe("lista");
+    expect(reunion().errorMessage).toMatch(/^No pudimos generar el resumen con IA/);
+    expect(reunion().costUsd).toBe(costoAntes);
+    expect(db.usageRecord.filas).toHaveLength(registrosAntes);
+    expect(correo).toHaveBeenCalledTimes(1);
+
+    // Tercer intento, ya con la IA de vuelta: sale el resumen, y se paga una sola vez.
+    await respiro();
+    expect(await reanalizarResumen(ID)).toMatchObject({ ok: true });
+    await correr(crearIASimulada(), () => reunion().status === "lista");
+    expect(ficha().resumen).toMatch(/^Resumen simulado/);
+    expect(db.usageRecord.filas.map((x) => x.type)).toEqual(["reunion_audio", "reunion_ia"]);
+    vi.restoreAllMocks();
+  });
+
+  it("con el resumen completo no se puede volver a pedir: no se llama a la IA ni se cambia nada", async () => {
+    const ia = crearIASimulada();
+    await reunionConAudio();
+    await correr(ia, () => reunion().status === "lista");
+    const llamadas = ia.llamadas.length;
+    const costo = reunion().costUsd;
+    expect(await reanalizarResumen(ID)).toMatchObject({ ok: false, codigo: "no_hace_falta" });
+    expect(reunion()).toMatchObject({ status: "lista", costUsd: costo });
+    expect(ia.llamadas).toHaveLength(llamadas);
   });
 });

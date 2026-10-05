@@ -47,7 +47,8 @@ export async function GET(_req: NextRequest, { params }: Contexto) {
     const detalle = demoReunion(ctx.userId, id);
     const items = demoIntervenciones(ctx.userId, id);
     if (!detalle || !items) return NO_ENCONTRADA();
-    if (detalle.meeting.status !== "lista") return NO_LISTA();
+    // «Lista» o, mientras se vuelve a generar el resumen, una reunión que ya estuvo lista: la transcripción no cambia.
+    if (detalle.meeting.status !== "lista" && !detalle.meeting.readyAt) return NO_LISTA();
     const m = detalle.meeting;
     const nombres = Object.fromEntries(detalle.speakers.flatMap((h) => (h.name ? [[h.label, h.name]] : [])));
     const encabezado = encabezadoDeTranscripcion({
@@ -65,10 +66,10 @@ export async function GET(_req: NextRequest, { params }: Contexto) {
     await ensureMeetingsSchema();
     const m = await db.meeting.findFirst({
       where: { id, userId: ctx.userId },
-      select: { title: true, type: true, date: true, status: true, durationMs: true, coverage: true, silences: true, property: { select: { name: true } } },
+      select: { title: true, type: true, date: true, status: true, readyAt: true, durationMs: true, coverage: true, silences: true, property: { select: { name: true } } },
     });
     if (!m) return NO_ENCONTRADA();
-    if (m.status !== "lista") return NO_LISTA();
+    if (m.status !== "lista" && !m.readyAt) return NO_LISTA();
 
     const hablantes = await db.meetingSpeaker.findMany({ where: { meetingId: id }, select: { label: true, name: true } });
     const nombres = Object.fromEntries(hablantes.flatMap((h) => (h.name && h.name.trim() ? [[h.label, h.name.trim()]] : [])));
