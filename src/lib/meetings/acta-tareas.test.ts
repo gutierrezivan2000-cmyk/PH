@@ -658,7 +658,7 @@ describe("el acta de punta a punta (trabajador + cola + IA simulada)", () => {
 
     // Se arregla y se pide de nuevo.
     rotas = false;
-    expect(await reanudarActa(ID, gen, new Date(reloj))).toBe(true);
+    expect(await reanudarActa(ID, gen, new Date(reloj))).toEqual({ ok: true });
     await correr(ia);
     expect(generacion()).toMatchObject({ status: "completed", progress: 100, errorMessage: null });
 

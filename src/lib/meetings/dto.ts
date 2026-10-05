@@ -181,3 +181,42 @@ export type PersonaDTO = {
   role: string | null;
   active: boolean;
 };
+
+/* ── Acta ─────────────────────────────────────────────────────────────── */
+
+/** En qué está un acta: se está redactando, está lista, o se detuvo por un fallo (y se puede intentar de nuevo). */
+export type EstadoActa = "procesando" | "lista" | "error";
+
+/** Un requisito legal que la revisión (Ley 675) marcó como cumplido o pendiente. */
+export type RequisitoActaDTO = { item: string; status: "completo" | "pendiente"; detail: string };
+
+export type ActaDTO = {
+  /** El identificador de la generación del acta. */
+  id: string;
+  estado: EstadoActa;
+  /** 0-100. */
+  progreso: number;
+  /** Qué hace ahora, mientras se redacta. */
+  etapa: "preparando" | "redactando" | "armando" | null;
+  /** Secciones redactadas y totales (solo mientras se redacta). */
+  secciones: { hechas: number; total: number } | null;
+  /** ISO. */
+  creadaEn: string;
+  terminadaEn: string | null;
+  /** Mensaje legible cuando el estado es «error». */
+  error: string | null;
+  /** «Pendientes de verificación»: lo que quien firma debe revisar. */
+  pendientes: string[];
+  /** La revisión de requisitos legales; null si no se pudo hacer. */
+  requisitos: RequisitoActaDTO[] | null;
+  /** Dónde abrir y descargar el documento (solo cuando está lista). */
+  archivos: { html: string; markdown: string } | null;
+};
+
+/** Lo que responde `GET /api/meetings/[id]/acta`. */
+export type RespuestaActa = {
+  /** La acta más reciente de la reunión; null si todavía no se ha pedido ninguna. */
+  acta: ActaDTO | null;
+  /** El acta con sus marcadores (`[[D1]]`, `[[t=00:41:05]]`), solo con `?texto=1` y si está lista. Texto «markdown seguro»: `&`, `<` y `>` van como entidades. */
+  texto: string | null;
+};

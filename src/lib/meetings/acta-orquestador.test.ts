@@ -132,6 +132,7 @@ describe("iniciarActa", () => {
     expect(db.generation.filas).toHaveLength(1);
     expect(db.generation.filas[0]).toMatchObject({
       id: generationId, userId: "u1", propertyId: "prop1", type: "acta", status: "processing", progress: 0, meetingId: ID, month: 9, year: 2026, inputFiles: [],
+      inputText: "Desde la reunión «Reunión de consejo»",
     });
     expect(db.meetingTask.filas).toHaveLength(1);
     expect(db.meetingTask.filas[0]).toMatchObject({ meetingId: ID, kind: "acta_calentar", key: claveActaCalentar(generationId), status: "pendiente" });
@@ -163,6 +164,37 @@ describe("iniciarActa", () => {
     expect(await iniciarActa({ meetingId: ID, userId: "u1" })).toMatchObject({ ok: false, codigo: "sin_transcripcion" });
     expect(db.generation.filas).toHaveLength(0);
     expect(db.meetingTask.filas).toHaveLength(0);
+  });
+
+  it("mira el cupo del plan antes de gastar una generación: si no alcanza, no crea nada", async () => {
+    await sembrarReunion();
+    const sinCupo = vi.fn(async () => ({ permitido: false, mensaje: "Has alcanzado el límite diario de 3 generaciones." }));
+    expect(await iniciarActa({ meetingId: ID, userId: "u1", comprobarCupo: sinCupo })).toEqual({ ok: false, codigo: "sin_cupo", error: "Has alcanzado el límite diario de 3 generaciones." });
+    expect(sinCupo).toHaveBeenCalledTimes(1);
+    expect(db.generation.filas).toHaveLength(0);
+    expect(db.meetingTask.filas).toHaveLength(0);
+    // Sin mensaje, dice algo claro.
+    const r = await iniciarActa({ meetingId: ID, userId: "u1", comprobarCupo: async () => ({ permitido: false }) });
+    expect(r).toMatchObject({ ok: false, codigo: "sin_cupo", error: "Llegaste al límite de generaciones de tu plan." });
+  });
+
+  it("con cupo la crea; y pedir otra vez la que ya está en curso no vuelve a mirar (ni a gastar) el cupo", async () => {
+    await sembrarReunion();
+    const conCupo = vi.fn(async () => ({ permitido: true }));
+    const a = await iniciarActa({ meetingId: ID, userId: "u1", comprobarCupo: conCupo });
+    expect(a).toMatchObject({ ok: true, yaEnCurso: false });
+    const b = await iniciarActa({ meetingId: ID, userId: "u1", comprobarCupo: conCupo });
+    expect(b).toMatchObject({ ok: true, yaEnCurso: true });
+    expect(conCupo).toHaveBeenCalledTimes(1);
+  });
+
+  it("no mira el cupo de lo que no se puede pedir (reunión de otra persona o sin terminar)", async () => {
+    await sembrarReunion();
+    const cupo = vi.fn(async () => ({ permitido: true }));
+    await iniciarActa({ meetingId: ID, userId: "otra", comprobarCupo: cupo });
+    await db.meeting.updateMany({ where: { id: ID }, data: { status: "procesando" } });
+    await iniciarActa({ meetingId: ID, userId: "u1", comprobarCupo: cupo });
+    expect(cupo).not.toHaveBeenCalled();
   });
 
   it("un doble clic devuelve la misma acta y no crea otra (ni siquiera para borrarla enseguida)", async () => {
@@ -297,7 +329,7 @@ describe("reanudarActa («Intentar de nuevo»)", () => {
   it("lo que falló vuelve a empezar de cero, lo congelado se descongela, lo hecho se conserva y el acta sigue en curso", async () => {
     const { gen } = await actaConFallo();
     const ahora = new Date("2026-10-05T12:00:00Z");
-    expect(await reanudarActa(ID, gen, ahora)).toBe(true);
+    expect(await reanudarActa(ID, gen, ahora)).toEqual({ ok: true });
     const fila = (k: number) => db.meetingTask.filas.find((x) => x.key === claveActaSeccion(gen, k))!;
     expect(fila(0)).toMatchObject({ status: "hecha", result: { k: 0, markdown: "Texto." } });
     expect(fila(1)).toMatchObject({ status: "pendiente", attempts: 0, error: null, runAfter: ahora });
@@ -314,15 +346,30 @@ describe("reanudarActa («Intentar de nuevo»)", () => {
     expect(db.meetingTask.filas.find((x) => x.key === "unir")).toMatchObject({ status: "fallida", attempts: 3 });
   });
 
+  it("al retomarla vuelve a contar para el cupo: si ya no alcanza, no se retoma y todo sigue como estaba", async () => {
+    const { gen } = await actaConFallo();
+    const sinCupo = async () => ({ permitido: false, mensaje: "Has alcanzado el límite mensual de 15 generaciones." });
+    expect(await reanudarActa(ID, gen, new Date(), sinCupo)).toEqual({ ok: false, codigo: "sin_cupo", error: "Has alcanzado el límite mensual de 15 generaciones." });
+    expect(db.generation.filas[0]).toMatchObject({ status: "failed", errorMessage: "No pudimos redactar la sección…" });
+    expect(db.meetingTask.filas.find((x) => x.key === claveActaSeccion(gen, 1))).toMatchObject({ status: "fallida", attempts: 3 });
+    expect(await reanudarActa(ID, gen, new Date(), async () => ({ permitido: true }))).toEqual({ ok: true });
+  });
+
+  it("dos clics casi a la vez en «Intentar de nuevo» la retoman una sola vez", async () => {
+    const { gen } = await actaConFallo();
+    const [a, b] = await Promise.all([reanudarActa(ID, gen), reanudarActa(ID, gen)]);
+    expect([a.ok, b.ok].sort()).toEqual([false, true]);
+  });
+
   it("solo se puede reanudar un acta con error", async () => {
     const { gen } = await actaConFallo();
     for (const estado of ["processing", "completed"]) {
       await db.generation.updateMany({ where: { id: gen }, data: { status: estado } });
-      expect(await reanudarActa(ID, gen), estado).toBe(false);
+      expect(await reanudarActa(ID, gen), estado).toMatchObject({ ok: false, codigo: "no_en_error" });
     }
     expect(db.meetingTask.filas.find((x) => x.key === claveActaSeccion(gen, 1))).toMatchObject({ status: "fallida" });
-    expect(await reanudarActa(ID, "noexiste")).toBe(false);
-    expect(await reanudarActa("otra", gen)).toBe(false);
+    expect(await reanudarActa(ID, "noexiste")).toMatchObject({ ok: false, codigo: "no_en_error" });
+    expect(await reanudarActa("otra", gen)).toMatchObject({ ok: false, codigo: "no_en_error" });
   });
 
   it("si lo que falló fue el último paso y ya no queda nada por rehacer, encola lo que falte", async () => {
@@ -333,7 +380,7 @@ describe("reanudarActa («Intentar de nuevo»)", () => {
     for (const s of SECCIONES) await db.meetingTask.updateMany({ where: { meetingId: ID, key: claveActaSeccion(gen, s.k) }, data: { status: "hecha", result: { k: s.k, markdown: "x" } } });
     // El trabajador murió antes de encolar el paso final y el vigilante dio el acta por muerta.
     await db.generation.updateMany({ where: { id: gen }, data: { status: "failed", errorMessage: "La generación excedió el tiempo máximo y se canceló." } });
-    expect(await reanudarActa(ID, gen)).toBe(true);
+    expect(await reanudarActa(ID, gen)).toEqual({ ok: true });
     expect(estados(gen).final).toBe("pendiente");
   });
 });

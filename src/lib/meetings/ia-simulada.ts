@@ -75,16 +75,19 @@ function repartidos<T>(items: readonly T[], n: number): T[] {
   return Array.from({ length: n }, (_, i) => items[Math.round((i * (items.length - 1)) / (n - 1))]);
 }
 
-function responderSeccion(entrada: EntradaTexto, olvidar: ReadonlySet<string>): string {
-  const pedido = entrada.turnos[entrada.turnos.length - 1].texto;
+/**
+ * Lo que «redactaría el modelo» para una sección del acta: lee la transcripción y la leyenda del prefijo compartido y el pedido de
+ * la sección, y escribe lo que ese pedido manda. Lo usan las pruebas y el modo demo (que muestra un acta real sin llamar a la IA).
+ */
+export function textoDeSeccionSimulado(compartido: string, pedido: string, olvidar: ReadonlySet<string> = new Set()): string {
   const titulo = /del acta: «(.+?)»\./.exec(pedido)?.[1] ?? "esta parte de la reunión";
   const rango = /de (\d{1,3}:\d{2}:\d{2}) a (\d{1,3}:\d{2}:\d{2})/.exec(pedido);
   const desde = rango ? (segundosDeHora(rango[1]) ?? 0) : 0;
   const hasta = rango ? (segundosDeHora(rango[2]) ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER;
-  const nombres = leerLeyenda(entrada.compartido);
+  const nombres = leerLeyenda(compartido);
   const quien = (etiqueta: string) => nombres.get(etiqueta) ?? "un asistente";
 
-  const lineas = leerTranscripcion(entrada.compartido).filter((l) => l.s >= desde && l.s < hasta);
+  const lineas = leerTranscripcion(compartido).filter((l) => l.s >= desde && l.s < hasta);
   const parrafos = [`${marcaDeTiempo(desde)} En este punto se trató: ${titulo}.`];
   for (const l of repartidos(lineas, 4)) {
     parrafos.push(`${quien(l.etiqueta)} manifiesta que «${recortar(l.texto, 150)}». ${marcaDeTiempo(l.s)}`);
@@ -103,6 +106,9 @@ function responderSeccion(entrada: EntradaTexto, olvidar: ReadonlySet<string>): 
   if (lineas.length === 0) parrafos.push(`No hay intervenciones registradas en este tramo. ${PENDIENTE}`);
   return parrafos.join("\n\n");
 }
+
+const responderSeccion = (entrada: EntradaTexto, olvidar: ReadonlySet<string>): string =>
+  textoDeSeccionSimulado(entrada.compartido, entrada.turnos[entrada.turnos.length - 1].texto, olvidar);
 
 /** Lo que contestaría «Preguntar»: lo que más se parece a la pregunta, citado con su hora entre corchetes. */
 function responderPregunta(entrada: EntradaTexto): string {

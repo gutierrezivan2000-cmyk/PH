@@ -12,6 +12,7 @@ import { POST as registrarParte } from "@/app/api/meetings/[id]/live/route";
 import { POST as nuevaSesion } from "@/app/api/meetings/[id]/live/sesion/route";
 import { POST as marcar } from "@/app/api/meetings/[id]/markers/route";
 import { POST as procesar } from "@/app/api/meetings/[id]/process/route";
+import { GET as leerActaDeReunion, POST as pedirActaDeReunion } from "@/app/api/meetings/[id]/acta/route";
 import { POST as reanalizar } from "@/app/api/meetings/[id]/reanalyze/route";
 import { POST as reintentar } from "@/app/api/meetings/[id]/retry/route";
 import { PUT as guardarNombres } from "@/app/api/meetings/[id]/speakers/route";
@@ -642,6 +643,8 @@ const TODAS: Array<[string, () => Promise<Response>]> = [
   ["GET audio", () => leerAudio(pedir("/m"), ctx({ id: "a" }))],
   ["HEAD audio", () => cabecerasDeAudio(pedir("/m", "HEAD"), ctx({ id: "a" }))],
   ["POST reanalyze", () => reanalizar(pedir("/m", "POST"), ctx({ id: "a" }))],
+  ["GET acta", () => leerActaDeReunion(pedir("/m"), ctx({ id: "a" }))],
+  ["POST acta", () => pedirActaDeReunion(pedir("/m", "POST", {}), ctx({ id: "a" }))],
 ];
 
 describe("piloto: ninguna ruta responde a quien no debe (y ninguna toca la base de datos antes de decidirlo)", () => {

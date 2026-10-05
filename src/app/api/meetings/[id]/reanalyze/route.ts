@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// El trabajador que arranca `empujar()` corre dentro de esta duración: tiene que alcanzar para su presupuesto (230 s).
+export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from "next/server";
 import { ensureMeetingsSchema } from "@/lib/ensure-meetings-schema";

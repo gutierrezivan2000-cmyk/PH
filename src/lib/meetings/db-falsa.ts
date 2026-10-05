@@ -61,7 +61,9 @@ export class TablaFalsa {
     return salida;
   }
 
-  async findFirst({ where, select }: { where?: Donde; select?: Record<string, unknown> } = {}) {
+  async findFirst({ where, select, orderBy }: { where?: Donde; select?: Record<string, unknown>; orderBy?: Array<Record<string, "asc" | "desc">> | Record<string, "asc" | "desc"> } = {}) {
+    // Con `orderBy`, la primera fila según ese orden (como Prisma); sin él, la primera que coincide.
+    if (orderBy) return (await this.findMany({ where, orderBy, take: 1, select }))[0] ?? null;
     const f = this.filas.find((x) => coincide(x, where));
     return f ? this.copia(f, select) : null;
   }

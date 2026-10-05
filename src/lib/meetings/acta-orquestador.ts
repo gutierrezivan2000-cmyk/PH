@@ -81,7 +81,10 @@ export function planificarSiguientesDeActa(e: {
 
 export type ResultadoDeIniciarActa =
   | { ok: true; generationId: string; /** Ya había una en curso: no se crea otra. */ yaEnCurso: boolean }
-  | { ok: false; codigo: "no_existe" | "no_lista" | "sin_transcripcion"; error: string };
+  | { ok: false; codigo: "no_existe" | "no_lista" | "sin_transcripcion" | "sin_cupo"; error: string };
+
+/** Los cupos del plan: quien llama dice si esta persona puede gastar otra generación (y, si no, por qué). */
+export type ComprobarCupo = () => Promise<{ permitido: boolean; mensaje?: string }>;
 
 /** La acta en curso (o pendiente) de una reunión, la más antigua si hubiera más de una. */
 async function actaEnCursoDe(meetingId: string): Promise<string | null> {
@@ -98,7 +101,9 @@ async function actaEnCursoDe(meetingId: string): Promise<string | null> {
  * Pide el acta de una reunión: crea su `Generation` y encola el primer paso. Si ya hay una en curso devuelve esa (un doble clic
  * no gasta dos actas). Quien llama revisa antes los cupos del plan y, después, empuja el trabajador.
  */
-export async function iniciarActa({ meetingId, userId }: { meetingId: string; userId: string }): Promise<ResultadoDeIniciarActa> {
+export async function iniciarActa({
+  meetingId, userId, comprobarCupo,
+}: { meetingId: string; userId: string; comprobarCupo?: ComprobarCupo }): Promise<ResultadoDeIniciarActa> {
   const contexto = await cargarContextoDeReunion(meetingId, { userId });
   if (!contexto) return { ok: false, codigo: "no_existe", error: "Reunión no encontrada" };
   if (contexto.status !== "lista") return { ok: false, codigo: "no_lista", error: "Esta reunión todavía se está procesando." };
@@ -109,9 +114,16 @@ export async function iniciarActa({ meetingId, userId }: { meetingId: string; us
   const enCurso = await actaEnCursoDe(meetingId);
   if (enCurso) return { ok: true, generationId: enCurso, yaEnCurso: true };
 
+  // El cupo se mira solo cuando se va a gastar una generación nueva (pedir otra vez la que ya está en curso no gasta nada).
+  const cupo = comprobarCupo ? await comprobarCupo() : null;
+  if (cupo && !cupo.permitido) return { ok: false, codigo: "sin_cupo", error: cupo.mensaje ?? "Llegaste al límite de generaciones de tu plan." };
+
   const fecha = partesEnZona(contexto.fecha);
   const g = await db.generation.create({
-    data: { userId, propertyId: contexto.propertyId, type: "acta", status: "processing", progress: 0, month: fecha.mes, year: fecha.anio, meetingId, inputFiles: [] },
+    data: {
+      userId, propertyId: contexto.propertyId, type: "acta", status: "processing", progress: 0, month: fecha.mes, year: fecha.anio, meetingId, inputFiles: [],
+      inputText: `Desde la reunión «${contexto.titulo}»`,
+    },
   });
 
   // Dos clics casi a la vez pudieron crear dos: se queda la más antigua y la otra se borra.
@@ -187,16 +199,23 @@ export async function avanzarActasEnCurso(limite = 25): Promise<number> {
 
 /**
  * «Intentar de nuevo»: lo que falló vuelve a empezar de cero y lo que quedó congelado se descongela; lo que ya estaba hecho se
- * conserva (cada sección hecha ya se pagó). false si el acta no está en error.
+ * conserva (cada sección hecha ya se pagó). Solo si el acta está en error.
  */
-export async function reanudarActa(meetingId: string, generationId: string, ahora: Date = new Date()): Promise<boolean> {
+export async function reanudarActa(
+  meetingId: string, generationId: string, ahora: Date = new Date(), comprobarCupo?: ComprobarCupo,
+): Promise<{ ok: true } | { ok: false; codigo: "no_en_error" | "sin_cupo"; error: string }> {
   const g = await db.generation.findFirst({ where: { id: generationId, meetingId, type: "acta", status: "failed" }, select: { id: true } });
-  if (!g) return false;
+  if (!g) return { ok: false, codigo: "no_en_error", error: "Esta acta no está en error." };
+  // Un acta con error no cuenta para el cupo; al retomarla vuelve a contar.
+  const cupo = comprobarCupo ? await comprobarCupo() : null;
+  if (cupo && !cupo.permitido) return { ok: false, codigo: "sin_cupo", error: cupo.mensaje ?? "Llegaste al límite de generaciones de tu plan." };
   const prefijo = prefijoDeActa(generationId);
   await db.meetingTask.updateMany({ where: { meetingId, status: "fallida", key: { startsWith: prefijo } }, data: { status: "pendiente", attempts: 0, runAfter: ahora, lockedAt: null, error: null } });
   await db.meetingTask.updateMany({ where: { meetingId, status: "pendiente", runAfter: FUTURO_LEJANO, key: { startsWith: prefijo } }, data: { runAfter: ahora } });
   const r = await db.generation.updateMany({ where: { id: generationId, status: "failed" }, data: { status: "processing", errorMessage: null } });
+  // Dos clics casi a la vez: solo el primero la retoma.
+  if (r.count !== 1) return { ok: false, codigo: "no_en_error", error: "Esta acta no está en error." };
   // Si lo que falló fue el último paso y no quedó nada por hacer, esto encola lo que falte.
-  if (r.count === 1) await avanzarActa(meetingId, generationId);
-  return r.count === 1;
+  await avanzarActa(meetingId, generationId);
+  return { ok: true };
 }

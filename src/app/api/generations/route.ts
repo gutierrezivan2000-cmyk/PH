@@ -36,6 +36,8 @@ export async function GET() {
         outputFiles: true,
         // Lo usa Generar para mostrar «último informe» de cada copropiedad.
         propertyId: true,
+        // Si el documento se redactó desde una reunión grabada: el Historial enlaza a ella.
+        meetingId: true,
         property: { select: { name: true } },
       },
       orderBy: { createdAt: "desc" },

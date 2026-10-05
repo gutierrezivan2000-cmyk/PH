@@ -175,8 +175,17 @@ export async function GET(
     });
   }
 
+  if (fileType === "acta-markdown" && buffers.actaMarkdown) {
+    return new NextResponse(buffers.actaMarkdown, {
+      headers: {
+        "Content-Type": "text/markdown; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="acta-de-reunion.md"',
+      },
+    });
+  }
+
   if (fileType === "pptx") {
-    let pptx = buffers.presentacionPptx;
+    const pptx = buffers.presentacionPptx;
     if (!pptx && buffers.informeHtml) {
       // Generate PPTX on the fly from HTML isn't possible, but we can re-generate
       // This path is reached when the buffer was created without PPTX

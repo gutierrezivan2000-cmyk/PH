@@ -43,6 +43,8 @@ interface Generation {
   costUsd: number;
   createdAt: string;
   outputFiles?: Record<string, string> | null;
+  /** Si el documento se redactó desde una reunión grabada (Reuniones). */
+  meetingId?: string | null;
 }
 
 type ItemCalendario = { status?: string; dueDate?: string; propertyId?: string };
@@ -344,6 +346,8 @@ export default function HistorialPage() {
         const verbo = g.status === "failed" ? "Ver el error" : g.status === "completed" ? "Abrir" : "Ver el progreso";
         const docs = g.status === "completed" ? documentos(g) : [];
         const items: ItemMenu[] = docs.map((d) => ({ etiqueta: d.accion, href: d.url, nuevaPestana: true }));
+        // Un acta redactada desde una reunión grabada vuelve a ella (la transcripción, el audio y el resumen).
+        if (g.meetingId) items.push({ etiqueta: "Ver la reunión", href: `/dashboard/reuniones/${g.meetingId}` });
         return (
           <AccionesFila>
             <BotonFila href={`/dashboard/generar/${g.id}`} aria-label={`${verbo}: ${nombre}`}>

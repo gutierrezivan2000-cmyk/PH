@@ -434,6 +434,43 @@ export function demoReunion(userId: string, id: string): ReunionDetalle | null {
   };
 }
 
+/** Lo que el acta simulada necesita de una reunión de ejemplo: la reunión, su ficha, sus voces y su transcripción. */
+export type ContextoDeActaDemo = {
+  id: string;
+  propertyId: string;
+  propiedad: string;
+  tipo: string;
+  titulo: string;
+  fecha: Date;
+  duracionMs: number;
+  /** ¿Está lista y con transcripción? Solo entonces se puede redactar su acta. */
+  lista: boolean;
+  tieneTranscripcion: boolean;
+  ficha: Ficha | null;
+  hablantes: HablanteDTO[];
+  intervenciones: IntervencionDTO[];
+};
+
+export function demoContextoDeActa(userId: string, id: string): ContextoDeActaDemo | null {
+  const r = buscar(userId, id);
+  if (!r) return null;
+  avanzarDemo(r);
+  return {
+    id: r.id,
+    propertyId: r.propertyId,
+    propiedad: nombreDePropiedad(r.userId, r.propertyId),
+    tipo: r.type,
+    titulo: r.title,
+    fecha: new Date(r.date),
+    duracionMs: r.durationMs ?? DURACION_SEPTIEMBRE_MS,
+    lista: r.status === "lista",
+    tieneTranscripcion: r.intervenciones.length > 0,
+    ficha: r.ficha ? structuredClone(r.ficha) : null,
+    hablantes: r.hablantes.map((h) => ({ ...h })),
+    intervenciones: r.intervenciones.map((u) => ({ ...u })),
+  };
+}
+
 function resumenVivoDemo(r: ReunionDemo): VivoDTO | null {
   const audio = r.vivo.filter((p) => p.seq >= 0);
   if (audio.length === 0) return null;

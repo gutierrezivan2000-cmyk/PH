@@ -40,6 +40,8 @@ export interface DemoGeneration {
   tokensUsed: number;
   costUsd: number;
   errorMessage: string | null;
+  /** Si el documento se redactó desde una reunión grabada (Reuniones). */
+  meetingId?: string | null;
   createdAt: Date;
   completedAt: Date | null;
   property: DemoProperty;
@@ -127,6 +129,7 @@ const _store = {
   fileBuffers: {} as Record<string, {
     informeHtml?: string;
     actaHtml?: string;
+    actaMarkdown?: string;
     presentacionPptx?: Buffer;
   }>,
 };
@@ -193,9 +196,12 @@ export function getGenerationById(id: string, userId: string): DemoGeneration | 
 }
 
 export function createGeneration(data: Omit<DemoGeneration, "id" | "createdAt" | "completedAt">): DemoGeneration {
+  // Dos generaciones creadas en el mismo milisegundo no pueden compartir identificador.
+  let id = `gen-${Date.now()}`;
+  for (let n = 2; _store.generations.some((g) => g.id === id); n++) id = `gen-${Date.now()}-${n}`;
   const gen: DemoGeneration = {
     ...data,
-    id: `gen-${Date.now()}`,
+    id,
     createdAt: new Date(),
     completedAt: null,
   };
@@ -210,10 +216,16 @@ export function updateGeneration(id: string, update: Partial<DemoGeneration>): v
   }
 }
 
+/** Solo para pruebas: deja las generaciones y sus archivos como al sembrar el demo. */
+export function reiniciarDemoGeneraciones(): void {
+  _store.generations = [...seededGenerations];
+  _store.fileBuffers = {};
+}
+
 // --- File buffers ---
 export function saveFileBuffers(
   generationId: string,
-  files: { informeHtml?: string; actaHtml?: string; presentacionPptx?: Buffer }
+  files: { informeHtml?: string; actaHtml?: string; actaMarkdown?: string; presentacionPptx?: Buffer }
 ): void {
   _store.fileBuffers[generationId] = files;
 }

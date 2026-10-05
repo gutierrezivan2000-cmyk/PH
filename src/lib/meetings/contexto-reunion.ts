@@ -33,6 +33,27 @@ export type ContextoDeReunion = {
 /** Cuántas intervenciones se leen por vuelta (una reunión de 8 h tiene miles). */
 const LOTE = 2_000;
 
+/**
+ * Las voces de la reunión como las ve la IA, de la que más habló a la que menos (a igual tiempo, por etiqueta: V2 antes que V10).
+ * El orden es parte del prefijo que la caché del servicio reutiliza: tiene que ser siempre el mismo.
+ */
+export function vocesDeReunion(hablantes: ReadonlyArray<{ label: string; name: string | null; role: string | null; talkMs: number }>): VozDeActa[] {
+  return [...hablantes]
+    .sort((a, b) => b.talkMs - a.talkMs || a.label.localeCompare(b.label, "es", { numeric: true }))
+    .map((h) => ({
+      etiqueta: h.label,
+      nombre: h.name?.trim() || null,
+      rol: h.role ? nombreRolPersona(h.role) || h.role : null,
+    }));
+}
+
+/** Quiénes asistieron: los de la ficha o, si la ficha no los trae, las voces con nombre confirmado. */
+export function asistentesDeReunion(ficha: Ficha | null, voces: readonly VozDeActa[]): Array<{ nombre: string; rol?: string | null }> {
+  return ficha && ficha.asistentes.length
+    ? ficha.asistentes.map((a) => ({ nombre: a.nombre, rol: a.rol ?? null }))
+    : voces.flatMap((v) => (v.nombre ? [{ nombre: v.nombre, rol: v.rol ?? null }] : []));
+}
+
 /** La reunión con todo lo que hace falta; null si no existe (o no es de `userId`, cuando se pide). */
 export async function cargarContextoDeReunion(meetingId: string, { userId }: { userId?: string } = {}): Promise<ContextoDeReunion | null> {
   const m = await db.meeting.findFirst({
@@ -41,14 +62,7 @@ export async function cargarContextoDeReunion(meetingId: string, { userId }: { u
   });
   if (!m) return null;
 
-  const hablantes = await db.meetingSpeaker.findMany({ where: { meetingId }, select: { label: true, name: true, role: true, talkMs: true } });
-  const voces: VozDeActa[] = [...hablantes]
-    .sort((a, b) => b.talkMs - a.talkMs || a.label.localeCompare(b.label, "es", { numeric: true }))
-    .map((h) => ({
-      etiqueta: h.label,
-      nombre: h.name?.trim() || null,
-      rol: h.role ? nombreRolPersona(h.role) || h.role : null,
-    }));
+  const voces = vocesDeReunion(await db.meetingSpeaker.findMany({ where: { meetingId }, select: { label: true, name: true, role: true, talkMs: true } }));
 
   const lineas: LineaDeReunion[] = [];
   let ultimoIdx = -1;
@@ -65,9 +79,7 @@ export async function cargarContextoDeReunion(meetingId: string, { userId }: { u
   }
 
   const ficha = leerFicha(m.digest);
-  const asistentes = ficha && ficha.asistentes.length
-    ? ficha.asistentes.map((a) => ({ nombre: a.nombre, rol: a.rol ?? null }))
-    : voces.flatMap((v) => (v.nombre ? [{ nombre: v.nombre, rol: v.rol ?? null }] : []));
+  const asistentes = asistentesDeReunion(ficha, voces);
 
   return {
     meetingId: m.id,
