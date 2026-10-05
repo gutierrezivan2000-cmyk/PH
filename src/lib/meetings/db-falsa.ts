@@ -209,6 +209,8 @@ export function crearDbFalsa() {
     generation: new TablaFalsa("g"),
     propertyPerson: new TablaFalsa("p"),
     usageRecord: new TablaFalsa("r"),
+    agentChat: new TablaFalsa("a"),
+    agentMessage: new TablaFalsa("n"),
     subscription: new TablaFalsa("b"),
     user: new TablaFalsa("x"),
     property: new TablaFalsa("c"),

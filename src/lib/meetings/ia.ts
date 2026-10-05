@@ -212,6 +212,9 @@ export const sumarUso = (a: UsoIA, b: UsoIA): UsoIA => ({
 
 export const USO_VACIO: UsoIA = { entrada: 0, salida: 0, cacheLectura: 0, cacheEscritura: 0, costoUsd: 0 };
 
+/** Los tokens que se cuentan de un uso: todos los que se leyeron o escribieron (los mismos en el análisis, el acta y las preguntas). */
+export const tokensDeUso = (u: UsoIA): number => u.entrada + u.salida + u.cacheLectura + u.cacheEscritura;
+
 /* ════════════════════════════════════════════════════════════════════
    Errores
    ════════════════════════════════════════════════════════════════════ */

@@ -28,7 +28,7 @@ import {
 import type { TareaReclamada } from "./cola";
 import { cargarContextoDeReunion, transcripcionParaIA, type ContextoDeReunion } from "./contexto-reunion";
 import { ErrorTarea, type DepsProceso, type Manejador } from "./contratos";
-import { ErrorIA, USO_VACIO, aErrorIA, esfuerzoDeReuniones, sumarUso, type RespuestaTexto, type UsoIA } from "./ia";
+import { ErrorIA, USO_VACIO, aErrorIA, esfuerzoDeReuniones, sumarUso, tokensDeUso, type RespuestaTexto, type UsoIA } from "./ia";
 import { MAX_INTENTOS_TAREA } from "./tipos";
 import { KIND_ACTA_CALENTAR, KIND_ACTA_SECCION, generacionDeClaveDeActa, prefijoDeActa } from "./transcripcion/claves";
 
@@ -41,9 +41,6 @@ export function leerUsoGuardado(v: unknown): UsoIA {
   const n = (x: unknown) => (esNumero(x) && x > 0 ? x : 0);
   return { entrada: n(v.entrada), salida: n(v.salida), cacheLectura: n(v.cacheLectura), cacheEscritura: n(v.cacheEscritura), costoUsd: n(v.costoUsd) };
 }
-
-/** Los tokens que se cuentan de un uso (los mismos que en el análisis de la reunión). */
-export const tokensDeUso = (u: UsoIA): number => u.entrada + u.salida + u.cacheLectura + u.cacheEscritura;
 
 /* ════════════════════════════════════════════════════════════════════
    Lo común
