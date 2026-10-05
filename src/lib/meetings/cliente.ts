@@ -6,7 +6,8 @@
  * el estado (una respuesta HTML de un 504 de la plataforma no se puede leer, y
  * «Unexpected token <» no es un mensaje para una persona).
  */
-import type { EstadoProcesoDTO, HablanteDTO, PaginaDeIntervenciones, PersonaDTO, ReunionDetalle, ReunionResumen } from "./dto";
+import type { ClienteDeActa } from "./controlador-acta";
+import type { ActaDTO, EstadoProcesoDTO, HablanteDTO, PaginaDeIntervenciones, PersonaDTO, RespuestaActa, ReunionDetalle, ReunionResumen } from "./dto";
 import type { PedidoDeHablante } from "./nombres";
 
 export class ErrorApi extends Error {
@@ -153,3 +154,27 @@ export const urlDeAudio = (meetingId: string): string => `/api/meetings/${encode
 export async function guardarHablantes(meetingId: string, hablantes: PedidoDeHablante[]): Promise<HablanteDTO[]> {
   return (await pedir<{ speakers: HablanteDTO[] }>(`/api/meetings/${encodeURIComponent(meetingId)}/speakers`, enJson("PUT", { hablantes }))).speakers;
 }
+
+/* ── Acta ────────────────────────────────────────────────────────────── */
+
+/** El acta más reciente de la reunión; con `texto`, también el acta con sus marcadores (solo si está lista). */
+export function obtenerActa(meetingId: string, { texto = false }: { texto?: boolean } = {}): Promise<RespuestaActa> {
+  return pedir<RespuestaActa>(`/api/meetings/${encodeURIComponent(meetingId)}/acta${texto ? "?texto=1" : ""}`);
+}
+
+/** Pide el acta de la reunión (si ya hay una en curso, devuelve esa). */
+export function pedirActa(meetingId: string): Promise<{ acta: ActaDTO | null; yaEnCurso: boolean }> {
+  return pedir(`/api/meetings/${encodeURIComponent(meetingId)}/acta`, enJson("POST", {}));
+}
+
+/** «Intentar de nuevo» de un acta con error: lo ya redactado se conserva y solo se repite lo que falló. */
+export function reanudarActa(meetingId: string, actaId: string): Promise<{ acta: ActaDTO | null; yaEnCurso: boolean }> {
+  return pedir(`/api/meetings/${encodeURIComponent(meetingId)}/acta`, enJson("POST", { reanudar: actaId }));
+}
+
+/** Lo que usa el controlador del acta para hablar con el servidor. */
+export const clienteDeActa = (meetingId: string): ClienteDeActa => ({
+  obtener: (o) => obtenerActa(meetingId, o),
+  pedir: () => pedirActa(meetingId),
+  reanudar: (actaId) => reanudarActa(meetingId, actaId),
+});

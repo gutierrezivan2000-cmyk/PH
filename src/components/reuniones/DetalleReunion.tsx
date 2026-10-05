@@ -1,12 +1,14 @@
 "use client";
 
-import { CircleStop, Download, Mic, Pencil, RefreshCw } from "lucide-react";
+import { CircleStop, Download, FileSignature, Mic, Pencil, RefreshCw, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { SubidaReunion } from "@/components/reuniones/SubidaReunion";
+import { TabActa } from "@/components/reuniones/TabActa";
 import { TabHablantes } from "@/components/reuniones/TabHablantes";
 import { TabResumen } from "@/components/reuniones/TabResumen";
+import { useActa } from "@/components/reuniones/useActa";
 import { useMotorDeAudio } from "@/components/reuniones/useMotorDeAudio";
 import { VisorTranscripcion } from "@/components/reuniones/VisorTranscripcion";
 import {
@@ -17,6 +19,7 @@ import {
   ErrorApi, actualizarReunion, eliminarReunion, obtenerEstado, obtenerReunion, procesarReunion, reanalizarResumen, reintentarReunion,
   urlDeTranscripcion,
 } from "@/lib/meetings/cliente";
+import { marcaDePestanaDeActa, sePuedePedirActa } from "@/lib/meetings/acta-pantalla";
 import type { ReunionDetalle } from "@/lib/meetings/dto";
 import { aValorLocal, deValorLocal, fechaLarga, haceCuanto } from "@/lib/meetings/formato";
 import { estadoDelResumen, sePuedeReintentarElResumen } from "@/lib/meetings/resumen-pantalla";
@@ -31,7 +34,7 @@ const PESTANAS: Array<{ id: Pestana; etiqueta: string; texto: string }> = [
   { id: "resumen", etiqueta: "Resumen", texto: "Aquí verás el resumen de la reunión: decisiones, compromisos y votaciones, cada uno con su minuto." },
   { id: "transcripcion", etiqueta: "Transcripción", texto: "Aquí verás la transcripción completa, con quién habla y en qué minuto, junto al audio." },
   { id: "hablantes", etiqueta: "Hablantes", texto: "Aquí le pones nombre a cada voz de la reunión." },
-  { id: "acta", etiqueta: "Acta", texto: "Aquí redactas el acta a partir de la reunión completa." },
+  { id: "acta", etiqueta: "Acta", texto: "Aquí redactas el acta a partir de la reunión completa, con cada minuto enlazado al audio." },
   { id: "preguntar", etiqueta: "Preguntar", texto: "Aquí le preguntas a la reunión: responde con la transcripción completa y te dice en qué minuto se habló." },
 ];
 
@@ -74,7 +77,7 @@ export function DetalleReunion({ id }: { id: string }) {
   const [saltoA, setSaltoA] = useState<{ ms: number; n: number } | null>(null);
   const [reanalizando, setReanalizando] = useState(false);
 
-  const [modal, setModal] = useState<"editar" | "eliminar" | "terminar" | null>(null);
+  const [modal, setModal] = useState<"editar" | "eliminar" | "terminar" | "acta" | null>(null);
   const [trabajando, setTrabajando] = useState(false);
   const [errorModal, setErrorModal] = useState("");
   const [edit, setEdit] = useState({ title: "", type: "consejo", fecha: "" });
@@ -240,6 +243,16 @@ export function DetalleReunion({ id }: { id: string }) {
   const puedeRehacerResumen = m?.status === "lista" && estadoDelResumenActual !== null && sePuedeReintentarElResumen(estadoDelResumenActual);
   // Se puede leer la transcripción mientras se rehace el resumen: la reunión ya estuvo lista antes (`readyAt`).
   const verContenido = m !== null && (m.status === "lista" || (estaEnMarcha(m.status) && m.readyAt !== null));
+  // El acta vive en la página (no en la pestaña): así su avance sigue aunque se cambie de pestaña.
+  const acta = useActa(id, verContenido);
+  const marcaDelActa = marcaDePestanaDeActa(acta.acta);
+  const redactarOtraVez = async () => {
+    setTrabajando(true);
+    const r = await acta.pedir();
+    setTrabajando(false);
+    if (r.ok) setModal(null);
+    else setErrorModal(r.mensaje);
+  };
   const menu: ItemMenu[] = [
     ...(m?.status === "lista" || (m && verContenido) ? [{ etiqueta: "Descargar transcripción", icono: Download, tono: "blue" as const, alElegir: () => descargar(urlDeTranscripcion(id)) }] : []),
     ...(puedeRehacerResumen ? [{ etiqueta: estadoDelResumenActual === "parcial" ? "Analizar lo que faltó" : "Generar el resumen otra vez", icono: RefreshCw, tono: "violet" as const, alElegir: () => void pedirResumenOtraVez() }] : []),
@@ -303,6 +316,11 @@ export function DetalleReunion({ id }: { id: string }) {
                     {m.status === "borrador" && (
                       <Boton variante="secundario" icono={Mic} tono="violet" href={`/dashboard/reuniones/${id}/grabar`}>
                         Grabar la reunión
+                      </Boton>
+                    )}
+                    {verContenido && sePuedePedirActa(m.status) && !acta.cargando && (
+                      <Boton variante="secundario" icono={acta.acta ? FileSignature : Sparkles} tono="violet" onClick={() => setPestana("acta")}>
+                        {acta.acta ? "Ver el acta" : "Redactar acta"}
                       </Boton>
                     )}
                     <MenuMas etiquetaAccesible="Más acciones de la reunión" items={menu} />
@@ -405,7 +423,9 @@ export function DetalleReunion({ id }: { id: string }) {
                       valor={pestana}
                       alCambiar={(v) => setPestana(v as Pestana)}
                       panelId={(p) => `re-panel-${p}`}
-                      items={PESTANAS.map((p) => ({ id: p.id, etiqueta: p.etiqueta }))}
+                      items={PESTANAS.map((p) =>
+                        p.id === "acta" && marcaDelActa ? { id: p.id, etiqueta: p.etiqueta, conteo: marcaDelActa.conteo, titulo: marcaDelActa.titulo } : { id: p.id, etiqueta: p.etiqueta },
+                      )}
                     />
                   </div>
                   <div id={`re-panel-${pestana}`} role="tabpanel">
@@ -419,6 +439,20 @@ export function DetalleReunion({ id }: { id: string }) {
                           alIrAlMinuto={irAlMinuto}
                           alReintentar={() => void pedirResumenOtraVez()}
                           reintentando={reanalizando || estaEnMarcha(m.status)}
+                        />
+                      </>
+                    ) : pestana === "acta" ? (
+                      <>
+                        <h2 className="k-sr">Acta</h2>
+                        <TabActa
+                          acta={acta}
+                          estadoDeLaReunion={m.status}
+                          alIrAlMinuto={irAlMinuto}
+                          alRedactarOtraVez={() => {
+                            setErrorModal("");
+                            setModal("acta");
+                          }}
+                          alAvisar={(tipo, titulo) => avisar({ tipo, titulo })}
                         />
                       </>
                     ) : (
@@ -513,6 +547,29 @@ export function DetalleReunion({ id }: { id: string }) {
                 <p className="re-modal-texto">
                   Enviamos a transcribir lo que ya llegó al servidor{datos?.live ? ` (${formatearDuracion(datos.live.durMs)})` : ""}. Si otro dispositivo sigue
                   grabando, lo que grabe después ya no se incluirá.
+                </p>
+                {errorModal && <Aviso enLinea tipo="error" titulo={errorModal} />}
+              </Modal>
+
+              <Modal
+                abierto={modal === "acta"}
+                alCerrar={cerrarModal}
+                titulo="¿Redactar el acta otra vez?"
+                icono={FileSignature}
+                tono="violet"
+                acciones={
+                  <>
+                    <Boton variante="secundario" onClick={cerrarModal} disabled={trabajando}>
+                      Cancelar
+                    </Boton>
+                    <Boton icono={Sparkles} cargando={trabajando} textoCargando="Empezando…" onClick={() => void redactarOtraVez()}>
+                      Redactar de nuevo
+                    </Boton>
+                  </>
+                }
+              >
+                <p className="re-modal-texto">
+                  Se redacta un acta nueva con la transcripción y los nombres de ahora. La anterior se conserva en el Historial. Cuenta como una generación de tu plan.
                 </p>
                 {errorModal && <Aviso enLinea tipo="error" titulo={errorModal} />}
               </Modal>

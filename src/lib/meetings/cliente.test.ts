@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  ErrorApi, actualizarReunion, crearPersona, crearReunion, eliminarReunion, listarIntervenciones, listarPersonas, listarReuniones, obtenerEstado,
-  obtenerReunion, procesarReunion, quitarFuente, reintentarReunion, urlDeTranscripcion,
+  ErrorApi, actualizarReunion, clienteDeActa, crearPersona, crearReunion, eliminarReunion, listarIntervenciones, listarPersonas, listarReuniones,
+  obtenerActa, obtenerEstado, obtenerReunion, pedirActa, procesarReunion, quitarFuente, reanudarActa, reintentarReunion, urlDeTranscripcion,
 } from "./cliente";
 
 const respuesta = (status: number, cuerpo: unknown, comoTexto = false) =>
@@ -157,5 +157,41 @@ describe("transcripción", () => {
 
   it("la descarga apunta a la ruta del .txt", () => {
     expect(urlDeTranscripcion("m/1")).toBe("/api/meetings/m%2F1/transcript");
+  });
+});
+
+describe("acta", () => {
+  it("lee el acta más reciente, con o sin su texto, y escapa la id", async () => {
+    fetchMock.mockResolvedValue(respuesta(200, { acta: null, texto: null }));
+    expect(await obtenerActa("a/b")).toEqual({ acta: null, texto: null });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/meetings/a%2Fb/acta", undefined);
+    await obtenerActa("a", { texto: true });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/meetings/a/acta?texto=1", undefined);
+  });
+
+  it("la pide con POST y cuerpo vacío; y la retoma con el identificador del acta", async () => {
+    fetchMock.mockResolvedValue(respuesta(201, { acta: { id: "g1" }, yaEnCurso: false }));
+    expect(await pedirActa("m1")).toEqual({ acta: { id: "g1" }, yaEnCurso: false });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/meetings/m1/acta");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({});
+    await reanudarActa("m1", "g1");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ reanudar: "g1" });
+  });
+
+  it("los errores del servidor llegan con su mensaje (por ejemplo, el cupo del plan)", async () => {
+    fetchMock.mockResolvedValue(respuesta(429, { error: "Has alcanzado el límite diario de 3 generaciones." }));
+    await expect(pedirActa("m1")).rejects.toMatchObject({ name: "ErrorApi", status: 429, message: "Has alcanzado el límite diario de 3 generaciones." });
+  });
+
+  it("el cliente del controlador usa esas tres funciones", async () => {
+    fetchMock.mockResolvedValue(respuesta(200, { acta: null, texto: null, yaEnCurso: false }));
+    const c = clienteDeActa("m9");
+    await c.obtener({ texto: true });
+    await c.pedir();
+    await c.reanudar("g7");
+    expect(fetchMock.mock.calls.map((x) => x[0])).toEqual(["/api/meetings/m9/acta?texto=1", "/api/meetings/m9/acta", "/api/meetings/m9/acta"]);
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ reanudar: "g7" });
   });
 });
