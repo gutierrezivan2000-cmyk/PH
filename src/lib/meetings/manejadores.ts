@@ -14,9 +14,11 @@ import {
 import { ErrorTarea, type Manejador } from "./contratos";
 import { normalizarFuente } from "./ffmpeg";
 import { detectarHuecos, extensionDeGrabacion, mimeBase } from "./grabadora-partes";
+import { actaFinalTarea, calentarActaTarea, seccionDeActaTarea } from "./acta-tareas";
 import { analizarBloqueTarea, fichaTarea } from "./analisis";
 import { comprobarCupoDeReuniones } from "./cupos";
 import { avanzar } from "./orquestador";
+import { KIND_ACTA_CALENTAR, KIND_ACTA_FINAL, KIND_ACTA_SECCION } from "./transcripcion/claves";
 import { transcribirTramoTarea, unirTarea, vocesTarea } from "./transcripcion/manejadores";
 
 // Los contratos viven en `contratos.ts` (para que los manejadores de otros módulos no dependan de este archivo).
@@ -157,4 +159,7 @@ export const MANEJADORES: Record<string, Manejador> = {
   unir: unirTarea,
   analizar_bloque: analizarBloqueTarea,
   ficha: fichaTarea,
+  [KIND_ACTA_CALENTAR]: calentarActaTarea,
+  [KIND_ACTA_SECCION]: seccionDeActaTarea,
+  [KIND_ACTA_FINAL]: actaFinalTarea,
 };

@@ -4,11 +4,13 @@
  * cada tarea se reclama de forma atómica.
  */
 import { db } from "@/lib/db";
+import { avanzarActa } from "./acta-orquestador";
 import { almacenBlob } from "./almacen-blob";
 import { completar, continuar, devolver, fallar, latido, reclamar, type TareaReclamada } from "./cola";
 import { MANEJADORES, aErrorTarea, type DepsProceso, type Manejador } from "./manejadores";
 import { avanzar } from "./orquestador";
 import { PRESUPUESTO_TAREA_MS } from "./tipos";
+import { generacionDeClaveDeActa } from "./transcripcion/claves";
 
 /** No se reclaman tareas nuevas si queda menos de lo que dura la más larga. */
 const MARGEN_MINIMO_MS = 120_000;
@@ -77,9 +79,12 @@ export async function trabajar(o: OpcionesTrabajar): Promise<ResumenDeTrabajo> {
     else if (veredicto === "continuar") resumen.continuadas++;
     resumen.ejecutadas++;
     try {
-      await avanzar(t.meetingId);
+      // Las tareas del acta avanzan su acta; las demás, la reunión (la reunión puede estar «lista» y el acta, en curso).
+      const acta = generacionDeClaveDeActa(t.key);
+      if (acta) await avanzarActa(t.meetingId, acta);
+      else await avanzar(t.meetingId);
     } catch (e) {
-      console.error("[meetings/trabajador] no se pudo avanzar la reunión", t.meetingId, e);
+      console.error("[meetings/trabajador] no se pudo avanzar", t.meetingId, e);
     }
   }
 

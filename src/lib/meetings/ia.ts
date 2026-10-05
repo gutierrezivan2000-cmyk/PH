@@ -65,8 +65,48 @@ export type RespuestaIA = {
   conRespaldo: boolean;
 };
 
+/** Un turno de una conversación con la IA. */
+export type TurnoDeIA = { rol: "user" | "assistant"; texto: string };
+
+/**
+ * Una llamada que responde en TEXTO (el acta, las respuestas de «Preguntar»). La estructura es la que pide la caché del
+ * servicio: lo que se repite entre llamadas (`compartido`: la transcripción completa de la reunión, ~100–200 mil tokens) va
+ * primero y se guarda 1 h en la caché; lo que cambia (la sección, la pregunta) va después. El sistema y el esfuerzo tienen
+ * que ser los mismos en todas las llamadas del trabajo: cambiarlos invalida lo guardado.
+ */
+export type EntradaTexto = {
+  etiqueta: string;
+  sistema: string;
+  /** Lo que comparten todas las llamadas de un mismo trabajo. Debe ser byte a byte igual cada vez. */
+  compartido: string;
+  /** La conversación, de la primera pregunta a la última: alterna usuario y asistente y termina en un turno del usuario. */
+  turnos: readonly TurnoDeIA[];
+  maxTokens?: number;
+  esfuerzo?: Esfuerzo;
+  timeoutMs: number;
+  senal?: AbortSignal;
+  /** Cada trozo de texto apenas llega (Preguntar lo manda al navegador mientras se escribe). */
+  alTexto?: (trozo: string) => void;
+  /** Si la respuesta llega al tope de tokens: por omisión es un fallo (un acta cortada no sirve); en una charla se devuelve lo escrito. */
+  permitirCorte?: boolean;
+};
+
+export type RespuestaTexto = {
+  texto: string;
+  uso: UsoIA;
+  modelo: string;
+  conRespaldo: boolean;
+  /** La respuesta se cortó por el tope de tokens (solo con `permitirCorte`). */
+  cortada: boolean;
+};
+
+/** Escribir en la caché lo que van a compartir las llamadas siguientes, sin generar nada (`max_tokens: 0`). */
+export type EntradaDeCalentamiento = Pick<EntradaTexto, "etiqueta" | "sistema" | "compartido" | "esfuerzo" | "timeoutMs" | "senal">;
+
 export interface ClienteIA {
   generarJson(entrada: EntradaIA): Promise<RespuestaIA>;
+  generarTexto(entrada: EntradaTexto): Promise<RespuestaTexto>;
+  calentar(entrada: EntradaDeCalentamiento): Promise<{ uso: UsoIA; modelo: string }>;
 }
 
 /** Un fallo de la IA, con el mensaje que ve la persona y si vale la pena reintentar. Lo convierte en `ErrorTarea` la cola. */
@@ -83,17 +123,18 @@ export class ErrorIA extends Error {
    Costo
    ════════════════════════════════════════════════════════════════════ */
 
-type Precio = { entrada: number; salida: number; lectura: number; escritura: number };
+/** `escritura` es la escritura en caché de 5 min (1,25× la entrada); `escritura1h`, la de 1 h (2× la entrada). */
+type Precio = { entrada: number; salida: number; lectura: number; escritura: number; escritura1h: number };
 
 /** US$ por millón de tokens. Precios a verificar con los de Anthropic; el costo es una estimación para los cupos y los informes. */
 export const PRECIOS_USD_POR_MTOK: Readonly<Record<string, Precio>> = {
-  "claude-opus-5-5": { entrada: 4, salida: 20, lectura: 0.2, escritura: 5 },
-  "claude-opus-5": { entrada: 5, salida: 25, lectura: 0.5, escritura: 6.25 },
-  "claude-opus-4-8": { entrada: 5, salida: 25, lectura: 0.5, escritura: 6.25 },
-  "claude-sonnet-5-5": { entrada: 2, salida: 10, lectura: 0.2, escritura: 2.5 },
-  "claude-sonnet-5": { entrada: 2, salida: 10, lectura: 0.2, escritura: 2.5 },
-  "claude-fable-5-1": { entrada: 10, salida: 50, lectura: 0.25, escritura: 12.5 },
-  "claude-haiku-4-5": { entrada: 1, salida: 5, lectura: 0.1, escritura: 1.25 },
+  "claude-opus-5-5": { entrada: 4, salida: 20, lectura: 0.2, escritura: 5, escritura1h: 8 },
+  "claude-opus-5": { entrada: 5, salida: 25, lectura: 0.5, escritura: 6.25, escritura1h: 10 },
+  "claude-opus-4-8": { entrada: 5, salida: 25, lectura: 0.5, escritura: 6.25, escritura1h: 10 },
+  "claude-sonnet-5-5": { entrada: 2, salida: 10, lectura: 0.2, escritura: 2.5, escritura1h: 4 },
+  "claude-sonnet-5": { entrada: 2, salida: 10, lectura: 0.2, escritura: 2.5, escritura1h: 4 },
+  "claude-fable-5-1": { entrada: 10, salida: 50, lectura: 0.25, escritura: 12.5, escritura1h: 20 },
+  "claude-haiku-4-5": { entrada: 1, salida: 5, lectura: 0.1, escritura: 1.25, escritura1h: 2 },
 };
 /** De un modelo que no está en la tabla se supone el precio de Opus 5: mejor pasarse que quedarse corto. */
 const PRECIO_DESCONOCIDO = PRECIOS_USD_POR_MTOK["claude-opus-5"];
@@ -105,12 +146,16 @@ type UsoCrudo = {
   output_tokens?: unknown;
   cache_read_input_tokens?: unknown;
   cache_creation_input_tokens?: unknown;
+  /** El desglose de lo escrito en caché por duración: lo de 1 h cuesta más que lo de 5 min. */
+  cache_creation?: { ephemeral_1h_input_tokens?: unknown } | null;
   model?: unknown;
   type?: unknown;
 };
 
-const costoDe = (u: Omit<UsoIA, "costoUsd">, p: Precio): number =>
-  (u.entrada * p.entrada + u.salida * p.salida + u.cacheLectura * p.lectura + u.cacheEscritura * p.escritura) / 1_000_000;
+const costoDe = (u: Omit<UsoIA, "costoUsd">, p: Precio, escritura1h: number): number => {
+  const de1h = Math.min(escritura1h, u.cacheEscritura);
+  return (u.entrada * p.entrada + u.salida * p.salida + u.cacheLectura * p.lectura + (u.cacheEscritura - de1h) * p.escritura + de1h * p.escritura1h) / 1_000_000;
+};
 
 /**
  * El uso de una respuesta y lo que costó. Si hubo respaldo, `usage.iterations` trae cada intento (los rechazados y el que
@@ -144,7 +189,7 @@ export function calcularUso(
     total.salida += parte.salida;
     total.cacheLectura += parte.cacheLectura;
     total.cacheEscritura += parte.cacheEscritura;
-    total.costoUsd += costoDe(parte, PRECIOS_USD_POR_MTOK[modelo] ?? PRECIO_DESCONOCIDO);
+    total.costoUsd += costoDe(parte, PRECIOS_USD_POR_MTOK[modelo] ?? PRECIO_DESCONOCIDO, numero(uso.cache_creation?.ephemeral_1h_input_tokens));
   }
   return total;
 }
@@ -213,8 +258,14 @@ export type MensajeCrudo = {
   content?: ContenidoCrudo[] | null;
   usage?: (UsoCrudo & { iterations?: unknown }) | null;
 };
+export type FlujoDeAnthropic = { on?(evento: "text", fn: (trozo: unknown) => void): unknown; finalMessage(): Promise<MensajeCrudo> };
 export type ClienteDeAnthropic = {
-  beta: { messages: { stream(params: Record<string, unknown>, opciones?: Record<string, unknown>): { finalMessage(): Promise<MensajeCrudo> } } };
+  beta: {
+    messages: {
+      stream(params: Record<string, unknown>, opciones?: Record<string, unknown>): FlujoDeAnthropic;
+      create?(params: Record<string, unknown>, opciones?: Record<string, unknown>): Promise<MensajeCrudo>;
+    };
+  };
 };
 
 export type OpcionesClienteIA = {
@@ -274,24 +325,48 @@ export function crearClienteIA(opciones: OpcionesClienteIA = {}): ClienteIA {
     return flujo.finalMessage();
   }
 
+  /**
+   * Hace la llamada pidiendo el respaldo del servicio; si la organización no tiene esa beta (un 400 que nombra
+   * `anthropic-beta`), se repite sin ella y se deja de pedirla en este proceso.
+   */
+  async function enviarConRespaldo(llamarCon: (conRespaldo: boolean) => Promise<MensajeCrudo>): Promise<{ mensaje: MensajeCrudo; conRespaldo: boolean }> {
+    let conRespaldo = quiereRespaldo && !respaldoNoDisponible;
+    try {
+      try {
+        return { mensaje: await llamarCon(conRespaldo), conRespaldo };
+      } catch (e) {
+        if (!conRespaldo || !esBetaNoDisponible(e)) throw e;
+        console.warn("[meetings/ia] la organización no tiene la beta del respaldo de modelos: se sigue sin ella.");
+        respaldoNoDisponible = true;
+        conRespaldo = false;
+        return { mensaje: await llamarCon(false), conRespaldo };
+      }
+    } catch (e) {
+      throw aErrorIA(e);
+    }
+  }
+
+  /** Los mensajes de una llamada de texto: el bloque compartido (con la caché de 1 h) y la primera pregunta, y lo que sigue. */
+  function mensajesDeTexto(entrada: Pick<EntradaTexto, "compartido" | "turnos">): Array<Record<string, unknown>> {
+    const [primero, ...resto] = entrada.turnos;
+    if (!primero || primero.rol !== "user" || entrada.turnos[entrada.turnos.length - 1].rol !== "user" || resto.some((t, i) => t.rol !== (i % 2 === 0 ? "assistant" : "user"))) {
+      throw new ErrorIA("La conversación con la IA no es válida (debe alternar y terminar en una pregunta).", { reintentable: false });
+    }
+    return [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: entrada.compartido, cache_control: { type: "ephemeral", ttl: "1h" } },
+          { type: "text", text: primero.texto },
+        ],
+      },
+      ...resto.map((t) => ({ role: t.rol, content: t.texto })),
+    ];
+  }
+
   return {
     async generarJson(entrada: EntradaIA): Promise<RespuestaIA> {
-      let mensaje: MensajeCrudo;
-      let conRespaldo = quiereRespaldo && !respaldoNoDisponible;
-      try {
-        try {
-          mensaje = await llamar(entrada, conRespaldo);
-        } catch (e) {
-          if (!conRespaldo || !esBetaNoDisponible(e)) throw e;
-          console.warn("[meetings/ia] la organización no tiene la beta del respaldo de modelos: se sigue sin ella.");
-          respaldoNoDisponible = true;
-          conRespaldo = false;
-          mensaje = await llamar(entrada, false);
-        }
-      } catch (e) {
-        throw aErrorIA(e);
-      }
-
+      const { mensaje } = await enviarConRespaldo((conRespaldo) => llamar(entrada, conRespaldo));
       // Primero cómo terminó, después el contenido.
       const motivo = mensaje.stop_reason;
       if (motivo === "refusal") {
@@ -311,6 +386,73 @@ export function crearClienteIA(opciones: OpcionesClienteIA = {}): ClienteIA {
       const usoRespuesta = calcularUso(mensaje, modelo);
       const modeloFinal = typeof mensaje.model === "string" && mensaje.model ? mensaje.model : modelo;
       return { json, uso: usoRespuesta, modelo: modeloFinal, conRespaldo: modeloFinal !== modelo };
+    },
+
+    async generarTexto(entrada: EntradaTexto): Promise<RespuestaTexto> {
+      const mensajes = mensajesDeTexto(entrada);
+      const { mensaje } = await enviarConRespaldo(async (conRespaldo) => {
+        const params: Record<string, unknown> = {
+          model: modelo,
+          max_tokens: entrada.maxTokens ?? TOPE_DE_TOKENS,
+          // El sistema va como texto, igual que en el calentamiento: el prefijo tiene que ser idéntico para que la caché sirva.
+          system: entrada.sistema,
+          messages: mensajes,
+          output_config: { effort: entrada.esfuerzo ?? esfuerzoDeReuniones() },
+        };
+        if (conRespaldo) {
+          params.betas = [BETA_RESPALDO];
+          params.fallbacks = "default";
+        }
+        const flujo = (await obtenerCliente()).beta.messages.stream(params, { timeout: entrada.timeoutMs, signal: entrada.senal, maxRetries: 0 });
+        const alTexto = entrada.alTexto;
+        if (alTexto) flujo.on?.("text", (trozo) => typeof trozo === "string" && trozo ? alTexto(trozo) : undefined);
+        return flujo.finalMessage();
+      });
+
+      const motivo = mensaje.stop_reason;
+      if (motivo === "refusal") {
+        const categoria = typeof mensaje.stop_details?.category === "string" ? ` (${mensaje.stop_details.category})` : "";
+        throw new ErrorIA(`La IA no pudo trabajar ${entrada.etiqueta}${categoria}.`, { reintentable: false });
+      }
+      const cortada = motivo === "max_tokens";
+      if (cortada && !entrada.permitirCorte) {
+        throw new ErrorIA(`La respuesta de la IA para ${entrada.etiqueta} se cortó antes de terminar. Se vuelve a intentar.`, { reintentable: true });
+      }
+      const texto = textoDe(mensaje);
+      if (!texto) throw new ErrorIA(`La IA no devolvió nada para ${entrada.etiqueta}. Se vuelve a intentar.`, { reintentable: true });
+      const modeloFinal = typeof mensaje.model === "string" && mensaje.model ? mensaje.model : modelo;
+      return { texto, uso: calcularUso(mensaje, modelo), modelo: modeloFinal, conRespaldo: modeloFinal !== modelo, cortada };
+    },
+
+    async calentar(entrada: EntradaDeCalentamiento): Promise<{ uso: UsoIA; modelo: string }> {
+      let mensaje: MensajeCrudo;
+      try {
+        const sdk = await obtenerCliente();
+        if (!sdk.beta.messages.create) throw new ErrorIA("El cliente de IA no sabe calentar la caché.", { reintentable: false });
+        // `max_tokens: 0`: el servicio lee el prefijo y lo escribe en la caché y no genera nada (no se cobra salida). Mismos
+        // modelo, sistema y esfuerzo que las llamadas de verdad, y el punto de caché en el último bloque compartido.
+        mensaje = await sdk.beta.messages.create(
+          {
+            model: modelo,
+            max_tokens: 0,
+            system: entrada.sistema,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: entrada.compartido, cache_control: { type: "ephemeral", ttl: "1h" } },
+                  { type: "text", text: "Calentando la caché: no respondas." },
+                ],
+              },
+            ],
+            output_config: { effort: entrada.esfuerzo ?? esfuerzoDeReuniones() },
+          },
+          { timeout: entrada.timeoutMs, signal: entrada.senal, maxRetries: 0 },
+        );
+      } catch (e) {
+        throw aErrorIA(e);
+      }
+      return { uso: calcularUso(mensaje, modelo), modelo: typeof mensaje.model === "string" && mensaje.model ? mensaje.model : modelo };
     },
   };
 }

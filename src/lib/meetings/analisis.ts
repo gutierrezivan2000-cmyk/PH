@@ -31,7 +31,7 @@ import { textoDeMarca } from "./transcripcion/presentacion";
 const TIMEOUT_MAXIMO_MS = 200_000;
 const TIMEOUT_MINIMO_MS = 30_000;
 const RESERVA_DE_CIERRE_MS = 25_000;
-const timeoutDe = (presupuestoMs: number) => Math.min(TIMEOUT_MAXIMO_MS, Math.max(TIMEOUT_MINIMO_MS, presupuestoMs - RESERVA_DE_CIERRE_MS));
+export const timeoutDe = (presupuestoMs: number) => Math.min(TIMEOUT_MAXIMO_MS, Math.max(TIMEOUT_MINIMO_MS, presupuestoMs - RESERVA_DE_CIERRE_MS));
 
 const ORDEN_DE_ESFUERZO: readonly Esfuerzo[] = ["low", "medium", "high", "xhigh", "max"];
 
@@ -45,7 +45,7 @@ export function esfuerzoParaIntento(base: Esfuerzo, intento: number): Esfuerzo {
 }
 
 let clientePorDefecto: ClienteIA | null = null;
-const iaDe = (deps: DepsProceso): ClienteIA => deps.ia ?? (clientePorDefecto ??= crearClienteIA());
+export const iaDe = (deps: DepsProceso): ClienteIA => deps.ia ?? (clientePorDefecto ??= crearClienteIA());
 
 /* ════════════════════════════════════════════════════════════════════
    Contexto de la reunión

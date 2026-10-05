@@ -7,6 +7,7 @@
  */
 import { db } from "@/lib/db";
 import { ESPERAS_REINTENTO_MS, MAX_INTENTOS_TAREA, TAREA_MUERTA_MS, formatearRelojCorto } from "./tipos";
+import { esClaveDeActa, generacionDeClaveDeActa, prefijoDeActa } from "./transcripcion/claves";
 
 export type TareaReclamada = {
   id: string;
@@ -120,6 +121,14 @@ export function describirTarea(kind: string, payload: unknown): string {
     }
     case "ficha":
       return "armar la ficha de la reunión";
+    case "acta_calentar":
+      return "preparar la redacción del acta";
+    case "acta_seccion": {
+      const titulo = typeof p.titulo === "string" && p.titulo ? p.titulo : null;
+      return titulo ? `redactar la sección «${titulo}» del acta` : "redactar una sección del acta";
+    }
+    case "acta_final":
+      return "armar el acta";
     case "unir":
       return "unir la transcripción de la reunión";
     default:
@@ -142,10 +151,21 @@ export const esperaDeReintento = (intentos: number): number => ESPERAS_REINTENTO
 
 export type DestinoDelFallo = "reintento" | "fallida" | "inexistente";
 
+/** Las tareas del acta son de la acta (su `Generation`), no del procesamiento de la reunión: ni se congelan ni se reintentan con ella. */
+const NO_ES_DE_ACTA = { NOT: { key: { startsWith: "acta:" } } };
+
 /** La reunión pasa a «error» con un mensaje legible, y el resto de sus tareas pendientes se congela. */
 async function marcarReunionEnError(meetingId: string, mensaje: string): Promise<void> {
   await db.meeting.updateMany({ where: { id: meetingId, status: { in: ["en_cola", "procesando"] } }, data: { status: "error", errorMessage: mensaje } });
-  await db.meetingTask.updateMany({ where: { meetingId, status: "pendiente" }, data: { runAfter: FUTURO_LEJANO } });
+  await db.meetingTask.updateMany({ where: { meetingId, status: "pendiente", ...NO_ES_DE_ACTA }, data: { runAfter: FUTURO_LEJANO } });
+}
+
+/** El acta pasa a «failed» con un mensaje legible y lo que le queda pendiente se congela hasta que se reintente. */
+export async function marcarActaEnError(meetingId: string, clave: string, mensaje: string): Promise<void> {
+  const generationId = generacionDeClaveDeActa(clave);
+  if (!generationId) return;
+  await db.generation.updateMany({ where: { id: generationId, status: { in: ["processing", "pending"] } }, data: { status: "failed", progress: 0, errorMessage: mensaje } });
+  await db.meetingTask.updateMany({ where: { meetingId, status: "pendiente", key: { startsWith: prefijoDeActa(generationId) } }, data: { runAfter: FUTURO_LEJANO } });
 }
 
 /**
@@ -165,7 +185,10 @@ export async function fallar(id: string, motivo: string, opciones: { reintentabl
     return "reintento";
   }
   await db.meetingTask.updateMany({ where: { id }, data: { status: "fallida", lockedAt: null, error: texto } });
-  await marcarReunionEnError(t.meetingId, mensajeDeFallo(t.kind, t.payload, texto, opciones.reintentable));
+  const mensaje = mensajeDeFallo(t.kind, t.payload, texto, opciones.reintentable);
+  // El acta es un trabajo aparte: si falla, falla el acta (con su mensaje y «Intentar de nuevo»), no la reunión, que sigue lista.
+  if (esClaveDeActa(t.key)) await marcarActaEnError(t.meetingId, t.key, mensaje);
+  else await marcarReunionEnError(t.meetingId, mensaje);
   return "fallida";
 }
 
@@ -189,8 +212,8 @@ export async function vigilante(ahora: Date = new Date()): Promise<number> {
 
 /** «Reintentar»: las fallidas vuelven a empezar de cero, las congeladas se descongelan y la reunión sigue. */
 export async function reintentarFallidas(meetingId: string, ahora: Date = new Date()): Promise<number> {
-  const r = await db.meetingTask.updateMany({ where: { meetingId, status: "fallida" }, data: { status: "pendiente", attempts: 0, runAfter: ahora, error: null } });
-  await db.meetingTask.updateMany({ where: { meetingId, status: "pendiente", runAfter: FUTURO_LEJANO }, data: { runAfter: ahora } });
+  const r = await db.meetingTask.updateMany({ where: { meetingId, status: "fallida", ...NO_ES_DE_ACTA }, data: { status: "pendiente", attempts: 0, runAfter: ahora, error: null } });
+  await db.meetingTask.updateMany({ where: { meetingId, status: "pendiente", runAfter: FUTURO_LEJANO, ...NO_ES_DE_ACTA }, data: { runAfter: ahora } });
   if (r.count > 0) await db.meeting.updateMany({ where: { id: meetingId, status: "error" }, data: { status: "procesando", errorMessage: null } });
   return r.count;
 }

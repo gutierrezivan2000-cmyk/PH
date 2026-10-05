@@ -18,6 +18,8 @@ export type DepsProceso = {
   proveedor?: ProveedorDeTranscripcion;
   /** Para pruebas: otro cliente de IA (por omisión, Claude). */
   ia?: ClienteIA;
+  /** Para pruebas: otra forma de revisar qué requisitos legales cumple el acta (por omisión, Claude Haiku). */
+  requisitosDeActa?: (actaMarkdown: string) => Promise<unknown[]>;
 };
 
 export type ContextoTarea = {

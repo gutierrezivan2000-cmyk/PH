@@ -29,6 +29,11 @@ import { audioSintetico, crearSimuladorDeOpenAI, generarGuion, type Intervencion
 const S = 1000;
 const MIN = 60_000;
 const ID = "reunionprueba1";
+/** Un cliente de IA a medida solo sabe de JSON: lo que sea de texto no lo usa el análisis. */
+const SIN_TEXTO: Pick<ClienteIA, "generarTexto" | "calentar"> = {
+  generarTexto: async () => { throw new Error("el análisis no usa texto"); },
+  calentar: async () => { throw new Error("el análisis no calienta la caché"); },
+};
 
 let db: DbFalsa;
 
@@ -173,7 +178,7 @@ describe("analizar_bloque", () => {
   it("una respuesta que no se puede leer se trata como un fallo del momento", async () => {
     await sembrarReunion();
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const mala: ClienteIA = { generarJson: async () => ({ json: "no es un objeto", uso: { entrada: 1, salida: 1, cacheLectura: 0, cacheEscritura: 0, costoUsd: 0.01 }, modelo: "m", conRespaldo: false }) };
+    const mala: ClienteIA = { ...SIN_TEXTO, generarJson: async () => ({ json: "no es un objeto", uso: { entrada: 1, salida: 1, cacheLectura: 0, cacheEscritura: 0, costoUsd: 0.01 }, modelo: "m", conRespaldo: false }) };
     await expect(analizarBloqueTarea(ctx(bloque0, mala, 1))).rejects.toMatchObject({ reintentable: true, message: expect.stringContaining("formato") });
     expect(await analizarBloqueTarea(ctx(bloque0, mala, 3))).toMatchObject({ resultado: { omitido: expect.stringContaining("formato") } });
     vi.restoreAllMocks();
@@ -182,6 +187,7 @@ describe("analizar_bloque", () => {
   it("acota a la IA: lo que devuelve fuera del bloque o con etiquetas inventadas no pasa", async () => {
     await sembrarReunion();
     const ia: ClienteIA = {
+      ...SIN_TEXTO,
       generarJson: async (): Promise<Awaited<ReturnType<ClienteIA["generarJson"]>>> => ({
         json: {
           temas: [], compromisos: [], votaciones: [], cifras: [],
@@ -319,6 +325,7 @@ describe("ficha", () => {
   it("descarta lo que la IA sugiere para hablantes que no existen y las fusiones con etiquetas que no existen", async () => {
     await sembrarBloques();
     const ia: ClienteIA = {
+      ...SIN_TEXTO,
       generarJson: async () => ({
         json: {
           resumen: "Resumen.", ordenDelDia: [], asistentes: [], pendientes: [],

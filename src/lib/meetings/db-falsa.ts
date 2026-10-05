@@ -18,9 +18,12 @@ const COMPARADORES: Record<string, (x: number, y: number) => boolean> = {
 function coincide(fila: Fila, donde: Donde): boolean {
   return Object.entries(donde ?? {}).every(([clave, valor]) => {
     if (clave === "NOT") return !coincide(fila, valor as Donde);
+    if (clave === "OR") return (valor as Donde[]).some((d) => coincide(fila, d));
+    if (clave === "AND") return (valor as Donde[]).every((d) => coincide(fila, d));
     if (valor && typeof valor === "object" && !(valor instanceof Date)) {
       const operadores = valor as Record<string, unknown>;
       if ("in" in operadores) return (operadores.in as unknown[]).includes(fila[clave]);
+      if ("startsWith" in operadores) return typeof fila[clave] === "string" && (fila[clave] as string).startsWith(String(operadores.startsWith));
       // `{ not: valor }`: distinto de ese valor (y `{ not: null }` es «tiene algo», como en Prisma).
       if ("not" in operadores) return operadores.not === null ? fila[clave] !== null && fila[clave] !== undefined : fila[clave] !== operadores.not;
       const comparadores = Object.keys(operadores).filter((k) => k in COMPARADORES);
@@ -28,6 +31,8 @@ function coincide(fila: Fila, donde: Donde): boolean {
         return comparadores.every((k) => COMPARADORES[k](Number(fila[clave]), Number(operadores[k])));
       }
     }
+    // Una columna sin valor es null, como en la base de datos.
+    if (valor === null) return fila[clave] === null || fila[clave] === undefined;
     // Las fechas se comparan por valor, como en la base de datos.
     if (valor instanceof Date && fila[clave] instanceof Date) return valor.getTime() === (fila[clave] as Date).getTime();
     return fila[clave] === valor;
