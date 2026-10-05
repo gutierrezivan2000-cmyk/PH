@@ -208,6 +208,26 @@ describe("iniciarActa", () => {
     expect(db.meetingTask.filas).toHaveLength(1);
   });
 
+  it("pedirla cuando la anterior se cortó antes de encolar su primer paso la rescata: devuelve la misma y deja su calentamiento encolado", async () => {
+    await sembrarReunion();
+    await db.generation.create({ data: { id: "cortada", userId: "u1", propertyId: "prop1", type: "acta", status: "processing", progress: 0, meetingId: ID } });
+    const r = await iniciarActa({ meetingId: ID, userId: "u1" });
+    expect(r).toEqual({ ok: true, generationId: "cortada", yaEnCurso: true });
+    expect(db.generation.filas.map((g) => g.id)).toEqual(["cortada"]);
+    expect(db.meetingTask.filas.map((x) => [x.kind, x.key, x.status])).toEqual([["acta_calentar", claveActaCalentar("cortada"), "pendiente"]]);
+  });
+
+  it("si rescatarla falla, igual devuelve el acta en curso: volver a pedirla no debe romperse por eso", async () => {
+    await sembrarReunion();
+    await db.generation.create({ data: { id: "cortada", userId: "u1", propertyId: "prop1", type: "acta", status: "processing", progress: 0, meetingId: ID } });
+    vi.spyOn(db.meetingTask, "findMany").mockRejectedValueOnce(new Error("base de datos caída"));
+    const aviso = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await iniciarActa({ meetingId: ID, userId: "u1" })).toEqual({ ok: true, generationId: "cortada", yaEnCurso: true });
+    expect(aviso).toHaveBeenCalledTimes(1);
+    expect(db.meetingTask.filas).toHaveLength(0);
+    aviso.mockRestore();
+  });
+
   it("una acta terminada o con error no impide pedir otra", async () => {
     await sembrarReunion();
     const a = (await iniciarActa({ meetingId: ID, userId: "u1" })) as { generationId: string };
@@ -302,6 +322,43 @@ describe("avanzarActa", () => {
     expect(db.generation.filas[0]).toMatchObject({ status: "failed", errorMessage: "No pudimos leer el plan del acta. Inténtalo de nuevo." });
   });
 
+  it("si el acta se quedó sin su primer paso (el proceso se cortó entre crearla y encolarlo), se encola de nuevo con el plan de siempre", async () => {
+    await sembrarReunion();
+    await db.generation.create({ data: { id: G, userId: "u1", propertyId: "prop1", type: "acta", status: "processing", progress: 0, meetingId: ID } });
+    const p = await avanzarActa(ID, G);
+    expect(p).toMatchObject({ progreso: 0, encolar: [{ kind: "acta_calentar", key: claveActaCalentar(G) }] });
+    expect(tareasDeActa(G)).toHaveLength(1);
+    expect(db.meetingTask.filas[0]).toMatchObject({ meetingId: ID, kind: "acta_calentar", key: claveActaCalentar(G), status: "pendiente", payload: { generationId: G, secciones: SECCIONES } });
+    expect(db.generation.filas[0].status).toBe("processing");
+    // Llamarla de nuevo no duplica nada, y con el primer paso hecho el acta sigue su curso normal.
+    expect((await avanzarActa(ID, G))?.encolar).toEqual([]);
+    expect(tareasDeActa(G)).toHaveLength(1);
+    await marcar(G, "calentar", { status: "hecha", result: { calentada: true } });
+    expect((await avanzarActa(ID, G))?.encolar).toHaveLength(N);
+  });
+
+  it("sin la reunión no hay con qué rehacer el plan: el acta falla con su mensaje en vez de quedarse esperando", async () => {
+    await db.generation.create({ data: { id: G, userId: "u1", propertyId: "prop1", type: "acta", status: "processing", progress: 0, meetingId: ID } });
+    expect(await avanzarActa(ID, G)).toBeNull();
+    expect(db.generation.filas[0]).toMatchObject({ status: "failed", errorMessage: "No pudimos leer el plan del acta. Inténtalo de nuevo." });
+    expect(db.meetingTask.filas).toHaveLength(0);
+  });
+
+  it("el plan se rehace con la reunión de quien pidió el acta: la de otra persona no cuenta", async () => {
+    await sembrarReunion({ userId: "otra-persona" });
+    await db.generation.create({ data: { id: G, userId: "u1", propertyId: "prop1", type: "acta", status: "processing", progress: 0, meetingId: ID } });
+    expect(await avanzarActa(ID, G)).toBeNull();
+    expect(db.generation.filas[0]).toMatchObject({ status: "failed" });
+    expect(db.meetingTask.filas).toHaveLength(0);
+  });
+
+  it("el cron también rescata un acta que se quedó sin su primer paso", async () => {
+    await sembrarReunion();
+    await db.generation.create({ data: { id: G, userId: "u1", propertyId: "prop1", type: "acta", status: "processing", progress: 0, meetingId: ID } });
+    expect(await avanzarActasEnCurso()).toBe(1);
+    expect(estados(G)).toEqual({ calentar: "pendiente" });
+  });
+
   it("avanzarActasEnCurso revisa las actas en curso y deja las demás", async () => {
     const gen = await actaIniciada();
     await marcar(gen, "calentar", { status: "hecha", result: { calentada: true } });
@@ -370,6 +427,16 @@ describe("reanudarActa («Intentar de nuevo»)", () => {
     expect(db.meetingTask.filas.find((x) => x.key === claveActaSeccion(gen, 1))).toMatchObject({ status: "fallida" });
     expect(await reanudarActa(ID, "noexiste")).toMatchObject({ ok: false, codigo: "no_en_error" });
     expect(await reanudarActa("otra", gen)).toMatchObject({ ok: false, codigo: "no_en_error" });
+  });
+
+  it("un acta que quedó en error sin su primer paso (nunca llegó a encolarse) se retoma: se encola y sigue en curso", async () => {
+    await sembrarReunion();
+    await db.generation.create({
+      data: { id: G, userId: "u1", propertyId: "prop1", type: "acta", status: "failed", errorMessage: "La generación excedió el tiempo máximo y se canceló.", meetingId: ID },
+    });
+    expect(await reanudarActa(ID, G)).toEqual({ ok: true });
+    expect(db.generation.filas[0]).toMatchObject({ status: "processing", errorMessage: null });
+    expect(estados(G)).toEqual({ calentar: "pendiente" });
   });
 
   it("si lo que falló fue el último paso y ya no queda nada por rehacer, encola lo que falte", async () => {

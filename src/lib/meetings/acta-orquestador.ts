@@ -7,13 +7,14 @@
  *    secciones viaja en su payload: así el acta se redacta con el plan con que empezó, aunque la ficha cambie después).
  *  - `planificarSiguientesDeActa` (PURA): con el estado de las tareas, qué encolar y cuánto va. Las secciones esperan a que la
  *    caché esté calentada; si no se pudo calentar, se redacta UNA primero (la escribe) y las demás la leen.
- *  - `avanzarActa`: la que llama el trabajador al terminar cada tarea del acta: encola lo que sigue y anota el avance.
+ *  - `avanzarActa`: la que llama el trabajador al terminar cada tarea del acta: encola lo que sigue y anota el avance. Si el
+ *    acta se quedó sin su primer paso (el proceso se cortó entre crearla y encolarlo), lo encola de nuevo.
  *  - `reanudarActa`: «Intentar de nuevo»: lo que ya se hizo se conserva (cada sección hecha ya se pagó) y solo se repite lo que falló.
  */
 import { db } from "@/lib/db";
 import { leerPlanDeSecciones, partesEnZona, planificarSecciones, type SeccionDeActa } from "./acta";
 import { FUTURO_LEJANO, encolar } from "./cola";
-import { cargarContextoDeReunion } from "./contexto-reunion";
+import { cargarContextoDeReunion, type ContextoDeReunion } from "./contexto-reunion";
 import {
   KIND_ACTA_CALENTAR, KIND_ACTA_FINAL, KIND_ACTA_SECCION, claveActaCalentar, claveActaFinal, claveActaSeccion, prefijoDeActa,
 } from "./transcripcion/claves";
@@ -86,6 +87,20 @@ export type ResultadoDeIniciarActa =
 /** Los cupos del plan: quien llama dice si esta persona puede gastar otra generación (y, si no, por qué). */
 export type ComprobarCupo = () => Promise<{ permitido: boolean; mensaje?: string }>;
 
+/**
+ * Encola el primer paso de un acta: calentar la caché. El plan de secciones viaja en su payload, así el acta se redacta con el
+ * plan con que empezó aunque la ficha cambie después.
+ */
+async function encolarCalentamiento(meetingId: string, generationId: string, contexto: Pick<ContextoDeReunion, "ficha" | "duracionMs">): Promise<TareaDeActaPorEncolar> {
+  const tarea = {
+    kind: KIND_ACTA_CALENTAR,
+    key: claveActaCalentar(generationId),
+    payload: { generationId, secciones: planificarSecciones(contexto.ficha, contexto.duracionMs) },
+  };
+  await encolar(meetingId, tarea.kind, tarea.key, tarea.payload);
+  return tarea;
+}
+
 /** La acta en curso (o pendiente) de una reunión, la más antigua si hubiera más de una. */
 async function actaEnCursoDe(meetingId: string): Promise<string | null> {
   const primeras = await db.generation.findMany({
@@ -112,7 +127,11 @@ export async function iniciarActa({
   }
 
   const enCurso = await actaEnCursoDe(meetingId);
-  if (enCurso) return { ok: true, generationId: enCurso, yaEnCurso: true };
+  if (enCurso) {
+    // Si un corte la dejó sin su primer paso, volver a pedirla la rescata en vez de dejarla esperando a que el cron lo note.
+    await avanzarActa(meetingId, enCurso).catch((e) => console.error("[meetings/acta-orquestador] no se pudo avanzar el acta", enCurso, e));
+    return { ok: true, generationId: enCurso, yaEnCurso: true };
+  }
 
   // El cupo se mira solo cuando se va a gastar una generación nueva (pedir otra vez la que ya está en curso no gasta nada).
   const cupo = comprobarCupo ? await comprobarCupo() : null;
@@ -133,8 +152,7 @@ export async function iniciarActa({
     return { ok: true, generationId: primera, yaEnCurso: true };
   }
 
-  const secciones = planificarSecciones(contexto.ficha, contexto.duracionMs);
-  await encolar(meetingId, KIND_ACTA_CALENTAR, claveActaCalentar(g.id), { generationId: g.id, secciones });
+  await encolarCalentamiento(meetingId, g.id, contexto);
   return { ok: true, generationId: g.id, yaEnCurso: false };
 }
 
@@ -147,7 +165,7 @@ export async function iniciarActa({
  * tareas: encolar es idempotente por clave y el avance solo sube.
  */
 export async function avanzarActa(meetingId: string, generationId: string): Promise<PlanDeActa | null> {
-  const g = await db.generation.findFirst({ where: { id: generationId, meetingId }, select: { id: true, status: true, progress: true } });
+  const g = await db.generation.findFirst({ where: { id: generationId, meetingId }, select: { id: true, userId: true, status: true, progress: true } });
   if (!g || !EN_CURSO.includes(g.status)) return null;
 
   const tareas = await db.meetingTask.findMany({
@@ -155,6 +173,12 @@ export async function avanzarActa(meetingId: string, generationId: string): Prom
     select: { kind: true, key: true, status: true, payload: true, result: true },
   });
   const calentar = tareas.find((t) => t.kind === KIND_ACTA_CALENTAR);
+  if (!calentar) {
+    // Se creó el acta y el proceso se cortó antes de encolar su primer paso: sin él nada la haría avanzar nunca (y «Intentar de
+    // nuevo» tampoco, porque no habría qué reintentar). Se encola ahora, con el plan de siempre. Encolar es idempotente por clave.
+    const contexto = await cargarContextoDeReunion(meetingId, { userId: g.userId });
+    if (contexto) return { encolar: [await encolarCalentamiento(meetingId, generationId, contexto)], progreso: 0 };
+  }
   const secciones = leerPlanDeSecciones(esObjeto(calentar?.payload) ? calentar.payload.secciones : null);
   if (secciones.length === 0) {
     // Sin plan no hay cómo seguir (no debería pasar: lo escribe `iniciarActa`). Mejor decirlo que quedarse esperando.
