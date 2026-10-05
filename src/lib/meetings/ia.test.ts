@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  ErrorIA, MODELO_POR_DEFECTO, PRECIOS_USD_POR_MTOK, USO_VACIO, aErrorIA, calcularUso, crearClienteIA, esfuerzoDeReuniones, modeloDeReuniones,
+  ErrorIA, MODELO_POR_DEFECTO, PRECIOS_USD_POR_MTOK, USO_VACIO, aErrorIA, calcularUso, crearClienteIA, esfuerzoDePreguntar, esfuerzoDeReuniones, modeloDeReuniones,
   reiniciarRespaldo, sumarUso, type ClienteDeAnthropic, type EntradaIA, type EntradaTexto, type MensajeCrudo,
 } from "./ia";
 
@@ -72,6 +72,14 @@ describe("configuración", () => {
     expect(esfuerzoDeReuniones({ MEETINGS_EFFORT: "xhigh" })).toBe("xhigh");
     expect(esfuerzoDeReuniones({ MEETINGS_EFFORT: "altísimo" })).toBe("high");
     expect(esfuerzoDeReuniones({}, "medium")).toBe("medium");
+  });
+
+  it("«Preguntar» piensa menos: «medium» salvo que MEETINGS_EFFORT_PREGUNTAR diga otro; no depende del esfuerzo del análisis", () => {
+    expect(esfuerzoDePreguntar({})).toBe("medium");
+    expect(esfuerzoDePreguntar({ MEETINGS_EFFORT_PREGUNTAR: "HIGH" })).toBe("high");
+    expect(esfuerzoDePreguntar({ MEETINGS_EFFORT_PREGUNTAR: "low" })).toBe("low");
+    expect(esfuerzoDePreguntar({ MEETINGS_EFFORT_PREGUNTAR: "altísimo" })).toBe("medium");
+    expect(esfuerzoDePreguntar({ MEETINGS_EFFORT: "max" })).toBe("medium");
   });
 });
 

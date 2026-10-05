@@ -35,6 +35,13 @@ export function esfuerzoDeReuniones(env: Entorno = process.env, porDefecto: Esfu
   return ESFUERZOS.find((e) => e === pedido) ?? porDefecto;
 }
 
+/** «Preguntar» piensa menos que el análisis y el acta (`medium`): es una charla, y cada pregunta se paga. Se cambia con `MEETINGS_EFFORT_PREGUNTAR`. */
+export const ESFUERZO_DE_PREGUNTAR_POR_DEFECTO: Esfuerzo = "medium";
+
+export function esfuerzoDePreguntar(env: Entorno = process.env): Esfuerzo {
+  return esfuerzoDeReuniones({ MEETINGS_EFFORT: env.MEETINGS_EFFORT_PREGUNTAR }, ESFUERZO_DE_PREGUNTAR_POR_DEFECTO);
+}
+
 /* ════════════════════════════════════════════════════════════════════
    Contratos
    ════════════════════════════════════════════════════════════════════ */

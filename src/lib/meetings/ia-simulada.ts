@@ -13,7 +13,7 @@
  * pedido con su marcador. Simula también la caché de 1 h: el primer prefijo que ve (o el que se calienta) se «escribe» y los
  * siguientes se «leen», para que las pruebas puedan comprobar que el costo de la transcripción se paga una sola vez.
  */
-import { PENDIENTE, horaDeSegundos, marcaDeTiempo, segundosDeHora } from "./acta";
+import { PENDIENTE, marcaDeTiempo, segundosDeHora } from "./acta";
 import { ESQUEMA_BLOQUE, ESQUEMA_FICHA } from "./ficha";
 import { calcularUso, type ClienteIA, type EntradaDeCalentamiento, type EntradaIA, type EntradaTexto, type RespuestaIA, type RespuestaTexto, type UsoIA } from "./ia";
 
@@ -90,7 +90,8 @@ export function textoDeSeccionSimulado(compartido: string, pedido: string, olvid
   const lineas = leerTranscripcion(compartido).filter((l) => l.s >= desde && l.s < hasta);
   const parrafos = [`${marcaDeTiempo(desde)} En este punto se trató: ${titulo}.`];
   for (const l of repartidos(lineas, 4)) {
-    parrafos.push(`${quien(l.etiqueta)} manifiesta que «${recortar(l.texto, 150)}». ${marcaDeTiempo(l.s)}`);
+    const quienHabla = quien(l.etiqueta);
+    parrafos.push(`${quienHabla.charAt(0).toLocaleUpperCase("es-CO")}${quienHabla.slice(1)} manifiesta que «${recortar(l.texto, 150)}». ${marcaDeTiempo(l.s)}`);
   }
 
   const requeridos = [...pedido.matchAll(/^- \[\[([DC]\d+)\]\] «(.*?)»(?: — responsable: (.*?))?(?: — fecha: (.*?))? \(minuto (\d{1,3}:\d{2}:\d{2})\)$/gm)];
@@ -123,7 +124,7 @@ function responderPregunta(entrada: EntradaTexto): string {
     .slice(0, 3)
     .sort((a, b) => a.l.s - b.l.s);
   if (aciertos.length === 0) return "No encuentro eso en la reunión: no aparece en la transcripción.";
-  return `Según la reunión:\n\n${aciertos.map(({ l }) => `- ${quien(l.etiqueta)} dijo: «${recortar(l.texto, 200)}» [${horaDeSegundos(l.s)}]`).join("\n")}`;
+  return `Según la reunión:\n\n${aciertos.map(({ l }) => `- ${quien(l.etiqueta)} dijo: «${recortar(l.texto, 200)}» ${marcaDeTiempo(l.s)}`).join("\n")}`;
 }
 
 function responderBloque(usuario: string): unknown {
