@@ -1620,6 +1620,45 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
   pantalla (sigue y se suelta al releer con la rueda y con la barra)—: **contraste 0 textos bajo el mínimo, 0 desbordes, 0 errores de
   consola**; `tsc`, `eslint`, `next build` y el barrido de todo el sitio, limpios.
 
+**Notas de M9 (desviaciones y decisiones al construir):**
+
+- **«Procesar de nuevo» (`sin_cupo`) es una decisión de la persona, no automática.** El plan decía «se procesa al tener horas»; gastar horas
+  del plan sin que se pida sorprende, y con varias reuniones esperando, la persona elige cuál cabe. `POST /api/meetings/[id]/reprocess`
+  (`sin-cupo.ts`) vuelve a mirar el cupo con la duración ya medida (sin contar a la propia reunión) y, si alcanza, la pasa a «en_cola»: el
+  orquestador sigue desde `audio.mp3` (no se vuelve a subir ni armar nada). 429 con el motivo, 409 si no espera horas, idempotente y a
+  prueba de dos clics. El aviso de la página ofrece «Procesar de nuevo» y deja «Ver planes».
+- **Horas a la vista.** `/api/usage` trae `reuniones` (`usadoMs`, `limiteMs`, `restanMs`, `ilimitado`, `periodo`) **solo a quien ve
+  Reuniones** y, si no se puede calcular, responde igual sin ello; Suscripción pinta un bloque «Reuniones» (el `Medidor` admite una cifra a
+  medida por fila). `resumenDeHoras` comparte con el cupo la cuenta de lo consumido y el tope. Demo: 8 h de 10 h (coherente con la reunión
+  «sin horas» del ejemplo).
+- **Los mensajes son una sola bolsa de verdad.** Preguntar ya contaba los mensajes del chat de los agentes, pero el chat NO contaba las
+  preguntas a reuniones: se podían gastar los dos cupos completos. Ahora el chat y `/api/agents/usage` suman también las preguntas
+  (`contarPreguntasAReuniones`; un fallo al contar no tumba el chat, las cuentas beta siguen sin tope). Cierra el «límite conocido» de M8.
+- **Retención** (`retencion.ts`, `GET /api/cron/cleanup-meetings`, `17 4 * * *`, con `CRON_SECRET`): a los 90 días se borra el original
+  y la sesión ensamblada, solo si la reunión ya tiene `audio.mp3` y no está en marcha; se anota `originalDeletedAt`. Las partes en vivo
+  se borran a los 2 días de que su sesión esté ensamblada **y comprobada** (`normalizada`): **cambio frente al plan, que decía «al
+  ensamblar»**: el margen es una red de seguridad por si el ensamblado salió mal. Las partes de una grabación sin cerrar NO se tocan.
+  Solo borra rutas de `meetings/<id>/fuentes/` o `/vivo/` de su propia reunión; es idempotente, por pasadas con tope y de tiempo, y lo que
+  no toca borrar no tapa a lo que sí. Plazos: `RETENCION_ORIGINAL_DIAS` y `RETENCION_PARTES_DIAS` (un valor inválido usa el de siempre).
+  Las pantallas de subida y de grabación dicen el plazo (`TEXTO_DE_RETENCION`).
+- **Hueco de privacidad cerrado:** al borrar una **copropiedad**, la base de datos borraba las reuniones en cascada pero sus archivos de Blob
+  quedaban para siempre. Ahora se borran antes (`archivos-de-propiedad.ts`) y, si no se puede, la copropiedad se conserva (502).
+- **Accesos:** «Grabar una reunión» en Inicio y la pista de «Reuniones» en el paso 4 de Generar, solo si se ve Reuniones (`useVerReuniones`).
+- **Aviso global de «estás grabando»** (`AvisoDeGrabacion`, en el layout): fuera de las pantallas de esa reunión dice cuánto lleva y
+  ofrece «Volver a la grabación».
+- **Para verificar en la primera vista previa:** (a) que el cron de limpieza corra (registro `[cron/cleanup-meetings]`) y no borre nada en
+  los primeros 90 días; (b) con una reunión de prueba, bajar `RETENCION_ORIGINAL_DIAS` en un entorno de vista previa y comprobar que el
+  original desaparece y la reunión sigue funcionando (audio, transcripción, «Reintentar»); (c) las horas en Suscripción con una cuenta
+  que no es de pruebas abiertas.
+- **Límites conocidos / por decidir con el usuario:** las grabaciones y borradores **abandonados** (sin cerrar) no se borran solos (¿a los
+  30 días?); los segmentos normalizados (`norm/`) duplican `audio.mp3` y podrían borrarse al armar el audio (≈ 50 % menos de
+  almacenamiento retenido); las actas conservan su archivo en `generations/` aunque se borre la reunión; el chat de agentes y Preguntar
+  cuentan sus días con relojes distintos (servidor / Bogotá).
+- **Pruebas** (de 1905 a 2011): `sin-cupo` 9 · horas 7 + 7 · `/api/usage` y `/api/agents/usage` 9 · chat 7 · retención 29 · cron 7 ·
+  propiedad 12 · aviso de grabación 6, más las de rutas y cliente. Mutaciones: ≈ 90 detectadas. Navegador (oscuro y claro × 1440 y 390 px):
+  contraste 0, sin desbordes y sin errores de consola; `tsc`, `next build` y el barrido de todo el sitio, limpios. (`eslint` sobre todo
+  `src` marca 5 errores que ya estaban, en archivos que M9 no tocó.)
+
 | Hito | Estado | Commit | Notas |
 |---|---|---|---|
 | M0 Fundaciones | hecho | (ver `git log`) | Ver «Notas de M0» arriba. |
@@ -1631,5 +1670,5 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
 | M6 Ficha, hablantes, cupos | hecho | (ver `git log`) | Ver «Notas de M6» arriba. |
 | M7 Página de la reunión | hecho | (ver `git log`) | Ver «Notas de M7» arriba. |
 | M8 Acta y Preguntar | hecho | (ver `git log`) | Ver «Notas de M8» arriba. |
-| M9 Cupos visibles, retención, piloto | pendiente | | |
+| M9 Cupos visibles, retención, piloto | hecho (falta el piloto) | (ver `git log`) | Ver «Notas de M9» arriba. Falta fusionar con `"admins"` y probar en producción (§13): requiere aprobación. |
 | M10 AssemblyAI (opcional) | pendiente | | |
