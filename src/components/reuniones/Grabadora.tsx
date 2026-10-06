@@ -15,7 +15,7 @@ import {
 import { ErrorApi, actualizarReunion, obtenerReunion } from "@/lib/meetings/cliente";
 import type { ReunionDetalle } from "@/lib/meetings/dto";
 import { fechaLarga } from "@/lib/meetings/formato";
-import { cortoTipoReunion, formatearDuracion, formatearReloj, puedeAgregarFuentes, type TipoMarcador } from "@/lib/meetings/tipos";
+import { TEXTO_DE_RETENCION, cortoTipoReunion, formatearDuracion, formatearReloj, puedeAgregarFuentes, type TipoMarcador } from "@/lib/meetings/tipos";
 import { olvidarGrabadora, useGrabadora } from "./useGrabadora";
 
 const TEXTO_LEGAL =
@@ -397,7 +397,7 @@ export function Grabadora({ id }: { id: string }) {
                 {/* ── Terminada ── */}
                 {terminada && (
                   <Panel titulo="Listo: enviamos la reunión a transcribir." nivel={2}>
-                    <p className="re-gr-nota">Puedes cerrar esta página: te avisamos por correo cuando esté lista.</p>
+                    <p className="re-gr-nota">Puedes cerrar esta página: te avisamos por correo cuando esté lista. {TEXTO_DE_RETENCION}</p>
                     <Boton href={`/dashboard/reuniones/${id}`} flecha="avanza">Abrir la reunión</Boton>
                   </Panel>
                 )}

@@ -9,6 +9,7 @@ import { ErrorApi, quitarFuente } from "@/lib/meetings/cliente";
 import type { FuenteDTO } from "@/lib/meetings/dto";
 import { formatearRestante, formatearVelocidad } from "@/lib/meetings/formato";
 import type { Gestor, ItemSubida } from "@/lib/meetings/gestor-subidas";
+import { TEXTO_DE_RETENCION } from "@/lib/meetings/tipos";
 import { ACCEPT_REUNION, formatoTamano } from "@/lib/upload-limits";
 import { useSubidas } from "./useSubidas";
 
@@ -291,7 +292,8 @@ export function SubidaReunion({
       )}
 
       <p className="re-sub-nota">
-        Puedes cerrar esta pestaña cuando todo llegue al 100 %. Si se corta la conexión, vuelve a elegir el mismo archivo y seguirá donde iba.
+        Puedes cerrar esta pestaña cuando todo llegue al 100 %. Si se corta la conexión, vuelve a elegir el mismo archivo y seguirá donde iba.{" "}
+        {TEXTO_DE_RETENCION}
       </p>
 
       <Modal

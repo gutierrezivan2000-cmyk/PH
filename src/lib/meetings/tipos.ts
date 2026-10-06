@@ -203,6 +203,8 @@ export const MAX_MS_REUNION = 48 * 3_600_000;
 export const RETENCION_ORIGINAL_DIAS = 90;
 /** Las partes en vivo huérfanas se limpian a los 2 días. */
 export const RETENCION_PARTES_VIVO_DIAS = 2;
+/** Lo que se les dice a las personas al subir o grabar (el servidor puede cambiar el plazo con `RETENCION_ORIGINAL_DIAS`; si cambia de verdad, se cambia la constante). */
+export const TEXTO_DE_RETENCION = `Guardamos el archivo original ${RETENCION_ORIGINAL_DIAS} días y después lo borramos; la transcripción y el audio de trabajo se conservan hasta que borres la reunión.`;
 
 /* ════════════════════════════════════════════════════════════════════
    Formatos de tiempo

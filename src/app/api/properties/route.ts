@@ -209,6 +209,18 @@ export async function DELETE(req: NextRequest) {
   try {
     const db = await getDb();
     const dbUserId = await ensureUserExists(session as { user: { id: string; email: string; name: string; image: string } });
+    // Los archivos de las reuniones de la copropiedad (audio, originales) viven en Blob y la base de datos solo borra las filas: se
+    // borran antes. Si no se pueden borrar, la copropiedad se conserva para reintentar.
+    try {
+      const { borrarArchivosDeLasReunionesDe } = await import("@/lib/meetings/archivos-de-propiedad");
+      await borrarArchivosDeLasReunionesDe(id, dbUserId);
+    } catch (error) {
+      console.error("[PROPERTIES DELETE meetings blobs]", error);
+      return NextResponse.json(
+        { error: "No pudimos borrar los archivos de las reuniones de esta copropiedad. La copropiedad sigue guardada: intenta de nuevo en unos minutos." },
+        { status: 502 },
+      );
+    }
     await db.property.deleteMany({ where: { id, userId: dbUserId } });
     return NextResponse.json({ ok: true });
   } catch (error) {
