@@ -1142,6 +1142,8 @@ select.ui-input:focus-visible {
   .k-pieza-h h1 { margin: 0; font: 800 32px/1.1 var(--f-sans); letter-spacing: -.025em; }
   .k-pieza-h .tt p { margin: 8px 0 0; font-size: 16.5px; line-height: 1.45; color: var(--ink-2); max-width: 64ch; }
   .k-pieza-h .acc { flex: none; display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+  /* Un menú «Más» dentro de la cabecera (p. ej. Reuniones) se despliega fuera de ella: sin recorte. */
+  .k-pieza-h:has(.k-menu) { overflow: visible; }
   .k-seccion { position: relative; padding-bottom: 44px; }
   .k-sec-h { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
   .k-sec-h .id { display: none; }
@@ -1988,6 +1990,13 @@ select.ui-input:focus-visible {
     .k-avisos { left: 16px; right: 16px; width: auto; bottom: calc(var(--dock-h) + env(safe-area-inset-bottom) + 12px); }
     .k-aviso { padding: 12px 14px; gap: 12px; }
     .k-aviso > .acc .k-btn { min-height: 44px; }
+    /* Un aviso en línea con una acción larga («Generar el resumen otra vez»): en el teléfono la acción baja a su propia fila;
+       si no, el texto queda de una palabra por línea. */
+    @media (max-width: 560px) {
+      .k-aviso.k-linea { grid-template-columns: auto minmax(0, 1fr); }
+      .k-aviso.k-linea > .acc { grid-column: 1 / -1; flex-wrap: wrap; }
+      .k-aviso.k-linea > .acc .k-btn { flex: 1 1 auto; justify-content: center; }
+    }
     .k-gen { padding: 18px 16px 20px; border-radius: 24px; }
     .k-agente { grid-template-columns: 88px minmax(0, 1fr); border-radius: 24px; }
     .k-agente > .sig { min-height: 0; }
@@ -2183,7 +2192,8 @@ select.ui-input:focus-visible {
 :root[data-paleta="calma"] .k-barra.excede > i { background: var(--danger); }
 :root[data-paleta="calma"] .k-celdas > i { background: var(--accent); }
 :root[data-paleta="calma"] .k-semana > .hoy, :root[data-paleta="calma"] .k-mes:has(> :checked), :root[data-paleta="calma"] .k-cornisa > button[aria-pressed="true"] { background: var(--accent); box-shadow: none; }
-:root[data-paleta="calma"] .k-msg-u { background: var(--accent); box-shadow: none; }
+/* La burbuja redefine --accent como blanco para lo que lleva dentro: el fondo no puede leerlo (saldría blanco sobre blanco). */
+:root[data-paleta="calma"] .k-msg-u { background: var(--brand); box-shadow: none; }
 :root[data-paleta="calma"] .k-marca-s, :root[data-paleta="calma"] .k-yo-a { background: var(--accent); box-shadow: none; }
 :root[data-paleta="calma"] .k-dock > [aria-current="page"] > .ico, :root[data-paleta="calma"] .k-dock > [aria-expanded="true"] > .ico { background: var(--accent); color: var(--on-accent); }
 
@@ -2588,7 +2598,7 @@ select.ui-input:focus-visible {
 :root[data-paleta="calma"] .k-marca-w { font-weight: 700; }
 
 /* Cabecera de pantalla: título y frase, sin tarjeta, sin franja y sin ficha de icono. */
-:root[data-paleta="calma"] .k-pieza-h { padding: 0 0 4px; margin-bottom: 24px; border-radius: 0; gap: 16px; }
+:root[data-paleta="calma"] .k-pieza-h { padding: 0 0 4px; margin-bottom: 24px; border-radius: 0; gap: 16px; overflow: visible; }
 :root[data-paleta="calma"] .k-pieza-h > .k-tile { display: none; }
 :root[data-paleta="calma"] .k-pieza-h h1 { font-size: 26px; line-height: 1.2; font-weight: 700; letter-spacing: -.02em; }
 :root[data-paleta="calma"] .k-pieza-h .tt p { margin-top: 4px; font-size: 15px; color: var(--ink-3); max-width: 72ch; }

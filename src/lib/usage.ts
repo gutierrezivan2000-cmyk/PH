@@ -51,6 +51,12 @@ function bogotaStartOfMonth(now: Date): Date {
 // in flight. Rows stuck in "processing"/"pending" past this window are treated
 // as dead (the serverless function died) and never consume the user's quota.
 const STUCK_MS = 15 * 60 * 1000;
+/**
+ * Un acta de una reunión (Generation con `meetingId`) no corre dentro de una función de 300 s: son varias tareas de la cola,
+ * con reintentos que esperan hasta 10 min. Se da por muerta cuando pasan 3 h SIN ACTIVIDAD (cada tarea que termina toca la
+ * fila), no por haberse creado hace más de 15 min.
+ */
+export const STUCK_REUNION_MS = 3 * 60 * 60 * 1000;
 function activeGenerationWhere(userId: string, since: Date) {
   return {
     userId,
@@ -233,18 +239,21 @@ export async function checkUsageLimits(userId: string): Promise<{
  */
 export async function failStuckGenerations(userId: string): Promise<void> {
   try {
+    const ahora = Date.now();
+    const limite = new Date(ahora - STUCK_MS);
     await db.generation.updateMany({
       where: {
         userId,
-        createdAt: { lt: new Date(Date.now() - STUCK_MS) },
         OR: [
           // Single generations: a live one runs inside a 300s function, so
           // processing/pending past 15 min means the function died.
-          { batchId: null, status: { in: ["processing", "pending"] } },
+          { batchId: null, meetingId: null, createdAt: { lt: limite }, status: { in: ["processing", "pending"] } },
           // Batch generations: "pending" ones are just waiting in the queue for
           // the cron (a 50-property batch can take a while) and must NOT be
           // reaped. Only reap ones the cron claimed ("processing") but died on.
-          { batchId: { not: null }, status: "processing" },
+          { batchId: { not: null }, createdAt: { lt: limite }, status: "processing" },
+          // Actas de reuniones: van por la cola, se miden por actividad (ver STUCK_REUNION_MS).
+          { meetingId: { not: null }, updatedAt: { lt: new Date(ahora - STUCK_REUNION_MS) }, status: { in: ["processing", "pending"] } },
         ],
       },
       data: {

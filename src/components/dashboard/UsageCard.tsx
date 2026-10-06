@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Zap } from "lucide-react";
+import { CalendarDays, Mic, Zap } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { pedirJSON } from "@/components/dashboard/datosIndice";
 import {
@@ -13,6 +13,8 @@ import {
   Medidor,
   type TipoEstado,
 } from "@/components/kit";
+import type { HorasDeReunionesDTO } from "@/lib/meetings/dto";
+import { horasEnPantalla } from "@/lib/meetings/horas-pantalla";
 
 export interface UsageData {
   monthlyGenerations: number;
@@ -27,6 +29,8 @@ export interface UsageData {
   planName?: "pro" | "business" | "elite" | null;
   trialEndsAt?: string | null;
   periodEndsAt?: string | null;
+  /** Las horas de reuniones: solo llegan a quien ve Reuniones. */
+  reuniones?: HorasDeReunionesDTO;
 }
 
 export const URL_USO = "/api/usage";
@@ -101,6 +105,45 @@ function Marco({ children, etiqueta }: { children: ReactNode; etiqueta?: string 
       </style>
       {children}
     </section>
+  );
+}
+
+/** Las horas de reuniones del plan, en su propio bloque bajo el uso de generaciones. */
+function HorasDeReuniones({ horas }: { horas: HorasDeReunionesDTO }) {
+  const p = horasEnPantalla(horas);
+  return (
+    <Marco etiqueta="Horas de reuniones">
+      <div className="t">
+        <h2 className="k-t22">Reuniones</h2>
+        {p.ilimitado ? (
+          <>
+            <p>
+              <Estado tipo="ok" tamLetra={14}>Sin tope de horas</Estado>
+            </p>
+            <p>{p.nota}</p>
+          </>
+        ) : (
+          <p>
+            {p.agotado ? (
+              <Estado tipo="vencido" tamLetra={14}>
+                {p.resumen}
+              </Estado>
+            ) : (
+              p.resumen
+            )}
+          </p>
+        )}
+      </div>
+      <div className="m">
+        {p.ilimitado ? (
+          <Kpis>
+            <Kpi icono={Mic} tono="violet" cifra={p.cifra} etiqueta={p.etiqueta} tamLetra={32} />
+          </Kpis>
+        ) : (
+          <Medidor filas={[{ etiqueta: p.etiqueta, usado: p.usadoHoras, total: p.totalHoras, cifra: p.cifra }]} />
+        )}
+      </div>
+    </Marco>
   );
 }
 
@@ -180,21 +223,24 @@ export function UsageCard({ alCargar }: { alCargar?: (usage: UsageData) => void 
   // misleading "X / 3" bars.
   if (usage.planStatus === "beta") {
     return (
-      <Marco>
-        <div className="t">
-          <h2 id="k-uso-t" className="k-t22">Uso del plan</h2>
-          <p>
-            <Estado tipo="ok" tamLetra={14}>Generaciones ilimitadas</Estado>
-          </p>
-          <p>Durante la fase de prueba.</p>
-        </div>
-        <div className="m">
-          <Kpis>
-            <Kpi icono={CalendarDays} tono="violet" cifra={usage.monthlyGenerations} etiqueta="Generaciones este mes" tamLetra={32} />
-            <Kpi icono={Zap} tono="amber" cifra={usage.dailyGenerations} etiqueta="Generaciones hoy" tamLetra={32} />
-          </Kpis>
-        </div>
-      </Marco>
+      <>
+        <Marco>
+          <div className="t">
+            <h2 id="k-uso-t" className="k-t22">Uso del plan</h2>
+            <p>
+              <Estado tipo="ok" tamLetra={14}>Generaciones ilimitadas</Estado>
+            </p>
+            <p>Durante la fase de prueba.</p>
+          </div>
+          <div className="m">
+            <Kpis>
+              <Kpi icono={CalendarDays} tono="violet" cifra={usage.monthlyGenerations} etiqueta="Generaciones este mes" tamLetra={32} />
+              <Kpi icono={Zap} tono="amber" cifra={usage.dailyGenerations} etiqueta="Generaciones hoy" tamLetra={32} />
+            </Kpis>
+          </div>
+        </Marco>
+        {usage.reuniones && <HorasDeReuniones horas={usage.reuniones} />}
+      </>
     );
   }
 
@@ -207,40 +253,43 @@ export function UsageCard({ alCargar }: { alCargar?: (usage: UsageData) => void 
   const excesoHoy = usage.dailyGenerations > usage.limits.generationsPerDay;
 
   return (
-    <Marco>
-      <div className="t">
-        <h2 id="k-uso-t" className="k-t22">Uso del plan</h2>
-        <p>
-          {monthlyRemaining > 0 ? (
-            // Derivado de /api/usage: tope del plan menos lo generado (mes y día).
-            <>
-              Generaciones: {monthlyRemaining === 1 ? "queda" : "quedan"} {monthlyRemaining} este mes y{" "}
-              {dailyRemaining} hoy.
-            </>
-          ) : (
-            <Estado tipo="vencido" tamLetra={14}>
-              {excesoMes
-                ? `Límite alcanzado · ${usage.monthlyGenerations} de ${usage.limits.generationsPerMonth} este mes`
-                : "Límite alcanzado"}
-            </Estado>
-          )}
-        </p>
-        {excesoHoy && (
+    <>
+      <Marco>
+        <div className="t">
+          <h2 id="k-uso-t" className="k-t22">Uso del plan</h2>
           <p>
-            Hoy: {usage.dailyGenerations} de {usage.limits.generationsPerDay}, por encima del tope diario.
+            {monthlyRemaining > 0 ? (
+              // Derivado de /api/usage: tope del plan menos lo generado (mes y día).
+              <>
+                Generaciones: {monthlyRemaining === 1 ? "queda" : "quedan"} {monthlyRemaining} este mes y{" "}
+                {dailyRemaining} hoy.
+              </>
+            ) : (
+              <Estado tipo="vencido" tamLetra={14}>
+                {excesoMes
+                  ? `Límite alcanzado · ${usage.monthlyGenerations} de ${usage.limits.generationsPerMonth} este mes`
+                  : "Límite alcanzado"}
+              </Estado>
+            )}
           </p>
-        )}
-      </div>
-      <div className="m">
-        <Medidor
-          filas={[
-            { etiqueta: "Este mes", usado: usage.monthlyGenerations, total: usage.limits.generationsPerMonth },
-            { etiqueta: "Hoy", usado: usage.dailyGenerations, total: usage.limits.generationsPerDay },
-          ]}
-          libres={Math.max(0, monthlyRemaining)}
-          unidadLibres="restantes"
-        />
-      </div>
-    </Marco>
+          {excesoHoy && (
+            <p>
+              Hoy: {usage.dailyGenerations} de {usage.limits.generationsPerDay}, por encima del tope diario.
+            </p>
+          )}
+        </div>
+        <div className="m">
+          <Medidor
+            filas={[
+              { etiqueta: "Este mes", usado: usage.monthlyGenerations, total: usage.limits.generationsPerMonth },
+              { etiqueta: "Hoy", usado: usage.dailyGenerations, total: usage.limits.generationsPerDay },
+            ]}
+            libres={Math.max(0, monthlyRemaining)}
+            unidadLibres="restantes"
+          />
+        </div>
+      </Marco>
+      {usage.reuniones && <HorasDeReuniones horas={usage.reuniones} />}
+    </>
   );
 }

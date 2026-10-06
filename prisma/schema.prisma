@@ -58,6 +58,7 @@ model User {
   usageRecords  UsageRecord[]
   agentChats    AgentChat[]
   agentMemories AgentMemory[]
+  meetings      Meeting[]
   tickets       Ticket[]
   adminActions  AdminAuditLog[] @relation("AdminActor")
 
@@ -203,6 +204,8 @@ model Property {
   ledgerEntries LedgerEntry[]
   pqrs          Pqrs[]
   commonAssets  CommonAsset[]
+  meetings      Meeting[]
+  people        PropertyPerson[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -250,6 +253,9 @@ model Generation {
   year       Int
   // Set when this generation is part of an enterprise batch run.
   batchId    String?
+  // Set when the document is drafted from a recorded meeting (Reuniones). No
+  // relation on purpose: deleting a meeting must not delete the acta.
+  meetingId  String?
 
   inputFiles   Json
   inputText    String? @db.Text
@@ -271,6 +277,7 @@ model Generation {
   completedAt DateTime?
 
   @@index([batchId])
+  @@index([meetingId])
   @@index([userId, createdAt])
   @@index([status, updatedAt])
 }
@@ -763,4 +770,187 @@ model AdminAuditLog {
   @@index([adminId])
   @@index([action])
   @@index([createdAt])
+}
+
+// ============================================
+// Reuniones: grabación, transcripción, ficha y acta
+// ============================================
+// Todo es ADITIVO (el build corre `prisma db push` contra la base de cada
+// entorno y las vistas previas pueden compartir la de producción). Cualquier
+// cambio aquí se replica en src/lib/ensure-meetings-schema.ts. Los tamaños en
+// bytes son Float: el Int de Prisma (32 bits) no llega a 2 GB y BigInt rompe
+// JSON.stringify.
+
+model Meeting {
+  id            String    @id @default(cuid())
+  userId        String
+  propertyId    String
+  type          String    @default("consejo") // consejo | comite | asamblea_ordinaria | asamblea_extraordinaria | otra
+  title         String
+  date          DateTime  // fecha y hora de la reunión
+  status        String    @default("borrador") // borrador | grabando | subiendo | en_cola | procesando | lista | error | sin_cupo
+  stage         String?   // preparando_audio | transcribiendo | uniendo | analizando
+  progress      Int       @default(0) // 0-100 del paso actual
+  errorMessage  String?
+  durationMs    Int?      // duración total de audio.mp3
+  coverage      Float?    // 0..1 (1 = toda la línea de tiempo transcrita)
+  silences      Json?     // [{ desdeMs, hastaMs }] tramos sin voz que se muestran como «Sin voz entre …»
+  audioUrl      String?   // audio.mp3 normalizado (Blob privado)
+  transcriptUrl String?   // transcripcion.txt (Blob privado)
+  digest        Json?     // ficha: resumen, decisiones, compromisos, votaciones…
+  speakerRefs   Json?     // [{ nombre: "V1", desdeMs, hastaMs }] muestras de voz de referencia
+  provider      String?   // openai | assemblyai | demo
+  consentAt     DateTime? // se informó a los asistentes que se grababa
+  costUsd       Float     @default(0)
+  readyAt       DateTime?
+
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property   Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  sources    MeetingSource[]
+  liveParts  MeetingLivePart[]
+  tasks      MeetingTask[]
+  utterances MeetingUtterance[]
+  speakers   MeetingSpeaker[]
+  markers    MeetingMarker[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
+  @@index([propertyId, date])
+  @@index([status, updatedAt])
+}
+
+// Un archivo subido o una sesión de la grabadora; juntos forman la línea de tiempo.
+model MeetingSource {
+  id                String    @id @default(cuid())
+  meetingId         String
+  idx               Int       // orden en la línea de tiempo
+  kind              String    // archivo | grabacion
+  session           Int?      // nº de sesión (kind = grabacion)
+  name              String
+  url               String?   // original o sesión ensamblada
+  pathname          String?
+  mimeType          String?
+  sizeBytes         Float     @default(0)
+  status            String    @default("subiendo") // subiendo | recibida | normalizando | normalizada | error
+  normalizedMs      Int       @default(0) // hasta dónde llegó la normalización (reanudable)
+  segments          Json      @default("[]") // [{ n, url, durationMs, bytes }]
+  durationMs        Int?
+  offsetMs          Int?      // inicio dentro de audio.mp3
+  originalDeletedAt DateTime? // retención: el original se borra a los 90 días
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([meetingId])
+}
+
+// Trozo de la grabadora en vivo, hasta que la sesión se ensambla.
+model MeetingLivePart {
+  id         String @id @default(cuid())
+  meetingId  String
+  session    Int
+  seq        Int
+  url        String
+  bytes      Int
+  durationMs Int
+  mimeType   String
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([meetingId, session, seq])
+  @@index([meetingId])
+}
+
+// Cola durable del procesamiento (la drena el cron y los empujones con after()).
+model MeetingTask {
+  id        String    @id @default(cuid())
+  meetingId String
+  kind      String
+  key       String    // idempotencia: "normalizar:<sourceId>", "tramo:12", "bloque:3"…
+  payload   Json      @default("{}")
+  result    Json?
+  status    String    @default("pendiente") // pendiente | en_curso | hecha | fallida
+  attempts  Int       @default(0)
+  runAfter  DateTime  @default(now())
+  lockedAt  DateTime?
+  error     String?
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([meetingId, key])
+  @@index([status, runAfter])
+  @@index([meetingId, kind])
+}
+
+// Una intervención de la transcripción, con su minuto y quién habla.
+model MeetingUtterance {
+  id        String @id @default(cuid())
+  meetingId String
+  idx       Int
+  startMs   Int
+  endMs     Int
+  speaker   String // etiqueta global: V1..V4 (voces de referencia) o H5, H6…
+  text      String @db.Text
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId, startMs])
+}
+
+model MeetingSpeaker {
+  id            String  @id @default(cuid())
+  meetingId     String
+  label         String
+  name          String?
+  role          String?
+  personId      String?
+  confirmed     Boolean @default(false) // false = sugerencia de la IA
+  suggestion    Json?   // { nombre, rol, evidencia, t, igualA }
+  talkMs        Int     @default(0)
+  sampleStartMs Int?
+  sampleEndMs   Int?
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, label])
+}
+
+// Marca puesta a mano durante la grabación (nuevo tema, votación, compromiso, nota).
+model MeetingMarker {
+  id        String  @id @default(cuid())
+  meetingId String
+  atMs      Int
+  kind      String  // tema | votacion | compromiso | nota
+  note      String?
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([meetingId])
+}
+
+// Personas de la copropiedad (consejeros, revisor fiscal…): ayudan a nombrar a los hablantes.
+model PropertyPerson {
+  id         String  @id @default(cuid())
+  propertyId String
+  name       String
+  role       String? // presidente | consejero | administrador | revisor_fiscal | contador | otro
+  active     Boolean @default(true)
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
 }

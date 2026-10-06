@@ -60,6 +60,8 @@ export const PLANS = {
       transcriptionMinutesPerDay: 20,
       transcriptionMinutesPerMonth: 120,
       transcriptionMaxFileMb: 25,
+      // Reuniones (audio completo, de cualquier duración): horas de audio por mes.
+      meetingHoursPerMonth: 10,
     },
   },
   business: {
@@ -84,6 +86,7 @@ export const PLANS = {
       transcriptionMinutesPerDay: 40,
       transcriptionMinutesPerMonth: 300,
       transcriptionMaxFileMb: 25,
+      meetingHoursPerMonth: 40,
     },
   },
   elite: {
@@ -108,6 +111,7 @@ export const PLANS = {
       transcriptionMinutesPerDay: 60,
       transcriptionMinutesPerMonth: 800,
       transcriptionMaxFileMb: 25,
+      meetingHoursPerMonth: 120,
     },
   },
 } as const;
@@ -122,6 +126,8 @@ export const TRIAL_LIMITS = {
   generationsPerDay: 2,
   agentMessagesPerDay: 15,
   transcriptionMinutesTotal: 20,
+  // Reuniones: 2 horas de audio en total durante la prueba.
+  meetingHoursTotal: 2,
   maxFilesPerGeneration: 5,
   maxFileSizeMb: 10,
 } as const;

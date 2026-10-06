@@ -139,5 +139,60 @@ export function formatoTamano(bytes: number): string {
   if (bytes < 1024) return `${Math.round(bytes)} B`;
   const kb = bytes / 1024;
   if (kb < 1000) return `${kb < 10 ? kb.toFixed(1) : Math.round(kb)} KB`;
-  return `${(kb / 1024).toFixed(1)} MB`;
+  const mb = kb / 1024;
+  // Las grabaciones de reuniones sí llegan a GB (un WAV de 8 h pesa ~5,5 GB): «5632.0 MB» no se lee.
+  if (mb < 1000) return `${mb.toFixed(1)} MB`;
+  return `${(mb / 1024).toFixed(1)} GB`;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Reuniones: audio Y video, sin tope por tamaño
+   La subida es directa y reanudable (el archivo no pasa por el servidor), así
+   que no rige MAX_AUDIO_MB: solo un tope de seguridad por archivo
+   (MAX_FUENTE_BYTES en lib/meetings/tipos). Zoom, Meet y Teams entregan MP4;
+   el celular, MOV: ffmpeg extrae el audio de cualquiera de ellos.
+   ════════════════════════════════════════════════════════════════════ */
+
+/** Extensiones de video que se aceptan además del audio (mp4, webm y 3gp ya cuentan como audio). */
+const EXT_VIDEO_REUNION = new Set(["mov", "m4v", "mkv", "avi", "mpg", "mpeg", "wmv"]);
+
+const TIPOS_VIDEO_REUNION = [
+  "video/mp4", "video/quicktime", "video/x-m4v", "video/webm", "video/x-matroska", "video/x-msvideo",
+  "video/mpeg", "video/3gpp", "video/x-ms-wmv",
+];
+
+/** Tipos MIME que acepta la subida de reuniones: todo el audio de arriba más video. */
+export const TIPOS_ARCHIVO_REUNION: string[] = [
+  ...ALLOWED_CONTENT_TYPES.filter((t) => t.startsWith("audio/")),
+  ...TIPOS_VIDEO_REUNION,
+];
+
+/** Para el selector de archivos de Reuniones. */
+export const ACCEPT_REUNION =
+  ".mp3,.m4a,.wav,.ogg,.oga,.opus,.aac,.webm,.amr,.3gp,.flac,.caf,.wma,.mp4,.mov,.m4v,.mkv,.avi,.mpg,.mpeg,.wmv";
+
+export function esArchivoDeReunion(nombre: string): boolean {
+  const ext = extensionDe(nombre);
+  return EXT_AUDIO.has(ext) || EXT_VIDEO_REUNION.has(ext);
+}
+
+const TIPOS_VIDEO_POR_EXTENSION: Record<string, string> = {
+  mp4: "video/mp4", mov: "video/quicktime", m4v: "video/x-m4v", mkv: "video/x-matroska",
+  avi: "video/x-msvideo", mpg: "video/mpeg", mpeg: "video/mpeg", wmv: "video/x-ms-wmv",
+};
+
+/**
+ * Tipo MIME de un archivo de reunión. Si el navegador no lo sabe (móviles y gestores de
+ * archivos entregan `type` vacío) se deduce de la extensión; a diferencia de tipoDeArchivo,
+ * un .mp4 sin tipo se toma por video (el audio también viaja en MP4 y ffmpeg lo trata igual).
+ */
+export function tipoDeArchivoReunion(file: { name: string; type?: string }): string {
+  if (file.type && file.type !== "application/octet-stream") return file.type;
+  const ext = extensionDe(file.name);
+  return TIPOS_VIDEO_POR_EXTENSION[ext] ?? TIPOS_POR_EXTENSION[ext] ?? "application/octet-stream";
+}
+
+/** ¿Lo puede recibir la subida de reuniones? (tipo MIME ya resuelto). */
+export function esTipoDeReunionPermitido(tipo: string): boolean {
+  return TIPOS_ARCHIVO_REUNION.includes(tipo);
 }

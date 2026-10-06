@@ -18,3 +18,38 @@ export const COMING_SOON = {
 } as const;
 
 export type ComingSoonKey = keyof typeof COMING_SOON;
+
+/**
+ * «Reuniones» (grabar o subir una reunión, transcripción completa, acta desde
+ * la reunión) se lanza como piloto: solo las cuentas admin la ven, para
+ * probarla en producción con grabaciones reales antes de abrirla.
+ *
+ *   "admins" → solo cuentas con rol admin (y el demo, que no tiene base de datos)
+ *   "todos"  → todas las cuentas
+ *
+ * Pasarla a "todos" requiere aprobación (design/reuniones/PLAN.md §13).
+ * Es una función pura a propósito: la usan a la vez el menú (cliente), las
+ * páginas y la API (servidor, que además reconoce a los admins de
+ * ADMIN_EMAILS, una variable que el navegador no ve).
+ */
+export const REUNIONES_PARA = "admins" as "admins" | "todos";
+
+export type UsuarioReuniones = {
+  /** `session.user.role`. */
+  role?: string | null;
+  /** Modo demo: se ve siempre, no hay base de datos que proteger. */
+  demo?: boolean;
+  /** El servidor sabe si el correo está en ADMIN_EMAILS. */
+  adminDeEntorno?: boolean;
+};
+
+export function reunionesVisibles(modo: "admins" | "todos", usuario: UsuarioReuniones | null | undefined): boolean {
+  if (usuario?.demo) return true;
+  if (!usuario) return false;
+  if (modo === "todos") return true;
+  return usuario.role === "admin" || Boolean(usuario.adminDeEntorno);
+}
+
+export function puedeVerReuniones(usuario: UsuarioReuniones | null | undefined): boolean {
+  return reunionesVisibles(REUNIONES_PARA, usuario);
+}

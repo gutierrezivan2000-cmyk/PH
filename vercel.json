@@ -1,6 +1,8 @@
 {
   "crons": [
     { "path": "/api/cron/process-batch", "schedule": "* * * * *" },
+    { "path": "/api/cron/process-meetings", "schedule": "* * * * *" },
+    { "path": "/api/cron/cleanup-meetings", "schedule": "17 4 * * *" },
     { "path": "/api/cron/reconcile-payments", "schedule": "*/15 * * * *" },
     { "path": "/api/cron/health-check", "schedule": "0 */6 * * *" }
   ]

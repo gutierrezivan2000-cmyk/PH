@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { AGENTS, isValidAgentId, isComingSoonAgent } from "@/lib/agents";
 import { PLANS } from "@/lib/epayco";
 import { normalizePlanId, canAccessAgent } from "@/lib/plan";
+import { contarPreguntasAReuniones } from "@/lib/meetings/cupo-preguntas";
 import { ensureAgentTables, isMissingRelationError } from "@/lib/ensure-agent-tables";
 import { parseAttachments, type ParsedAttachment } from "@/lib/parse-attachment";
 
@@ -263,41 +264,33 @@ export async function POST(
         select: { id: true },
       });
       const chatIdList = chatIds.map((c) => c.id);
+      // Las preguntas a las reuniones («Preguntar») salen de esta misma bolsa de mensajes del plan.
+      const [preguntasHoy, preguntasSemana] = IS_DEMO
+        ? [0, 0]
+        : await Promise.all([contarPreguntasAReuniones(userId, startOfDay), contarPreguntasAReuniones(userId, startOfWeek)]);
+      const mensajesDesde = (desde: Date) =>
+        chatIdList.length > 0
+          ? db.agentMessage.count({ where: { chatId: { in: chatIdList }, role: "user", createdAt: { gte: desde } } })
+          : Promise.resolve(0);
 
-      if (chatIdList.length > 0) {
-        const dailyCount = await db.agentMessage.count({
-          where: {
-            chatId: { in: chatIdList },
-            role: "user",
-            createdAt: { gte: startOfDay },
+      const dailyCount = (await mensajesDesde(startOfDay)) + preguntasHoy;
+      if (!isBeta && dailyCount >= planLimits.agentMessagesPerDay) {
+        return NextResponse.json(
+          {
+            error: `Has alcanzado el límite diario de ${planLimits.agentMessagesPerDay} mensajes. Intenta mañana.`,
           },
-        });
+          { status: 429 }
+        );
+      }
 
-        if (!isBeta && dailyCount >= planLimits.agentMessagesPerDay) {
-          return NextResponse.json(
-            {
-              error: `Has alcanzado el límite diario de ${planLimits.agentMessagesPerDay} mensajes. Intenta mañana.`,
-            },
-            { status: 429 }
-          );
-        }
-
-        const weeklyCount = await db.agentMessage.count({
-          where: {
-            chatId: { in: chatIdList },
-            role: "user",
-            createdAt: { gte: startOfWeek },
+      const weeklyCount = (await mensajesDesde(startOfWeek)) + preguntasSemana;
+      if (!isBeta && weeklyCount >= planLimits.agentMessagesPerWeek) {
+        return NextResponse.json(
+          {
+            error: `Has alcanzado el límite semanal de ${planLimits.agentMessagesPerWeek} mensajes.`,
           },
-        });
-
-        if (!isBeta && weeklyCount >= planLimits.agentMessagesPerWeek) {
-          return NextResponse.json(
-            {
-              error: `Has alcanzado el límite semanal de ${planLimits.agentMessagesPerWeek} mensajes.`,
-            },
-            { status: 429 }
-          );
-        }
+          { status: 429 }
+        );
       }
     } catch (err) {
       console.error("[api/agents/chat] usage check failed:", err);

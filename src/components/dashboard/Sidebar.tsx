@@ -5,7 +5,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { COMING_SOON, type ComingSoonKey } from "@/lib/feature-flags";
+import { COMING_SOON, puedeVerReuniones, type ComingSoonKey } from "@/lib/feature-flags";
 import { GrupoIndice, Indice, ItemIndice, Loseta, MODULOS, type ClaveModulo } from "@/components/kit";
 import { AGENTES_ACTIVOS, type DatosIndice } from "@/components/dashboard/datosIndice";
 import { abrirSoporte, useSoporteAbierto, useSoporteDisponible } from "@/components/dashboard/soporte";
@@ -27,15 +27,20 @@ export type EntradaIndice = {
   modulo: ClaveModulo;
   /** Si la función está en COMING_SOON, el ítem se dibuja en gris con «Pronto». */
   comingSoon?: ComingSoonKey;
+  /** Función en piloto: solo se muestra si la bandera correspondiente lo permite para esta sesión. */
+  piloto?: "reuniones";
 };
 export type GrupoNav = { label: string; items: EntradaIndice[] };
 
-const de = (modulo: ClaveModulo, name?: string, comingSoon?: ComingSoonKey): EntradaIndice =>
-  ({ name: name ?? MODULOS[modulo].nombre, href: MODULOS[modulo].href, modulo, comingSoon });
+const de = (modulo: ClaveModulo, name?: string, comingSoon?: ComingSoonKey, piloto?: EntradaIndice["piloto"]): EntradaIndice =>
+  ({ name: name ?? MODULOS[modulo].nombre, href: MODULOS[modulo].href, modulo, comingSoon, piloto });
 
 // Agrupado como piensa un administrador: 15 entradas planas eran difíciles de recorrer.
 export const NAV_GROUPS: GrupoNav[] = [
-  { label: "Día a día", items: [de("inicio"), de("generar"), de("bitacora"), de("asistente")] },
+  {
+    label: "Día a día",
+    items: [de("inicio"), de("reuniones", undefined, undefined, "reuniones"), de("generar"), de("bitacora"), de("asistente")],
+  },
   { label: "Finanzas", items: [de("cartera", undefined, "cartera"), de("presupuesto", undefined, "presupuesto")] },
   {
     label: "Comunidad",
@@ -120,6 +125,10 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse, datos }: S
   // Si la pantalla actual es una de ellas, el grupo se abre solo.
   const [prontoAbierto, setProntoAbierto] = useState(false);
   const esPronto = (item: EntradaIndice) => Boolean(item.comingSoon && COMING_SOON[item.comingSoon]);
+  // Las funciones en piloto (Reuniones) solo aparecen para quien la bandera deja verlas.
+  // Aquí basta el rol de la sesión: los admins de ADMIN_EMAILS ya entran con rol admin.
+  const verReuniones = puedeVerReuniones({ role: session?.user?.role, demo: process.env.NEXT_PUBLIC_DEMO_MODE === "true" });
+  const enPiloto = (item: EntradaIndice) => item.piloto === "reuniones" && !verReuniones;
   const enProntoTodas = NAV_GROUPS.flatMap((g) => g.items).filter(esPronto);
   const prontoVisible = prontoAbierto || enProntoTodas.some((i) => esActiva(pathname, i.href));
 
@@ -196,7 +205,7 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse, datos }: S
       <Indice abierto={open} alCerrar={onClose} pie={pie} hrefInicio="/dashboard" accionMarca={plegado ? undefined : botonPlegar}>
         {plegado && <div className="k-idx-tit">{botonPlegar}</div>}
         {NAV_GROUPS.map((grupo) => {
-          const visibles = grupo.items.filter((i) => !esPronto(i));
+          const visibles = grupo.items.filter((i) => !esPronto(i) && !enPiloto(i));
           return visibles.length === 0 ? null : (
             <GrupoIndice key={grupo.label} titulo={grupo.label}>
               {visibles.map(entrada)}

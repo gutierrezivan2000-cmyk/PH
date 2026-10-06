@@ -5,6 +5,7 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useVerReuniones } from "@/components/reuniones/useVerReuniones";
 import { Header } from "@/components/dashboard/Header";
 import { pedirJSON, URL_CALENDARIO, URL_GENERACIONES } from "@/components/dashboard/datosIndice";
 import { abrirSoporte, useSoporteDisponible } from "@/components/dashboard/soporte";
@@ -414,6 +415,7 @@ type Celda = { tipo: TipoEstado; palabra: string; detalle?: string };
 export default function DashboardPage() {
   const router = useRouter();
   const { data: session } = useSession();
+  const verReuniones = useVerReuniones();
   const [checking, setChecking] = useState(!IS_DEMO);
   const [userName, setUserName] = useState<string>("");
 
@@ -782,6 +784,10 @@ export default function DashboardPage() {
             {/* ── ¿QUÉ QUIERES HACER?: las cuatro tareas de siempre, a un clic ── */}
             <Seccion id="s0" titulo="¿Qué quieres hacer?" icono={MousePointerClick} tono="violet">
               <Accesos>
+                {verReuniones && (
+                  <Acceso href={MODULOS.reuniones.href} icono={MODULOS.reuniones.icono} tono={MODULOS.reuniones.tono}
+                    titulo="Grabar una reunión" texto="La transcribimos completa." />
+                )}
                 <Acceso href={MODULOS.generar.href} icono={MODULOS.generar.icono} tono={MODULOS.generar.tono}
                   titulo="Generar informe o acta" texto="En cinco pasos." />
                 <Acceso href={MODULOS.bitacora.href} icono={MODULOS.bitacora.icono} tono={MODULOS.bitacora.tono}

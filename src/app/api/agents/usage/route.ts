@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { PLANS } from "@/lib/epayco";
 import { normalizePlanId, accessibleAgents } from "@/lib/plan";
 import { INCLUDED_AGENT_IDS } from "@/lib/agents";
+import { contarPreguntasAReuniones } from "@/lib/meetings/cupo-preguntas";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -80,6 +81,16 @@ export async function GET() {
       }
     } catch (err) {
       console.error("[api/agents/usage] count error (tables may not exist):", err);
+    }
+
+    // Las preguntas a las reuniones («Preguntar») salen de esta misma bolsa de mensajes del plan.
+    if (!IS_DEMO) {
+      const [preguntasHoy, preguntasSemana] = await Promise.all([
+        contarPreguntasAReuniones(userId, startOfDay),
+        contarPreguntasAReuniones(userId, startOfWeek),
+      ]);
+      dailyCount += preguntasHoy;
+      weeklyCount += preguntasSemana;
     }
 
     try {

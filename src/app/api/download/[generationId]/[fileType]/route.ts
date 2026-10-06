@@ -6,7 +6,8 @@ import { getGenerationById, DEMO_USER } from "@/lib/demo-store";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
-const FILE_TYPE_MAP: Record<string, { key: string; contentType: string; filename: string }> = {
+/** `descarga`: se baja como archivo en vez de abrirse en el navegador. */
+const FILE_TYPE_MAP: Record<string, { key: string; contentType: string; filename: string; descarga?: boolean }> = {
   informe: {
     key: "informeHtml",
     contentType: "text/html; charset=utf-8",
@@ -17,10 +18,18 @@ const FILE_TYPE_MAP: Record<string, { key: string; contentType: string; filename
     contentType: "text/html; charset=utf-8",
     filename: "acta-de-reunion.html",
   },
+  // El acta redactada desde una reunión, en markdown (sin marcadores): para llevarla a Word u otro editor.
+  "acta-markdown": {
+    key: "actaMarkdown",
+    contentType: "text/markdown; charset=utf-8",
+    filename: "acta-de-reunion.md",
+    descarga: true,
+  },
   pptx: {
     key: "presentacionPptx",
     contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     filename: "presentacion.pptx",
+    descarga: true,
   },
   transcripcion: {
     key: "transcripcion",
@@ -96,7 +105,7 @@ export async function GET(
         status: 200,
         headers: {
           "Content-Type": fileInfo.contentType,
-          "Content-Disposition": fileType === "pptx"
+          "Content-Disposition": fileInfo.descarga
             ? `attachment; filename="${fileInfo.filename}"`
             : `inline; filename="${fileInfo.filename}"`,
           "Cache-Control": "private, max-age=3600",
@@ -108,7 +117,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": fileInfo.contentType,
-        "Content-Disposition": fileType === "pptx"
+        "Content-Disposition": fileInfo.descarga
           ? `attachment; filename="${fileInfo.filename}"`
           : `inline; filename="${fileInfo.filename}"`,
         "Cache-Control": "private, max-age=3600",
@@ -128,7 +137,7 @@ export async function GET(
         status: 200,
         headers: {
           "Content-Type": fileInfo.contentType,
-          "Content-Disposition": fileType === "pptx"
+          "Content-Disposition": fileInfo.descarga
             ? `attachment; filename="${fileInfo.filename}"`
             : `inline; filename="${fileInfo.filename}"`,
           "Cache-Control": "private, max-age=3600",

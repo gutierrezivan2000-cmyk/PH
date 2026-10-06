@@ -1,0 +1,235 @@
+/**
+ * Reuniones: la forma de los datos tal como viajan entre la API y la interfaz.
+ *
+ * Solo tipos (sin Prisma ni React): las fechas van en ISO y los tamaños en
+ * número, así que el mismo objeto sirve para la respuesta real, para el demo y
+ * para las pruebas. El contrato de cada ruta está en design/reuniones/PLAN.md §10.
+ */
+
+import type { TipoMarcador } from "./tipos";
+
+export type ReunionResumen = {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  type: string;
+  title: string;
+  /** Fecha y hora de la reunión (ISO). */
+  date: string;
+  status: string;
+  stage: string | null;
+  /** 0-100 del paso actual. */
+  progress: number;
+  durationMs: number | null;
+  /** Tareas hechas y totales del paso actual (solo mientras se procesa). */
+  hechas: number | null;
+  total: number | null;
+  /** Mensaje legible cuando el estado es «error» o «sin_cupo». */
+  errorMessage: string | null;
+};
+
+export type FuenteDTO = {
+  id: string;
+  idx: number;
+  kind: "archivo" | "grabacion";
+  name: string;
+  sizeBytes: number;
+  mimeType: string | null;
+  status: string;
+  durationMs: number | null;
+  offsetMs: number | null;
+};
+
+export type SugerenciaHablante = {
+  nombre?: string;
+  rol?: string;
+  /** Por qué la IA lo cree, para que la persona lo confirme sin adivinar. */
+  evidencia: string;
+  /** Segundos desde el inicio donde está la pista. */
+  t?: number;
+  /** Etiqueta con la que probablemente es la misma persona (fusión). */
+  igualA?: string;
+  confianza?: "alta" | "media" | "baja";
+};
+
+export type HablanteDTO = {
+  label: string;
+  name: string | null;
+  role: string | null;
+  personId: string | null;
+  /** false = el nombre es solo una sugerencia de la IA. */
+  confirmed: boolean;
+  suggestion: SugerenciaHablante | null;
+  talkMs: number;
+  sampleStartMs: number | null;
+  sampleEndMs: number | null;
+};
+
+export type { TipoMarcador } from "./tipos";
+
+export type MarcadorDTO = {
+  id: string;
+  atMs: number;
+  kind: TipoMarcador;
+  note: string | null;
+};
+
+export type IntervencionDTO = {
+  id: string;
+  startMs: number;
+  endMs: number;
+  /** Etiqueta global: V1..V4 (voces de referencia) o H5, H6… */
+  speaker: string;
+  text: string;
+};
+
+/**
+ * Una página de la transcripción (`GET /api/meetings/[id]/utterances`): las intervenciones que EMPIEZAN en el tramo
+ * pedido, cómo se llama cada voz (solo las que ya tienen nombre) y desde dónde pedir la siguiente (null si no hay más).
+ */
+export type PaginaDeIntervenciones = {
+  items: IntervencionDTO[];
+  nombres: Record<string, string>;
+  siguienteMs: number | null;
+};
+
+export type RangoMs = { desdeMs: number; hastaMs: number };
+
+export type FichaVotacion = {
+  /** Segundos desde el inicio. */
+  t: number;
+  asunto: string;
+  aFavor?: number;
+  enContra?: number;
+  abstenciones?: number;
+  resultado: string;
+};
+
+/** La ficha de la reunión: lo que la IA extrae de la transcripción completa (se guarda en `Meeting.digest`). */
+export type Ficha = {
+  resumen: string;
+  ordenDelDia: { titulo: string; inicioS: number }[];
+  asistentes: { nombre: string; rol?: string }[];
+  /** Identificadores estables D1, D2… que el acta debe recoger todos. */
+  decisiones: { id: string; texto: string; t: number }[];
+  /** Identificadores estables C1, C2… */
+  compromisos: { id: string; texto: string; responsable?: string; fecha?: string; t: number }[];
+  votaciones: FichaVotacion[];
+  pendientes: string[];
+  /** Cuántos fragmentos de la reunión la IA no pudo analizar (se vuelven a pedir con «Analizar lo que faltó»). Falta si ninguno. */
+  fragmentosOmitidos?: number;
+  hablantes: {
+    etiqueta: string;
+    nombreSugerido?: string;
+    rol?: string;
+    confianza: "alta" | "media" | "baja";
+    evidencia: string;
+    /** Segundos desde el inicio donde está la pista. */
+    t?: number;
+    igualA?: string;
+  }[];
+};
+
+/** Lo que responde `GET /api/meetings/[id]/status` mientras la reunión se procesa. */
+export type EstadoProcesoDTO = {
+  status: string;
+  stage: string | null;
+  /** 0-100 del paso actual. */
+  progress: number;
+  errorMessage: string | null;
+  durationMs: number | null;
+  coverage: number | null;
+  /** Tareas hechas y totales del paso actual (null fuera del procesamiento). */
+  tareas: { hechas: number | null; total: number | null };
+};
+
+/** Lo que el servidor ya recibió de una grabación en la app que todavía no se cerró. */
+export type VivoDTO = {
+  /** Sesiones de grabación con audio recibido (una por cada vez que se empezó a grabar). */
+  sesiones: number;
+  /** Duración del audio recibido, sumando todas las partes. */
+  durMs: number;
+  partes: number;
+  /** Cuándo llegó la última parte (ISO). */
+  ultimaParteEn: string | null;
+};
+
+export type ReunionDetalle = {
+  meeting: ReunionResumen & {
+    /** 0..1: qué parte de la línea de tiempo quedó transcrita. */
+    coverage: number | null;
+    consentAt: string | null;
+    readyAt: string | null;
+    provider: string | null;
+    costUsd: number | null;
+    hasAudio: boolean;
+  };
+  sources: FuenteDTO[];
+  speakers: HablanteDTO[];
+  markers: MarcadorDTO[];
+  digest: Ficha | null;
+  /** Tramos sin voz detectados (se muestran como «Sin voz entre …»). */
+  silences: RangoMs[];
+  /** Solo mientras la reunión está «grabando»: lo recibido hasta ahora de la grabadora. */
+  live: VivoDTO | null;
+};
+
+export type PersonaDTO = {
+  id: string;
+  propertyId: string;
+  name: string;
+  role: string | null;
+  active: boolean;
+};
+
+/* ── Acta ─────────────────────────────────────────────────────────────── */
+
+/** En qué está un acta: se está redactando, está lista, o se detuvo por un fallo (y se puede intentar de nuevo). */
+export type EstadoActa = "procesando" | "lista" | "error";
+
+/** Un requisito legal que la revisión (Ley 675) marcó como cumplido o pendiente. */
+export type RequisitoActaDTO = { item: string; status: "completo" | "pendiente"; detail: string };
+
+export type ActaDTO = {
+  /** El identificador de la generación del acta. */
+  id: string;
+  estado: EstadoActa;
+  /** 0-100. */
+  progreso: number;
+  /** Qué hace ahora, mientras se redacta. */
+  etapa: "preparando" | "redactando" | "armando" | null;
+  /** Secciones redactadas y totales (solo mientras se redacta). */
+  secciones: { hechas: number; total: number } | null;
+  /** ISO. */
+  creadaEn: string;
+  terminadaEn: string | null;
+  /** Mensaje legible cuando el estado es «error». */
+  error: string | null;
+  /** «Pendientes de verificación»: lo que quien firma debe revisar. */
+  pendientes: string[];
+  /** La revisión de requisitos legales; null si no se pudo hacer. */
+  requisitos: RequisitoActaDTO[] | null;
+  /** Dónde abrir y descargar el documento (solo cuando está lista). */
+  archivos: { html: string; markdown: string } | null;
+};
+
+/** Lo que responde `GET /api/meetings/[id]/acta`. */
+export type RespuestaActa = {
+  /** La acta más reciente de la reunión; null si todavía no se ha pedido ninguna. */
+  acta: ActaDTO | null;
+  /** El acta con sus marcadores (`[[D1]]`, `[[t=00:41:05]]`), solo con `?texto=1` y si está lista. Texto «markdown seguro»: `&`, `<` y `>` van como entidades. */
+  texto: string | null;
+};
+
+/**
+ * Las horas de reuniones del plan, como las ve la persona en Suscripción (`/api/usage` las trae, solo a quien ve Reuniones): lo que
+ * lleva usado, el tope y lo que queda. Con `ilimitado` (cuenta beta o fase de pruebas) no hay tope: `limiteMs` y `restanMs` son null.
+ */
+export type HorasDeReunionesDTO = {
+  ilimitado: boolean;
+  /** Qué ventana cuenta: el mes, o toda la prueba gratis. */
+  periodo: "mes" | "prueba";
+  usadoMs: number;
+  limiteMs: number | null;
+  restanMs: number | null;
+};
