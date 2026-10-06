@@ -9,6 +9,12 @@ const { auth, fake, cupo, iaActual } = vi.hoisted(() => ({
   iaActual: { actual: null as unknown },
 }));
 vi.mock("@/lib/auth", () => ({ auth: (...a: unknown[]) => auth(...a) }));
+// Estas pruebas cubren la compuerta de acceso: se hacen con el piloto «solo admins» para que la puerta se pruebe de verdad
+// (el valor publicado se prueba aparte, en `feature-flags.test.ts` y `acceso-publicado.test.ts`).
+vi.mock("@/lib/feature-flags", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/feature-flags")>();
+  return { ...real, puedeVerReuniones: (u: Parameters<typeof real.puedeVerReuniones>[0]) => real.reunionesVisibles("admins", u) };
+});
 vi.mock("@/lib/db", () => ({ get db() { return fake.db; } }));
 vi.mock("@/lib/ensure-meetings-schema", () => ({ ensureMeetingsSchema: async () => {} }));
 vi.mock("@/lib/meetings/cupo-preguntas", async (original) => ({ ...(await original<typeof import("@/lib/meetings/cupo-preguntas")>()), comprobarCupoDePreguntas: (...a: unknown[]) => cupo(...a) }));

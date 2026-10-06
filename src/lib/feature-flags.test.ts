@@ -26,10 +26,14 @@ describe("reunionesVisibles", () => {
 });
 
 describe("puedeVerReuniones (el valor publicado)", () => {
-  it("el piloto arranca solo para admins: abrirlo a todos exige aprobación", () => {
-    expect(REUNIONES_PARA).toBe("admins");
-    expect(puedeVerReuniones({ role: "user" })).toBe(false);
+  it("Reuniones está abierta a todas las cuentas (fase de pruebas abierta, aprobado por el dueño)", () => {
+    expect(REUNIONES_PARA).toBe("todos");
+    expect(puedeVerReuniones({ role: "user" })).toBe(true);
     expect(puedeVerReuniones({ role: "admin" })).toBe(true);
+  });
+  it("sigue sin verla quien no ha iniciado sesión", () => {
+    expect(puedeVerReuniones(null)).toBe(false);
+    expect(puedeVerReuniones(undefined)).toBe(false);
   });
 });
 

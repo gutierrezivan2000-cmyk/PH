@@ -21,18 +21,18 @@ export type ComingSoonKey = keyof typeof COMING_SOON;
 
 /**
  * «Reuniones» (grabar o subir una reunión, transcripción completa, acta desde
- * la reunión) se lanza como piloto: solo las cuentas admin la ven, para
- * probarla en producción con grabaciones reales antes de abrirla.
+ * la reunión). Se lanzó como piloto solo para admins y se abrió a todas las
+ * cuentas con aprobación del dueño (fase de pruebas abierta, sin límites).
  *
  *   "admins" → solo cuentas con rol admin (y el demo, que no tiene base de datos)
- *   "todos"  → todas las cuentas
+ *   "todos"  → todas las cuentas con sesión
  *
- * Pasarla a "todos" requiere aprobación (design/reuniones/PLAN.md §13).
+ * Volver a "admins" cierra el acceso de inmediato (menú, páginas y API).
  * Es una función pura a propósito: la usan a la vez el menú (cliente), las
  * páginas y la API (servidor, que además reconoce a los admins de
  * ADMIN_EMAILS, una variable que el navegador no ve).
  */
-export const REUNIONES_PARA = "admins" as "admins" | "todos";
+export const REUNIONES_PARA = "todos" as "admins" | "todos";
 
 export type UsuarioReuniones = {
   /** `session.user.role`. */

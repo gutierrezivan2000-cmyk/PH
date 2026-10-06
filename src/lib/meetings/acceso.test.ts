@@ -2,6 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const auth = vi.fn();
 vi.mock("@/lib/auth", () => ({ auth: (...a: unknown[]) => auth(...a) }));
+// Estas pruebas cubren la compuerta de acceso: se hacen con el piloto «solo admins» para que la puerta se pruebe de verdad
+// (el valor publicado se prueba aparte, en `feature-flags.test.ts` y `acceso-publicado.test.ts`).
+vi.mock("@/lib/feature-flags", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/feature-flags")>();
+  return { ...real, puedeVerReuniones: (u: Parameters<typeof real.puedeVerReuniones>[0]) => real.reunionesVisibles("admins", u) };
+});
 // Si la puerta falla y alguien toca la base de datos, la prueba lo grita.
 vi.mock("@/lib/db", () => ({
   db: new Proxy({}, { get: () => { throw new Error("db tocada antes de la puerta de acceso"); } }),
