@@ -1670,5 +1670,5 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
 | M6 Ficha, hablantes, cupos | hecho | (ver `git log`) | Ver «Notas de M6» arriba. |
 | M7 Página de la reunión | hecho | (ver `git log`) | Ver «Notas de M7» arriba. |
 | M8 Acta y Preguntar | hecho | (ver `git log`) | Ver «Notas de M8» arriba. |
-| M9 Cupos visibles, retención, piloto | hecho (falta el piloto) | (ver `git log`) | Ver «Notas de M9» arriba. Falta fusionar con `"admins"` y probar en producción (§13): requiere aprobación. |
+| M9 Cupos visibles, retención, piloto | hecho; fusionado a `main` (#11) y **abierto a todas las cuentas** el 6 de octubre de 2026, por decisión del dueño (fase de pruebas abierta, sin límites) | (ver `git log`) | Ver «Notas de M9» arriba. Las pruebas del piloto (§13) se hacen ya con todas las cuentas. Actas: siguen los topes de generaciones del plan, como cualquier documento. `REUNIONES_PARA = "admins"` vuelve a cerrar el acceso. |
 | M10 AssemblyAI (opcional) | pendiente | | |
