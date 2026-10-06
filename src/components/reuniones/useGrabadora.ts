@@ -82,6 +82,14 @@ export function grabacionEnCurso(meetingId: string): { transcurridoMs: number } 
   return fase === "grabando" || fase === "pausada" || fase === "cerrando" ? { transcurridoMs } : null;
 }
 
+/** Todas las grabaciones que esta pestaña tiene en marcha ahora (por si la persona salió de su pantalla): el aviso global las lee. */
+export function grabacionesEnCurso(): Array<{ meetingId: string; transcurridoMs: number }> {
+  return [...registro.keys()].flatMap((meetingId) => {
+    const g = grabacionEnCurso(meetingId);
+    return g ? [{ meetingId, transcurridoMs: g.transcurridoMs }] : [];
+  });
+}
+
 const sinSuscripcion = () => () => {};
 
 export type EstadoCandado = "buscando" | "mio" | "ocupado";
