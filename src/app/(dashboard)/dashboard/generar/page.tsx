@@ -2,7 +2,9 @@
 
 import { Building2, CalendarDays, FileSignature, FileText, PenLine, Upload, type LucideIcon } from "lucide-react";
 import { useState, useEffect, useCallback, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useVerReuniones } from "@/components/reuniones/useVerReuniones";
 import { upload } from "@vercel/blob/client";
 import {
   limiteMbPara,
@@ -198,6 +200,7 @@ function Bloque({ id, n, estado, titulo, nota, icono, tono, children }: {
 
 export default function GenerarPage() {
   const router = useRouter();
+  const verReuniones = useVerReuniones();
   const [properties, setProperties] = useState<Property[]>([]);
   const [cargandoProps, setCargandoProps] = useState(true);
   const [errorProps, setErrorProps] = useState(false);
@@ -771,6 +774,11 @@ export default function GenerarPage() {
                         <li key={item}>{item}</li>
                       ))}
                     </ul>
+                    {verReuniones && (
+                      <p className="mas">
+                        ¿Tienes la grabación de la reunión? Súbela en <Link href="/dashboard/reuniones">Reuniones</Link>: la transcribimos completa y el acta sale de ahí.
+                      </p>
+                    )}
                     <p className="mas">
                       {`También puedes subir: PDF, documentos Word, archivos de texto, hojas de cálculo e imágenes de hasta ${MAX_DOC_MB} MB, y grabaciones de audio de hasta ${MAX_AUDIO_MB} MB.`}
                     </p>
