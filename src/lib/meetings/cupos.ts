@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { PLANS, TRIAL_LIMITS } from "@/lib/epayco";
 import { normalizePlanId } from "@/lib/plan";
 import { checkSubscriptionAccess } from "@/lib/usage";
+import type { HorasDeReunionesDTO } from "./dto";
 import { formatearDuracion } from "./tipos";
 
 const HORA_MS = 3_600_000;
@@ -54,6 +55,55 @@ export function mensajeDeCupo(p: { duracionMs: number; restanMs: number; limiteM
   return `Esta reunión dura ${horas(p.duracionMs)} y te quedan ${horas(p.restanMs)} ${cuando}.`;
 }
 
+/** El tope de horas de este usuario: las de la prueba gratis (en total) o las de su plan (por mes). */
+async function limiteDeHorasMs(userId: string, prueba: boolean): Promise<number> {
+  if (prueba) return TRIAL_LIMITS.meetingHoursTotal * HORA_MS;
+  const sub = await db.subscription.findUnique({ where: { userId }, select: { planId: true } });
+  return horasPorMes(sub?.planId) * HORA_MS;
+}
+
+/**
+ * Las horas que ya consumió: las de sus reuniones con audio y duración, de este mes (o de toda la prueba), sin las que esperan
+ * cupo. `excluirReunionId` es la que se está evaluando: su propia duración no cuenta como consumida.
+ */
+async function consumidoMs(userId: string, prueba: boolean, ahora: Date, excluirReunionId?: string): Promise<number> {
+  const suma = await db.meeting.aggregate({
+    where: {
+      userId,
+      durationMs: { gt: 0 },
+      audioUrl: { not: null },
+      status: { not: "sin_cupo" },
+      ...(excluirReunionId ? { id: { not: excluirReunionId } } : {}),
+      ...(prueba ? {} : { createdAt: { gte: inicioDeMes(ahora) } }),
+    },
+    _sum: { durationMs: true },
+  });
+  return suma._sum.durationMs ?? 0;
+}
+
+/** Las horas de reuniones tal como se le muestran a la persona: lo usado, el tope y lo que queda. */
+export type ResumenDeHoras = HorasDeReunionesDTO;
+
+/**
+ * Cuántas horas de reuniones lleva este usuario y cuántas le quedan (para Suscripción). A diferencia de `comprobarCupoDeReuniones`,
+ * también cuenta lo usado cuando no hay tope. Devuelve null si no se puede decir (sin suscripción activa, o una falla al consultar:
+ * es información, no un bloqueo, así que simplemente no se muestra).
+ */
+export async function resumenDeHoras(userId: string, ahora: Date = new Date()): Promise<ResumenDeHoras | null> {
+  try {
+    const acceso = await checkSubscriptionAccess(userId);
+    if (!acceso.allowed) return null;
+    const prueba = acceso.status === "trialing";
+    const usadoMs = await consumidoMs(userId, prueba, ahora);
+    if (acceso.status === "beta" || acceso.status === "testing") return { ilimitado: true, periodo: "mes", usadoMs, limiteMs: null, restanMs: null };
+    const limiteMs = await limiteDeHorasMs(userId, prueba);
+    return { ilimitado: false, periodo: prueba ? "prueba" : "mes", usadoMs, limiteMs, restanMs: Math.max(0, limiteMs - usadoMs) };
+  } catch (e) {
+    console.error("[meetings/cupos] no se pudieron contar las horas de reuniones", e);
+    return null;
+  }
+}
+
 /**
  * ¿Le alcanza a este usuario para procesar una reunión de `duracionMs`? `excluirReunionId` es la que se está evaluando (su
  * propia duración no cuenta como consumida). Una falla al consultar NO bloquea: se deja pasar y se registra, como el resto
@@ -68,27 +118,9 @@ export async function comprobarCupoDeReuniones(userId: string, duracionMs: numbe
     if (acceso.status === "beta" || acceso.status === "testing") return ILIMITADO;
 
     const prueba = acceso.status === "trialing";
-    let limiteMs: number;
-    if (prueba) {
-      limiteMs = TRIAL_LIMITS.meetingHoursTotal * HORA_MS;
-    } else {
-      const sub = await db.subscription.findUnique({ where: { userId }, select: { planId: true } });
-      limiteMs = horasPorMes(sub?.planId) * HORA_MS;
-    }
-
+    const limiteMs = await limiteDeHorasMs(userId, prueba);
     const periodo = prueba ? "prueba" : "mes";
-    const suma = await db.meeting.aggregate({
-      where: {
-        userId,
-        durationMs: { gt: 0 },
-        audioUrl: { not: null },
-        status: { not: "sin_cupo" },
-        ...(excluirReunionId ? { id: { not: excluirReunionId } } : {}),
-        ...(prueba ? {} : { createdAt: { gte: inicioDeMes(ahora) } }),
-      },
-      _sum: { durationMs: true },
-    });
-    const usadoMs = suma._sum.durationMs ?? 0;
+    const usadoMs = await consumidoMs(userId, prueba, ahora, excluirReunionId);
     const restanMs = Math.max(0, limiteMs - usadoMs);
     const permitido = duracionMs <= restanMs;
     return { permitido, ilimitado: false, periodo, usadoMs, limiteMs, restanMs, mensaje: permitido ? null : mensajeDeCupo({ duracionMs, restanMs, limiteMs, periodo }) };

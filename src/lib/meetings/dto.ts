@@ -220,3 +220,16 @@ export type RespuestaActa = {
   /** El acta con sus marcadores (`[[D1]]`, `[[t=00:41:05]]`), solo con `?texto=1` y si está lista. Texto «markdown seguro»: `&`, `<` y `>` van como entidades. */
   texto: string | null;
 };
+
+/**
+ * Las horas de reuniones del plan, como las ve la persona en Suscripción (`/api/usage` las trae, solo a quien ve Reuniones): lo que
+ * lleva usado, el tope y lo que queda. Con `ilimitado` (cuenta beta o fase de pruebas) no hay tope: `limiteMs` y `restanMs` son null.
+ */
+export type HorasDeReunionesDTO = {
+  ilimitado: boolean;
+  /** Qué ventana cuenta: el mes, o toda la prueba gratis. */
+  periodo: "mes" | "prueba";
+  usadoMs: number;
+  limiteMs: number | null;
+  restanMs: number | null;
+};

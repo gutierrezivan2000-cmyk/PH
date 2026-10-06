@@ -46,9 +46,10 @@ export function Kpis({ children, className }: { children: ReactNode; className?:
  *     libres={3} />
  *
  * Con totales grandes (> 40) las celdas se agrupan: cada celda vale total/40.
+ * `cifra` cambia cómo se escribe «usado/total» cuando no son enteros (horas: «3 h 30 min de 10 h»).
  */
 export function Medidor({ filas, libres, unidadLibres = "libres", className }: {
-  filas: Array<{ etiqueta: string; usado: number; total: number }>;
+  filas: Array<{ etiqueta: string; usado: number; total: number; cifra?: string }>;
   /** Cifra de 48 px a la derecha. */
   libres?: number;
   /** Texto junto a la cifra («libres», «libres hoy»). */
@@ -67,8 +68,8 @@ export function Medidor({ filas, libres, unidadLibres = "libres", className }: {
         const llenas = total > 0 ? Math.round((usado / total) * celdas) : 0;
         return (
           <div key={f.etiqueta} style={{ display: "contents" }}>
-            <span className="lb">{f.etiqueta} <b>{real}/{total}</b></span>
-            <div className="k-celdas" role="img" aria-label={`${f.etiqueta}: ${real} de ${total} usadas`}
+            <span className="lb">{f.etiqueta} <b>{f.cifra ?? `${real}/${total}`}</b></span>
+            <div className="k-celdas" role="img" aria-label={f.cifra ? `${f.etiqueta}: ${f.cifra}` : `${f.etiqueta}: ${real} de ${total} usadas`}
               style={{ gridTemplateColumns: `repeat(${Math.max(celdas, 1)}, minmax(0, 1fr))` }}>
               {Array.from({ length: celdas }, (_, i) => <i key={i} className={i < llenas ? undefined : "v"} />)}
             </div>

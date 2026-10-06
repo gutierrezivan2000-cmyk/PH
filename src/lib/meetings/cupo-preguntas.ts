@@ -52,6 +52,23 @@ export type CupoDePreguntas = {
 
 const ILIMITADO: CupoDePreguntas = { permitido: true, ilimitado: true, usadoHoy: 0, limiteHoy: null, usadoEstaSemana: 0, limiteSemana: null, mensaje: null };
 
+const preguntasHechas = (userId: string, desde: Date): Promise<number> =>
+  db.usageRecord.count({ where: { userId, type: TIPO_DE_USO_PREGUNTA, date: { gte: desde } } });
+
+/**
+ * Las preguntas que la persona le hizo a sus reuniones desde `desde`. Cuentan como mensajes de agente del plan: el chat de los
+ * agentes y `/api/agents/usage` las suman a los suyos para que la bolsa sea una sola. No lanza: si no se pueden contar, cuenta 0
+ * (un tope no debe tumbar el chat), como el resto de los topes de la plataforma.
+ */
+export async function contarPreguntasAReuniones(userId: string, desde: Date): Promise<number> {
+  try {
+    return await preguntasHechas(userId, desde);
+  } catch (e) {
+    console.error("[meetings/cupo-preguntas] no se pudieron contar las preguntas a reuniones", e);
+    return 0;
+  }
+}
+
 /** Los mensajes de la persona desde `desde`: lo que le escribió a los agentes más las preguntas que hizo a sus reuniones. */
 async function contarMensajes(userId: string, desde: Date): Promise<number> {
   let alAgente = 0;
@@ -64,8 +81,7 @@ async function contarMensajes(userId: string, desde: Date): Promise<number> {
     // Las tablas del chat pueden no existir todavía: se cuentan solo las preguntas a reuniones.
     console.error("[meetings/cupo-preguntas] no se pudieron contar los mensajes de los agentes", e);
   }
-  const aReuniones = await db.usageRecord.count({ where: { userId, type: TIPO_DE_USO_PREGUNTA, date: { gte: desde } } });
-  return alAgente + aReuniones;
+  return alAgente + (await preguntasHechas(userId, desde));
 }
 
 export async function comprobarCupoDePreguntas(userId: string, ahora: Date = new Date()): Promise<CupoDePreguntas> {

@@ -4,7 +4,7 @@ const { fake, acceso } = vi.hoisted(() => ({ fake: { db: null as unknown }, acce
 vi.mock("@/lib/db", () => ({ get db() { return fake.db; } }));
 vi.mock("@/lib/usage", () => ({ checkSubscriptionAccess: (...a: unknown[]) => acceso(...a) }));
 
-import { comprobarCupoDeReuniones, horasPorMes, inicioDeMes, mensajeDeCupo } from "./cupos";
+import { comprobarCupoDeReuniones, horasPorMes, inicioDeMes, mensajeDeCupo, resumenDeHoras } from "./cupos";
 import { crearDbFalsa, type DbFalsa } from "./db-falsa";
 
 const H = 3_600_000;
@@ -126,6 +126,75 @@ describe("comprobarCupoDeReuniones", () => {
     await plan("pro");
     vi.spyOn(db.meeting, "aggregate").mockRejectedValue(new Error("conexión perdida"));
     expect(await comprobar(100)).toMatchObject({ permitido: true, ilimitado: true });
+    expect(consola).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("resumenDeHoras (lo que se le muestra a la persona)", () => {
+  let db: DbFalsa;
+  beforeEach(() => {
+    db = crearDbFalsa();
+    fake.db = db;
+    acceso.mockReset();
+    acceso.mockResolvedValue({ allowed: true, status: "active" });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  const plan = (planId: string) => db.subscription.create({ data: { userId: "u1", planId, status: "active" } });
+  const reunion = (id: string, horas: number, extra: Record<string, unknown> = {}) =>
+    db.meeting.create({ data: { id, userId: "u1", durationMs: horas * H, audioUrl: "local://a", status: "lista", createdAt: new Date("2026-10-05T12:00:00Z"), ...extra } });
+
+  it("con un plan: lo usado este mes, el tope del plan y lo que queda", async () => {
+    await plan("pro");
+    await reunion("a", 3);
+    await reunion("b", 0.5);
+    expect(await resumenDeHoras("u1", AHORA)).toEqual({ ilimitado: false, periodo: "mes", usadoMs: 3.5 * H, limiteMs: 10 * H, restanMs: 6.5 * H });
+    db.subscription.filas.length = 0;
+    await plan("business");
+    expect(await resumenDeHoras("u1", AHORA)).toMatchObject({ limiteMs: 40 * H, restanMs: 36.5 * H });
+  });
+
+  it("cuenta lo mismo que el cupo: solo este mes, este usuario, con audio y sin las que esperan horas", async () => {
+    await plan("pro");
+    await reunion("de-este-mes", 2);
+    await reunion("de-otro-mes", 5, { createdAt: new Date("2026-09-30T23:00:00Z") });
+    await reunion("de-otro-usuario", 5, { userId: "otro" });
+    await reunion("sin-audio", 5, { audioUrl: null });
+    await reunion("sin-cupo", 5, { status: "sin_cupo" });
+    expect((await resumenDeHoras("u1", AHORA))?.usadoMs).toBe(2 * H);
+    expect((await comprobarCupoDeReuniones("u1", H, undefined, AHORA)).usadoMs).toBe(2 * H);
+  });
+
+  it("si se pasó del tope, lo que queda es cero (no negativo) y lo usado es la cifra real", async () => {
+    await plan("pro");
+    await reunion("a", 12);
+    expect(await resumenDeHoras("u1", AHORA)).toMatchObject({ usadoMs: 12 * H, limiteMs: 10 * H, restanMs: 0 });
+  });
+
+  it("la prueba gratis son 2 horas en total, de cualquier mes", async () => {
+    acceso.mockResolvedValue({ allowed: true, status: "trialing" });
+    await reunion("vieja", 1, { createdAt: new Date("2026-08-01T00:00:00Z") });
+    expect(await resumenDeHoras("u1", AHORA)).toEqual({ ilimitado: false, periodo: "prueba", usadoMs: H, limiteMs: 2 * H, restanMs: H });
+  });
+
+  it("sin tope (beta o fase de pruebas abierta) igual dice cuántas horas lleva, sin límite ni restante", async () => {
+    await reunion("a", 4);
+    for (const status of ["beta", "testing"]) {
+      acceso.mockResolvedValue({ allowed: true, status });
+      expect(await resumenDeHoras("u1", AHORA), status).toEqual({ ilimitado: true, periodo: "mes", usadoMs: 4 * H, limiteMs: null, restanMs: null });
+    }
+  });
+
+  it("sin una suscripción activa no hay nada que mostrar", async () => {
+    acceso.mockResolvedValue({ allowed: false, status: "expired", reason: "Tu suscripción terminó." });
+    expect(await resumenDeHoras("u1", AHORA)).toBeNull();
+  });
+
+  it("si no se puede consultar es información que falta, no un error: devuelve null y lo registra", async () => {
+    const consola = vi.spyOn(console, "error").mockImplementation(() => {});
+    await plan("pro");
+    vi.spyOn(db.meeting, "aggregate").mockRejectedValue(new Error("conexión perdida"));
+    expect(await resumenDeHoras("u1", AHORA)).toBeNull();
     expect(consola).toHaveBeenCalledTimes(1);
   });
 });

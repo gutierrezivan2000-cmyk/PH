@@ -8,7 +8,8 @@
  */
 import { DEMO_USER, getProperties } from "@/lib/demo-store";
 import type {
-  EstadoProcesoDTO, Ficha, FuenteDTO, HablanteDTO, IntervencionDTO, MarcadorDTO, PersonaDTO, RangoMs, ReunionDetalle, ReunionResumen, VivoDTO,
+  EstadoProcesoDTO, Ficha, FuenteDTO, HablanteDTO, HorasDeReunionesDTO, IntervencionDTO, MarcadorDTO, PersonaDTO, RangoMs, ReunionDetalle, ReunionResumen,
+  VivoDTO,
 } from "./dto";
 import {
   DURACION_SEPTIEMBRE_MS, FICHA_SEPTIEMBRE, MARCADORES_SEPTIEMBRE, PERSONAS_LOS_PINOS, SILENCIOS_SEPTIEMBRE,
@@ -408,6 +409,14 @@ export function demoReuniones(userId: string, propertyId?: string | null): Reuni
     .reuniones.filter((r) => r.userId === userId && (!propertyId || r.propertyId === propertyId))
     .sort((a, b) => b.date.localeCompare(a.date))
     .map(resumen);
+}
+
+/**
+ * Las horas de reuniones del plan en el demo (Pro: 10 h al mes), fijas y coherentes con la reunión «sin horas» del ejemplo, que dice
+ * «dura 8 h y te quedan 2 h este mes»: lleva 8 h usadas. (Procesar de nuevo esa reunión en el demo supone que ya hay horas.)
+ */
+export function demoHorasDeReuniones(): HorasDeReunionesDTO {
+  return { ilimitado: false, periodo: "mes", usadoMs: 8 * HORA, limiteMs: 10 * HORA, restanMs: 2 * HORA };
 }
 
 export function demoReunion(userId: string, id: string): ReunionDetalle | null {
