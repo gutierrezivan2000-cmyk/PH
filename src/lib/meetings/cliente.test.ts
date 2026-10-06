@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ErrorApi, actualizarReunion, clienteDeActa, crearPersona, crearReunion, eliminarReunion, listarIntervenciones, listarPersonas, listarReuniones,
-  obtenerActa, obtenerEstado, obtenerReunion, pedirActa, preguntarALaReunion, procesarReunion, quitarFuente, reanudarActa, reintentarReunion, urlDeTranscripcion,
+  obtenerActa, obtenerEstado, obtenerReunion, pedirActa, preguntarALaReunion, procesarReunion, quitarFuente, reanudarActa, reintentarReunion, reprocesarReunion,
+  urlDeTranscripcion,
 } from "./cliente";
 import { codificarEvento } from "./sse";
 
@@ -129,6 +130,20 @@ describe("procesamiento", () => {
   it("un 409 trae el mensaje del servidor", async () => {
     fetchMock.mockResolvedValue(respuesta(409, { error: "No hay nada que reintentar en esta reunión." }));
     await expect(reintentarReunion("m1")).rejects.toMatchObject({ status: 409, message: "No hay nada que reintentar en esta reunión." });
+  });
+});
+
+describe("procesar de nuevo (sin horas)", () => {
+  it("pide procesar con POST, escapa la id y devuelve el estado nuevo", async () => {
+    fetchMock.mockResolvedValue(respuesta(200, { status: "en_cola" }));
+    expect(await reprocesarReunion("a/b")).toEqual({ status: "en_cola" });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/meetings/a%2Fb/reprocess", { method: "POST" });
+  });
+  it("si todavía no alcanzan las horas, el error trae el motivo del servidor y el 429 para distinguirlo", async () => {
+    fetchMock.mockResolvedValue(respuesta(429, { error: "Esta reunión dura 8 h y te quedan 2 h este mes." }));
+    const error = await reprocesarReunion("m1").catch((e) => e);
+    expect(error).toBeInstanceOf(ErrorApi);
+    expect(error).toMatchObject({ status: 429, message: "Esta reunión dura 8 h y te quedan 2 h este mes." });
   });
 });
 

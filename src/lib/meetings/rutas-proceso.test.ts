@@ -1,19 +1,22 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { auth, fake, empujar, trabajar } = vi.hoisted(() => ({
+const { auth, fake, empujar, trabajar, cupo } = vi.hoisted(() => ({
   auth: vi.fn(),
   fake: { db: null as unknown },
   empujar: vi.fn(),
   trabajar: vi.fn(),
+  cupo: vi.fn(),
 }));
 vi.mock("@/lib/auth", () => ({ auth: (...a: unknown[]) => auth(...a) }));
 vi.mock("@/lib/db", () => ({ get db() { return fake.db; } }));
 vi.mock("@/lib/ensure-meetings-schema", () => ({ ensureMeetingsSchema: async () => {} }));
 vi.mock("@/lib/meetings/empujon", () => ({ empujar: (...a: unknown[]) => empujar(...a) }));
 vi.mock("@/lib/meetings/trabajador", () => ({ trabajar: (...a: unknown[]) => trabajar(...a) }));
+vi.mock("@/lib/meetings/cupos", () => ({ comprobarCupoDeReuniones: (...a: unknown[]) => cupo(...a) }));
 
 import { GET as cron } from "@/app/api/cron/process-meetings/route";
+import { POST as reprocesar } from "@/app/api/meetings/[id]/reprocess/route";
 import { POST as reintentar } from "@/app/api/meetings/[id]/retry/route";
 import { GET as estado } from "@/app/api/meetings/[id]/status/route";
 import { TAREA_MUERTA_MS } from "./tipos";
@@ -37,6 +40,8 @@ beforeEach(() => {
   auth.mockReset();
   empujar.mockReset();
   trabajar.mockReset();
+  cupo.mockReset();
+  cupo.mockResolvedValue({ permitido: true, ilimitado: false, mensaje: null });
   vi.stubEnv("DEMO_MODE", "false");
   auth.mockResolvedValue({ user: { id: "u1", email: "u1@x.com", role: "admin" } });
 });
@@ -151,6 +156,65 @@ describe("POST retry", () => {
     await reunion({ status: "error", userId: "otro" });
     expect((await reintentar(pedir("POST"), raiz)).status).toBe(404);
     expect((await reintentar(pedir("POST"), ctx({ id: "no-existe" }))).status).toBe(404);
+  });
+});
+
+describe("POST reprocess", () => {
+  const sinCupo = (extra: Record<string, unknown> = {}) =>
+    reunion({ status: "sin_cupo", stage: null, progress: 0, durationMs: 8 * 3_600_000, audioUrl: "https://blob/audio.mp3", errorMessage: "Esta reunión dura 8 h y te quedan 2 h este mes.", ...extra });
+
+  it("con horas disponibles sigue desde el audio guardado: queda «en_cola», encola la transcripción y empuja al trabajador", async () => {
+    await sinCupo();
+    await tarea("armar_audio", "armar_audio", "hecha");
+    await db.meetingSource.create({ data: { id: "a", meetingId: ID, idx: 0, kind: "archivo", name: "a", status: "normalizada" } });
+    expect(await json(await reprocesar(pedir("POST"), raiz))).toEqual({ status: 200, cuerpo: { status: "en_cola" } });
+    expect(cupo).toHaveBeenCalledWith("u1", 8 * 3_600_000, ID);
+    expect(db.meeting.filas[0]).toMatchObject({ status: "en_cola", errorMessage: null });
+    expect(db.meetingTask.filas.map((t) => t.key).sort()).toEqual(["armar_audio", "tramo:0"]);
+    expect(empujar).toHaveBeenCalledTimes(1);
+  });
+
+  it("si todavía no alcanza: 429 con el motivo, y no toca nada ni empuja", async () => {
+    await sinCupo();
+    cupo.mockResolvedValue({ permitido: false, ilimitado: false, mensaje: "Esta reunión dura 8 h y te quedan 2 h este mes." });
+    const r = await json(await reprocesar(pedir("POST"), raiz));
+    expect(r).toEqual({ status: 429, cuerpo: { error: "Esta reunión dura 8 h y te quedan 2 h este mes." } });
+    expect(db.meeting.filas[0].status).toBe("sin_cupo");
+    expect(empujar).not.toHaveBeenCalled();
+  });
+
+  it("una reunión que no espera horas: 409; una que ya se procesa o está lista, su estado sin tocar nada", async () => {
+    await reunion({ status: "error" });
+    expect(await json(await reprocesar(pedir("POST"), raiz))).toEqual({ status: 409, cuerpo: { error: "Esta reunión no está esperando horas." } });
+    for (const status of ["procesando", "lista"]) {
+      db.meeting.filas[0].status = status;
+      expect(await json(await reprocesar(pedir("POST"), raiz)), status).toEqual({ status: 200, cuerpo: { status } });
+    }
+    expect(cupo).not.toHaveBeenCalled();
+    expect(empujar).not.toHaveBeenCalled();
+  });
+
+  it("un segundo clic con la reunión «en_cola» vuelve a empujar al trabajador (por si el primero se perdió) sin gastar nada más", async () => {
+    await reunion({ status: "en_cola" });
+    expect(await json(await reprocesar(pedir("POST"), raiz))).toEqual({ status: 200, cuerpo: { status: "en_cola" } });
+    expect(empujar).toHaveBeenCalledTimes(1);
+    expect(cupo).not.toHaveBeenCalled();
+  });
+
+  it("una reunión ajena o inexistente: 404", async () => {
+    await sinCupo({ userId: "otro" });
+    expect((await reprocesar(pedir("POST"), raiz)).status).toBe(404);
+    expect((await reprocesar(pedir("POST"), ctx({ id: "no-existe" }))).status).toBe(404);
+    expect(empujar).not.toHaveBeenCalled();
+  });
+
+  it("un fallo de la base de datos es un 500 sin detalles internos", async () => {
+    await sinCupo();
+    vi.spyOn(db.meeting, "findFirst").mockRejectedValueOnce(new Error("conexión rota: postgres://usuario:clave@host"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = await json(await reprocesar(pedir("POST"), raiz));
+    expect(r.status).toBe(500);
+    expect(JSON.stringify(r.cuerpo)).not.toMatch(/postgres|clave/);
   });
 });
 

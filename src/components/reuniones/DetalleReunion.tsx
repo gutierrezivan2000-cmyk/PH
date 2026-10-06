@@ -14,12 +14,12 @@ import { useMotorDeAudio } from "@/components/reuniones/useMotorDeAudio";
 import { usePreguntar } from "@/components/reuniones/usePreguntar";
 import { VisorTranscripcion } from "@/components/reuniones/VisorTranscripcion";
 import {
-  Aviso, BarraProgreso, Boton, CabeceraPieza, Campo, Entrada, ErrorCarga, Esqueleto, Estado, MenuMas, Modal, Pagina, Panel,
+  Aviso, BarraProgreso, Boton, CabeceraPieza, Campo, EnlaceAviso, Entrada, ErrorCarga, Esqueleto, Estado, MenuMas, Modal, Pagina, Panel,
   Pieza, Segmentos, Selector, Vacio, avisar, type ItemMenu,
 } from "@/components/kit";
 import {
   ErrorApi, actualizarReunion, eliminarReunion, obtenerEstado, obtenerReunion, procesarReunion, reanalizarResumen, reintentarReunion,
-  urlDeTranscripcion,
+  reprocesarReunion, urlDeTranscripcion,
 } from "@/lib/meetings/cliente";
 import { marcaDePestanaDeActa, sePuedePedirActa } from "@/lib/meetings/acta-pantalla";
 import type { ReunionDetalle } from "@/lib/meetings/dto";
@@ -144,6 +144,21 @@ export function DetalleReunion({ id }: { id: string }) {
       avisar({ tipo: "error", titulo: err instanceof ErrorApi ? err.message : "No pudimos reintentar. Inténtalo de nuevo." });
     } finally {
       setReintentando(false);
+    }
+  };
+
+  // «Procesar de nuevo» una reunión sin horas: el servidor vuelve a mirar el cupo; si todavía no alcanza, dice cuánto queda.
+  const [reprocesando, setReprocesando] = useState(false);
+  const reprocesar = async () => {
+    setReprocesando(true);
+    try {
+      await reprocesarReunion(id);
+      setVersion((v) => v + 1);
+    } catch (err) {
+      const sinHoras = err instanceof ErrorApi && err.status === 429;
+      avisar({ tipo: sinHoras ? "aviso" : "error", titulo: err instanceof ErrorApi ? err.message : "No pudimos procesar la reunión de nuevo. Inténtalo de nuevo." });
+    } finally {
+      setReprocesando(false);
     }
   };
 
@@ -412,9 +427,14 @@ export function DetalleReunion({ id }: { id: string }) {
                   enLinea
                   rol={null}
                   tipo="aviso"
-                  titulo="No te alcanzan las horas de este mes."
-                  texto={m.errorMessage ?? "El audio está guardado: se procesa cuando tengas horas disponibles."}
-                  accion={{ etiqueta: "Ver planes", href: "/dashboard/suscripcion" }}
+                  titulo="No te alcanzan las horas disponibles."
+                  texto={
+                    <>
+                      {m.errorMessage ?? "Esta reunión no cabe en las horas que te quedan."} El audio está guardado: cuando tengas horas —al empezar el mes o con otro plan—
+                      toca «Procesar de nuevo». <EnlaceAviso href="/dashboard/suscripcion">Ver planes</EnlaceAviso>
+                    </>
+                  }
+                  accion={reprocesando ? undefined : { etiqueta: "Procesar de nuevo", alElegir: () => void reprocesar() }}
                 />
               )}
 

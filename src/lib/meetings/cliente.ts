@@ -118,6 +118,14 @@ export async function reintentarReunion(meetingId: string): Promise<{ status: st
 }
 
 /**
+ * «Procesar de nuevo» una reunión sin horas (`sin_cupo`): el servidor vuelve a mirar el cupo del plan y, si alcanza, sigue desde el
+ * audio que se conservó. Si todavía no alcanza falla con el motivo (`ErrorApi`, 429).
+ */
+export async function reprocesarReunion(meetingId: string): Promise<{ status: string }> {
+  return pedir<{ status: string }>(`/api/meetings/${encodeURIComponent(meetingId)}/reprocess`, { method: "POST" });
+}
+
+/**
  * «Generar el resumen otra vez»: vuelve a analizar solo los fragmentos que la IA no pudo (y rehace la ficha). La reunión pasa
  * a «procesando» mientras tanto; la transcripción sigue a la vista.
  */

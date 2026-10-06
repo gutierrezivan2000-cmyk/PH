@@ -15,6 +15,7 @@ import { POST as procesar } from "@/app/api/meetings/[id]/process/route";
 import { GET as leerActaDeReunion, POST as pedirActaDeReunion } from "@/app/api/meetings/[id]/acta/route";
 import { POST as preguntarALaReunion } from "@/app/api/meetings/[id]/preguntar/route";
 import { POST as reanalizar } from "@/app/api/meetings/[id]/reanalyze/route";
+import { POST as reprocesar } from "@/app/api/meetings/[id]/reprocess/route";
 import { POST as reintentar } from "@/app/api/meetings/[id]/retry/route";
 import { PUT as guardarNombres } from "@/app/api/meetings/[id]/speakers/route";
 import { GET as estadoDeReunion } from "@/app/api/meetings/[id]/status/route";
@@ -428,6 +429,18 @@ describe("procesamiento simulado en demo: en cola → preparando el audio", () =
     expect((await json(await reintentar(pedir("/r", "POST"), ctx({ id: "reunion-demo-001" })))).cuerpo).toEqual({ status: "lista" });
     expect((await reintentar(pedir("/r", "POST"), ctx({ id: "no-existe" }))).status).toBe(404);
   });
+
+  it("«Procesar de nuevo» una reunión sin horas la pone en marcha y termina lista; pedirlo otra vez no cambia nada", async () => {
+    const sinHoras = ctx({ id: "reunion-demo-005" });
+    expect((await json(await estadoDeReunion(pedir("/s"), sinHoras))).cuerpo.status).toBe("sin_cupo");
+    expect(await json(await reprocesar(pedir("/r", "POST"), sinHoras))).toEqual({ status: 200, cuerpo: { status: "en_cola" } });
+    expect(["en_cola", "procesando"]).toContain((await json(await reprocesar(pedir("/r", "POST"), sinHoras))).cuerpo.status);
+    expect((await json(await estadoDeReunion(pedir("/s"), sinHoras))).cuerpo).toMatchObject({ errorMessage: null });
+    // Las que no esperan horas: una lista dice su estado; una con error, que no es de esta ruta (para eso está «Reintentar»).
+    expect((await json(await reprocesar(pedir("/r", "POST"), ctx({ id: "reunion-demo-001" })))).cuerpo).toEqual({ status: "lista" });
+    expect(await json(await reprocesar(pedir("/r", "POST"), ctx({ id: "reunion-demo-004" })))).toEqual({ status: 409, cuerpo: { error: "Esta reunión no está esperando horas." } });
+    expect((await reprocesar(pedir("/r", "POST"), ctx({ id: "no-existe" }))).status).toBe(404);
+  });
 });
 
 /* ════════════════════════════════════════════════════════════════════
@@ -635,6 +648,7 @@ const TODAS: Array<[string, () => Promise<Response>]> = [
   ["POST process", () => procesar(pedir("/m", "POST"), ctx({ id: "a" }))],
   ["GET status", () => estadoDeReunion(pedir("/m"), ctx({ id: "a" }))],
   ["POST retry", () => reintentar(pedir("/m", "POST"), ctx({ id: "a" }))],
+  ["POST reprocess", () => reprocesar(pedir("/m", "POST"), ctx({ id: "a" }))],
   ["POST live/sesion", () => nuevaSesion(pedir("/m", "POST"), ctx({ id: "a" }))],
   ["POST live", () => registrarParte(pedirParte(), ctx({ id: "a" }))],
   ["POST markers", () => marcar(pedir("/m", "POST", { atMs: 1, kind: "tema" }), ctx({ id: "a" }))],

@@ -206,7 +206,7 @@ function sembrar(): Almacen {
     ],
   };
 
-  // 5 · Sin horas disponibles: el audio se conserva y se procesa al haber cupo.
+  // 5 · Sin horas disponibles: el audio se conserva y la persona la procesa de nuevo cuando hay cupo («Procesar de nuevo»).
   const sinCupo: ReunionDemo = {
     ...vacia({
       id: "reunion-demo-005",
@@ -749,6 +749,28 @@ export function demoReintentar(userId: string, id: string): ResultadoDemo<{ stat
   r.errorMessage = null;
   r.procesoDesde = Date.now() - COLA_DEMO_MS;
   return { ok: true, valor: { status: "procesando" } };
+}
+
+/**
+ * «Procesar de nuevo» una reunión que quedó sin horas: en el demo se da por hecho que ya hay horas (se renovó el mes o se subió de
+ * plan) y sigue desde el audio que se conservó, igual que una reunión recién enviada. Idempotente.
+ */
+export function demoReprocesar(
+  userId: string, id: string,
+): { ok: true; valor: { status: string } } | { ok: false; codigo: "no_existe" | "no_esta_en_espera"; error: string } {
+  const r = buscar(userId, id);
+  if (!r) return NO_EXISTE;
+  avanzarDemo(r);
+  if (r.status !== "sin_cupo") {
+    if (estaEnMarcha(r.status) || r.status === "lista") return { ok: true, valor: { status: r.status } };
+    return { ok: false, codigo: "no_esta_en_espera", error: "Esta reunión no está esperando horas." };
+  }
+  r.status = "en_cola";
+  r.stage = null;
+  r.progress = 0;
+  r.errorMessage = null;
+  r.procesoDesde = Date.now();
+  return { ok: true, valor: { status: "en_cola" } };
 }
 
 /**
