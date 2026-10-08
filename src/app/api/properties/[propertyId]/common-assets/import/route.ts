@@ -1,6 +1,8 @@
 export const runtime = "nodejs";
 export const maxDuration = 90;
 
+import { TIPOS } from "@/lib/consumo/funciones";
+import { conConsumo } from "@/lib/consumo/registrar";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { normalizeAssetKind } from "@/lib/common-assets";
@@ -76,7 +78,7 @@ export async function POST(
     }
 
     const { parseFile } = await import("@/lib/parsers");
-    const { text } = await parseFile(file);
+    const { text } = await conConsumo({ userId: session.user.id, tipos: { imagen: TIPOS.importarBitacora } }, () => parseFile(file));
     const content = (text || "").slice(0, 60000);
     if (content.trim().length < 5) {
       return NextResponse.json({ error: "No se pudo leer contenido del archivo." }, { status: 400 });
@@ -99,17 +101,10 @@ Reglas:
 - Si el archivo no contiene zonas comunes ni pólizas, devuelve [].
 Devuelve máximo 300 elementos.`;
 
-    const { text: aiText, tokensUsed } = await generateWithClaude(system, `Datos crudos:\n\n${content}`, undefined, {
+    const { text: aiText } = await generateWithClaude(system, `Datos crudos:\n\n${content}`, undefined, {
       timeoutMs: 35_000, // 35s x2 intentos = 70s < maxDuration 90
+      consumo: { tipo: "import_bitacora", userId: session.user.id, ref: null },
     });
-
-    const { recordUsage } = await import("@/lib/usage");
-    await recordUsage(
-      session.user.id,
-      tokensUsed,
-      (tokensUsed / 1_000_000) * 9,
-      "import_bitacora"
-    ).catch(() => {});
 
     let parsed: unknown = [];
     try {

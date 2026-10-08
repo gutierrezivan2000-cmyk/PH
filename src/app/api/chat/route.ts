@@ -3,6 +3,9 @@ export const maxDuration = 30;
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { TIPOS } from "@/lib/consumo/funciones";
+import { registrarConsumo } from "@/lib/consumo/registrar";
+import { tokensDeOpenAI } from "@/lib/consumo/uso";
 
 const WHATSAPP_SUPPORT_URL = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_URL || "https://wa.me/message/PLACEHOLDER";
 
@@ -125,6 +128,12 @@ export async function POST(req: NextRequest) {
     });
 
     const reply = response.choices[0]?.message?.content?.trim() || "";
+
+    // El chat de soporte también gasta: se registra con el uso que dice OpenAI.
+    if (process.env.DEMO_MODE !== "true") {
+      const uso = tokensDeOpenAI(response, model);
+      await registrarConsumo({ tipo: TIPOS.soporte, proveedor: "openai", modelo: uso.modelo, tokens: uso.tokens, userId: session.user.id, ref: null });
+    }
 
     if (!reply) {
       return NextResponse.json(

@@ -3,7 +3,11 @@
  * uso y avisar por correo a quien la grabó. Cada paso es independiente y ninguno puede tumbar a los demás ni a la reunión.
  */
 import { db } from "@/lib/db";
+import { TIPOS } from "@/lib/consumo/funciones";
+import { registrarConsumo } from "@/lib/consumo/registrar";
 import { sendMeetingReadyEmail } from "@/lib/email";
+import { modeloDeReuniones } from "./ia";
+import { MODELO_TRANSCRIPCION } from "./transcripcion/openai";
 import { formatearDuracion } from "./tipos";
 import { KIND_BLOQUE, KIND_FICHA, KIND_TRAMO } from "./transcripcion/claves";
 
@@ -13,6 +17,8 @@ export type Costos = {
   /** Lo que costó el análisis con IA (bloques y ficha) y cuántos tokens fueron. */
   iaUsd: number;
   iaTokens: number;
+  /** Los tokens del análisis separados como los cobra el proveedor (para medir el costo por función). */
+  ia: { entrada: number; salida: number; cacheLectura: number; cacheEscritura: number };
 };
 
 const esObjeto = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -23,7 +29,7 @@ const positivo = (v: unknown): number => (typeof v === "number" && Number.isFini
  * (Lo que pasó ya está registrado: para sumar solo lo nuevo, el que llama filtra las tareas antes.)
  */
 export function sumarCostos(tareas: ReadonlyArray<{ kind: string; result: unknown }>): Costos {
-  const total: Costos = { transcripcionUsd: 0, iaUsd: 0, iaTokens: 0 };
+  const total: Costos = { transcripcionUsd: 0, iaUsd: 0, iaTokens: 0, ia: { entrada: 0, salida: 0, cacheLectura: 0, cacheEscritura: 0 } };
   for (const t of tareas) {
     if (!esObjeto(t.result)) continue;
     if (t.kind === KIND_TRAMO) {
@@ -32,6 +38,10 @@ export function sumarCostos(tareas: ReadonlyArray<{ kind: string; result: unknow
       const uso = esObjeto(t.result.uso) ? t.result.uso : {};
       total.iaUsd += positivo(uso.costoUsd);
       total.iaTokens += positivo(uso.entrada) + positivo(uso.salida) + positivo(uso.cacheLectura) + positivo(uso.cacheEscritura);
+      total.ia.entrada += positivo(uso.entrada);
+      total.ia.salida += positivo(uso.salida);
+      total.ia.cacheLectura += positivo(uso.cacheLectura);
+      total.ia.cacheEscritura += positivo(uso.cacheEscritura);
     }
   }
   return total;
@@ -50,6 +60,13 @@ export type OpcionesAlPasarALista = {
    */
   desde?: Date | null;
 };
+
+/** El análisis con IA de la reunión (bloques y ficha), con sus tokens separados y lo que costó. */
+const registrarAnalisis = (userId: string, meetingId: string, c: Costos) =>
+  registrarConsumo({
+    tipo: TIPOS.reunionIa, proveedor: "anthropic", modelo: modeloDeReuniones(), tokens: c.ia, costoUsd: c.iaUsd,
+    tokensDelRegistro: c.iaTokens, userId, ref: { tipo: "reunion", id: meetingId },
+  });
 
 export async function alPasarALista(
   meetingId: string,
@@ -73,14 +90,19 @@ export async function alPasarALista(
       });
       const c = sumarCostos(nuevas);
       if (c.iaUsd > 0) await db.meeting.update({ where: { id: meetingId }, data: { costUsd: (reunion.costUsd ?? 0) + c.iaUsd } });
-      if (c.iaTokens > 0) await db.usageRecord.create({ data: { userId: reunion.userId, tokens: Math.round(c.iaTokens), costUsd: c.iaUsd, type: "reunion_ia" } });
+      if (c.iaTokens > 0) await registrarAnalisis(reunion.userId, meetingId, c);
     } else {
       const tareas = await db.meetingTask.findMany({ where: { meetingId, status: "hecha", kind: { in: [KIND_TRAMO, KIND_BLOQUE, KIND_FICHA] } }, select: { kind: true, result: true } });
       const c = sumarCostos(tareas);
       await db.meeting.update({ where: { id: meetingId }, data: { costUsd: c.transcripcionUsd + c.iaUsd } });
       const segundos = Math.round((reunion.durationMs ?? 0) / 1000);
-      if (segundos > 0) await db.usageRecord.create({ data: { userId: reunion.userId, tokens: segundos, costUsd: c.transcripcionUsd, type: "reunion_audio" } });
-      if (c.iaTokens > 0) await db.usageRecord.create({ data: { userId: reunion.userId, tokens: Math.round(c.iaTokens), costUsd: c.iaUsd, type: "reunion_ia" } });
+      if (segundos > 0) {
+        await registrarConsumo({
+          tipo: TIPOS.reunionAudio, proveedor: "openai", modelo: MODELO_TRANSCRIPCION, audioSegundos: segundos, costoUsd: c.transcripcionUsd,
+          tokensDelRegistro: segundos, userId: reunion.userId, ref: { tipo: "reunion", id: meetingId },
+        });
+      }
+      if (c.iaTokens > 0) await registrarAnalisis(reunion.userId, meetingId, c);
     }
   } catch (e) {
     console.error("[meetings/terminado] no se pudo registrar el costo", meetingId, e);

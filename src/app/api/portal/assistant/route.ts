@@ -1,6 +1,8 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+import { TIPOS } from "@/lib/consumo/funciones";
+import { conConsumo } from "@/lib/consumo/registrar";
 import { NextRequest, NextResponse } from "next/server";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 
@@ -48,7 +50,8 @@ export async function POST(req: NextRequest) {
     }
 
     const { getReglamentoText } = await import("@/lib/reglamento");
-    const reglamento = await getReglamentoText(unit.propertyId);
+    // Leer por primera vez un reglamento escaneado (imágenes) gasta IA: se carga a la administración de la copropiedad.
+    const reglamento = await conConsumo({ userId: unit.property.userId, tipos: { imagen: TIPOS.portalAsistente } }, () => getReglamentoText(unit.propertyId));
     if (!reglamento || reglamento.length < 40) {
       return NextResponse.json({
         answer: "Todavía no tengo el reglamento de la copropiedad cargado para responderte. Por favor escribe a la administración con tu consulta.",
@@ -69,20 +72,14 @@ Reglas:
 ${reglamento}
 === FIN DEL REGLAMENTO ===`;
 
-    const { text, tokensUsed } = await generateWithClaude(system, question.trim(), undefined, {
+    const { text } = await generateWithClaude(system, question.trim(), undefined, {
       timeoutMs: 25_000, // 25s x2 intentos = 50s < maxDuration 60
+      // Se carga a la administración dueña de la copropiedad (el residente no tiene cuenta).
+      consumo: { tipo: "asistente_reglamento", userId: unit.property.userId, ref: null },
     });
 
     // Charge the consumption to the property's administrator so this public
     // endpoint's cost shows up in their Consumo IA instead of being invisible.
-    const { recordUsage } = await import("@/lib/usage");
-    await recordUsage(
-      unit.property.userId,
-      tokensUsed,
-      (tokensUsed / 1_000_000) * 9,
-      "asistente_reglamento"
-    ).catch(() => {});
-
     return NextResponse.json({ answer: text.trim() });
   } catch (e) {
     console.error("[portal assistant]", e);

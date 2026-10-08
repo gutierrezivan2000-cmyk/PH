@@ -3,6 +3,8 @@ export const runtime = "nodejs";
 // ~120 filas), así que un archivo grande necesita varias pasadas seguidas.
 export const maxDuration = 300;
 
+import { TIPOS } from "@/lib/consumo/funciones";
+import { conConsumo } from "@/lib/consumo/registrar";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
@@ -85,9 +87,12 @@ export async function POST(
       return NextResponse.json({ error: "Alcanzaste el límite de importaciones por hora. Intenta más tarde." }, { status: 429 });
     }
 
+    // Cada llamada de IA de esta importación (leer el archivo, cada trozo) se registra; todas juntas son UNA importación.
+    const importacion = { tipo: "importacion" as const, id: crypto.randomUUID() };
+
     // Parse the file to text.
     const { parseFile } = await import("@/lib/parsers");
-    const { text } = await parseFile(file);
+    const { text } = await conConsumo({ userId: session.user.id, ref: importacion, tipos: { imagen: TIPOS.importarUnidades } }, () => parseFile(file));
     // Tope duro de seguridad, no de tokens: el troceo de abajo es el que hace
     // que quepa. Antes eran 60.000 caracteres y un Excel de 400 unidades con
     // 15 columnas (~68.000) perdía las últimas filas sin decir nada.
@@ -127,7 +132,6 @@ Reglas:
     let chunksDone = 0;
     let failedChunks = 0;
     let deadlineHit = false;
-    let totalTokens = 0;
     let lastError: unknown = null;
 
     for (const chunk of chunks) {
@@ -135,13 +139,12 @@ Reglas:
       // SDK hace hasta dos intentos, así que el peor caso son 2 x CHUNK_TIMEOUT.
       if (Date.now() - startedAt > SOFT_DEADLINE_MS) { deadlineHit = true; break; }
       try {
-        const { text: aiText, tokensUsed } = await generateWithClaude(
+        const { text: aiText } = await generateWithClaude(
           system,
           `Datos crudos:\n\n${chunk.text}`,
           undefined,
-          { timeoutMs: CHUNK_TIMEOUT_MS }
+          { timeoutMs: CHUNK_TIMEOUT_MS, consumo: { tipo: "import_unidades", userId: session.user.id, ref: importacion } }
         );
-        totalTokens += tokensUsed;
         const salvaged = salvageJsonArray(aiText);
         if (salvaged) {
           rawRows.push(...salvaged.rows);
@@ -164,16 +167,6 @@ Reglas:
       }
     }
 
-    // Record the spend so it shows up in Consumo IA (imports can be large).
-    const { recordUsage } = await import("@/lib/usage");
-    if (totalTokens > 0) {
-      await recordUsage(
-        session.user.id,
-        totalTokens,
-        (totalTokens / 1_000_000) * 9,
-        "import_unidades"
-      ).catch(() => {});
-    }
 
     if (rawRows.length === 0) {
       // Solo aquí se puede culpar al archivo; si el fallo fue del modelo, se

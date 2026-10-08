@@ -1,4 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { TIPOS } from "@/lib/consumo/funciones";
+import { registrarConsumo, tipoDeLectura } from "@/lib/consumo/registrar";
+import { tokensDeAnthropic } from "@/lib/consumo/uso";
 
 let _client: Anthropic | null = null;
 
@@ -33,8 +36,9 @@ export async function parseImageFile(file: File): Promise<string> {
     const base64 = buffer.toString("base64");
 
     const client = getClient();
+    const modelo = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
     const response = await client.messages.create({
-      model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5",
+      model: modelo,
       max_tokens: 2048,
       messages: [
         {
@@ -66,6 +70,8 @@ Responde en español. Sé preciso y descriptivo. Si es un documento o factura, t
 
     const tokensUsed = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
     console.log(`[parseImageFile] Analyzed ${file.name}: ${text.length} chars, ${tokensUsed} tokens`);
+    const uso = tokensDeAnthropic(response, modelo);
+    await registrarConsumo({ tipo: tipoDeLectura("imagen", TIPOS.lecturaDeImagenes), proveedor: "anthropic", modelo: uso.modelo, tokens: uso.tokens });
 
     return `[Análisis de imagen: ${file.name}]\n${text}`;
   } catch (error) {

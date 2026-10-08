@@ -11,6 +11,18 @@ import { db } from "@/lib/db";
  * guards, so running this repeatedly is safe.
  */
 const STATEMENTS: string[] = [
+  // Consumo de IA por función (src/lib/consumo): el detalle de cada registro de uso.
+  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "provider" TEXT`,
+  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "model" TEXT`,
+  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "inputTokens" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "outputTokens" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "cacheReadTokens" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "cacheWriteTokens" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "audioSeconds" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "refType" TEXT`,
+  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "refId" TEXT`,
+  `CREATE INDEX IF NOT EXISTS "UsageRecord_type_date_idx" ON "UsageRecord"("type", "date")`,
+  `CREATE INDEX IF NOT EXISTS "UsageRecord_refType_refId_idx" ON "UsageRecord"("refType", "refId")`,
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "role" TEXT NOT NULL DEFAULT 'user'`,
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "logoUrl" TEXT`,
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "brandColor" TEXT`,

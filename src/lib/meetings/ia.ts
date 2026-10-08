@@ -18,6 +18,7 @@
  *
  * Los registros nunca llevan texto de la reunión.
  */
+import { PRECIOS_ANTHROPIC, costoDeTokens, precioAnthropic, type PrecioPorToken } from "@/lib/consumo/precios";
 
 export type Esfuerzo = "low" | "medium" | "high" | "xhigh" | "max";
 
@@ -130,21 +131,9 @@ export class ErrorIA extends Error {
    Costo
    ════════════════════════════════════════════════════════════════════ */
 
-/** `escritura` es la escritura en caché de 5 min (1,25× la entrada); `escritura1h`, la de 1 h (2× la entrada). */
-type Precio = { entrada: number; salida: number; lectura: number; escritura: number; escritura1h: number };
-
-/** US$ por millón de tokens. Precios a verificar con los de Anthropic; el costo es una estimación para los cupos y los informes. */
-export const PRECIOS_USD_POR_MTOK: Readonly<Record<string, Precio>> = {
-  "claude-opus-5-5": { entrada: 4, salida: 20, lectura: 0.2, escritura: 5, escritura1h: 8 },
-  "claude-opus-5": { entrada: 5, salida: 25, lectura: 0.5, escritura: 6.25, escritura1h: 10 },
-  "claude-opus-4-8": { entrada: 5, salida: 25, lectura: 0.5, escritura: 6.25, escritura1h: 10 },
-  "claude-sonnet-5-5": { entrada: 2, salida: 10, lectura: 0.2, escritura: 2.5, escritura1h: 4 },
-  "claude-sonnet-5": { entrada: 2, salida: 10, lectura: 0.2, escritura: 2.5, escritura1h: 4 },
-  "claude-fable-5-1": { entrada: 10, salida: 50, lectura: 0.25, escritura: 12.5, escritura1h: 20 },
-  "claude-haiku-4-5": { entrada: 1, salida: 5, lectura: 0.1, escritura: 1.25, escritura1h: 2 },
-};
-/** De un modelo que no está en la tabla se supone el precio de Opus 5: mejor pasarse que quedarse corto. */
-const PRECIO_DESCONOCIDO = PRECIOS_USD_POR_MTOK["claude-opus-5"];
+/** La tabla de precios es la de todo el producto (`@/lib/consumo/precios`): aquí se reexporta con su nombre de siempre. */
+export const PRECIOS_USD_POR_MTOK = PRECIOS_ANTHROPIC;
+type Precio = PrecioPorToken;
 
 const numero = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0);
 
@@ -159,10 +148,7 @@ type UsoCrudo = {
   type?: unknown;
 };
 
-const costoDe = (u: Omit<UsoIA, "costoUsd">, p: Precio, escritura1h: number): number => {
-  const de1h = Math.min(escritura1h, u.cacheEscritura);
-  return (u.entrada * p.entrada + u.salida * p.salida + u.cacheLectura * p.lectura + (u.cacheEscritura - de1h) * p.escritura + de1h * p.escritura1h) / 1_000_000;
-};
+const costoDe = (u: Omit<UsoIA, "costoUsd">, p: Precio, escritura1h: number): number => costoDeTokens({ ...u, cacheEscritura1h: escritura1h }, p);
 
 /**
  * El uso de una respuesta y lo que costó. Si hubo respaldo, `usage.iterations` trae cada intento (los rechazados y el que
@@ -196,7 +182,7 @@ export function calcularUso(
     total.salida += parte.salida;
     total.cacheLectura += parte.cacheLectura;
     total.cacheEscritura += parte.cacheEscritura;
-    total.costoUsd += costoDe(parte, PRECIOS_USD_POR_MTOK[modelo] ?? PRECIO_DESCONOCIDO, numero(uso.cache_creation?.ephemeral_1h_input_tokens));
+    total.costoUsd += costoDe(parte, precioAnthropic(modelo), numero(uso.cache_creation?.ephemeral_1h_input_tokens));
   }
   return total;
 }

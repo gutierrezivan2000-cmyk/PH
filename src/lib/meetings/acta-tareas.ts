@@ -19,6 +19,8 @@
  * invalida la caché y se volvería a pagar la transcripción.
  */
 import { db } from "@/lib/db";
+import { TIPOS } from "@/lib/consumo/funciones";
+import { conConsumo, registrarConsumo } from "@/lib/consumo/registrar";
 import { generatePdfHtml } from "@/lib/documents/pdf-generator";
 import { iaDe, timeoutDe } from "./analisis";
 import {
@@ -28,7 +30,7 @@ import {
 import type { TareaReclamada } from "./cola";
 import { cargarContextoDeReunion, transcripcionParaIA, type ContextoDeReunion } from "./contexto-reunion";
 import { ErrorTarea, type DepsProceso, type Manejador } from "./contratos";
-import { ErrorIA, USO_VACIO, aErrorIA, esfuerzoDeReuniones, sumarUso, tokensDeUso, type RespuestaTexto, type UsoIA } from "./ia";
+import { ErrorIA, USO_VACIO, aErrorIA, esfuerzoDeReuniones, modeloDeReuniones, sumarUso, tokensDeUso, type RespuestaTexto, type UsoIA } from "./ia";
 import { MAX_INTENTOS_TAREA } from "./tipos";
 import { KIND_ACTA_CALENTAR, KIND_ACTA_SECCION, generacionDeClaveDeActa, prefijoDeActa } from "./transcripcion/claves";
 
@@ -172,10 +174,15 @@ export const seccionDeActaTarea: Manejador = async ({ tarea, presupuestoMs, sena
 export const rutaDeArchivoDeActa = (generationId: string, nombre: "acta.html" | "acta.md" | "acta-referencias.md"): string => `generations/${generationId}/${nombre}`;
 
 /** Revisa qué requisitos legales cumple el acta (Haiku). Si falla, el acta sale igual, sin esa revisión. */
-async function revisarRequisitos(deps: DepsProceso, actaMarkdown: string): Promise<unknown[] | null> {
+async function revisarRequisitos(
+  deps: DepsProceso,
+  actaMarkdown: string,
+  contexto?: { userId: string; ref: { tipo: "reunion"; id: string } },
+): Promise<unknown[] | null> {
   try {
     const revisar = deps.requisitosDeActa ?? (async (texto: string) => (await import("@/lib/ai/acta-requirements")).analyzeActaRequirements(texto));
-    const requisitos = await revisar(actaMarkdown);
+    // La revisión se carga a quien pidió el acta y a su reunión (la llamada toma ambos del contexto).
+    const requisitos = await (contexto ? conConsumo(contexto, () => revisar(actaMarkdown)) : revisar(actaMarkdown));
     return requisitos.length > 0 ? requisitos : null;
   } catch (e) {
     console.error("[meetings/acta] no se pudieron revisar los requisitos del acta:", e instanceof Error ? e.message : e);
@@ -241,7 +248,7 @@ export const actaFinalTarea: Manejador = async ({ tarea, deps }) => {
     deps.almacen.subir(rutaDeArchivoDeActa(generationId, "acta-referencias.md"), texto(armada.conMarcadores), "text/markdown; charset=utf-8"),
   ]);
 
-  const requisitos = await revisarRequisitos(deps, desescaparHtml(armada.limpio));
+  const requisitos = await revisarRequisitos(deps, desescaparHtml(armada.limpio), { userId, ref: { tipo: "reunion", id: tarea.meetingId } });
 
   const salida: Record<string, string> = {
     actaHtml: archivoHtml.url,
@@ -257,9 +264,10 @@ export const actaFinalTarea: Manejador = async ({ tarea, deps }) => {
     data: { status: "completed", progress: 100, outputFiles: salida, tokensUsed: tokens, costUsd: uso.costoUsd, completedAt: deps.ahora(), errorMessage: null },
   });
   if (cierre.count === 1 && tokens > 0) {
-    await db.usageRecord
-      .create({ data: { userId, tokens, costUsd: uso.costoUsd, type: "reunion_acta" } })
-      .catch((e: unknown) => console.error("[meetings/acta] no se pudo registrar el uso del acta", e));
+    await registrarConsumo({
+      tipo: TIPOS.reunionActa, proveedor: "anthropic", modelo: modeloDeReuniones(), tokens: uso, costoUsd: uso.costoUsd,
+      tokensDelRegistro: tokens, userId, ref: { tipo: "reunion", id: tarea.meetingId },
+    });
   }
 
   return {

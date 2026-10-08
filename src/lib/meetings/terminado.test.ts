@@ -22,6 +22,8 @@ describe("sumarCostos", () => {
     expect(c.transcripcionUsd).toBeCloseTo(0.123, 9);
     expect(c.iaUsd).toBeCloseTo(1.2, 9);
     expect(c.iaTokens).toBe(34_000 + 23_000 + 12_000);
+    // Separados como los cobra el proveedor, para medir el costo por función.
+    expect(c.ia).toEqual({ entrada: 60_000, salida: 9_000, cacheLectura: 0, cacheEscritura: 0 });
   });
 
   it("no cuenta dos veces: un tramo no aporta IA y un bloque no aporta transcripción", () => {
@@ -40,7 +42,7 @@ describe("sumarCostos", () => {
       { kind: "voces", result: uso(7) },
       { kind: "ficha", result: [] },
     ]);
-    expect(c).toEqual({ transcripcionUsd: 0, iaUsd: 0, iaTokens: 0 });
+    expect(c).toEqual({ transcripcionUsd: 0, iaUsd: 0, iaTokens: 0, ia: { entrada: 0, salida: 0, cacheLectura: 0, cacheEscritura: 0 } });
   });
 });
 
@@ -75,6 +77,14 @@ describe("al pasar a «lista»", () => {
       { type: "reunion_ia", userId: "u1", tokens: 46_000, costUsd: 0.75 },
     ]);
     expect(correo).toHaveBeenCalledWith({ to: "ana@ejemplo.com", title: "Consejo de octubre", propertyName: "Los Pinos", duration: "2 h 14 min", url: "https://soph.test/dashboard/reuniones/m1" });
+  });
+
+  it("los registros dicen el proveedor, el modelo, los tokens separados, los segundos de audio y la reunión a la que pertenecen", async () => {
+    await reunionTerminada();
+    await alPasarALista(ID);
+    const [audio, ia] = db.usageRecord.filas;
+    expect(audio).toMatchObject({ provider: "openai", model: "gpt-4o-transcribe-diarize", audioSeconds: 8_040, refType: "reunion", refId: ID });
+    expect(ia).toMatchObject({ provider: "anthropic", model: "claude-opus-5-5", inputTokens: 40_000, outputTokens: 6_000, cacheReadTokens: 0, cacheWriteTokens: 0, refType: "reunion", refId: ID });
   });
 
   it("sin análisis con IA no hay registro de IA, y sin un solo segundo de audio tampoco el de audio", async () => {
