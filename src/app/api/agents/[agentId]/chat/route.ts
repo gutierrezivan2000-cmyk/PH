@@ -20,6 +20,10 @@ import { conConsumo, registrarConsumo } from "@/lib/consumo/registrar";
 import { TOKENS_VACIOS, sumarTokens, tokensDeAnthropic, totalDeTokens } from "@/lib/consumo/uso";
 import { ensureAgentTables, isMissingRelationError } from "@/lib/ensure-agent-tables";
 import { configDeFuncion, parametroDeEsfuerzo } from "@/lib/ia/modelos";
+import { agentePausadoAbierto } from "@/lib/agentes/acceso";
+import { contextoOperativo } from "@/lib/agentes/briefing-datos";
+import { HERRAMIENTAS_OPERACION, ejecutarOperacion, esHerramientaDeOperacion } from "@/lib/agentes/herramientas";
+import { modulosVisiblesDe } from "@/lib/modulos-acceso";
 import { parseAttachments, type ParsedAttachment } from "@/lib/parse-attachment";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
@@ -65,7 +69,9 @@ export async function GET(
         select: { id: true, role: true, content: true, attachments: true, createdAt: true },
       });
 
-      return NextResponse.json({ messages });
+      // El foco guardado es un extra: si esa tabla no está, el chat se abre igual.
+      const foco = await db.agentChatFocus.findFirst({ where: { chatId, userId: session.user.id }, select: { propertyId: true } }).catch(() => null);
+      return NextResponse.json({ messages, propertyId: foco?.propertyId ?? null });
     } catch (err) {
       console.error("[api/agents/chat] GET db error:", err);
       return NextResponse.json({ messages: [] });
@@ -109,9 +115,12 @@ export async function POST(
       isBeta = access.status === "beta"; // grandfathered tester → no message caps
     }
 
-    // ── Coming-soon agents are not usable by anyone (demo included).
+    // Los módulos en lanzamiento gradual que la cuenta puede usar (los admins y la lista del piloto; en demo, ninguno).
+    const visibles = await modulosVisiblesDe({ email: session.user.email, role: session.user.role });
+
+    // ── Los agentes complementarios siguen «Próximamente» para el público; en el piloto los usa quien tiene su módulo abierto.
     step = "check-coming-soon";
-    if (isComingSoonAgent(agentId)) {
+    if (isComingSoonAgent(agentId) && !agentePausadoAbierto(agentId, visibles)) {
       return NextResponse.json(
         {
           error: `${AGENTS[agentId].name} estará disponible próximamente. Por ahora puedes trabajar con Themis y Chronos.`,
@@ -134,7 +143,7 @@ export async function POST(
       } catch {
         // If we can't read the subscription, fall back to included-only.
       }
-      if (!canAccessAgent(agentId, accessSub)) {
+      if (!canAccessAgent(agentId, accessSub) && !(isComingSoonAgent(agentId) && agentePausadoAbierto(agentId, visibles))) {
         return NextResponse.json(
           {
             error:
@@ -148,8 +157,10 @@ export async function POST(
 
     step = "parse-body";
     const body = await req.json();
-    const { chatId: existingChatId, message, attachments: reqAttachments, history: demoHistory } = body as {
+    const { chatId: existingChatId, message, attachments: reqAttachments, history: demoHistory, propertyId: propiedadPedida } = body as {
       chatId?: string;
+      /** La copropiedad en foco de la conversación (si no viene, se usa la guardada en el chat, o la única que tenga). */
+      propertyId?: string;
       message: string;
       attachments?: { name: string; url: string; type: string; size: number }[];
       /** Solo en demo: el hilo lo guarda el navegador, no la base de datos. */
@@ -412,7 +423,20 @@ Puedes entregar archivos de verdad: hojas de cálculo (.xlsx), documentos de Wor
 Cuando lo que pide el usuario se trabaja mejor en un archivo —un cuadro, un presupuesto, una
 relación, un acta, una carta, un informe— genéralo con la herramienta correspondiente en lugar de
 volcar una tabla larga en el chat. No pidas permiso ni preguntes si lo quiere en Excel: hazlo.
-Después del archivo, resume en una o dos frases qué contiene; no repitas su contenido.`;
+Después del archivo, resume en una o dos frases qué contiene; no repitas su contenido.
+
+ERES UN EMPLEADO DEL ADMINISTRADOR
+Trabajas para la persona que te escribe, dentro de su plataforma de administración de propiedad horizontal. Conoces sus copropiedades:
+al final de estas instrucciones tienes el BRIEFING con el estado real de la que está en foco (cartera, presupuesto, PQRS, asambleas,
+vencimientos, reuniones, memoria y lo que ha pasado últimamente) y un listado de todas. Úsalo sin que te lo pidan: si te preguntan
+algo que el briefing responde, respóndelo; si notas un riesgo (mora alta, PQRS vencidas, un fondo por debajo de lo requerido, algo
+por vencer), avísalo con tacto aunque no te lo hayan preguntado.
+- Nunca inventes cifras ni hechos. Si necesitas un dato o el detalle, consúltalo con \`consultar_operacion\`. Si no existe, dilo.
+- Cuando la persona decida algo importante o te cuente una preferencia que otros agentes deban saber, guárdalo con \`guardar_en_memoria\`.
+- Cuando te pida HACER algo (registrar un pago o un movimiento, responder una PQRS, agregar una póliza a la bitácora), verifica los
+  datos y usa \`proponer_accion\`: la persona verá una tarjeta y la aprobará. Hasta que la apruebe NO está hecho: dilo así.
+- Si hay varias copropiedades y no queda claro de cuál hablan, pregunta cuál antes de actuar sobre datos.
+- Las cifras en pesos colombianos van con puntos de miles (\`$1.250.000\`). Sé concreto y breve; ofrece el siguiente paso.`;
 
     try {
       const memory = await db.agentMemory.findFirst({ where: { userId, agentId } });
@@ -423,36 +447,29 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
       console.error("[api/agents/chat] memory fetch failed:", err);
     }
 
-    try {
-      const properties = await db.property.findMany({
-        where: { userId },
-        include: { documents: true },
-        take: 5,
-      });
-      if (properties.length > 0) {
-        const propInfo = properties
-          .map((p) => {
-            let info = `- ${p.name}`;
-            if (p.address) info += `, ${p.address}`;
-            if (p.city) info += `, ${p.city}`;
-            if (p.units) info += ` (${p.units} unidades)`;
-            const docs = p.documents.map((d) => {
-              const label =
-                d.type === "manual_convivencia"
-                  ? "Manual de Convivencia"
-                  : d.type === "reglamento_interno"
-                    ? "Reglamento Interno"
-                    : d.type;
-              return `  ${label}: ${d.name}`;
-            });
-            if (docs.length > 0) info += `\n  Documentos:\n${docs.join("\n")}`;
-            return info;
-          })
-          .join("\n");
-        systemPrompt += `\n\nPropiedades del usuario:\n${propInfo}`;
+    // El briefing operativo: lo que cada agente sabe de la copropiedad en foco (y el listado de todas) sin que se lo cuenten.
+    // La copropiedad en foco es la que pide la interfaz, o la guardada en el chat, o la única que tenga la cuenta.
+    let briefingOperativo = "";
+    let propiedadEnFoco: string | null = null;
+    if (!IS_DEMO) {
+      try {
+        const { ensureOperacionSchema } = await import("@/lib/ensure-operacion-schema");
+        await ensureOperacionSchema();
+        let pedida: string | null = typeof propiedadPedida === "string" && propiedadPedida ? propiedadPedida : null;
+        if (!pedida && chatId) {
+          const guardado = await db.agentChatFocus.findFirst({ where: { chatId, userId }, select: { propertyId: true } });
+          pedida = guardado?.propertyId ?? null;
+        }
+        const contexto = await contextoOperativo(userId, visibles, pedida);
+        briefingOperativo = contexto.texto;
+        propiedadEnFoco = contexto.propertyId;
+        if (chatId && contexto.propertyId) {
+          await db.agentChatFocus.upsert({ where: { chatId }, create: { chatId, userId, propertyId: contexto.propertyId }, update: { propertyId: contexto.propertyId } }).catch(() => {});
+        }
+      } catch (err) {
+        console.error("[api/agents/chat] briefing operativo failed:", err);
+        briefingOperativo = "(No pude cargar el contexto operativo en este momento: usa consultar_operacion si necesitas datos.)";
       }
-    } catch (err) {
-      console.error("[api/agents/chat] properties fetch failed:", err);
     }
 
     // ── Load recent messages with smart context limiting ───────────────────
@@ -683,6 +700,10 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
                 cache_control: { type: "ephemeral" },
               },
             ];
+            if (briefingOperativo) {
+              // Su propio punto de caché: dentro de una conversación el briefing casi no cambia entre mensajes.
+              systemBlocks.push({ type: "text", text: `BRIEFING OPERATIVO (datos reales de la plataforma, al día de hoy)\n\n${briefingOperativo}`, cache_control: { type: "ephemeral" } });
+            }
             if (volatileSystemNote) {
               systemBlocks.push({ type: "text", text: volatileSystemNote });
             }
@@ -711,7 +732,8 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
 
             // Dos vueltas: una para pedir el archivo y otra para comentarlo. Más
             // vueltas solo alargarían la espera sin aportar.
-            for (let vuelta = 0; vuelta < 3; vuelta++) {
+            const MAX_DE_VUELTAS = 6;
+            for (let vuelta = 0; vuelta < MAX_DE_VUELTAS; vuelta++) {
               stream = anthropic.messages.stream({
                 model: configChat.modelo,
                 // 2048 se quedaba corto en cuanto la herramienta lleva una tabla: el JSON se cortaba a medias y la llamada
@@ -721,7 +743,10 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
                 ...parametroDeEsfuerzo(configChat.modelo, configChat.esfuerzo),
                 system: systemBlocks,
                 messages: mensajes,
-                tools: HERRAMIENTAS_ARCHIVO,
+                // Las herramientas de operación solo existen con datos reales (no en el demo).
+                tools: IS_DEMO ? HERRAMIENTAS_ARCHIVO : [...HERRAMIENTAS_ARCHIVO, ...HERRAMIENTAS_OPERACION],
+                // En la última vuelta se le quita la posibilidad de pedir más herramientas: tiene que responder con lo que ya reunió.
+                ...(vuelta === MAX_DE_VUELTAS - 1 ? { tool_choice: { type: "none" as const } } : {}),
               });
 
               for await (const event of stream) {
@@ -760,6 +785,18 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
                     `event: herramienta\ndata: ${JSON.stringify({ nombre: llamada.name })}\n\n`
                   )
                 );
+
+                // Herramientas de operación: consultar datos reales, guardar en la memoria, proponer una acción (que aprueba la persona).
+                if (esHerramientaDeOperacion(llamada.name)) {
+                  const r = await ejecutarOperacion(llamada.name, (llamada.input ?? {}) as Record<string, unknown>, {
+                    userId, agentId, chatId: chatId ?? null, visibles, enFoco: propiedadEnFoco,
+                  });
+                  if (r.propuesta) {
+                    controller.enqueue(encoder.encode(`event: accion\ndata: ${JSON.stringify(r.propuesta)}\n\n`));
+                  }
+                  resultados.push({ type: "tool_result", tool_use_id: llamada.id, is_error: r.esError, content: r.texto });
+                  continue;
+                }
 
                 const { archivo, error } = await ejecutarHerramienta(llamada.name, llamada.input);
                 if (!archivo) {

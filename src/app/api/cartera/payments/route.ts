@@ -2,7 +2,8 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireCartera } from "@/lib/cartera-server";
-import { applyPaymentFifoTx, type Allocation } from "@/lib/cartera";
+import { applyPaymentFifoTx, fmtCOP, type Allocation } from "@/lib/cartera";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
     const { db } = await import("@/lib/db");
     const unit = await db.unit.findFirst({
       where: { id: unitId, propertyId, userId },
-      select: { id: true },
+      select: { id: true, label: true },
     });
     if (!unit) {
       return NextResponse.json({ error: "Unidad no encontrada" }, { status: 404 });
@@ -77,6 +78,16 @@ export async function POST(req: NextRequest) {
       return { payment: created, leftover: rest };
     });
 
+    await registrarEvento({
+      userId,
+      propertyId,
+      modulo: "cartera",
+      accion: "pago_registrado",
+      resumen: `Pago de ${fmtCOP(amt)} registrado en ${unit.label ?? "una unidad"} (${method || "transferencia"})`,
+      refType: "UnitPayment",
+      refId: payment.id,
+    });
+
     return NextResponse.json(
       { ok: true, id: payment.id, applied: amt - leftover, credit: leftover },
       { status: 201 }
@@ -102,7 +113,7 @@ export async function DELETE(req: NextRequest) {
     const { db } = await import("@/lib/db");
     const payment = await db.unitPayment.findFirst({
       where: { id, userId },
-      select: { id: true, allocations: true },
+      select: { id: true, allocations: true, propertyId: true, amount: true, unit: { select: { label: true } } },
     });
     if (!payment) {
       return NextResponse.json({ error: "Pago no encontrado" }, { status: 404 });
@@ -121,6 +132,16 @@ export async function DELETE(req: NextRequest) {
         });
       }
       await tx.unitPayment.delete({ where: { id: payment.id } });
+    });
+
+    await registrarEvento({
+      userId,
+      propertyId: payment.propertyId,
+      modulo: "cartera",
+      accion: "pago_anulado",
+      resumen: `Pago de ${fmtCOP(payment.amount)} anulado en ${payment.unit?.label ?? "una unidad"}`,
+      refType: "UnitPayment",
+      refId: payment.id,
     });
 
     return NextResponse.json({ ok: true });

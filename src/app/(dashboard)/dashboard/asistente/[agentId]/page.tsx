@@ -8,6 +8,7 @@ import { upload } from "@vercel/blob/client";
 import { Header } from "@/components/dashboard/Header";
 import { AudioRecorder } from "@/components/dashboard/AudioRecorder";
 import { RespuestaMarkdown } from "@/components/agents/RespuestaMarkdown";
+import { TarjetasDeAcciones, type AccionUI } from "@/components/agents/TarjetasDeAcciones";
 import { AGENTS, isValidAgentId, isIncludedAgent, INCLUDED_AGENT_IDS, type AgentId } from "@/lib/agents";
 import { saveAudio, getPendingAudios, deleteAudio } from "@/lib/audio-storage";
 import { MAX_IMAGE_BYTES, MAX_IMAGE_MB_LABEL, isImageMediaType } from "@/lib/chat-limits";
@@ -32,6 +33,7 @@ import {
   Modal,
   Pagina,
   Pieza,
+  Selector,
   RespuestaAgente,
   Sigilo,
   TipoArchivo,
@@ -176,6 +178,8 @@ const CSS_CHAT = `
 .asis-hilos-vacio { margin: 16px 0 0; font-size: 14px; line-height: 1.45; color: var(--ink-3); }
 .asis-hilos-vacio + .k-btn { margin-top: 8px; }
 .asis-hilos .k-esq { margin-top: 16px; }
+.asis-foco { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 0 1 240px; }
+.asis-foco-t { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
 .asis-memoria { border-top: 1px solid var(--line); padding: 4px 0 14px; }
 .asis-memoria > button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px;
   font-size: 15px; font-weight: 700; color: var(--ink); background: transparent; cursor: pointer; }
@@ -332,6 +336,10 @@ export default function AgentPage() {
   const [exportError, setExportError] = useState("");
   // Aviso mientras el agente construye un archivo: tarda varios segundos.
   const [herramientaEnCurso, setHerramientaEnCurso] = useState("");
+  // La copropiedad en foco (el agente la conoce a fondo) y las acciones que el agente propuso en esta conversación.
+  const [propiedades, setPropiedades] = useState<{ id: string; name: string }[]>([]);
+  const [propiedadId, setPropiedadId] = useState("");
+  const [acciones, setAcciones] = useState<AccionUI[]>([]);
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
   // Id del chat recién creado por el envío en curso (ver el efecto de carga).
   const skipReloadForChatId = useRef<string | null>(null);
@@ -445,7 +453,7 @@ export default function AgentPage() {
 
   // Load messages for active chat
   useEffect(() => {
-    if (!activeChatId) { setMessages([]); return; }
+    if (!activeChatId) { setMessages([]); setAcciones([]); return; }
     // El chat que ACABA de crear este mismo envío no se recarga: su respuesta
     // todavía se está escribiendo y aún no existe en la base. Recargar aquí
     // reemplazaba el estado por lo guardado —solo el mensaje del usuario—, la
@@ -460,10 +468,34 @@ export default function AgentPage() {
     setLoadingMessages(true);
     fetch(`/api/agents/${agentId}/chat?chatId=${activeChatId}`)
       .then((r) => r.json())
-      .then((data) => { if (data.messages) setMessages(data.messages); })
+      .then((data) => {
+        if (data.messages) setMessages(data.messages);
+        if (data.propertyId) setPropiedadId(data.propertyId);
+      })
       .catch(console.error)
       .finally(() => setLoadingMessages(false));
+    // Las tarjetas de acciones que el agente propuso en esta conversación (siguen ahí al volver).
+    if (process.env.NEXT_PUBLIC_DEMO_MODE !== "true") {
+      fetch(`/api/agents/actions?chatId=${activeChatId}`)
+        .then((r) => r.json())
+        .then((d) => setAcciones(Array.isArray(d.acciones) ? d.acciones.map((a: AccionUI & { estado: AccionUI["estado"] }) => ({ ...a })) : []))
+        .catch(() => setAcciones([]));
+    }
   }, [activeChatId, agentId]);
+
+  // Las copropiedades de la cuenta, para elegir de cuál se habla.
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") return;
+    fetch("/api/properties")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((lista) => {
+        if (!Array.isArray(lista)) return;
+        const ps = lista.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name }));
+        setPropiedades(ps);
+        setPropiedadId((actual) => actual || (ps.length === 1 ? ps[0].id : ""));
+      })
+      .catch(() => {});
+  }, []);
 
   // Alto exacto de la ventana: menos el dock móvil (--topbar-h, lo mide el
   // armazón) y el banner de demo (--demo-banner-h, lo mide el banner).
@@ -676,6 +708,7 @@ export default function AgentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chatId: activeChatId,
+          propertyId: propiedadId || undefined,
           message: trimmed || "(adjuntos)",
           attachments: uploaded,
           // En el demo no hay base de datos donde guardar el hilo, así que el
@@ -782,8 +815,17 @@ export default function AgentPage() {
                 setHerramientaEnCurso(
                   nombre === "generar_hoja_de_calculo" ? "Generando la hoja de cálculo…"
                     : nombre === "generar_documento_word" ? "Generando el documento de Word…"
+                    : nombre === "consultar_operacion" ? "Consultando los datos de la copropiedad…"
+                    : nombre === "guardar_en_memoria" ? "Guardando en la memoria de la copropiedad…"
+                    : nombre === "proponer_accion" ? "Preparando la acción para tu aprobación…"
                     : "Generando el PDF…"
                 );
+              } catch { /* ignore */ }
+            } else if (eventType === "accion") {
+              try {
+                const a = JSON.parse(data) as { id: string; tipo: string; etiqueta: string; resumen: string; propiedad: string };
+                setHerramientaEnCurso("");
+                setAcciones((prev) => (prev.some((x) => x.id === a.id) ? prev : [...prev, { ...a, estado: "pendiente" as const }]));
               } catch { /* ignore */ }
             } else if (eventType === "archivo") {
               try {
@@ -920,7 +962,7 @@ export default function AgentPage() {
         return;
       }
       setChats((prev) => prev.filter((c) => c.id !== chatId));
-      if (activeChatId === chatId) { setActiveChatId(null); setMessages([]); setExportError(""); }
+      if (activeChatId === chatId) { setActiveChatId(null); setMessages([]); setAcciones([]); setExportError(""); }
       avisar({ tipo: "ok", titulo: "Conversación eliminada." });
     } catch {
       avisar({ tipo: "error", titulo: "No se pudo eliminar la conversación.", texto: "Revisa tu conexión e inténtalo de nuevo." });
@@ -1201,6 +1243,17 @@ export default function AgentPage() {
             <h2 id="asis-conv-t" title={activeChat ? activeChat.title : undefined}>
               {activeChat ? activeChat.title : `Nueva conversación con ${agent.name}`}
             </h2>
+            {propiedades.length > 1 && (
+              <label className="asis-foco">
+                <span className="asis-foco-t">Copropiedad en foco</span>
+                <Selector value={propiedadId} onChange={(e) => setPropiedadId(e.target.value)} aria-label="Copropiedad en foco: el agente conocerá su estado a fondo">
+                  <option value="">Ninguna (preguntar cuál)</option>
+                  {propiedades.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </Selector>
+              </label>
+            )}
             {accionesConversacion.length > 0 && (
               <MenuMas
                 etiqueta={exporting ? "Exportando…" : "Más"}
@@ -1365,6 +1418,8 @@ export default function AgentPage() {
                     </div>
                   </div>
                 )}
+
+                <TarjetasDeAcciones acciones={acciones} alCambiar={(id, parche) => setAcciones((prev) => prev.map((a) => (a.id === id ? { ...a, ...parche } : a)))} />
 
                 <div ref={messagesEndRef} />
               </div>

@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 const TYPES = ["peticion", "queja", "reclamo", "sugerencia"] as const;
@@ -132,12 +133,23 @@ export async function POST(req: NextRequest) {
             residentContact: residentContact?.trim().slice(0, 120) || null,
             messages: { create: { fromAdmin: false, content: message.trim().slice(0, 4000) } },
           },
-          select: { code: true },
+          select: { id: true, code: true },
         });
       } catch {
         if (attempt === 3) throw new Error("code collision");
       }
     }
+
+    await registrarEvento({
+      userId: unit.property.userId,
+      propertyId: unit.propertyId,
+      modulo: "pqrs",
+      accion: "pqrs_radicada",
+      resumen: `PQRS ${created!.code} radicada desde el portal por ${unit.label} (${kind}): ${subject.trim().slice(0, 100)}`,
+      refType: "Pqrs",
+      refId: created!.id,
+      actor: "residente",
+    });
 
     return NextResponse.json({ ok: true, code: created!.code }, { status: 201 });
   } catch (e) {

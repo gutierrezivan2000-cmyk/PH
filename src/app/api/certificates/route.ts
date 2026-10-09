@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { exigirModulo } from "@/lib/modulos-acceso";
 import { randomBytes } from "node:crypto";
 import { computeUnitSummary } from "@/lib/cartera";
+import { registrarEvento } from "@/lib/agentes/eventos";
 import {
   TIPOS_DE_CERTIFICADO,
   decidirPazYSalvo,
@@ -198,6 +199,16 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await registrarEvento({
+      userId: session.user.id,
+      propertyId,
+      modulo: "certificados",
+      accion: "certificado_emitido",
+      resumen: `Certificado de ${type} emitido para ${label}`,
+      refType: "Certificate",
+      refId: certificate.id,
+    });
+
     return NextResponse.json({ ok: true, id: certificate.id }, { status: 201 });
   } catch (error) {
     console.error("[certificates POST]", error);
@@ -238,7 +249,7 @@ export async function PATCH(req: NextRequest) {
 
     const existing = await db.certificate.findFirst({
       where: { id, userId: session.user.id },
-      select: { id: true, status: true, meta: true },
+      select: { id: true, status: true, meta: true, propertyId: true, type: true, unitLabel: true },
     });
     if (!existing) {
       return NextResponse.json({ error: "Certificado no encontrado" }, { status: 404 });
@@ -253,6 +264,15 @@ export async function PATCH(req: NextRequest) {
         revokedAt: new Date(),
         meta: { ...antes, revocacion: { motivo: motivo.motivo, por: session.user.id, en: new Date().toISOString() } },
       },
+    });
+    await registrarEvento({
+      userId: session.user.id,
+      propertyId: existing.propertyId,
+      modulo: "certificados",
+      accion: "certificado_revocado",
+      resumen: `Certificado de ${existing.type} de ${existing.unitLabel} revocado`,
+      refType: "Certificate",
+      refId: existing.id,
     });
     return NextResponse.json({ ok: true });
   } catch (error) {

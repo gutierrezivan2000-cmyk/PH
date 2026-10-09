@@ -2,6 +2,8 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireCartera } from "@/lib/cartera-server";
+import { fmtCOP } from "@/lib/cartera";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -78,6 +80,13 @@ export async function POST(req: NextRequest) {
 
     if (toCreate.length > 0) {
       await db.charge.createMany({ data: toCreate });
+      await registrarEvento({
+        userId,
+        propertyId,
+        modulo: "cartera",
+        accion: "cuotas_causadas",
+        resumen: `Cuotas de administración de ${MONTH_NAMES[m - 1]} ${y} causadas en ${toCreate.length} unidades (total ${fmtCOP(toCreate.reduce((s, c) => s + c.amount, 0))})`,
+      });
     }
 
     const withoutFee = units.filter((u) => !(u.monthlyFee || 0)).length;

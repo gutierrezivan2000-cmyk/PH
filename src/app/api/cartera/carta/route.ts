@@ -4,6 +4,7 @@ export const maxDuration = 60;
 import { NextRequest, NextResponse } from "next/server";
 import { requireCartera } from "@/lib/cartera-server";
 import { computeUnitSummary, fmtCOP } from "@/lib/cartera";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -98,6 +99,15 @@ export async function POST(req: NextRequest) {
         );
       }
       await recordEmailsSent(userId, sent);
+      await registrarEvento({
+        userId,
+        propertyId: unit.propertyId,
+        modulo: "cartera",
+        accion: "carta_cobro_enviada",
+        resumen: `Carta de cobro enviada a ${unit.label}: ${subject.trim().slice(0, 100)}`,
+        refType: "Unit",
+        refId: unit.id,
+      });
       return NextResponse.json({ ok: true, sent });
     }
 

@@ -2,6 +2,8 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireCartera } from "@/lib/cartera-server";
+import { fmtCOP } from "@/lib/cartera";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
     const { db } = await import("@/lib/db");
     const unit = await db.unit.findFirst({
       where: { id: unitId, propertyId, userId },
-      select: { id: true },
+      select: { id: true, label: true },
     });
     if (!unit) {
       return NextResponse.json({ error: "Unidad no encontrada" }, { status: 404 });
@@ -64,6 +66,16 @@ export async function POST(req: NextRequest) {
         amount: amt,
         dueDate: due,
       },
+    });
+
+    await registrarEvento({
+      userId,
+      propertyId,
+      modulo: "cartera",
+      accion: "cobro_creado",
+      resumen: `Cobro de ${fmtCOP(amt)} creado en ${unit.label ?? "una unidad"}: ${charge.concept}`,
+      refType: "Charge",
+      refId: charge.id,
     });
 
     return NextResponse.json({ ok: true, id: charge.id }, { status: 201 });
@@ -88,7 +100,7 @@ export async function DELETE(req: NextRequest) {
     const { db } = await import("@/lib/db");
     const charge = await db.charge.findFirst({
       where: { id, userId },
-      select: { id: true, paidAmount: true },
+      select: { id: true, paidAmount: true, propertyId: true, concept: true, amount: true, unit: { select: { label: true } } },
     });
     if (!charge) {
       return NextResponse.json({ error: "Cobro no encontrado" }, { status: 404 });
@@ -100,6 +112,15 @@ export async function DELETE(req: NextRequest) {
       );
     }
     await db.charge.delete({ where: { id } });
+    await registrarEvento({
+      userId,
+      propertyId: charge.propertyId,
+      modulo: "cartera",
+      accion: "cobro_eliminado",
+      resumen: `Cobro de ${fmtCOP(charge.amount)} eliminado en ${charge.unit?.label ?? "una unidad"}: ${charge.concept}`,
+      refType: "Charge",
+      refId: charge.id,
+    });
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[cartera charges DELETE]", error);
