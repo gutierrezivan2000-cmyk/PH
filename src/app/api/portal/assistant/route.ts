@@ -50,22 +50,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Has hecho muchas preguntas seguidas. Intenta en un rato." }, { status: 429 });
     }
 
-    // Tope por administrador (el que paga): al día y al mes. Si no se puede contar, no bloquea.
+    // Tope por administrador (el que paga): al día y al mes. Las cuentas beta y la fase de pruebas no tienen tope, y si no se
+    // puede contar, no bloquea.
     const ahora = new Date();
     const periodo = periodoMensualBogota(ahora);
+    const { checkSubscriptionAccess } = await import("@/lib/usage");
+    const acceso = await checkSubscriptionAccess(unit.property.userId).catch(() => null);
+    const sinTope = acceso !== null && (acceso.status === "beta" || acceso.status === "testing");
+    // Solo cuentan las preguntas (lo que lleva el tipo del asistente), no las lecturas de las fotos del reglamento.
     const contar = (desde: Date) =>
       db.usageRecord.count({ where: { userId: unit.property.userId, type: TIPOS.portalAsistente, date: { gte: desde } } });
-    const tope = await Promise.all([contar(inicioDelDiaBogota(ahora)), contar(periodo.inicio)])
-      .then(([hoy, mes]) => topeDelAsistenteDelPortal({ hoy, mes }))
-      .catch((e) => {
-        console.error("[portal assistant] no se pudo contar el uso; se deja pasar", e);
-        return null;
-      });
+    const tope = sinTope
+      ? null
+      : await Promise.all([contar(inicioDelDiaBogota(ahora)), contar(periodo.inicio)])
+          .then(([hoy, mes]) => topeDelAsistenteDelPortal({ hoy, mes }))
+          .catch((e) => {
+            console.error("[portal assistant] no se pudo contar el uso; se deja pasar", e);
+            return null;
+          });
     if (tope) return NextResponse.json({ error: tope }, { status: 429 });
 
     const { getReglamentoText } = await import("@/lib/reglamento");
     // Leer por primera vez un reglamento escaneado (imágenes) gasta IA: se carga a la administración de la copropiedad.
-    const reglamento = await conConsumo({ userId: unit.property.userId, tipos: { imagen: TIPOS.portalAsistente } }, () => getReglamentoText(unit.propertyId));
+    const reglamento = await conConsumo({ userId: unit.property.userId, tipos: { imagen: TIPOS.portalLectura } }, () => getReglamentoText(unit.propertyId));
     if (!reglamento || reglamento.length < 40) {
       return NextResponse.json({
         answer: "Todavía no tengo el reglamento de la copropiedad cargado para responderte. Por favor escribe a la administración con tu consulta.",

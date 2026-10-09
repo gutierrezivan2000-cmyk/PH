@@ -20,7 +20,7 @@
  * Los registros nunca llevan texto de la reunión.
  */
 import { PRECIOS_ANTHROPIC, costoDeTokens, precioAnthropic, type PrecioPorToken } from "@/lib/consumo/precios";
-import { MODELO_GENERAL_POR_DEFECTO, aceptaRespaldoDelServidor } from "@/lib/ia/modelos";
+import { MODELO_GENERAL_POR_DEFECTO, aceptaRespaldoDelServidor, parametroDeEsfuerzo } from "@/lib/ia/modelos";
 
 export type Esfuerzo = "low" | "medium" | "high" | "xhigh" | "max";
 
@@ -31,7 +31,11 @@ const ESFUERZOS: readonly Esfuerzo[] = ["low", "medium", "high", "xhigh", "max"]
 
 type Entorno = Readonly<Record<string, string | undefined>>;
 
-export const modeloDeReuniones = (env: Entorno = process.env): string => env.MEETINGS_MODEL?.trim() || MODELO_POR_DEFECTO;
+/**
+ * El modelo de Reuniones: `MEETINGS_MODEL` si está, si no `IA_MODELO_GENERAL`, si no Haiku 5.5. Reuniones usa UN modelo para su ficha, su
+ * acta y sus preguntas; los ajustes por función (`IA_MODELO_REUNION_ACTA`…) de `lib/ia/modelos.ts` no aplican aquí.
+ */
+export const modeloDeReuniones = (env: Entorno = process.env): string => env.MEETINGS_MODEL?.trim() || env.IA_MODELO_GENERAL?.trim() || MODELO_POR_DEFECTO;
 
 export function esfuerzoDeReuniones(env: Entorno = process.env, porDefecto: Esfuerzo = ESFUERZO_POR_DEFECTO): Esfuerzo {
   const pedido = env.MEETINGS_EFFORT?.trim().toLowerCase();
@@ -306,6 +310,12 @@ export function crearClienteIA(opciones: OpcionesClienteIA = {}): ClienteIA {
     return cliente;
   };
 
+  /** `output_config` de una llamada: el esfuerzo solo si el modelo lo acepta (Haiku 4.5 y anteriores responden 400), más lo extra. */
+  const configDeSalida = (esfuerzo: Esfuerzo | undefined, extra: Record<string, unknown> = {}): Record<string, unknown> => {
+    const salida = { ...(parametroDeEsfuerzo(modelo, esfuerzo ?? esfuerzoDeReuniones()).output_config ?? {}), ...extra };
+    return Object.keys(salida).length > 0 ? { output_config: salida } : {};
+  };
+
   async function llamar(entrada: EntradaIA, conRespaldo: boolean): Promise<MensajeCrudo> {
     const params: Record<string, unknown> = {
       model: modelo,
@@ -313,7 +323,7 @@ export function crearClienteIA(opciones: OpcionesClienteIA = {}): ClienteIA {
       system: entrada.sistema,
       messages: [{ role: "user", content: entrada.usuario }],
       // Sin `thinking` (en Opus 5.5 siempre piensa) y sin `temperature` (los modelos 5 la rechazan).
-      output_config: { effort: entrada.esfuerzo ?? esfuerzoDeReuniones(), format: { type: "json_schema", schema: entrada.esquema } },
+      ...configDeSalida(entrada.esfuerzo, { format: { type: "json_schema", schema: entrada.esquema } }),
     };
     if (conRespaldo) {
       params.betas = [BETA_RESPALDO];
@@ -395,7 +405,7 @@ export function crearClienteIA(opciones: OpcionesClienteIA = {}): ClienteIA {
           // El sistema va como texto, igual que en el calentamiento: el prefijo tiene que ser idéntico para que la caché sirva.
           system: entrada.sistema,
           messages: mensajes,
-          output_config: { effort: entrada.esfuerzo ?? esfuerzoDeReuniones() },
+          ...configDeSalida(entrada.esfuerzo),
         };
         if (conRespaldo) {
           params.betas = [BETA_RESPALDO];
@@ -443,7 +453,7 @@ export function crearClienteIA(opciones: OpcionesClienteIA = {}): ClienteIA {
                 ],
               },
             ],
-            output_config: { effort: entrada.esfuerzo ?? esfuerzoDeReuniones() },
+            ...configDeSalida(entrada.esfuerzo),
           },
           { timeout: entrada.timeoutMs, signal: entrada.senal, maxRetries: 0 },
         );

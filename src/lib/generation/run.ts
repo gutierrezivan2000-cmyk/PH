@@ -94,6 +94,8 @@ async function ejecutarGeneracion(p: RunGenerationParams): Promise<void> {
           fileContents.push({ name: file.name, text: parsed });
         }
       } catch (e) {
+        // Sin cupo de audio no se redacta con la mitad de los archivos: se falla diciendo el motivo (no el genérico «no se pudo leer»).
+        if (e instanceof Error && e.name === "CupoDeAudioAgotado") throw e;
         const msg = e instanceof Error ? e.message : String(e);
         fileContents.push({ name: ref.name, text: `[Archivo: ${ref.name} — no se pudo procesar: ${msg}]` });
       }

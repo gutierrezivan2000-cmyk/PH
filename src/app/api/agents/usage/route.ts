@@ -7,7 +7,7 @@ import { PLANS } from "@/lib/epayco";
 import { accessibleAgents } from "@/lib/plan";
 import { INCLUDED_AGENT_IDS } from "@/lib/agents";
 import { limitesDelPlan, minutosDeAudioDesde, usoDelChat } from "@/lib/uso-chat-servidor";
-import { periodoMensualBogota } from "@/lib/uso-chat";
+import { inicioDelDiaBogota, periodoMensualBogota } from "@/lib/uso-chat";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -21,7 +21,7 @@ export async function GET() {
 
     const userId = session.user.id;
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfDay = inicioDelDiaBogota(now);
 
     // Coming-soon agents are locked for everyone (demo included) — only the
     // launched agents (Themis + Chronos) are accessible.

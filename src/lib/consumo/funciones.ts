@@ -33,6 +33,7 @@ export const TIPOS = {
   importarBitacora: "import_bitacora",
   comunicado: "comunicado_draft",
   portalAsistente: "asistente_reglamento",
+  portalLectura: "asistente_reglamento_lectura",
   reunionAudio: "reunion_audio",
   reunionIa: "reunion_ia",
   reunionActa: "reunion_acta",
@@ -61,6 +62,7 @@ export const FUNCIONES: Readonly<Record<string, FuncionDeConsumo>> = Object.from
     [TIPOS.importarBitacora, "Importar bitácora (zonas comunes)", "Gestión", "importación"],
     [TIPOS.comunicado, "Borrador de comunicado", "Gestión", "borrador"],
     [TIPOS.portalAsistente, "Portal de residentes: asistente del reglamento", "Portal de residentes", "respuesta"],
+    [TIPOS.portalLectura, "Portal de residentes: lectura del reglamento (imágenes)", "Portal de residentes", "imagen"],
     [TIPOS.soporte, "Chat de soporte", "Soporte", "mensaje"],
   ] as Array<[string, string, string, string, boolean?]>).map(([tipo, nombre, grupo, unidad, segundos]) => [
     tipo,

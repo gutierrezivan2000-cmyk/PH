@@ -121,3 +121,54 @@ describe("asistente del reglamento (portal de residentes): tope por administrado
   });
 });
 
+describe("las ventanas móviles no se cortan al cambiar de mes", () => {
+  const ahoraB = (iso: string) => new Date(iso);
+
+  it("US$2 el 30 de octubre agotan la semana también el 3 de noviembre (la semana cruza el mes)", () => {
+    const ahora3 = ahoraB("2026-11-03T10:00:00-05:00");
+    const e = estadoDeUso({
+      presupuestoUsd: 5,
+      periodo: periodoMensualBogota(ahora3),
+      consumos: [{ fecha: ahoraB("2026-10-30T10:00:00-05:00"), costUsd: 2 }],
+      ahora: ahora3,
+    });
+    expect(e).toMatchObject({ porcentajeRestante: 0, ventana: "semana", agotado: true });
+    expect(e.renovaEn.toISOString()).toBe(ahoraB("2026-11-06T10:00:00-05:00").toISOString());
+  });
+
+  it("US$1 a las 23:30 del 31 de octubre agotan la sesión a las 00:10 del 1 de noviembre", () => {
+    const ahora1 = ahoraB("2026-11-01T00:10:00-05:00");
+    const e = estadoDeUso({
+      presupuestoUsd: 5,
+      periodo: periodoMensualBogota(ahora1),
+      consumos: [{ fecha: ahoraB("2026-10-31T23:30:00-05:00"), costUsd: 1 }],
+      ahora: ahora1,
+    });
+    expect(e).toMatchObject({ porcentajeRestante: 0, ventana: "sesion", agotado: true });
+  });
+});
+
+describe("cuándo vuelve el uso (renovaEn)", () => {
+  it("con la sesión y la semana agotadas, manda la que tarda más en liberarse", () => {
+    // US$1 hace 1 h (agota la sesión) y US$1 hace 3 días (junto con el primero agota la semana).
+    const e = estadoDeUso({ presupuestoUsd: 5, periodo, consumos: [{ fecha: hace(1), costUsd: 1 }, { fecha: hace(72), costUsd: 1 }], ahora });
+    expect(e).toMatchObject({ porcentajeRestante: 0, ventana: "semana", agotado: true });
+    // La semana vuelve a tener uso cuando sale el consumo de hace 3 días: dentro de 4 días.
+    expect(e.renovaEn.getTime()).toBe(hace(72).getTime() + 7 * 24 * 3_600_000);
+  });
+
+  it("un gasto pequeño antiguo no adelanta la hora: hay que esperar a que salga el grande", () => {
+    // US$0,01 hace 4,9 h y US$1 hace 1 h: el primero sale en 6 min, pero la sesión sigue agotada hasta que salga el segundo.
+    const e = estadoDeUso({ presupuestoUsd: 5, periodo, consumos: [{ fecha: hace(4.9), costUsd: 0.01 }, { fecha: hace(1), costUsd: 1 }], ahora });
+    expect(e).toMatchObject({ porcentajeRestante: 0, ventana: "sesion", agotado: true });
+    expect(e.renovaEn.getTime()).toBe(hace(1).getTime() + 5 * 3_600_000);
+  });
+
+  it("el mensaje no termina con doble punto", () => {
+    const ahoraB = new Date("2026-10-15T13:00:00-05:00");
+    const e = estadoDeUso({ presupuestoUsd: 5, periodo: periodoMensualBogota(ahoraB), consumos: [{ fecha: new Date("2026-10-15T12:00:00-05:00"), costUsd: 1 }], ahora: ahoraB });
+    expect(mensajeDeAgotado(e, ahoraB)).not.toMatch(/\.\.$/);
+    expect(mensajeDeAgotado(e, ahoraB)).toMatch(/p\. m\.$/);
+  });
+});
+

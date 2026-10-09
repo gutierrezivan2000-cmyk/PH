@@ -14,7 +14,7 @@ import { db } from "@/lib/db";
 import { AGENTS, isValidAgentId, isComingSoonAgent } from "@/lib/agents";
 import { canAccessAgent } from "@/lib/plan";
 import { cupoDeAudioMensual, limitesDelPlan, usoDelChat } from "@/lib/uso-chat-servidor";
-import { mensajeDeAgotado } from "@/lib/uso-chat";
+import { inicioDelDiaBogota, mensajeDeAgotado } from "@/lib/uso-chat";
 import { TIPOS } from "@/lib/consumo/funciones";
 import { conConsumo, registrarConsumo } from "@/lib/consumo/registrar";
 import { TOKENS_VACIOS, sumarTokens, tokensDeAnthropic, totalDeTokens } from "@/lib/consumo/uso";
@@ -24,7 +24,7 @@ import { agentePausadoAbierto } from "@/lib/agentes/acceso";
 import { contextoOperativo } from "@/lib/agentes/briefing-datos";
 import { HERRAMIENTAS_OPERACION, ejecutarOperacion, esHerramientaDeOperacion } from "@/lib/agentes/herramientas";
 import { modulosDeLaCuenta } from "@/lib/modulos-acceso";
-import { parseAttachments, type ParsedAttachment } from "@/lib/parse-attachment";
+import { parseAttachments, seTranscribe, type ParsedAttachment } from "@/lib/parse-attachment";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -112,7 +112,8 @@ export async function POST(
           { status: 403 }
         );
       }
-      isBeta = access.status === "beta"; // grandfathered tester → no message caps
+      // Las cuentas beta y la fase de pruebas abierta no tienen topes de audio ni de uso.
+      isBeta = access.status === "beta" || access.status === "testing";
     }
 
     // Los módulos en lanzamiento gradual que la cuenta puede usar (los admins y la lista del piloto; en demo, ninguno).
@@ -184,9 +185,8 @@ export async function POST(
     // Covers any agent that receives audio attachments.
     // Uses UsageRecord where type="transcription", tokens=seconds.
     step = "transcription-limits";
-    const allAudioAtts = (reqAttachments || []).filter(
-      (a) => a.type?.startsWith("audio/") || /\.(mp3|wav|ogg|m4a|webm)$/i.test(a.name)
-    );
+    // Los que se van a transcribir de verdad: mismo criterio que el parser (tipo detectado y tope de 10 MB).
+    const allAudioAtts = (reqAttachments || []).filter((a) => seTranscribe(a));
     let estimatedMinutesForThisRequest = 0;
     if (!isBeta && allAudioAtts.length > 0) {
       // Conservative estimate: 1 MB ~ 1 minute for typical compressed voice audio.
@@ -199,8 +199,8 @@ export async function POST(
         const tLimits = limitesDelPlan(subPlan);
         const dailyCap = tLimits.transcriptionMinutesPerDay;
 
-        const startOfDayT = new Date();
-        startOfDayT.setHours(0, 0, 0, 0);
+        // El día de Bogotá (no el del servidor, que corre en UTC y cambia de día a las 7 p. m.).
+        const startOfDayT = inicioDelDiaBogota(new Date());
 
         // El cupo diario es del chat. El mensual lo comparte con los documentos con audio (ver uso-chat-servidor).
         const dailyAgg = await db.usageRecord.aggregate({
@@ -236,7 +236,7 @@ export async function POST(
       if (uso && !uso.ilimitado && uso.estado.agotado) {
         const ahora = new Date();
         return NextResponse.json(
-          { error: mensajeDeAgotado(uso.estado, ahora), uso: { porcentajeRestante: 0, renovaEn: uso.estado.renovaEn.toISOString() } },
+          { error: mensajeDeAgotado(uso.estado, ahora), uso: { porcentajeRestante: 0, ventana: uso.estado.ventana, renovaEn: uso.estado.renovaEn.toISOString() } },
           { status: 429 }
         );
       }
@@ -613,6 +613,19 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
 
       const readable = new ReadableStream({
         async start(controller) {
+          // Lo que cuesta el mensaje: TODAS las vueltas (pedir un archivo y comentarlo son dos llamadas que se pagan). Vive fuera del
+          // try para que, si una vuelta posterior falla, lo que ya se gastó igual quede registrado y cuente en el porcentaje de uso.
+          let usoDelMensaje = TOKENS_VACIOS;
+          let modeloDelMensaje = configDeFuncion(TIPOS.agenteChat).modelo;
+          let usoRegistrado = false;
+          const registrarUsoDelMensaje = async () => {
+            if (usoRegistrado || IS_DEMO || totalDeTokens(usoDelMensaje) <= 0) return;
+            usoRegistrado = true;
+            await registrarConsumo({
+              tipo: TIPOS.agenteChat, proveedor: "anthropic", modelo: modeloDelMensaje, tokens: usoDelMensaje,
+              userId, ref: chatId ? { tipo: "chat", id: chatId } : null,
+            });
+          };
           try {
             controller.enqueue(
               encoder.encode(`event: meta\ndata: ${JSON.stringify({ chatId, title })}\n\n`)
@@ -658,11 +671,9 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
 
             let fullReply = "";
             let stream!: ReturnType<typeof anthropic.messages.stream>;
-            // Lo que cuesta el mensaje: TODAS las vueltas (pedir un archivo y comentarlo son dos llamadas que se pagan).
-            let usoDelMensaje = TOKENS_VACIOS;
-            // El chat de los agentes usa Sonnet 5.5 (ver lib/ia/modelos.ts).
+            // El modelo y el esfuerzo del chat salen de lib/ia/modelos.ts (Haiku 5.5 por defecto).
             const configChat = configDeFuncion(TIPOS.agenteChat);
-            let modeloDelMensaje = configChat.modelo;
+            modeloDelMensaje = configChat.modelo;
             // El esfuerzo se decide por turno: un saludo casi no piensa; un análisis o un adjunto, sí.
             const esfuerzoDelMensaje = esfuerzoDelTurno(message, { adjuntos: Array.isArray(reqAttachments) ? reqAttachments.length : 0 });
 
@@ -822,12 +833,7 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
             // único que no registraba nada: no aparecía en Consumo IA ni en las
             // métricas de admin, así que el costo real quedaba invisible.
             // Las demás rutas (carta, refine, imports, draft) sí lo registran.
-            if (!IS_DEMO && totalDeTokens(usoDelMensaje) > 0) {
-              await registrarConsumo({
-                tipo: TIPOS.agenteChat, proveedor: "anthropic", modelo: modeloDelMensaje, tokens: usoDelMensaje,
-                userId, ref: chatId ? { tipo: "chat", id: chatId } : null,
-              });
-            }
+            await registrarUsoDelMensaje();
 
             // Auto-generate a semantic 3-5 word title for new chats. We already
             // pushed a truncated-message title in the meta event for instant
@@ -900,6 +906,8 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
           } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);
             console.error("[api/agents/chat] stream error:", errMsg);
+            // Lo que alcanzó a gastar antes de fallar se registra igual (registrarConsumo no lanza).
+            await registrarUsoDelMensaje();
             try {
               controller.enqueue(
                 encoder.encode(`event: error\ndata: ${JSON.stringify({ error: `Error del servicio de IA: ${errMsg}` })}\n\n`)

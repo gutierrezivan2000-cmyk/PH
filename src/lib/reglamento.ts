@@ -4,6 +4,14 @@
 
 const MAX_TOTAL_CHARS = 45000; // keep the prompt within budget
 
+/**
+ * Los lectores de archivos no lanzan cuando fallan: devuelven un marcador entre corchetes («[Imagen: foto.jpg — error al
+ * analizar: …]»). Eso NO es el reglamento: no se guarda ni se le entrega a la IA, o la copropiedad se quedaría respondiendo
+ * «el reglamento no menciona ese punto» hasta que el administrador vuelva a subir el archivo.
+ */
+const MARCADOR_DE_FALLO = /^\[[^\]]*—\s*(error al analizar|no se pudo|error al procesar|analisis visual no disponible|formato no soportado)/i;
+export const esLecturaFallida = (texto: string): boolean => MARCADOR_DE_FALLO.test(texto.trim());
+
 /** Fetch a (possibly private) blob into a Buffer. Tries a plain fetch, then
  *  a token-authenticated one. Returns null if unreachable. */
 async function fetchBlob(url: string): Promise<Buffer | null> {
@@ -50,7 +58,8 @@ export async function getReglamentoText(propertyId: string): Promise<string> {
   for (const doc of docs) {
     if (total >= MAX_TOTAL_CHARS) break;
 
-    let text = doc.extractedText || "";
+    // Un texto guardado que en realidad es un marcador de fallo (de antes de este arreglo) se vuelve a leer.
+    let text = doc.extractedText && !esLecturaFallida(doc.extractedText) ? doc.extractedText : "";
     if (!text) {
       const buf = await fetchBlob(doc.url);
       if (!buf) continue;
@@ -59,6 +68,7 @@ export async function getReglamentoText(propertyId: string): Promise<string> {
         const file = new File([new Uint8Array(buf)], doc.name, { type: doc.mimeType || "application/octet-stream" });
         const parsed = await parseFile(file);
         text = (parsed.text || "").trim();
+        if (esLecturaFallida(text)) text = "";
       } catch {
         text = "";
       }

@@ -365,15 +365,32 @@ export default function AgentPage() {
 
   useEffect(() => { scrollToBottom(); }, [messages, isLoading, scrollToBottom]);
 
-  // Uso del chat al entrar. Si no se puede cargar, el chat sigue funcionando (el servidor igual lo aplica).
-  useEffect(() => {
+  // Uso del chat. Si no se puede cargar, el chat sigue funcionando (el servidor igual lo aplica).
+  const cargarUso = useCallback(() => {
     fetch("/api/agents/usage")
       .then((r) => r.json())
       .then((data) => {
         if (data?.chat && !data.chat.ilimitado) setUso(data.chat as UsoVista);
+        else if (data?.chat?.ilimitado) setUso(null);
       })
       .catch(() => { /* sin barra */ });
   }, []);
+  useEffect(() => { cargarUso(); }, [cargarUso]);
+
+  // Con el uso agotado se vuelve a mirar cuando llega la hora en que vuelve (y al volver a la pestaña), para que el redactor se
+  // desbloquee solo y no haya que recargar la página. Si la hora ya pasó y el servidor sigue diciendo «agotado», reintenta en 30 s.
+  useEffect(() => {
+    if (!uso?.agotado) return;
+    const falta = new Date(uso.renovaEn).getTime() - Date.now();
+    const espera = falta > 0 ? Math.min(falta + 1000, 2_147_000_000) : 30_000;
+    const temporizador = window.setTimeout(cargarUso, espera);
+    const alVolver = () => { if (document.visibilityState === "visible") cargarUso(); };
+    document.addEventListener("visibilitychange", alVolver);
+    return () => {
+      window.clearTimeout(temporizador);
+      document.removeEventListener("visibilitychange", alVolver);
+    };
+  }, [uso?.agotado, uso?.renovaEn, cargarUso]);
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
@@ -678,7 +695,8 @@ export default function AgentPage() {
 
   const sendMessage = async (textoDirecto?: string) => {
     const trimmed = (textoDirecto ?? input).trim();
-    if ((!trimmed && attachments.length === 0) || isLoading) return;
+    // Con el uso agotado no se sube nada: los archivos se subirían antes de que el servidor rechazara el mensaje.
+    if ((!trimmed && attachments.length === 0) || isLoading || uso?.agotado === true) return;
 
     setIsLoading(true);
     setUploadStatus("");
@@ -740,6 +758,10 @@ export default function AgentPage() {
           const data = await res.json();
           errorMsg = data.error || errorMsg;
           errorCode = data.code || "";
+          // Un 429 por uso agotado trae cuándo vuelve: la barra se actualiza y el redactor se bloquea sin esperar a recargar.
+          if (res.status === 429 && data.uso && typeof data.uso.renovaEn === "string") {
+            setUso({ porcentajeRestante: 0, ventana: data.uso.ventana ?? "sesion", renovaEn: data.uso.renovaEn, agotado: true });
+          }
         } catch { /* ignore */ }
         // Stale JWT (user row recreated/deleted behind the session) — only a
         // fresh login fixes it, so clear the cookie and send them there.
@@ -1509,11 +1531,11 @@ export default function AgentPage() {
                   className="hidden"
                   accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.m4a,.webm"
                 />
-                <button type="button" onClick={() => fileInputRef.current?.click()} title="Adjuntar archivo">
+                <button type="button" onClick={() => fileInputRef.current?.click()} title="Adjuntar archivo" disabled={uso?.agotado === true}>
                   <Paperclip aria-hidden="true" focusable="false" />
                   Adjuntar
                 </button>
-                <AudioRecorder onRecorded={handleAudioRecorded} disabled={isLoading} />
+                <AudioRecorder onRecorded={handleAudioRecorded} disabled={isLoading || uso?.agotado === true} />
                 {/* El contador solo aparece cuando de verdad importa. Verlo en
                     «0/4000» desde el primer momento hacía parecer el cuadro un
                     formulario con límite en vez de una conversación. */}
@@ -1525,7 +1547,7 @@ export default function AgentPage() {
               </div>
               <Boton
                 onClick={() => void sendMessage()}
-                disabled={isLoading || (!input.trim() && attachments.length === 0)}
+                disabled={isLoading || uso?.agotado === true || (!input.trim() && attachments.length === 0)}
                 cargando={isLoading}
                 textoCargando="Enviando…"
                 tono="violet"

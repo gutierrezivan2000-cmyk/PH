@@ -327,8 +327,17 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
   const discardBlobs = async () => {
     if (blobFiles.length === 0) return;
     try {
+      // Las URLs las manda el cliente: solo se borran las que son de verdad blobs de la plataforma y que no están registradas como
+      // documento de una copropiedad (si no, bastaría pegar la URL de un documento ajeno para borrarlo).
+      const { isAllowedBlobUrl } = await import("@/lib/blob-url");
+      const candidatas = blobFiles.map((f) => f.url).filter((u) => isAllowedBlobUrl(u));
+      if (candidatas.length === 0) return;
+      const registradas = await db.propertyDocument.findMany({ where: { url: { in: candidatas } }, select: { url: true } });
+      const ajenas = new Set(registradas.map((d: { url: string }) => d.url));
+      const aBorrar = candidatas.filter((u) => !ajenas.has(u));
+      if (aBorrar.length === 0) return;
       const { del } = await import("@vercel/blob");
-      await del(blobFiles.map((f) => f.url));
+      await del(aBorrar);
     } catch (e) {
       console.error("[generate/full] no se pudieron borrar los archivos rechazados:", e);
     }
@@ -387,6 +396,7 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     const { checkUsageLimits } = await import("@/lib/usage");
     const usageCheck = await checkUsageLimits(dbUserId);
     if (!usageCheck.allowed) {
+      await discardBlobs();
       return NextResponse.json({
         error: usageCheck.reason,
         dailyUsed: usageCheck.dailyUsed,
@@ -400,6 +410,7 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
   // Step 5: Find property
   const property = await db.property.findFirst({ where: { id: propertyId, userId: dbUserId } });
   if (!property) {
+    await discardBlobs();
     return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
   }
 

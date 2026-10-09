@@ -48,6 +48,18 @@ export function periodoMensualBogota(ahora: Date): { inicio: Date; fin: Date } {
   };
 }
 
+/** Una ventana se considera agotada cuando le queda menos del 1 %: es la misma cuenta que redondea a 0 % en la barra. */
+const UMBRAL_DE_AGOTADO = 0.01;
+
+type Candidato = {
+  ventana: VentanaDeUso;
+  restante: number;
+  /** Cuándo sale el primer consumo de la ventana y empieza a liberarse algo (en el mes, al renovarse el periodo). */
+  primeraSalida: Date;
+  /** Cuándo la ventana vuelve a tener al menos 1 % disponible. */
+  vuelveEn: Date;
+};
+
 export function estadoDeUso({
   presupuestoUsd,
   periodo,
@@ -62,31 +74,49 @@ export function estadoDeUso({
   if (!(presupuestoUsd > 0)) return { porcentajeRestante: 0, ventana: "mes", renovaEn: periodo.fin, agotado: true };
 
   const ahoraMs = ahora.getTime();
-  // Solo cuenta lo gastado dentro del periodo y ya ocurrido (un consumo con fecha futura no debería existir, pero no se suma).
-  const delPeriodo = consumos.filter((c) => {
-    const t = c.fecha.getTime();
-    return t >= periodo.inicio.getTime() && t <= ahoraMs && Number.isFinite(c.costUsd) && c.costUsd > 0;
-  });
+  // Solo cuenta lo que ya ocurrió y tiene un costo válido (un consumo con fecha futura no debería existir, pero no se suma).
+  const validos = consumos
+    .filter((c) => c.fecha.getTime() <= ahoraMs && Number.isFinite(c.costUsd) && c.costUsd > 0)
+    .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
   const sumar = (xs: Consumo[]) => xs.reduce((s, c) => s + c.costUsd, 0);
 
-  const candidatos: { ventana: VentanaDeUso; restante: number; renovaEn: Date }[] = [
-    { ventana: "mes", restante: 1 - sumar(delPeriodo) / presupuestoUsd, renovaEn: periodo.fin },
+  // El mes cuenta lo gastado dentro del periodo. La sesión y la semana son ventanas MÓVILES: miran hacia atrás desde ahora, aunque
+  // lo gastado quede en el mes anterior (si no, a principios de mes el tope de 20 % y 40 % dejaría de aplicar).
+  const delPeriodo = validos.filter((c) => c.fecha.getTime() >= periodo.inicio.getTime());
+  const candidatos: Candidato[] = [
+    { ventana: "mes", restante: 1 - sumar(delPeriodo) / presupuestoUsd, primeraSalida: periodo.fin, vuelveEn: periodo.fin },
   ];
   for (const [nombre, v] of Object.entries(VENTANAS_DE_USO) as [keyof typeof VENTANAS_DE_USO, (typeof VENTANAS_DE_USO)[keyof typeof VENTANAS_DE_USO]][]) {
-    const desde = ahoraMs - v.duracionMs;
-    const dentro = delPeriodo.filter((c) => c.fecha.getTime() >= desde);
+    const dentro = validos.filter((c) => c.fecha.getTime() >= ahoraMs - v.duracionMs);
     const tope = presupuestoUsd * v.parte;
-    const masAntiguo = dentro.reduce<number | null>((min, c) => (min === null || c.fecha.getTime() < min ? c.fecha.getTime() : min), null);
+    const gastado = sumar(dentro);
+    // Vuelve a haber 1 % cuando, al ir saliendo los consumos más antiguos, lo gastado baja de (1 − 1 %) del tope.
+    let vuelveEn = ahora;
+    if (gastado > tope * (1 - UMBRAL_DE_AGOTADO)) {
+      let resto = gastado;
+      for (const c of dentro) {
+        resto -= c.costUsd;
+        vuelveEn = new Date(c.fecha.getTime() + v.duracionMs);
+        if (resto <= tope * (1 - UMBRAL_DE_AGOTADO)) break;
+      }
+    }
     candidatos.push({
       ventana: nombre,
-      restante: 1 - sumar(dentro) / tope,
-      renovaEn: masAntiguo === null ? ahora : new Date(masAntiguo + v.duracionMs),
+      restante: 1 - gastado / tope,
+      primeraSalida: dentro.length === 0 ? ahora : new Date(dentro[0].fecha.getTime() + v.duracionMs),
+      vuelveEn,
     });
   }
 
+  const porcentaje = (c: Candidato) => Math.max(0, Math.min(100, Math.floor(c.restante * 100)));
   const peor = candidatos.reduce((a, b) => (b.restante < a.restante ? b : a));
-  const porcentajeRestante = Math.max(0, Math.min(100, Math.floor(peor.restante * 100)));
-  return { porcentajeRestante, ventana: peor.ventana, renovaEn: peor.renovaEn, agotado: porcentajeRestante <= 0 };
+  const porcentajeRestante = porcentaje(peor);
+  if (porcentajeRestante > 0) return { porcentajeRestante, ventana: peor.ventana, renovaEn: peor.primeraSalida, agotado: false };
+
+  // Agotado: el uso solo vuelve cuando TODAS las ventanas agotadas se liberan, así que manda la que tarda más.
+  const bloqueantes = candidatos.filter((c) => porcentaje(c) <= 0);
+  const manda = bloqueantes.reduce((a, b) => (b.vuelveEn.getTime() > a.vuelveEn.getTime() ? b : a));
+  return { porcentajeRestante: 0, ventana: manda.ventana, renovaEn: manda.vuelveEn, agotado: true };
 }
 
 /** Cuánto aviso mostrar: 20 % y 5 % son los dos umbrales de la barra. */
@@ -113,7 +143,8 @@ export function cuandoSeLibera(fecha: Date, ahora: Date): string {
 /** Lo que se le dice a la persona cuando el uso se agotó. */
 export function mensajeDeAgotado(estado: EstadoDeUso, ahora: Date): string {
   if (estado.ventana === "mes") return `Se agotó tu uso del chat de este mes. Se renueva el ${FECHA_BOGOTA.format(estado.renovaEn)}.`;
-  return `Se agotó tu uso del chat de esta ${NOMBRE_DE_VENTANA[estado.ventana]}. Vuelve a tener uso ${cuandoSeLibera(estado.renovaEn, ahora)}.`;
+  // «a las 5:00 p. m.» ya termina en punto: se evita el doble punto.
+  return `Se agotó tu uso del chat de esta ${NOMBRE_DE_VENTANA[estado.ventana]}. Vuelve a tener uso ${cuandoSeLibera(estado.renovaEn, ahora)}.`.replace(/\.\.$/, ".");
 }
 
 /** Inicio del día de hoy en Bogotá (medianoche). */

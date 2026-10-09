@@ -43,7 +43,7 @@ describe("comprobarCupoDePreguntas: «Preguntar» usa el mismo uso del chat", ()
   });
 
   it("con el uso agotado (la sesión de 5 h), no deja preguntar y dice cuándo vuelve", async () => {
-    await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 1, date: hace(1) } });
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 0.2, date: hace(1) } });
     const c = await comprobarCupoDePreguntas("u1", AHORA);
     expect(c).toMatchObject({ permitido: false, ilimitado: false, porcentajeRestante: 0 });
     expect(c.mensaje).toContain("sesión de 5 horas");
@@ -56,7 +56,7 @@ describe("comprobarCupoDePreguntas: «Preguntar» usa el mismo uso del chat", ()
   });
 
   it("un chat con los agentes gasta del mismo uso que una pregunta a una reunión", async () => {
-    await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.agenteChat, costUsd: 1, date: hace(1) } });
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.agenteChat, costUsd: 0.2, date: hace(1) } });
     expect(await comprobarCupoDePreguntas("u1", AHORA)).toMatchObject({ permitido: false, porcentajeRestante: 0 });
   });
 

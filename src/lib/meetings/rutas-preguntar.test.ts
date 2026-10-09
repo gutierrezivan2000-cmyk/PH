@@ -244,6 +244,37 @@ describe("POST /api/meetings/[id]/preguntar", () => {
       expect(ia.textos[0].senal!.aborted).toBe(true);
       soltar();
     });
+
+    it("si la respuesta ya había empezado cuando falla, igual se registra lo que leyó la IA (estimado), y cuenta en el uso", async () => {
+      await sembrarReunion();
+      ia = crearIASimulada({ alLlamarTexto: (entrada) => { entrada.alTexto?.("Según el acta, "); throw new Error("se cortó la conexión"); } });
+      iaActual.actual = ia;
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      await eventos(await preguntar(pedir({ pregunta: "hola" }), ctx()));
+      expect(db.usageRecord.filas).toHaveLength(1);
+      expect(db.usageRecord.filas[0]).toMatchObject({ userId: "u1", type: TIPO_DE_USO_PREGUNTA });
+      // La transcripción completa va en cada pregunta: la entrada estimada es de miles de tokens, no de cero.
+      expect(Number(db.usageRecord.filas[0].tokens)).toBeGreaterThan(1000);
+      expect(Number(db.usageRecord.filas[0].costUsd)).toBeGreaterThan(0);
+      log.mockRestore();
+    });
+
+    it("si la persona detiene la respuesta («Detener»), se registra lo que la IA ya leyó: detener y reintentar no salen gratis", async () => {
+      await sembrarReunion();
+      ia = crearIASimulada({
+        alLlamarTexto: (entrada) => new Promise<void>((_, rechazar) => entrada.senal!.addEventListener("abort", () => rechazar(new Error("abortada")))),
+      });
+      iaActual.actual = ia;
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      const r = await preguntar(pedir({ pregunta: "hola" }), ctx());
+      const lector = r.body!.getReader();
+      await lector.read(); // «inicio»
+      await vi.waitFor(() => expect(ia.textos).toHaveLength(1));
+      await lector.cancel();
+      await vi.waitFor(() => expect(db.usageRecord.filas).toHaveLength(1));
+      expect(db.usageRecord.filas[0]).toMatchObject({ userId: "u1", type: TIPO_DE_USO_PREGUNTA });
+      log.mockRestore();
+    });
   });
 });
 

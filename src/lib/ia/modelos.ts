@@ -12,8 +12,10 @@
  *  - `IA_MODELO_CHAT`          → el modelo del chat de los agentes.
  *  - `IA_MODELO_GENERAL`       → el modelo de todo lo demás.
  *  (La variable antigua `ANTHROPIC_MODEL` ya no se lee: si seguía puesta en Vercel con otro modelo, anularía esta decisión en silencio.)
- *  - `IA_MODELO_<TIPO>`        → el modelo de UNA función (p. ej. `IA_MODELO_REUNION_ACTA=claude-sonnet-5-5`).
+ *  - `IA_MODELO_<TIPO>`        → el modelo de UNA función (p. ej. `IA_MODELO_INFORME=claude-sonnet-5-5`).
  *  - `IA_ESFUERZO_<TIPO>`      → el esfuerzo de UNA función (`low`, `medium`, `high`, `xhigh` o `max`).
+ *  Reuniones (ficha, acta y preguntas) tiene su propia configuración (`lib/meetings/ia.ts`): `MEETINGS_MODEL` (o, si falta,
+ *  `IA_MODELO_GENERAL`), `MEETINGS_EFFORT` y `MEETINGS_EFFORT_PREGUNTAR`. Los ajustes por función de arriba no aplican a Reuniones.
  *
  * Los modelos 5 piensan por defecto (pensamiento adaptativo) y el pensamiento cuenta como tokens de salida: el esfuerzo es lo que
  * controla cuánto piensan, y por tanto el costo y la latencia. Los modelos 5 rechazan `temperature`, `top_k` y el prefill: no se mandan.

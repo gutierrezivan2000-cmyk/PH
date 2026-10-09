@@ -7,7 +7,7 @@ import { ensureMeetingsSchema } from "@/lib/ensure-meetings-schema";
 import { exigirVisible, reunionDelUsuario } from "@/lib/meetings/acceso";
 import { TIPO_DE_USO_PREGUNTA, comprobarCupoDePreguntas } from "@/lib/meetings/cupo-preguntas";
 import { demoPuedePreguntar, demoResponderPregunta } from "@/lib/meetings/demo-preguntar";
-import { ErrorIA, crearClienteIA, tokensDeUso } from "@/lib/meetings/ia";
+import { ErrorIA, crearClienteIA, modeloDeReuniones, tokensDeUso } from "@/lib/meetings/ia";
 import { leerPedido } from "@/lib/meetings/preguntar-pedido";
 import { responderPregunta } from "@/lib/meetings/preguntar-servidor";
 import { crearFlujoSSE } from "@/lib/meetings/sse";
@@ -82,7 +82,25 @@ export async function POST(req: NextRequest, { params }: Contexto) {
 
     const flujo = crearFlujoSSE(async (enviar, senal) => {
       enviar("inicio", {});
-      const r = await responderPregunta({ meetingId: id, userId: ctx.userId, pedido: pedido.valor, ia, senal, alTexto: (texto) => enviar("delta", { texto }) });
+      let r;
+      let llegoTexto = false;
+      try {
+        r = await responderPregunta({
+          meetingId: id, userId: ctx.userId, pedido: pedido.valor, ia, senal,
+          alTexto: (texto) => { llegoTexto = true; enviar("delta", { texto }); },
+        });
+      } catch (e) {
+        // Una pregunta que la persona detuvo (Detener) o que falló con la respuesta ya empezada igual leyó la transcripción: se
+        // registra lo estimado de entrada para que cuente en el uso. Si la API rechazó la llamada al instante, no se cobró nada.
+        const entrada = (e as { entradaEstimada?: number } | null)?.entradaEstimada;
+        if (typeof entrada === "number" && entrada > 0 && (senal?.aborted || llegoTexto)) {
+          await registrarConsumo({
+            tipo: TIPO_DE_USO_PREGUNTA, proveedor: "anthropic", modelo: modeloDeReuniones(),
+            tokens: { entrada, salida: 0, cacheLectura: 0, cacheEscritura: 0 }, userId: ctx.userId, ref: { tipo: "reunion", id },
+          });
+        }
+        throw e;
+      }
       if (!r.ok) {
         enviar("error", { mensaje: r.error });
         return;

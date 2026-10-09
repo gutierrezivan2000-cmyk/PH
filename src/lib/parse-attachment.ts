@@ -1,6 +1,6 @@
 import { parseFile, detectFileType } from "@/lib/parsers";
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+export const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_EXTRACTED_CHARS = 20000; // limit to keep prompt size reasonable
 
 /**
@@ -16,6 +16,14 @@ export interface AttachmentInput {
   url: string;
   type: string;
   size: number;
+}
+
+/**
+ * ¿Este adjunto se va a transcribir? Es la misma decisión que toma `parseAttachment` (misma detección de tipo y el mismo tope de
+ * tamaño), para que el tope de minutos de audio cuente exactamente lo que se transcribe y nada más.
+ */
+export function seTranscribe(att: Pick<AttachmentInput, "name" | "type" | "size">): boolean {
+  return detectFileType(att.name, att.type) === "audio" && att.size <= MAX_FILE_BYTES;
 }
 
 export interface ParsedAttachment {

@@ -63,8 +63,8 @@ afterEach(() => {
 });
 
 describe("el chat se mide por el uso que le queda a la cuenta (porcentaje, en dólares de costo)", () => {
-  it("con la sesión de 5 horas agotada (US$1), el chat no deja escribir y dice cuándo vuelve el uso", async () => {
-    await gastar(1, 1);
+  it("con la sesión de 5 horas agotada (US$0,2 de los 0,15 de la sesión), el chat no deja escribir y dice cuándo vuelve el uso", async () => {
+    await gastar(0.2, 1);
     const r = await sinUso(await escribir());
     expect(r.status).toBe(429);
     expect(r.cuerpo.error).toContain("sesión de 5 horas");
@@ -76,16 +76,16 @@ describe("el chat se mide por el uso que le queda a la cuenta (porcentaje, en d�
     await llegaALaIA(await escribir());
   });
 
-  it("la semana también se agota: US$2 en los últimos 6 días", async () => {
-    await gastar(1, 6 * 24);
-    await gastar(1, 5 * 24);
+  it("la semana también se agota: US$0,35 en los últimos 6 días (tope de la semana: 0,30), sin agotar el mes", async () => {
+    await gastar(0.2, 6 * 24);
+    await gastar(0.15, 5 * 24);
     const r = await sinUso(await escribir());
     expect(r.status).toBe(429);
     expect(r.cuerpo.error).toContain("esta semana");
   });
 
   it("las preguntas a las reuniones gastan del mismo uso que el chat", async () => {
-    await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 1, date: hace(1) } });
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 0.2, date: hace(1) } });
     const r = await sinUso(await escribir());
     expect(r.status).toBe(429);
     expect(r.cuerpo.error).toContain("sesión de 5 horas");

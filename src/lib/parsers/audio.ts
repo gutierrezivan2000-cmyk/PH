@@ -26,6 +26,11 @@ const CONCURRENCIA = 4;
 const PRESUPUESTO_MS = 200_000;
 
 export async function parseAudioFile(file: File): Promise<string> {
+  // El cupo mensual de minutos se comprueba aquí, con el tamaño real, ANTES de gastar nada: cubre el chat, los documentos, el lote
+  // y los reintentos. Lanza si no cabe.
+  const { exigirCupoDeAudio } = await import("@/lib/uso-chat-servidor");
+  await exigirCupoDeAudio(file);
+
   if (file.size <= WHISPER_MAX_SIZE) {
     console.log(`[parseAudioFile] ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB) — sending directly to Whisper`);
     const text = await transcribeAudio(file);
@@ -158,7 +163,10 @@ function splitWithFfmpeg(
   recodificar = false
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    // Carga perezosa a propósito: son módulos nativos que solo hacen falta al trocear un audio grande.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ffmpegPath = require("@ffmpeg-installer/ffmpeg").path;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ffmpeg = require("fluent-ffmpeg") as typeof import("fluent-ffmpeg");
     ffmpeg.setFfmpegPath(ffmpegPath);
 

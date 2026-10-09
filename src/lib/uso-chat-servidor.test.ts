@@ -6,7 +6,8 @@ vi.mock("@/lib/usage", () => ({ checkSubscriptionAccess: (...a: unknown[]) => ac
 
 import { TIPOS } from "@/lib/consumo/funciones";
 import { PLANS } from "@/lib/epayco";
-import { cupoDeAudioMensual, limitesDelPlan, minutosDeAudioDesde, usoDelChat } from "./uso-chat-servidor";
+import { CupoDeAudioAgotado, cupoDeAudioMensual, exigirCupoDeAudio, limitesDelPlan, minutosDeAudioDesde, usoDelChat } from "./uso-chat-servidor";
+import { conConsumo } from "@/lib/consumo/registrar";
 import { crearDbFalsa, type DbFalsa } from "@/lib/meetings/db-falsa";
 
 const H = 3_600_000;
@@ -105,6 +106,33 @@ describe("cupoDeAudioMensual: el audio del chat y de los documentos comparten el
     acceso.mockResolvedValue({ allowed: true, status: "active" });
     vi.spyOn(db.usageRecord, "aggregate").mockRejectedValue(new Error("conexión perdida"));
     expect(await cupoDeAudioMensual("u1", 5, AHORA)).toEqual({ bloqueado: false, mensaje: null });
+  });
+});
+
+describe("exigirCupoDeAudio: se comprueba con el tamaño real y la cuenta de la operación", () => {
+  const MB = 1024 * 1024;
+
+  it("con 110 de 120 minutos usados, un audio de 10 MB cabe y uno de 11 MB no (lanza con el motivo)", async () => {
+    acceso.mockResolvedValue({ allowed: true, status: "active" });
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.audioEnGeneracion, tokens: 110 * 60, date: hace(2) } });
+    await conConsumo({ userId: "u1" }, async () => {
+      await expect(exigirCupoDeAudio({ size: 10 * MB })).resolves.toBeUndefined();
+      await expect(exigirCupoDeAudio({ size: 11 * MB })).rejects.toBeInstanceOf(CupoDeAudioAgotado);
+      await expect(exigirCupoDeAudio({ size: 11 * MB })).rejects.toThrow("120 minutos");
+    });
+  });
+
+  it("sin cuenta en el contexto de consumo no comprueba nada", async () => {
+    acceso.mockResolvedValue({ allowed: true, status: "active" });
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.audioEnGeneracion, tokens: 500 * 60, date: hace(2) } });
+    await expect(exigirCupoDeAudio({ size: 500 * MB })).resolves.toBeUndefined();
+  });
+
+  it("beta no tiene tope, ni con un archivo enorme", async () => {
+    acceso.mockResolvedValue({ allowed: true, status: "beta" });
+    await conConsumo({ userId: "u1" }, async () => {
+      await expect(exigirCupoDeAudio({ size: 900 * MB })).resolves.toBeUndefined();
+    });
   });
 });
 

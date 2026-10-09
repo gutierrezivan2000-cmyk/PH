@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { PLANS, TRIAL_LIMITS } from "@/lib/epayco";
 import { normalizePlanId } from "@/lib/plan";
 import { TIPOS } from "@/lib/consumo/funciones";
+import { contextoDeConsumo } from "@/lib/consumo/registrar";
 import { checkSubscriptionAccess } from "@/lib/usage";
 import { estadoDeUso, fechaBogota, periodoMensualBogota, type EstadoDeUso } from "@/lib/uso-chat";
 
@@ -109,5 +110,26 @@ export async function cupoDeAudioMensual(userId: string, minutosPedidos: number,
     console.error("[uso-chat] no se pudo revisar el cupo de audio; se deja pasar", e);
     return { bloqueado: false, mensaje: null };
   }
+}
+
+/** El audio no cabe en el cupo mensual de minutos (lo que se dice a la persona está en el mensaje). */
+export class CupoDeAudioAgotado extends Error {
+  constructor(mensaje: string) {
+    super(mensaje);
+    this.name = "CupoDeAudioAgotado";
+  }
+}
+
+/**
+ * Antes de mandar un audio a transcribir: ¿cabe en el cupo mensual de minutos? Usa el tamaño REAL del archivo (no el que declara el
+ * cliente) y la cuenta de la operación en curso (`conConsumo`), así que cubre también el lote y los reintentos, que no pasan por la
+ * comprobación de la ruta. Lanza `CupoDeAudioAgotado` si no cabe. Sin cuenta en el contexto no comprueba. Estima 1 MB ≈ 1 minuto.
+ */
+export async function exigirCupoDeAudio(file: Pick<File, "size">): Promise<void> {
+  const userId = contextoDeConsumo()?.userId;
+  if (!userId) return;
+  const minutos = Math.max(1, Math.ceil(file.size / (1024 * 1024)));
+  const cupo = await cupoDeAudioMensual(userId, minutos);
+  if (cupo.bloqueado) throw new CupoDeAudioAgotado(cupo.mensaje ?? "Se agotó tu cupo mensual de audio.");
 }
 
