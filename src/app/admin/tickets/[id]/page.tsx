@@ -1,7 +1,8 @@
 import { AdminGate } from "@/components/admin/AdminGate";
 import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
-import { codigoDeUsuario } from "@/lib/admin/anonimo";
+import { Persona } from "@/components/admin/Persona";
+import { CAMPOS_DE_IDENTIDAD } from "@/lib/admin/identidad";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import {
@@ -92,7 +93,7 @@ async function TicketDetailContent({ id }: { id: string }) {
     include: {
       user: {
         select: {
-          id: true,
+          ...CAMPOS_DE_IDENTIDAD,
           subscription: { select: { id: true, status: true, planId: true } },
         },
       },
@@ -115,9 +116,9 @@ async function TicketDetailContent({ id }: { id: string }) {
   if (ticket.assignedTo) {
     const assignedUser = await db.user.findUnique({
       where: { id: ticket.assignedTo },
-      select: { id: true },
+      select: { name: true, email: true },
     });
-    assignedName = codigoDeUsuario(assignedUser?.id ?? ticket.assignedTo);
+    assignedName = assignedUser?.name || assignedUser?.email || ticket.assignedTo;
   }
 
   type Attachment = { name: string; url: string; size: number };
@@ -281,8 +282,9 @@ async function TicketDetailContent({ id }: { id: string }) {
                           <User className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
                         </div>
                         <div>
-                          <span className="text-[13px] font-medium text-foreground" style={{ fontFamily: "var(--font-mono)" }}>
-                            {codigoDeUsuario(ticket.user.id)}
+                          <span className="text-[13px] font-medium text-foreground">{ticket.user.name || ticket.user.email}</span>
+                          <span className="ml-1.5 text-[11px]" style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}>
+                            {ticket.user.email}
                           </span>
                         </div>
                       </>
@@ -349,18 +351,13 @@ async function TicketDetailContent({ id }: { id: string }) {
             <p className="text-[10px] uppercase mb-4" style={{ ...monoSmall, color: "var(--ink-4)" }}>
               Usuario
             </p>
-            <div className="flex items-center gap-3 mb-4">
-              <div
-                className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgb(var(--veil-rgb) / 0.05)", border: "1px solid var(--border)" }}
-              >
-                <User className="h-4.5 w-4.5" style={{ color: "var(--ink-4)" }} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium text-foreground truncate" style={{ fontFamily: "var(--font-mono)" }}>
-                  {codigoDeUsuario(ticket.user.id)}
+            <div className="mb-4 space-y-2">
+              <Persona id={ticket.user.id} name={ticket.user.name} email={ticket.user.email} image={ticket.user.image} enlace={false} />
+              {(ticket.user.phone || ticket.user.company || ticket.user.city) && (
+                <p className="text-[12px]" style={{ color: "var(--ink-3)" }}>
+                  {[ticket.user.phone, ticket.user.company, ticket.user.city].filter(Boolean).join(" · ")}
                 </p>
-              </div>
+              )}
             </div>
             <Link
               href={`/admin/usuarios/${ticket.user.id}`}

@@ -20,18 +20,6 @@ function origin(req: NextRequest): string {
 export async function POST(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ error: "No disponible en demo" }, { status: 400 });
 
-  // El portal ya no muestra el botón de pago mientras Cartera está pausada,
-  // pero la ruta seguía viva y aceptando cobros reales de quien la llamara
-  // directamente. Cerrarla evita mover dinero de una función que no se está
-  // operando: nadie estaría del otro lado para conciliar ni responder.
-  const { COMING_SOON } = await import("@/lib/feature-flags");
-  if (COMING_SOON.cartera) {
-    return NextResponse.json(
-      { error: "El pago en línea no está disponible por ahora." },
-      { status: 503 }
-    );
-  }
-
   const body = await req.json().catch(() => ({}));
   const { token, amount } = body as { token?: string; amount?: number };
   if (!token || !TOKEN_RE.test(token)) {
@@ -60,11 +48,18 @@ export async function POST(req: NextRequest) {
     });
     if (!unit) return NextResponse.json({ error: "Enlace inválido." }, { status: 404 });
 
+    // Cartera está en lanzamiento gradual: no se cobra dinero real de un módulo que no está abierto para el administrador de
+    // esta copropiedad (nadie estaría del otro lado para conciliar ni responder).
+    const { moduloAbiertoParaPropietario } = await import("@/lib/modulos-acceso");
+    if (!(await moduloAbiertoParaPropietario("cartera", unit.property.userId))) {
+      return NextResponse.json({ error: "El pago en línea no está disponible por ahora." }, { status: 503 });
+    }
+
     // Don't take a payment the administration can no longer reconcile (their
     // plan no longer covers cartera): the money would move with no visible
     // trace on their side.
     const { ownerHasCarteraPlan } = await import("@/lib/cartera-server");
-    if (!(await ownerHasCarteraPlan(unit.property.userId))) {
+    if (!(await ownerHasCarteraPlan(unit.property.userId, "cartera"))) {
       return NextResponse.json(
         {
           error: "El pago en línea no está disponible en este momento. Comunícate con la administración.",

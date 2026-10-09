@@ -43,7 +43,8 @@ export default function TerminosPage() {
           <Ir a="/legal/habeas-data">Política de Tratamiento de Datos Personales</Ir>, las{" "}
           <Ir a="/legal/reuniones">condiciones de Reuniones</Ir>, el{" "}
           <Ir a="/legal/encargado">Acuerdo de Encargado del Tratamiento</Ir>, el documento sobre{" "}
-          <Ir a="/legal/ia">uso de Inteligencia Artificial</Ir> y la <Ir a="/legal/cookies">Política de Cookies</Ir>.
+          <Ir a="/legal/ia">uso de Inteligencia Artificial</Ir>, las{" "}
+          <Ir a="/legal/gestion">condiciones de los módulos de gestión</Ir> y la <Ir a="/legal/cookies">Política de Cookies</Ir>.
         </p>
       </Section>
 

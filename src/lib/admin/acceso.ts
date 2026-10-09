@@ -1,4 +1,4 @@
-/** Validación pura de «dar acceso»: qué plan y por cuántos días (el panel opera por código, ver anonimo.ts). */
+/** Validación pura de «dar acceso»: qué plan y por cuántos días (ver identidad.ts). */
 export const PLANES_DE_ACCESO = ["pro", "business", "elite"] as const;
 export type PlanDeAcceso = (typeof PLANES_DE_ACCESO)[number];
 export const DIAS_MAXIMOS_DE_ACCESO = 365;

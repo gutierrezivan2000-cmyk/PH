@@ -84,7 +84,7 @@ describe("al pasar a «lista»", () => {
     await alPasarALista(ID);
     const [audio, ia] = db.usageRecord.filas;
     expect(audio).toMatchObject({ provider: "openai", model: "gpt-4o-transcribe-diarize", audioSeconds: 8_040, refType: "reunion", refId: ID });
-    expect(ia).toMatchObject({ provider: "anthropic", model: "claude-opus-5-5", inputTokens: 40_000, outputTokens: 6_000, cacheReadTokens: 0, cacheWriteTokens: 0, refType: "reunion", refId: ID });
+    expect(ia).toMatchObject({ provider: "anthropic", model: "claude-haiku-5-5", inputTokens: 40_000, outputTokens: 6_000, cacheReadTokens: 0, cacheWriteTokens: 0, refType: "reunion", refId: ID });
   });
 
   it("sin análisis con IA no hay registro de IA, y sin un solo segundo de audio tampoco el de audio", async () => {

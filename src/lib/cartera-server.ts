@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { canUseCartera } from "@/lib/cartera";
+import { MODO_DE_MODULO, type ComingSoonKey } from "@/lib/feature-flags";
+
+/**
+ * ¿El plan cubre el módulo? Mientras un módulo esté en piloto (solo admins y testers invitados) no se exige Business/Élite:
+ * el piloto sirve justamente para probarlo con cuentas que aún no tienen ese plan. Al abrirlo a todos vuelve a exigirse.
+ */
+function planCubre(modulo: ComingSoonKey | undefined, accessStatus: string, plan: string | null): boolean {
+  if (modulo && MODO_DE_MODULO[modulo] === "piloto") return true;
+  return canUseCartera(accessStatus, plan);
+}
 
 /**
  * Whether an ARBITRARY user (the property owner) currently has the plan that
@@ -10,7 +20,7 @@ import { canUseCartera } from "@/lib/cartera";
  * into a black hole. Fails OPEN on infra errors (never block a resident
  * because our DB hiccuped).
  */
-export async function ownerHasCarteraPlan(userId: string): Promise<boolean> {
+export async function ownerHasCarteraPlan(userId: string, modulo?: ComingSoonKey): Promise<boolean> {
   try {
     const { checkSubscriptionAccess } = await import("@/lib/usage");
     const { db } = await import("@/lib/db");
@@ -21,7 +31,7 @@ export async function ownerHasCarteraPlan(userId: string): Promise<boolean> {
       where: { userId },
       select: { planId: true },
     });
-    return canUseCartera(access.status, normalizePlanId(sub?.planId));
+    return planCubre(modulo, access.status, normalizePlanId(sub?.planId));
   } catch {
     return true;
   }
@@ -32,12 +42,21 @@ export async function ownerHasCarteraPlan(userId: string): Promise<boolean> {
  * beta or paid) + Business/Élite plan (Pro sees the upgrade path).
  * Callers handle DEMO_MODE before invoking this.
  */
-export async function requireCartera(): Promise<
+export async function requireCartera(modulo?: ComingSoonKey): Promise<
   { userId: string; accessStatus: string } | { error: NextResponse }
 > {
   const session = await auth();
   if (!session?.user?.id) {
     return { error: NextResponse.json({ error: "No autorizado" }, { status: 401 }) };
+  }
+  // Módulo en lanzamiento gradual (ver feature-flags.ts): solo los admins y los testers del piloto lo usan. Las rutas del
+  // portal de residentes y de la configuración de pagos no pasan `modulo` porque no son un módulo pausado.
+  if (modulo) {
+    const { moduloVisible } = await import("@/lib/feature-flags");
+    const { usuarioDeModulo } = await import("@/lib/modulos-acceso");
+    if (!moduloVisible(modulo, usuarioDeModulo({ email: session.user.email, role: session.user.role }))) {
+      return { error: NextResponse.json({ error: "No encontrado" }, { status: 404 }) };
+    }
   }
 
   const { checkSubscriptionAccess } = await import("@/lib/usage");
@@ -64,7 +83,7 @@ export async function requireCartera(): Promise<
     // plan stays null → gate decides from access status alone
   }
 
-  if (!canUseCartera(access.status, plan)) {
+  if (!planCubre(modulo, access.status, plan)) {
     return {
       error: NextResponse.json(
         {

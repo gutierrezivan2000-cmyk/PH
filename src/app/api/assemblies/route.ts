@@ -2,6 +2,8 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { exigirModulo } from "@/lib/modulos-acceso";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -12,6 +14,10 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  {
+    const puerta = await exigirModulo("asambleas");
+    if ("error" in puerta) return puerta.error;
   }
   if (IS_DEMO) {
     const { getDemoAssemblies } = await import("@/lib/demo-store");
@@ -46,6 +52,10 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  {
+    const puerta = await exigirModulo("asambleas");
+    if ("error" in puerta) return puerta.error;
   }
 
   const body = await req.json().catch(() => ({}));
@@ -122,6 +132,16 @@ export async function POST(req: NextRequest) {
         86400000
     );
 
+    await registrarEvento({
+      userId: session.user.id,
+      propertyId,
+      modulo: "asambleas",
+      accion: "asamblea_creada",
+      resumen: `Asamblea ${assembly.type} (${assembly.modality}) programada para el ${assembly.date.toISOString().slice(0, 10)}`,
+      refType: "Assembly",
+      refId: assembly.id,
+    });
+
     return NextResponse.json(
       { ok: true, id: assembly.id, daysNotice },
       { status: 201 }
@@ -136,6 +156,10 @@ export async function PATCH(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  {
+    const puerta = await exigirModulo("asambleas");
+    if ("error" in puerta) return puerta.error;
   }
 
   const body = await req.json().catch(() => ({}));
@@ -152,9 +176,16 @@ export async function PATCH(req: NextRequest) {
     const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
     await ensureAdminSchema();
 
+    // Igual que al crear: sin suscripción activa no se cambia el estado de una asamblea (convocar, cerrar, cancelar).
+    const { checkSubscriptionAccess } = await import("@/lib/usage");
+    const access = await checkSubscriptionAccess(session.user.id);
+    if (!access.allowed) {
+      return NextResponse.json({ error: access.reason || "Necesitas una suscripción activa." }, { status: 403 });
+    }
+
     const existing = await db.assembly.findFirst({
       where: { id, userId: session.user.id },
-      select: { id: true },
+      select: { id: true, propertyId: true, type: true, date: true },
     });
     if (!existing) {
       return NextResponse.json({ error: "Asamblea no encontrada" }, { status: 404 });
@@ -172,6 +203,15 @@ export async function PATCH(req: NextRequest) {
               : { status: "convocada" };
 
     await db.assembly.update({ where: { id }, data });
+    await registrarEvento({
+      userId: session.user.id,
+      propertyId: existing.propertyId,
+      modulo: "asambleas",
+      accion: `asamblea_${action}`,
+      resumen: `Asamblea ${existing.type} del ${existing.date.toISOString().slice(0, 10)}: ${action}`,
+      refType: "Assembly",
+      refId: existing.id,
+    });
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[assemblies PATCH]", error);

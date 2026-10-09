@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 const TYPES = ["peticion", "queja", "reclamo", "sugerencia"] as const;
@@ -37,11 +38,21 @@ export async function GET(req: NextRequest) {
     if (!unit) return NextResponse.json({ pqrs: [] });
 
     const { db } = await import("@/lib/db");
+    // Solo lo que el residente necesita ver: nada de ids internos de la administración (userId, propertyId).
     const pqrs = await db.pqrs.findMany({
       where: { unitId: unit.id },
       orderBy: { createdAt: "desc" },
       take: 30,
-      include: { messages: { orderBy: { createdAt: "asc" } } },
+      select: {
+        id: true,
+        code: true,
+        type: true,
+        subject: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        messages: { orderBy: { createdAt: "asc" }, select: { id: true, fromAdmin: true, content: true, createdAt: true } },
+      },
     });
     return NextResponse.json({ pqrs });
   } catch (e) {
@@ -53,17 +64,6 @@ export async function GET(req: NextRequest) {
 /** Radicate a new PQRS from the portal. */
 export async function POST(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ ok: true, code: "PQR-DEMO12", demo: true }, { status: 201 });
-
-  // PQRS está pausado: la bandeja del administrador muestra "Próximamente", así
-  // que una solicitud radicada aquí caería en un buzón que nadie abre. Es peor
-  // que decirle al residente que todavía no está disponible.
-  const { COMING_SOON } = await import("@/lib/feature-flags");
-  if (COMING_SOON.pqrs) {
-    return NextResponse.json(
-      { error: "Las PQRS en línea no están disponibles por ahora. Escríbele a la administración por WhatsApp." },
-      { status: 503 }
-    );
-  }
 
   const body = await req.json().catch(() => ({}));
   const { token, type, subject, message, residentName, residentContact } = body as {
@@ -89,10 +89,20 @@ export async function POST(req: NextRequest) {
     const unit = await unitFromToken(token);
     if (!unit) return NextResponse.json({ error: "Enlace inválido." }, { status: 404 });
 
+    // PQRS está en lanzamiento gradual: si no está abierto para el administrador de esta copropiedad, la bandeja de ese
+    // administrador muestra «Próximamente» y la solicitud caería en un buzón que nadie abre.
+    const { moduloAbiertoParaPropietario } = await import("@/lib/modulos-acceso");
+    if (!(await moduloAbiertoParaPropietario("pqrs", unit.property.userId))) {
+      return NextResponse.json(
+        { error: "Las PQRS en línea no están disponibles por ahora. Escríbele a la administración por WhatsApp." },
+        { status: 503 }
+      );
+    }
+
     // Never accept a request the administration can no longer read (e.g. their
     // plan no longer covers PQRS) — it would vanish with nobody to answer it.
     const { ownerHasCarteraPlan } = await import("@/lib/cartera-server");
-    if (!(await ownerHasCarteraPlan(unit.property.userId))) {
+    if (!(await ownerHasCarteraPlan(unit.property.userId, "pqrs"))) {
       return NextResponse.json(
         {
           error:
@@ -133,12 +143,23 @@ export async function POST(req: NextRequest) {
             residentContact: residentContact?.trim().slice(0, 120) || null,
             messages: { create: { fromAdmin: false, content: message.trim().slice(0, 4000) } },
           },
-          select: { code: true },
+          select: { id: true, code: true },
         });
       } catch {
         if (attempt === 3) throw new Error("code collision");
       }
     }
+
+    await registrarEvento({
+      userId: unit.property.userId,
+      propertyId: unit.propertyId,
+      modulo: "pqrs",
+      accion: "pqrs_radicada",
+      resumen: `PQRS ${created!.code} radicada desde el portal por ${unit.label} (${kind}): ${subject.trim().slice(0, 100)}`,
+      refType: "Pqrs",
+      refId: created!.id,
+      actor: "residente",
+    });
 
     return NextResponse.json({ ok: true, code: created!.code }, { status: 201 });
   } catch (e) {

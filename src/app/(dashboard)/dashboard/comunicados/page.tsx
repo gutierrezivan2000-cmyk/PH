@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Building2, ChevronDown, Mail, Megaphone, Send, Sparkles, Trash2, Users, Check, MessageCircle, History } from "lucide-react";
 import { Header } from "@/components/dashboard/Header";
 import { ComingSoon } from "@/components/dashboard/ComingSoon";
-import { COMING_SOON } from "@/lib/feature-flags";
+import { useModulos } from "@/components/dashboard/useModulos";
 import { UnitImport } from "@/components/dashboard/UnitImport";
 import {
   AreaTexto,
@@ -576,7 +576,8 @@ function ComunicadosPage() {
  * carga y se descargaban datos que nadie iba a ver.
  */
 export default function ComunicadosRoute() {
-  if (COMING_SOON.comunicados) {
+  const { visible } = useModulos();
+  if (!visible("comunicados")) {
     return (
       <div>
         <Header title="Comunicados" subtitle="Circulares oficiales para tus copropiedades, redactadas con IA" />

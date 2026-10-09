@@ -9,6 +9,7 @@ const KEYS = [
   "DATABASE_URL",
   "ANTHROPIC_API_KEY",
   "ANTHROPIC_MODEL",
+  "IA_MODELO_GENERAL",
   "RESEND_API_KEY",
   "BLOB_READ_WRITE_TOKEN",
   "EPAYCO_PUBLIC_KEY",
@@ -34,6 +35,7 @@ function setAll() {
   process.env.CRON_SECRET = "x";
   delete process.env.DEMO_MODE;
   delete process.env.ANTHROPIC_MODEL;
+  delete process.env.IA_MODELO_GENERAL;
 }
 
 const byName = (r: HealthReport, name: string) => r.checks.find((c) => c.name === name)!;
@@ -101,11 +103,11 @@ describe("runHealthChecks (shallow)", () => {
     expect(byName(r, "payments").detail).toContain("EPAYCO_P_KEY");
   });
 
-  it("reports the effective model id and defaults to claude-sonnet-5", async () => {
+  it("reports the effective model id and defaults to claude-haiku-5-5", async () => {
     setAll();
     const r = await runHealthChecks({ deep: false, now: NOW });
-    expect(byName(r, "ai").detail).toContain("claude-sonnet-5");
-    process.env.ANTHROPIC_MODEL = "claude-opus-4-8";
+    expect(byName(r, "ai").detail).toContain("claude-haiku-5-5");
+    process.env.IA_MODELO_GENERAL = "claude-opus-4-8";
     const r2 = await runHealthChecks({ deep: false, now: NOW });
     expect(byName(r2, "ai").detail).toContain("claude-opus-4-8");
   });

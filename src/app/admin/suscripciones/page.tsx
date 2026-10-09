@@ -4,7 +4,8 @@ import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/db";
-import { codigoDeUsuario, filtroDeBusqueda } from "@/lib/admin/anonimo";
+import { Persona } from "@/components/admin/Persona";
+import { CAMPOS_DE_NOMBRE, filtroDeBusqueda } from "@/lib/admin/identidad";
 import Link from "next/link";
 import { CreditCard, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { SuscripcionesFilters } from "./SuscripcionesFilters";
@@ -38,6 +39,7 @@ async function loadSubs(sp: SearchParams) {
         where,
         select: {
           id: true, userId: true, planId: true, status: true, addonAgents: true, createdAt: true, currentPeriodStart: true, currentPeriodEnd: true, epaycoSubscriptionId: true,
+          user: { select: CAMPOS_DE_NOMBRE },
         },
         orderBy: { createdAt: "desc" },
         take: PAGE_SIZE,
@@ -230,13 +232,9 @@ async function SuscripcionesContent({ sp }: { sp: SearchParams }) {
                     >
                       {/* User */}
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/admin/suscripciones/${s.id}`}
-                          className="text-[13px] font-medium text-foreground hover:underline"
-                          style={{ fontFamily: "var(--font-mono)" }}
-                        >
-                          {codigoDeUsuario(s.userId)}
-                        </Link>
+                        <div className="min-w-[220px] max-w-[300px]">
+                          <Persona id={s.user.id} name={s.user.name} email={s.user.email} image={s.user.image} />
+                        </div>
                       </td>
 
                       {/* Plan */}

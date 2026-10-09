@@ -232,6 +232,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.role = "user";
         }
       }
+      // Último ingreso: se anota en cada inicio de sesión real (no en cada recarga del token). Lo ve el panel de administración.
+      if (account && account.provider !== "demo" && !IS_DEMO && token.id) {
+        try {
+          const { db } = await import("@/lib/db");
+          await db.user.update({ where: { id: token.id as string }, data: { lastLoginAt: new Date() } });
+        } catch {
+          // Mejor esfuerzo: no impide entrar.
+        }
+      }
       // Demo mode — always user role
       if (account?.provider === "demo") {
         token.role = "user";

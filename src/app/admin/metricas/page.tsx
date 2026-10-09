@@ -3,7 +3,8 @@ export const dynamic = "force-dynamic";
 import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { db } from "@/lib/db";
-import { codigoDeUsuario } from "@/lib/admin/anonimo";
+import { Persona } from "@/components/admin/Persona";
+
 import Link from "next/link";
 import { TrendingUp, Users, BarChart2, XCircle } from "lucide-react";
 import { calcMrr, normalizePlanId } from "@/lib/plan";
@@ -152,12 +153,14 @@ async function loadMetrics() {
   const topIds = [...new Set([...gen30d.map((g) => g.userId), ...chats30d.map((c) => c.userId)])].slice(0, 20);
   const topUsersData = await db.user.findMany({
     where: { id: { in: topIds } },
-    select: { id: true },
+    select: { id: true, name: true, email: true, image: true },
   });
   const topUsers = topUsersData
     .map((u) => ({
       id: u.id,
-      codigo: codigoDeUsuario(u.id),
+      name: u.name,
+      email: u.email,
+      image: u.image,
       generations: genMap[u.id] || 0,
       chats: chatMap[u.id] || 0,
       properties: propMap[u.id] || 0,
@@ -482,10 +485,8 @@ async function MetricasContent() {
                   >
                     {String(i + 1).padStart(2, "0")}
                   </p>
-                  <div>
-                    <Link href={`/admin/usuarios/${u.id}`} style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", fontFamily: "var(--font-mono)" }}>
-                      {u.codigo}
-                    </Link>
+                  <div style={{ minWidth: 0 }}>
+                    <Persona id={u.id} name={u.name} email={u.email} image={u.image} />
                   </div>
                   <p style={{ ...MONO, fontSize: 10, color: "var(--ok-text)", textAlign: "center" }}>
                     {u.generations} gen

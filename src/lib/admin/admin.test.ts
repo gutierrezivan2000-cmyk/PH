@@ -1,33 +1,36 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { codigoDeUsuario, comoCodigo, filtroDeBusqueda } from "./anonimo";
+import { CAMPOS_DE_IDENTIDAD, codigoDeUsuario, comoCodigo, filtroDeBusqueda } from "./identidad";
 import { finDeAcceso, validarAcceso } from "./acceso";
 import { PROPIETARIOS, adminEmails, esAdminDeEntorno } from "../admin-emails";
 
-describe("código anónimo", () => {
+describe("código de cliente", () => {
   it("son los últimos 6 caracteres del id, en mayúscula", () => {
     expect(codigoDeUsuario("cm9x2k1abcdef")).toBe("U-ABCDEF");
   });
-  it("entiende U-ABC123 o solo ABC123 y rechaza lo demás", () => {
+  it("solo se toma como código lo que empieza por U-", () => {
     expect(comoCodigo("U-ab12cd")).toBe("ab12cd");
-    expect(comoCodigo("  ab12cd ")).toBe("ab12cd");
+    expect(comoCodigo("ab12cd")).toBeNull();
     expect(comoCodigo("ana perez")).toBeNull();
-    expect(comoCodigo("ab")).toBeNull();
   });
 });
 
-describe("búsqueda de usuarios", () => {
+describe("qué datos del cliente ve el panel", () => {
+  it("identidad, contacto y fechas sí; secretos nunca", () => {
+    for (const k of ["name", "email", "image", "phone", "cargo", "company", "city", "createdAt", "lastLoginAt", "emailVerified", "termsAcceptedAt"]) {
+      expect(CAMPOS_DE_IDENTIDAD, k).toHaveProperty(k, true);
+    }
+    for (const k of ["passwordHash", "epaycoPKey", "epaycoPublicKey", "epaycoPCustId"]) expect(CAMPOS_DE_IDENTIDAD).not.toHaveProperty(k);
+  });
+});
+
+describe("búsqueda de clientes", () => {
   it("vacía no filtra", () => expect(filtroDeBusqueda("  ")).toBeNull());
-  it("un correo busca solo la coincidencia exacta, no parcial", () => {
-    const f = filtroDeBusqueda("Ana@Ejemplo.com") as { OR: Array<Record<string, unknown>> };
-    expect(f.OR[0]).toEqual({ email: { equals: "Ana@Ejemplo.com", mode: "insensitive" } });
-    expect(JSON.stringify(f)).not.toContain("contains");
+  it("texto libre busca en nombre, correo, empresa, ciudad y teléfono, sin distinguir mayúsculas", () => {
+    const c = { contains: "Ana", mode: "insensitive" };
+    expect(filtroDeBusqueda(" Ana ")).toEqual({ OR: [{ name: c }, { email: c }, { company: c }, { city: c }, { phone: c }] });
   });
   it("un código busca por el final del id", () => {
-    const f = filtroDeBusqueda("U-ABC123") as { OR: Array<Record<string, unknown>> };
-    expect(f.OR).toEqual([{ id: { endsWith: "abc123", mode: "insensitive" } }]);
-  });
-  it("un nombre (texto libre con espacios) no encuentra a nadie: no se puede explorar la base por nombre", () => {
-    expect(filtroDeBusqueda("ana perez")).toEqual({ OR: [{ id: "__sin_resultados__" }] });
+    expect(filtroDeBusqueda("U-ABC123")).toEqual({ id: { endsWith: "abc123", mode: "insensitive" } });
   });
 });
 

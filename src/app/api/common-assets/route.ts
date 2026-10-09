@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { normalizeAssetKind, advanceDueDate } from "@/lib/common-assets";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 const MAX_RECURRENCE_MONTHS = 60;
@@ -146,10 +147,29 @@ export async function POST(req: NextRequest) {
       const { count } = await db.commonAsset.createMany({
         data: toCreate.map((r) => ({ ...r, userId: session.user.id })),
       });
+      // Esta es la confirmación del import por IA (units/import solo devuelve la lista para revisar).
+      for (const pid of new Set(toCreate.map((r) => r.propertyId))) {
+        await registrarEvento({
+          userId: session.user.id,
+          propertyId: pid,
+          modulo: "bitacora",
+          accion: "bitacora_importada",
+          resumen: `${toCreate.filter((r) => r.propertyId === pid).length} registros de zonas comunes y pólizas importados a la bitácora`,
+        });
+      }
       return NextResponse.json({ ok: true, created: count }, { status: 201 });
     }
 
     const asset = await db.commonAsset.create({ data: { ...toCreate[0], userId: session.user.id } });
+    await registrarEvento({
+      userId: session.user.id,
+      propertyId: asset.propertyId,
+      modulo: "bitacora",
+      accion: "bitacora_creada",
+      resumen: `Registro de bitácora creado: ${asset.name} (${asset.kind}), vence el ${asset.dueDate.toISOString().slice(0, 10)}`,
+      refType: "CommonAsset",
+      refId: asset.id,
+    });
     return NextResponse.json({ ok: true, asset }, { status: 201 });
   } catch (error) {
     console.error("[common-assets POST]", error);
@@ -201,12 +221,30 @@ export async function PATCH(req: NextRequest) {
             where: { id },
             data: { status: "archived", lastDoneAt: new Date() },
           });
+      await registrarEvento({
+        userId: session.user.id,
+        propertyId: existing.propertyId,
+        modulo: "bitacora",
+        accion: "bitacora_hecha",
+        resumen: `Registro de bitácora marcado como hecho: ${existing.name}${existing.recurrenceMonths ? ` (próximo ciclo el ${asset.dueDate.toISOString().slice(0, 10)})` : ""}`,
+        refType: "CommonAsset",
+        refId: existing.id,
+      });
       return NextResponse.json({ ok: true, asset });
     }
 
     const asset = await db.commonAsset.update({
       where: { id },
       data: { status: action === "archive" ? "archived" : "active" },
+    });
+    await registrarEvento({
+      userId: session.user.id,
+      propertyId: existing.propertyId,
+      modulo: "bitacora",
+      accion: action === "archive" ? "bitacora_archivada" : "bitacora_restaurada",
+      resumen: `Registro de bitácora ${action === "archive" ? "archivado" : "restaurado"}: ${existing.name}`,
+      refType: "CommonAsset",
+      refId: existing.id,
     });
     return NextResponse.json({ ok: true, asset });
   } catch (error) {

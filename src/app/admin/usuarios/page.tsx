@@ -5,9 +5,11 @@ import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/db";
 import Link from "next/link";
-import { Users, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { UsuariosFilters } from "./UsuariosFilters";
-import { codigoDeUsuario, filtroDeBusqueda } from "@/lib/admin/anonimo";
+import { CAMPOS_DE_IDENTIDAD, codigoDeUsuario, filtroDeBusqueda } from "@/lib/admin/identidad";
+import { Persona, fechaCorta } from "@/components/admin/Persona";
+import { Download } from "lucide-react";
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminEmails, esAdminDeEntorno } from "@/lib/admin-emails";
 import { equipoAdministrador } from "@/lib/admin/equipo";
@@ -44,10 +46,7 @@ async function loadUsers(sp: SearchParams) {
     db.user.findMany({
       where,
       select: {
-        id: true,
-        role: true,
-        banned: true,
-        createdAt: true,
+        ...CAMPOS_DE_IDENTIDAD,
         subscription: { select: { planId: true, status: true } },
         _count: { select: { properties: true, generations: true, tickets: true } },
       },
@@ -96,7 +95,7 @@ export default async function UsuariosPage({
 
 async function EquipoAdministrador() {
   const yo = await requireAdmin();
-  // Solo los propietarios ven quién administra (con su correo): es el equipo, no los clientes.
+  // Solo los propietarios ven quién administra y quién es propietario.
   if (!yo || !esAdminDeEntorno(yo.email)) return null;
   const admins = await db.user.findMany({ where: { role: "admin" }, select: { id: true, email: true, createdAt: true } });
   const equipo = equipoAdministrador(admins, adminEmails());
@@ -163,7 +162,18 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
       <PageHeader
         section="01 · Usuarios"
         title="Usuarios"
-        description={`${total.toLocaleString("es-CO")} cuentas. Por privacidad se ven por código: sin nombre, correo ni datos de contacto.`}
+        description={`${total.toLocaleString("es-CO")} cuentas registradas. Ves quién es cada cliente y cómo contactarlo; el contenido que genera (documentos, reuniones, chats) no se muestra.`}
+        action={
+          // Es una descarga de la API, no una página: <Link> intentaría navegar en el cliente.
+          // eslint-disable-next-line @next/next/no-html-link-for-pages
+          <a
+            href="/api/admin/users/export"
+            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-[12px] font-medium text-muted-foreground hover:text-foreground"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Descargar clientes (CSV)
+          </a>
+        }
       />
 
       {/* Filters row */}
@@ -194,17 +204,17 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
                 >
                   {[
                     "Cliente",
+                    "Contacto",
                     "Plan",
                     "Estado",
                     "Props",
                     "Gen 30d",
                     "IA 30d",
-                    "Registro",
-                    "",
+                    "Registro · último ingreso",
                   ].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left whitespace-nowrap"
+                      className="px-3 py-3 text-left whitespace-nowrap"
                       style={{
                         fontFamily: "var(--font-mono)",
                         fontSize: "10px",
@@ -224,16 +234,10 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
                     key={u.id}
                     className="hover:bg-secondary/50 transition-colors group"
                   >
-                    {/* Código (el panel no muestra datos personales) */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 min-w-[140px]">
-                        <Link
-                          href={`/admin/usuarios/${u.id}`}
-                          className="font-medium text-foreground hover:underline"
-                          style={{ fontFamily: "var(--font-mono)" }}
-                        >
-                          {codigoDeUsuario(u.id)}
-                        </Link>
+                    {/* Cliente: quién es */}
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-2 min-w-[200px] max-w-[260px]">
+                        <Persona id={u.id} name={u.name} email={u.email} image={u.image} />
                         {u.role === "admin" && (
                           <Badge variant="accent" className="text-[9px] px-1.5 py-0.5 ml-0.5">
                             admin
@@ -247,14 +251,20 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
                       </div>
                     </td>
 
+                    {/* Contacto */}
+                    <td className="px-3 py-3 text-[12px] text-muted-foreground max-w-[180px]">
+                      <p className="text-foreground/80">{u.phone || "—"}</p>
+                      <p className="truncate">{[u.cargo, u.company, u.city].filter(Boolean).join(" · ") || "—"}</p>
+                    </td>
+
                     {/* Plan */}
-                    <td className="px-4 py-3">{planBadge(u.subscription)}</td>
+                    <td className="px-3 py-3">{planBadge(u.subscription)}</td>
 
                     {/* Status */}
-                    <td className="px-4 py-3">{statusBadge(u.subscription)}</td>
+                    <td className="px-3 py-3">{statusBadge(u.subscription)}</td>
 
                     {/* Properties */}
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-3 text-center">
                       <span
                         className="text-[12px] text-muted-foreground"
                         style={{ fontFamily: "var(--font-mono)" }}
@@ -264,7 +274,7 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
                     </td>
 
                     {/* Generations 30d */}
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-3 text-center">
                       <span
                         className="text-[12px] text-muted-foreground"
                         style={{ fontFamily: "var(--font-mono)" }}
@@ -274,35 +284,18 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
                     </td>
 
                     {/* Costo de IA 30d */}
-                    <td className="px-4 py-3 text-center">
-                      <span className="text-[12px] text-muted-foreground" style={{ fontFamily: "var(--font-mono)" }}>
+                    <td className="px-3 py-3 text-center">
+                      <span className="text-[12px] text-muted-foreground whitespace-nowrap" style={{ fontFamily: "var(--font-mono)" }}>
                         US$ {u.costo30d.toFixed(u.costo30d < 1 ? 3 : 2)}
                       </span>
                     </td>
 
-                    {/* Created At */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span
-                        className="text-[11px] text-muted-foreground/60"
-                        style={{ fontFamily: "var(--font-mono)" }}
-                      >
-                        {new Date(u.createdAt).toLocaleDateString("es-CO", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "2-digit",
-                        })}
-                      </span>
+                    {/* Registro y último ingreso */}
+                    <td className="px-3 py-3 whitespace-nowrap text-[11px] text-muted-foreground" style={{ fontFamily: "var(--font-mono)" }}>
+                      <p>{fechaCorta(u.createdAt)}</p>
+                      <p className="text-foreground/70" title="Último ingreso">{fechaCorta(u.lastLoginAt)}</p>
                     </td>
 
-                    {/* Link */}
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/usuarios/${u.id}`}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-                      >
-                        <ArrowUpRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -3,6 +3,8 @@
 // missing CRON_SECRET should show up here (and trigger an alert), instead of
 // looking like "no hay datos todavía".
 
+import { modeloDeFuncion } from "@/lib/ia/modelos";
+
 export type HealthStatus = "ok" | "warn" | "fail";
 
 export interface HealthCheck {
@@ -70,7 +72,7 @@ export async function runHealthChecks(opts: {
   }
 
   // ── AI (critical) — the exact class of silent failure we just fixed ──
-  const modelId = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
+  const modelId = modeloDeFuncion("general");
   if (!envSet("ANTHROPIC_API_KEY")) {
     checks.push({ name: "ai", status: "fail", critical: true, detail: "ANTHROPIC_API_KEY ausente — generación y redactores IA no funcionarán" });
   } else if (deep && !IS_DEMO) {

@@ -3,7 +3,8 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { validateSignatureWith, verifyTransaction } from "@/lib/epayco";
-import { applyPaymentFifoTx, type Allocation } from "@/lib/cartera";
+import { applyPaymentFifoTx, fmtCOP, type Allocation } from "@/lib/cartera";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 // ePayco server-to-server callback for a resident's administration payment.
 // Same integrity model as the subscription confirmation, but:
@@ -72,9 +73,10 @@ export async function POST(req: NextRequest) {
       // which would silently strand a REAL payment. Flag it for review instead
       // of leaving the order pending forever with no trace.
       console.error("[unit-confirmation] invalid signature", { ref: x_ref_payco });
+      // Solo si sigue pendiente: una orden ya acreditada nunca pasa a revisión por un callback falso.
       await db.unitPaymentOrder
-        .update({
-          where: { id: order.id },
+        .updateMany({
+          where: { id: order.id, status: "pending" },
           data: { status: "needs_review", failReason: "invalid_signature", epaycoRef: x_ref_payco },
         })
         .catch(() => {});
@@ -144,12 +146,15 @@ export async function POST(req: NextRequest) {
       // The claim (pending → completed) and the FIFO application live in ONE
       // transaction. Concurrent duplicate callbacks serialize on the order row:
       // only the first claim matches (count === 1); the rest see 0 and no-op.
+      let credited = false;
       await db.$transaction(async (tx) => {
         // The claim also writes epaycoRef, which carries a UNIQUE index: if this
         // same ePayco transaction already settled another order, the insert
         // fails and the whole transaction rolls back (anti cross-replay).
+        // Acepta también «needs_review» (la conciliación la marcó por demora, o hubo una firma rechazada) y «rejected» (un
+        // intento anterior se rechazó y este es el que ePayco aprobó): un pago aprobado siempre se acredita una sola vez.
         const claim = await tx.unitPaymentOrder.updateMany({
-          where: { id: order.id, status: "pending" },
+          where: { id: order.id, status: { in: ["pending", "needs_review", "rejected"] } },
           data: { status: "completed", epaycoRef: x_ref_payco, completedAt: new Date() },
         });
         if (claim.count !== 1) return; // already reconciled by another callback
@@ -175,11 +180,30 @@ export async function POST(req: NextRequest) {
             receivedAt: new Date(),
           },
         });
+        credited = true;
       });
+      if (credited) {
+        const unit = await db.unit
+          .findUnique({ where: { id: order.unitId }, select: { label: true } })
+          .catch(() => null);
+        await registrarEvento({
+          userId: order.userId,
+          propertyId: order.propertyId,
+          modulo: "cartera",
+          accion: "pago_en_linea_acreditado",
+          resumen: `Pago en línea de ${fmtCOP(order.amount)} acreditado en ${unit?.label ?? "una unidad"} (ePayco)`,
+          refType: "Unit",
+          refId: order.unitId,
+          actor: "residente",
+        });
+      }
     } else if (codResponse === "2" || codResponse === "4") {
       // ── REJECTED / FAILED ──
       await db.unitPaymentOrder
-        .update({ where: { id: order.id }, data: { status: "rejected", epaycoRef: x_ref_payco } })
+        .updateMany({
+          where: { id: order.id, status: { not: "completed" } },
+          data: { status: "rejected", epaycoRef: x_ref_payco },
+        })
         .catch(() => {});
     }
     // "3" (pending) — wait for a final confirmation.

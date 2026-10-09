@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 export async function GET(
   _req: NextRequest,
@@ -94,6 +95,16 @@ export async function POST(
         size: size || 0,
         mimeType: mimeType || null,
       },
+    });
+
+    await registrarEvento({
+      userId: session.user.id,
+      propertyId,
+      modulo: "documentos",
+      accion: "documento_cargado",
+      resumen: `Documento cargado (${doc.type}): ${String(doc.name).slice(0, 120)}`,
+      refType: "PropertyDocument",
+      refId: doc.id,
     });
 
     return NextResponse.json(doc);

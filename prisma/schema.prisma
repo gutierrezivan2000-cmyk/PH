@@ -23,6 +23,9 @@ model User {
   // ya emitidas (hasta 30 días). El callback jwt lo compara en su recheck.
   passwordChangedAt DateTime?
 
+  // Último inicio de sesión (con correo o Google). Lo ve el panel de administración.
+  lastLoginAt     DateTime?
+
   // Aceptación de Términos / Privacidad / Habeas Data: cuándo y qué versión (src/lib/legal).
   termsAcceptedAt DateTime?
   termsVersion    String?
@@ -374,6 +377,8 @@ model UnitPayment {
   note        String?
   allocations Json     @default("[]")
   receivedAt  DateTime @default(now())
+  // Clave que manda el navegador por cada intento de registrar el pago: un reintento tras un corte de red no duplica el pago.
+  idempotencyKey String? @unique
 
   unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
@@ -970,4 +975,68 @@ model PropertyPerson {
   updatedAt DateTime @updatedAt
 
   @@index([propertyId])
+}
+
+// ============================================
+// Agentes como empleados: memoria operativa por propiedad
+// ============================================
+
+// Lo que pasa en cada copropiedad (cada módulo anota aquí lo que se hace). Los agentes lo leen sin que nadie se lo cuente.
+model PropertyEvent {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+  module     String   // cartera | presupuesto | pqrs | comunicados | asambleas | certificados | reuniones | documentos | bitacora | agentes
+  action     String   // p. ej. "pago_registrado"
+  summary    String   // una línea en español, sin datos personales innecesarios
+  refType    String?
+  refId      String?
+  actor      String   @default("usuario") // "usuario" | "sistema" | "agente:<id>"
+  createdAt  DateTime @default(now())
+
+  @@index([propertyId, createdAt])
+  @@index([userId, createdAt])
+}
+
+// Notas que los agentes (y la persona) guardan sobre una copropiedad: hechos, decisiones, preferencias. Las leen todos los agentes.
+model PropertyMemory {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+  kind       String   @default("nota") // "nota" | "decision" | "preferencia"
+  content    String   @db.Text
+  authorAgent String? // agente que la guardó (null = la persona)
+  createdAt  DateTime @default(now())
+
+  @@index([propertyId, createdAt])
+}
+
+// Algo que un agente propone hacer y que ocurre solo si la persona lo aprueba.
+model AgentAction {
+  id         String    @id @default(cuid())
+  userId     String
+  propertyId String?
+  chatId     String?
+  agentId    String
+  type       String    // ver lib/agentes/acciones.ts
+  summary    String    // lo que se le muestra a la persona para aprobar
+  payload    Json
+  status     String    @default("pendiente") // pendiente | aprobada | rechazada | fallida
+  result     Json?
+  decidedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, status])
+  @@index([chatId])
+}
+
+// La copropiedad en foco de cada conversación con un agente. Tabla aparte (y no una columna de AgentChat) a propósito: si esta tabla
+// faltara en la base, solo se pierde el foco guardado; el chat de los agentes sigue funcionando.
+model AgentChatFocus {
+  chatId     String   @id
+  userId     String
+  propertyId String
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
 }

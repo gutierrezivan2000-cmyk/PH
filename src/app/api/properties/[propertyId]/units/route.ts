@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseNumericToken } from "@/lib/cartera";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 // Sin anclas: sirve para BUSCAR un correo dentro de una línea suelta
 // ("Apto 101, María, maria@x.com"). No vale para validar.
@@ -137,7 +138,16 @@ export async function POST(
           monthlyFee: Number.isFinite(fee) && fee >= 0 && fee <= 100_000_000 ? Math.round(fee) : null,
         });
       }
-      if (rows.length > 0) await db.unit.createMany({ data: rows });
+      if (rows.length > 0) {
+        await db.unit.createMany({ data: rows });
+        await registrarEvento({
+          userId: session.user.id,
+          propertyId,
+          modulo: "residentes",
+          accion: "unidades_importadas",
+          resumen: `${rows.length} unidades importadas desde archivo${skippedS ? ` (${skippedS} omitidas)` : ""}`,
+        });
+      }
       return NextResponse.json({ created: rows.length, skipped: skippedS }, { status: 201 });
     }
 
@@ -224,6 +234,13 @@ export async function POST(
 
     if (toCreate.length > 0) {
       await db.unit.createMany({ data: toCreate });
+      await registrarEvento({
+        userId: session.user.id,
+        propertyId,
+        modulo: "residentes",
+        accion: "unidades_creadas",
+        resumen: `${toCreate.length} unidades agregadas${skipped ? ` (${skipped} omitidas)` : ""}`,
+      });
     }
 
     return NextResponse.json({ created: toCreate.length, skipped }, { status: 201 });
@@ -375,6 +392,13 @@ export async function DELETE(
     }
 
     await db.unit.deleteMany({ where: scope });
+    await registrarEvento({
+      userId: session.user.id,
+      propertyId,
+      modulo: "residentes",
+      accion: "unidades_eliminadas",
+      resumen: unitId ? `Unidad ${targets[0].label} eliminada` : `${targets.length} unidades eliminadas`,
+    });
     return NextResponse.json({ ok: true, deleted: targets.length });
   } catch (error) {
     console.error("[api/units DELETE]", error);

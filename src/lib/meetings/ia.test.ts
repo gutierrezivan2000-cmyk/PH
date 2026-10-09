@@ -4,6 +4,8 @@ import {
   reiniciarRespaldo, sumarUso, type ClienteDeAnthropic, type EntradaIA, type EntradaTexto, type MensajeCrudo,
 } from "./ia";
 
+// Estas pruebas ejercitan el respaldo del servidor, que solo existe para los modelos grandes: se usa Opus 5.5 a propósito.
+const MODELO_DE_PRUEBA = "claude-opus-5-5";
 const ESQUEMA = { type: "object", properties: { x: { type: "string" } }, required: ["x"], additionalProperties: false };
 const entrada = (extra: Partial<EntradaIA> = {}): EntradaIA => ({
   etiqueta: "el bloque 2", sistema: "Eres un analista.", usuario: "texto de la reunión", esquema: ESQUEMA, timeoutMs: 120_000, ...extra,
@@ -59,11 +61,19 @@ afterEach(() => {
 });
 
 describe("configuración", () => {
-  it("el modelo es Claude Opus 5.5 salvo que MEETINGS_MODEL diga otro", () => {
-    expect(MODELO_POR_DEFECTO).toBe("claude-opus-5-5");
-    expect(modeloDeReuniones({})).toBe("claude-opus-5-5");
+  it("el modelo es Claude Haiku 5.5 salvo que MEETINGS_MODEL diga otro", () => {
+    expect(MODELO_POR_DEFECTO).toBe("claude-haiku-5-5");
+    expect(modeloDeReuniones({})).toBe("claude-haiku-5-5");
     expect(modeloDeReuniones({ MEETINGS_MODEL: " claude-sonnet-5-5 " })).toBe("claude-sonnet-5-5");
-    expect(modeloDeReuniones({ MEETINGS_MODEL: "  " })).toBe("claude-opus-5-5");
+    expect(modeloDeReuniones({ MEETINGS_MODEL: "  " })).toBe("claude-haiku-5-5");
+  });
+
+  it("con Haiku 5.5 no se pide el respaldo del servidor (ese modelo no lo tiene)", async () => {
+    const { cliente, llamadas } = clienteFalso([mensaje({ model: "claude-haiku-5-5" })]);
+    await crearClienteIA({ modelo: "claude-haiku-5-5", cliente }).generarJson(entrada());
+    const { params } = llamadas[0] as { params: Record<string, unknown> };
+    expect(params).toMatchObject({ model: "claude-haiku-5-5", output_config: { effort: "high" } });
+    expect(params).not.toHaveProperty("fallbacks");
   });
 
   it("el esfuerzo es «high» salvo que MEETINGS_EFFORT diga otro nivel válido", () => {
@@ -87,7 +97,7 @@ describe("la petición", () => {
   it("pide JSON con el esquema, esfuerzo explícito y respaldo, y NO manda thinking ni temperature", async () => {
     const { cliente, llamadas } = clienteFalso([mensaje()]);
     const senal = new AbortController().signal;
-    await crearClienteIA({ cliente }).generarJson(entrada({ senal, timeoutMs: 90_000 }));
+    await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarJson(entrada({ senal, timeoutMs: 90_000 }));
     expect(llamadas).toHaveLength(1);
     const { params, opciones } = llamadas[0];
     expect(params).toMatchObject({
@@ -107,7 +117,7 @@ describe("la petición", () => {
     vi.stubEnv("MEETINGS_MODEL", "claude-sonnet-5-5");
     vi.stubEnv("MEETINGS_EFFORT", "low");
     const { cliente, llamadas } = clienteFalso([mensaje({ model: "claude-sonnet-5-5" }), mensaje({ model: "claude-sonnet-5-5" })]);
-    const ia = crearClienteIA({ cliente });
+    const ia = crearClienteIA({ cliente }); // sin `modelo`: lo decide MEETINGS_MODEL
     await ia.generarJson(entrada());
     expect(llamadas[0].params).toMatchObject({ model: "claude-sonnet-5-5", output_config: { effort: "low" } });
     await ia.generarJson(entrada({ esfuerzo: "medium", maxTokens: 64_000 }));
@@ -117,7 +127,7 @@ describe("la petición", () => {
   it("MEETINGS_FALLBACKS=off no pide el respaldo", async () => {
     vi.stubEnv("MEETINGS_FALLBACKS", "off");
     const { cliente, llamadas } = clienteFalso([mensaje()]);
-    await crearClienteIA({ cliente }).generarJson(entrada());
+    await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarJson(entrada());
     expect(llamadas[0].params).not.toHaveProperty("fallbacks");
     expect(llamadas[0].params).not.toHaveProperty("betas");
   });
@@ -140,7 +150,7 @@ describe("la respuesta", () => {
         ],
       }),
     ]);
-    const r = await crearClienteIA({ cliente }).generarJson(entrada());
+    const r = await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarJson(entrada());
     expect(r.json).toEqual({ x: "completo" });
     expect(r.modelo).toBe("claude-opus-5-5");
     expect(r.conRespaldo).toBe(false);
@@ -148,29 +158,29 @@ describe("la respuesta", () => {
 
   it("si respondió otro modelo (el respaldo), lo dice", async () => {
     const { cliente } = clienteFalso([mensaje({ model: "claude-opus-4-8" })]);
-    const r = await crearClienteIA({ cliente }).generarJson(entrada());
+    const r = await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarJson(entrada());
     expect(r).toMatchObject({ modelo: "claude-opus-4-8", conRespaldo: true });
   });
 
   it("revisa cómo terminó ANTES de leer el contenido: un rechazo no se reintenta; un corte, sí", async () => {
     const rechazo = clienteFalso([mensaje({ stop_reason: "refusal", stop_details: { category: "cyber" }, content: [{ type: "text", text: '{"x":"no confiar"}' }] })]);
-    await expect(crearClienteIA({ cliente: rechazo.cliente }).generarJson(entrada())).rejects.toMatchObject({
+    await expect(crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente: rechazo.cliente }).generarJson(entrada())).rejects.toMatchObject({
       reintentable: false, message: "La IA no pudo analizar el bloque 2 (cyber).",
     });
     const corte = clienteFalso([mensaje({ stop_reason: "max_tokens", content: [{ type: "text", text: '{"x":"a medi' }] })]);
-    await expect(crearClienteIA({ cliente: corte.cliente }).generarJson(entrada())).rejects.toMatchObject({ reintentable: true, message: expect.stringContaining("se cortó") });
+    await expect(crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente: corte.cliente }).generarJson(entrada())).rejects.toMatchObject({ reintentable: true, message: expect.stringContaining("se cortó") });
   });
 
   it("una respuesta vacía o que no es JSON se reintenta", async () => {
     for (const content of [[], [{ type: "thinking", text: "solo pensó" }], [{ type: "text", text: "Claro, aquí está: {x}" }]]) {
       const { cliente } = clienteFalso([mensaje({ content })]);
-      await expect(crearClienteIA({ cliente }).generarJson(entrada())).rejects.toMatchObject({ name: "ErrorIA", reintentable: true });
+      await expect(crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarJson(entrada())).rejects.toMatchObject({ name: "ErrorIA", reintentable: true });
     }
   });
 
   it("clasifica los fallos de la llamada", async () => {
     const { cliente } = clienteFalso([conStatus(503), conStatus(401)]);
-    const ia = crearClienteIA({ cliente });
+    const ia = crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente });
     await expect(ia.generarJson(entrada())).rejects.toMatchObject({ reintentable: true });
     await expect(ia.generarJson(entrada())).rejects.toMatchObject({ reintentable: false });
   });
@@ -182,7 +192,7 @@ describe("el respaldo de modelos", () => {
   it("si la organización no tiene la beta, repite sin ella y deja de pedirla en las siguientes", async () => {
     const aviso = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { cliente, llamadas } = clienteFalso([BETA_NO, mensaje(), mensaje()]);
-    const ia = crearClienteIA({ cliente });
+    const ia = crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente });
     expect((await ia.generarJson(entrada())).json).toEqual({ x: "hola" });
     expect(llamadas).toHaveLength(2);
     expect(llamadas[0].params).toHaveProperty("fallbacks");
@@ -195,13 +205,13 @@ describe("el respaldo de modelos", () => {
 
   it("un 400 que no es de la beta no se confunde con eso", async () => {
     const { cliente, llamadas } = clienteFalso([conStatus(400, "messages: roles must alternate")]);
-    await expect(crearClienteIA({ cliente }).generarJson(entrada())).rejects.toMatchObject({ reintentable: false });
+    await expect(crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarJson(entrada())).rejects.toMatchObject({ reintentable: false });
     expect(llamadas).toHaveLength(1);
   });
 
   it("sin pedir el respaldo, un 400 de beta tampoco se repite", async () => {
     const { cliente, llamadas } = clienteFalso([BETA_NO]);
-    await expect(crearClienteIA({ cliente, respaldo: false }).generarJson(entrada())).rejects.toBeInstanceOf(ErrorIA);
+    await expect(crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente, respaldo: false }).generarJson(entrada())).rejects.toBeInstanceOf(ErrorIA);
     expect(llamadas).toHaveLength(1);
   });
 });
@@ -251,7 +261,7 @@ describe("uso y costo", () => {
 
   it("la llamada devuelve su uso y se pueden sumar varias", async () => {
     const { cliente } = clienteFalso([mensaje({ usage: { input_tokens: 50_000, output_tokens: 2_000 } })]);
-    const r = await crearClienteIA({ cliente }).generarJson(entrada());
+    const r = await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarJson(entrada());
     expect(r.uso.costoUsd).toBeCloseTo((50_000 * 4 + 2_000 * 20) / 1_000_000, 9);
     const dos = sumarUso(r.uso, r.uso);
     expect(dos.entrada).toBe(100_000);
@@ -287,7 +297,7 @@ describe("generarTexto", () => {
   it("manda el prefijo compartido con la caché de 1 h, y DESPUÉS lo que cambia; sin thinking ni temperature", async () => {
     const { cliente, llamadas } = clienteFalso([textoEn("Texto de la sección.")]);
     const senal = new AbortController().signal;
-    const r = await crearClienteIA({ cliente }).generarTexto({ ...ENTRADA_TEXTO, senal });
+    const r = await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarTexto({ ...ENTRADA_TEXTO, senal });
     expect(r.texto).toBe("Texto de la sección.");
     expect(r.conRespaldo).toBe(false);
     expect(r.cortada).toBe(false);
@@ -318,7 +328,7 @@ describe("generarTexto", () => {
 
   it("una conversación sigue después del bloque compartido: pregunta, respuesta, pregunta", async () => {
     const { cliente, llamadas } = clienteFalso([textoEn("Otra respuesta.")]);
-    await crearClienteIA({ cliente }).generarTexto({
+    await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarTexto({
       ...ENTRADA_TEXTO,
       turnos: [{ rol: "user", texto: "¿Qué se decidió?" }, { rol: "assistant", texto: "Se aprobó la prórroga." }, { rol: "user", texto: "¿Y los compromisos?" }],
     });
@@ -331,7 +341,7 @@ describe("generarTexto", () => {
 
   it("una conversación mal armada se rechaza SIN llamar a la red", async () => {
     const { cliente, llamadas } = clienteFalso([]);
-    const ia = crearClienteIA({ cliente });
+    const ia = crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente });
     for (const turnos of [
       [],
       [{ rol: "assistant" as const, texto: "hola" }],
@@ -347,14 +357,14 @@ describe("generarTexto", () => {
   it("entrega el texto a medida que llega (solo trozos de texto) y devuelve todo al final", async () => {
     const { cliente } = clienteFalso([textoEn("Hola mundo.")], { trozos: ["Hola", "", " mun", 42, "do."] });
     const llegados: string[] = [];
-    const r = await crearClienteIA({ cliente }).generarTexto({ ...ENTRADA_TEXTO, alTexto: (t) => llegados.push(t) });
+    const r = await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarTexto({ ...ENTRADA_TEXTO, alTexto: (t) => llegados.push(t) });
     expect(llegados).toEqual(["Hola", " mun", "do."]);
     expect(r.texto).toBe("Hola mundo.");
   });
 
   it("pasa el esfuerzo y el tope de tokens que se pidan", async () => {
     const { cliente, llamadas } = clienteFalso([textoEn("x")]);
-    await crearClienteIA({ cliente }).generarTexto({ ...ENTRADA_TEXTO, esfuerzo: "medium", maxTokens: 6_000 });
+    await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarTexto({ ...ENTRADA_TEXTO, esfuerzo: "medium", maxTokens: 6_000 });
     expect(llamadas[0].params).toMatchObject({ max_tokens: 6_000, output_config: { effort: "medium" } });
   });
 
@@ -362,7 +372,7 @@ describe("generarTexto", () => {
     const { cliente } = clienteFalso([
       textoEn("x", { usage: { input_tokens: 300, output_tokens: 2_000, cache_read_input_tokens: 190_000, cache_creation_input_tokens: 0 } }),
     ]);
-    const r = await crearClienteIA({ cliente }).generarTexto(ENTRADA_TEXTO);
+    const r = await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarTexto(ENTRADA_TEXTO);
     expect(r.uso).toMatchObject({ entrada: 300, salida: 2_000, cacheLectura: 190_000 });
     expect(r.uso.costoUsd).toBeCloseTo((300 * 4 + 2_000 * 20 + 190_000 * 0.2) / 1_000_000, 9);
   });
@@ -370,7 +380,7 @@ describe("generarTexto", () => {
   it("si la organización no tiene el respaldo de modelos, repite sin él (como con JSON)", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const { cliente, llamadas } = clienteFalso([conStatus(400, "Unsupported value in anthropic-beta header"), textoEn("ok")]);
-    const r = await crearClienteIA({ cliente }).generarTexto(ENTRADA_TEXTO);
+    const r = await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarTexto(ENTRADA_TEXTO);
     expect(r.texto).toBe("ok");
     expect(llamadas).toHaveLength(2);
     expect(llamadas[0].params).toHaveProperty("betas");
@@ -380,23 +390,23 @@ describe("generarTexto", () => {
 
   it("revisa cómo terminó ANTES del contenido: rechazo → no se reintenta; cortada o vacía → sí", async () => {
     const rechazo = clienteFalso([textoEn("lo que sea", { stop_reason: "refusal", stop_details: { category: "cyber" } })]);
-    await expect(crearClienteIA({ cliente: rechazo.cliente }).generarTexto(ENTRADA_TEXTO)).rejects.toMatchObject({ reintentable: false, message: expect.stringContaining("cyber") });
+    await expect(crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente: rechazo.cliente }).generarTexto(ENTRADA_TEXTO)).rejects.toMatchObject({ reintentable: false, message: expect.stringContaining("cyber") });
     const corte = clienteFalso([textoEn("a medias", { stop_reason: "max_tokens" })]);
-    await expect(crearClienteIA({ cliente: corte.cliente }).generarTexto(ENTRADA_TEXTO)).rejects.toMatchObject({ reintentable: true, message: expect.stringContaining("se cortó") });
+    await expect(crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente: corte.cliente }).generarTexto(ENTRADA_TEXTO)).rejects.toMatchObject({ reintentable: true, message: expect.stringContaining("se cortó") });
     const vacia = clienteFalso([mensaje({ content: [] })]);
-    await expect(crearClienteIA({ cliente: vacia.cliente }).generarTexto(ENTRADA_TEXTO)).rejects.toMatchObject({ reintentable: true, message: expect.stringContaining("no devolvió nada") });
+    await expect(crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente: vacia.cliente }).generarTexto(ENTRADA_TEXTO)).rejects.toMatchObject({ reintentable: true, message: expect.stringContaining("no devolvió nada") });
   });
 
   it("en una charla se acepta la respuesta cortada y se avisa que lo estuvo", async () => {
     const { cliente } = clienteFalso([textoEn("Una respuesta larga que se cort", { stop_reason: "max_tokens" })]);
-    const r = await crearClienteIA({ cliente }).generarTexto({ ...ENTRADA_TEXTO, permitirCorte: true });
+    const r = await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarTexto({ ...ENTRADA_TEXTO, permitirCorte: true });
     expect(r.cortada).toBe(true);
     expect(r.texto).toBe("Una respuesta larga que se cort");
   });
 
   it("los fallos de la red se traducen como siempre", async () => {
     const { cliente } = clienteFalso([conStatus(529)]);
-    await expect(crearClienteIA({ cliente }).generarTexto(ENTRADA_TEXTO)).rejects.toMatchObject({ name: "ErrorIA", reintentable: true, message: expect.stringMatching(/saturado/) });
+    await expect(crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).generarTexto(ENTRADA_TEXTO)).rejects.toMatchObject({ name: "ErrorIA", reintentable: true, message: expect.stringMatching(/saturado/) });
     const sinClave = crearClienteIA({});
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     await expect(sinClave.generarTexto(ENTRADA_TEXTO)).rejects.toMatchObject({ reintentable: false, message: expect.stringContaining("no está configurado") });
@@ -406,11 +416,11 @@ describe("generarTexto", () => {
 describe("calentar la caché", () => {
   it("hace una petición de max_tokens 0 con el MISMO prefijo que las llamadas de verdad, y sin streaming", async () => {
     const real = clienteFalso([textoEn("x")]);
-    await crearClienteIA({ cliente: real.cliente }).generarTexto(ENTRADA_TEXTO);
+    await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente: real.cliente }).generarTexto(ENTRADA_TEXTO);
 
     const { cliente, creaciones, llamadas } = clienteFalso([mensaje({ content: [], stop_reason: "max_tokens", usage: { input_tokens: 10, output_tokens: 0, cache_creation_input_tokens: 190_000, cache_creation: { ephemeral_1h_input_tokens: 190_000 } } })]);
     const senal = new AbortController().signal;
-    const r = await crearClienteIA({ cliente }).calentar({ etiqueta: "el acta", sistema: ENTRADA_TEXTO.sistema, compartido: ENTRADA_TEXTO.compartido, timeoutMs: 60_000, senal });
+    const r = await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).calentar({ etiqueta: "el acta", sistema: ENTRADA_TEXTO.sistema, compartido: ENTRADA_TEXTO.compartido, timeoutMs: 60_000, senal });
 
     expect(llamadas).toHaveLength(0); // sin streaming
     expect(creaciones).toHaveLength(1);
@@ -437,19 +447,19 @@ describe("calentar la caché", () => {
 
   it("respeta el esfuerzo que se le diga (tiene que ser el de las llamadas de verdad)", async () => {
     const { cliente, creaciones } = clienteFalso([mensaje({ content: [] })]);
-    await crearClienteIA({ cliente }).calentar({ etiqueta: "x", sistema: "s", compartido: "c", esfuerzo: "medium", timeoutMs: 1000 });
+    await crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).calentar({ etiqueta: "x", sistema: "s", compartido: "c", esfuerzo: "medium", timeoutMs: 1000 });
     expect(creaciones[0].params).toMatchObject({ output_config: { effort: "medium" } });
   });
 
   it("un fallo del servicio sale como error de IA (el que llama decide si sigue sin calentar)", async () => {
     const { cliente } = clienteFalso([conStatus(503)]);
-    await expect(crearClienteIA({ cliente }).calentar({ etiqueta: "x", sistema: "s", compartido: "c", timeoutMs: 1000 })).rejects.toMatchObject({ name: "ErrorIA", reintentable: true });
+    await expect(crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).calentar({ etiqueta: "x", sistema: "s", compartido: "c", timeoutMs: 1000 })).rejects.toMatchObject({ name: "ErrorIA", reintentable: true });
   });
 
   it("un cliente que no sabe crear mensajes sin streaming lo dice", async () => {
     const { cliente } = clienteFalso([]);
     delete (cliente.beta.messages as { create?: unknown }).create;
-    await expect(crearClienteIA({ cliente }).calentar({ etiqueta: "x", sistema: "s", compartido: "c", timeoutMs: 1000 })).rejects.toMatchObject({ reintentable: false });
+    await expect(crearClienteIA({ modelo: MODELO_DE_PRUEBA, cliente }).calentar({ etiqueta: "x", sistema: "s", compartido: "c", timeoutMs: 1000 })).rejects.toMatchObject({ reintentable: false });
   });
 });
 

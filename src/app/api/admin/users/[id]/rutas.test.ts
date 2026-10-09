@@ -1,4 +1,4 @@
-/** Reglas de las rutas de control de usuarios: roles solo para propietarios, acceso con auditoría, nada personal en la respuesta. */
+/** Reglas de las rutas de control de usuarios: roles solo para propietarios y acceso con auditoría. */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { admin, log, db } = vi.hoisted(() => ({
@@ -42,11 +42,10 @@ describe("cambiar rol", () => {
     expect(r.status).toBe(403);
     expect(db.user.update).not.toHaveBeenCalled();
   });
-  it("el propietario sí, queda auditado y la respuesta no trae el correo", async () => {
+  it("el propietario sí y queda auditado", async () => {
     admin.current = { userId: "adm", email: "gutierrezivan2000@gmail.com" };
     const r = await PATCH(req({ role: "admin" }), ctx());
     expect(r.status).toBe(200);
-    expect(JSON.stringify(await r.json())).not.toContain("cliente@x.com");
     expect(log).toHaveBeenCalledWith(expect.objectContaining({ action: "user.role_change", targetId: "u1xyz123", metadata: { from: "user", to: "admin" } }));
   });
   it("un admin común tampoco puede bloquear a otro admin, pero sí a un cliente", async () => {

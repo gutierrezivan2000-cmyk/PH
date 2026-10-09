@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireCartera } from "@/lib/cartera-server";
+import { registrarEvento } from "@/lib/agentes/eventos";
 import {
   computeBudgetExecution,
   sanitizeBudgetItems,
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const r = await requireCartera();
+  const r = await requireCartera("presupuesto");
   if ("error" in r) return r.error;
   const { userId } = r;
 
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ ok: true, demo: true });
 
-  const r = await requireCartera();
+  const r = await requireCartera("presupuesto");
   if ("error" in r) return r.error;
   const { userId } = r;
 
@@ -98,6 +99,16 @@ export async function PUT(req: NextRequest) {
       where: { propertyId_year: { propertyId, year: y } },
       create: { userId, propertyId, year: y, items: clean as unknown as object },
       update: { items: clean as unknown as object },
+    });
+
+    await registrarEvento({
+      userId,
+      propertyId,
+      modulo: "presupuesto",
+      accion: "presupuesto_guardado",
+      resumen: `Presupuesto ${y} guardado con ${clean.length} rubros`,
+      refType: "Budget",
+      refId: budget.id,
     });
 
     return NextResponse.json({ ok: true, items: budget.items });

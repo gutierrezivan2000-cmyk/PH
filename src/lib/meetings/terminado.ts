@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { TIPOS } from "@/lib/consumo/funciones";
 import { registrarConsumo } from "@/lib/consumo/registrar";
 import { sendMeetingReadyEmail } from "@/lib/email";
+import { registrarEvento } from "@/lib/agentes/eventos";
 import { modeloDeReuniones } from "./ia";
 import { MODELO_TRANSCRIPCION } from "./transcripcion/openai";
 import { formatearDuracion } from "./tipos";
@@ -75,7 +76,7 @@ export async function alPasarALista(
 ): Promise<void> {
   const reunion = await db.meeting.findFirst({
     where: { id: meetingId },
-    select: { userId: true, title: true, durationMs: true, costUsd: true, property: { select: { name: true } } },
+    select: { userId: true, propertyId: true, title: true, durationMs: true, costUsd: true, property: { select: { name: true } } },
   });
   if (!reunion) return;
   const reanalisis = desde !== null;
@@ -110,6 +111,16 @@ export async function alPasarALista(
 
   // 2 · El correo (una sola vez: al volver a pedir el resumen ya se avisó antes).
   if (reanalisis) return;
+  await registrarEvento({
+    userId: reunion.userId,
+    propertyId: reunion.propertyId,
+    modulo: "reuniones",
+    accion: "reunion_lista",
+    resumen: `Reunión «${reunion.title.slice(0, 100)}» lista${reunion.durationMs ? ` (${formatearDuracion(reunion.durationMs)})` : ""}`,
+    refType: "Meeting",
+    refId: meetingId,
+    actor: "sistema",
+  });
   try {
     const usuario = await db.user.findFirst({ where: { id: reunion.userId }, select: { email: true } });
     if (usuario?.email) {

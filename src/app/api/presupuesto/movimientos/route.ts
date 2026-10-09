@@ -2,6 +2,8 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireCartera } from "@/lib/cartera-server";
+import { fmtCOP } from "@/lib/cartera";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -11,7 +13,7 @@ const TYPES = ["ingreso", "gasto", "fondo_aporte", "fondo_retiro"] as const;
 export async function POST(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ ok: true, demo: true }, { status: 201 });
 
-  const r = await requireCartera();
+  const r = await requireCartera("presupuesto");
   if ("error" in r) return r.error;
   const { userId } = r;
 
@@ -63,6 +65,16 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await registrarEvento({
+      userId,
+      propertyId,
+      modulo: "presupuesto",
+      accion: "movimiento_registrado",
+      resumen: `Movimiento (${type}) registrado: ${entry.concept} por ${fmtCOP(amt)}`,
+      refType: "LedgerEntry",
+      refId: entry.id,
+    });
+
     return NextResponse.json({ ok: true, id: entry.id }, { status: 201 });
   } catch (error) {
     console.error("[movimientos POST]", error);
@@ -73,7 +85,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ ok: true });
 
-  const r = await requireCartera();
+  const r = await requireCartera("presupuesto");
   if ("error" in r) return r.error;
   const { userId } = r;
 
@@ -84,12 +96,21 @@ export async function DELETE(req: NextRequest) {
     const { db } = await import("@/lib/db");
     const entry = await db.ledgerEntry.findFirst({
       where: { id, userId },
-      select: { id: true },
+      select: { id: true, propertyId: true, type: true, concept: true, amount: true },
     });
     if (!entry) {
       return NextResponse.json({ error: "Movimiento no encontrado" }, { status: 404 });
     }
     await db.ledgerEntry.delete({ where: { id } });
+    await registrarEvento({
+      userId,
+      propertyId: entry.propertyId,
+      modulo: "presupuesto",
+      accion: "movimiento_eliminado",
+      resumen: `Movimiento (${entry.type}) eliminado: ${entry.concept} por ${fmtCOP(entry.amount)}`,
+      refType: "LedgerEntry",
+      refId: entry.id,
+    });
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[movimientos DELETE]", error);

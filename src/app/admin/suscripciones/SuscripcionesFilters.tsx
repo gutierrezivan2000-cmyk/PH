@@ -49,7 +49,7 @@ export function SuscripcionesFilters({ defaultQ, defaultStatus }: Props) {
           type="search"
           defaultValue={defaultQ}
           onChange={(e) => handleQ(e.target.value)}
-          placeholder="Código (U-ABC123) o correo completo…"
+          placeholder="Nombre, correo, empresa o U-código…"
           className="w-full h-9 rounded-lg border border-border bg-card text-sm text-foreground pl-8 pr-3 placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-[var(--accent)] focus-visible:ring-[3px] focus-visible:ring-[rgb(var(--accent-rgb) / 0.15)] transition-all"
         />
       </div>

@@ -5,6 +5,7 @@ import { generatePdfHtml } from "@/lib/documents/pdf-generator";
 import { parseMarkdownToSlides } from "@/lib/documents/slide-parser";
 import { STRATEGOS_SYSTEM_PROMPT, buildStrategosPrompt } from "@/lib/ai/strategos";
 import { GRAMMATEUS_SYSTEM_PROMPT, buildGrammatusPrompt } from "@/lib/ai/grammateus";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 export type BlobFileRef = { url: string; name: string; type: string; size: number };
 
@@ -247,9 +248,20 @@ async function ejecutarGeneracion(p: RunGenerationParams): Promise<void> {
 
     // El costo de la redacción (informe y acta) con el precio real de cada llamada; cada llamada ya dejó su registro de consumo
     // (también las lecturas de imágenes, los audios y la revisión del acta, que se suman en el panel por generación).
-    await db.generation.update({
+    const terminada = await db.generation.update({
       where: { id: p.generationId },
       data: { status: "completed", progress: 100, outputFiles: blobUrls, tokensUsed: totalTokens, costUsd, completedAt: new Date() },
+    });
+
+    const generados = [p.includeInforme && "informe", p.includeActa && "acta", p.includePptx && "presentación"].filter(Boolean).join(", ");
+    await registrarEvento({
+      userId: p.userId,
+      propertyId: terminada?.propertyId,
+      modulo: "generacion",
+      accion: "documento_generado",
+      resumen: `Documentos generados (${generados || terminada?.type}) de ${period}`,
+      refType: "Generation",
+      refId: p.generationId,
     });
 
     // Free the raw input blobs — their parsed content is already in the output

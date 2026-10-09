@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireCartera } from "@/lib/cartera-server";
+import { registrarEvento } from "@/lib/agentes/eventos";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 const STATUSES = ["radicado", "en_proceso", "resuelto", "cerrado"] as const;
@@ -25,9 +26,12 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  const userId = session.user.id;
-  const { ownerHasCarteraPlan } = await import("@/lib/cartera-server");
-  const canAct = await ownerHasCarteraPlan(userId);
+  // La bandeja tiene la misma compuerta que escribir en ella: módulo abierto para la cuenta Y plan que lo cubra (salvo piloto).
+  const { requireCartera, ownerHasCarteraPlan } = await import("@/lib/cartera-server");
+  const acceso = await requireCartera("pqrs");
+  if ("error" in acceso) return acceso.error;
+  const userId = acceso.userId;
+  const canAct = await ownerHasCarteraPlan(userId, "pqrs");
 
   const propertyId = req.nextUrl.searchParams.get("propertyId") || undefined;
   const status = req.nextUrl.searchParams.get("status") || undefined;
@@ -65,7 +69,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ ok: true });
 
-  const r = await requireCartera();
+  const r = await requireCartera("pqrs");
   if ("error" in r) return r.error;
   const { userId } = r;
 
@@ -88,7 +92,7 @@ export async function PATCH(req: NextRequest) {
     const { db } = await import("@/lib/db");
     const pqrs = await db.pqrs.findFirst({
       where: { id, userId },
-      select: { id: true, residentContact: true, subject: true, property: { select: { name: true } } },
+      select: { id: true, code: true, propertyId: true, residentContact: true, subject: true, property: { select: { name: true } } },
     });
     if (!pqrs) return NextResponse.json({ error: "Solicitud no encontrada" }, { status: 404 });
 
@@ -103,6 +107,29 @@ export async function PATCH(req: NextRequest) {
       await db.pqrs.update({ where: { id }, data: { status: newStatus } });
     } else {
       await db.pqrs.update({ where: { id }, data: { updatedAt: new Date() } });
+    }
+
+    if (reply?.trim()) {
+      await registrarEvento({
+        userId,
+        propertyId: pqrs.propertyId,
+        modulo: "pqrs",
+        accion: "pqrs_respondida",
+        resumen: `PQRS ${pqrs.code} respondida por la administración: ${pqrs.subject.slice(0, 100)}`,
+        refType: "Pqrs",
+        refId: pqrs.id,
+      });
+    }
+    if (status) {
+      await registrarEvento({
+        userId,
+        propertyId: pqrs.propertyId,
+        modulo: "pqrs",
+        accion: "pqrs_estado",
+        resumen: `PQRS ${pqrs.code} pasó a estado ${status}: ${pqrs.subject.slice(0, 100)}`,
+        refType: "Pqrs",
+        refId: pqrs.id,
+      });
     }
 
     // Optional email notification if the resident left an email.

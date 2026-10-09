@@ -109,25 +109,41 @@ export interface UnitSummary {
   overdueDays: number;
 }
 
+const FORMATO_DIA_BOGOTA = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" });
+
+/**
+ * Día calendario de Bogotá, como ms a medianoche UTC (para restar días sin pelear con horas de verano ni con la zona
+ * del servidor). El servidor corre en UTC: de 7 p. m. a medianoche en Colombia ya sería el día siguiente, y la mora
+ * se adelantaría un día.
+ */
+function diaBogota(fecha: Date): number {
+  const [a, m, d] = FORMATO_DIA_BOGOTA.format(fecha).split("-").map(Number);
+  return Date.UTC(a, m - 1, d);
+}
+
+/** ¿Ya venció el cargo? Compara días de Bogotá: vence el día siguiente al de vencimiento, no antes. */
+export function estaVencidoEl(vencimiento: Date | string, hoy: Date = new Date()): boolean {
+  return diaBogota(new Date(vencimiento)) < diaBogota(hoy);
+}
+
 export function computeUnitSummary(
   charges: ChargeLike[],
   paymentsTotal: number,
   today: Date
 ): UnitSummary {
-  const base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const base = diaBogota(today);
   let charged = 0;
   let overdueAmount = 0;
-  let oldestOverdue: Date | null = null;
+  let oldestOverdue: number | null = null;
 
   for (const c of charges) {
     charged += c.amount;
     const open = c.amount - c.paidAmount;
     if (open <= 0) continue;
-    const due = new Date(c.dueDate);
-    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
-    if (dueDay.getTime() < base.getTime()) {
+    const dueDay = diaBogota(new Date(c.dueDate));
+    if (dueDay < base) {
       overdueAmount += open;
-      if (!oldestOverdue || dueDay < oldestOverdue) oldestOverdue = dueDay;
+      if (oldestOverdue === null || dueDay < oldestOverdue) oldestOverdue = dueDay;
     }
   }
 
@@ -141,8 +157,8 @@ export function computeUnitSummary(
   const cappedOverdue = Math.max(0, Math.min(overdueAmount, balance));
 
   const overdueDays =
-    cappedOverdue > 0 && oldestOverdue
-      ? Math.round((base.getTime() - oldestOverdue.getTime()) / 86400000)
+    cappedOverdue > 0 && oldestOverdue !== null
+      ? Math.round((base - oldestOverdue) / 86400000)
       : 0;
 
   return {
@@ -152,6 +168,27 @@ export function computeUnitSummary(
     overdueAmount: cappedOverdue,
     overdueDays,
   };
+}
+
+/**
+ * Lo que de verdad se debe, cargo por cargo. Un pago que no quedó imputado a ningún cargo (crédito a favor) se descuenta en
+ * orden FIFO, igual que lo haría el reparto al pagar. Así el detalle de una carta suma exactamente el saldo de la unidad.
+ */
+export function pendientesDespuesDelCredito<T extends { amount: number; paidAmount: number; dueDate: Date | string }>(
+  charges: T[],
+  paymentsTotal: number
+): (T & { pendiente: number })[] {
+  const imputado = charges.reduce((s, c) => s + c.paidAmount, 0);
+  let credito = Math.max(0, paymentsTotal - imputado);
+  return [...charges]
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .map((c) => {
+      const abierto = Math.max(0, c.amount - c.paidAmount);
+      const usado = Math.min(abierto, credito);
+      credito -= usado;
+      return { ...c, pendiente: abierto - usado };
+    })
+    .filter((c) => c.pendiente > 0);
 }
 
 /** Standard aging bucket for reports: 0 = current, then 1-30/31-60/61-90/90+. */

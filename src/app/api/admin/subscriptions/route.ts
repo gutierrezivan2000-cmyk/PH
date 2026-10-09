@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401 } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
-import { codigoDeUsuario, filtroDeBusqueda } from "@/lib/admin/anonimo";
+import { CAMPOS_DE_NOMBRE, codigoDeUsuario, filtroDeBusqueda } from "@/lib/admin/identidad";
 import { calcMrr } from "@/lib/plan";
 
 const PAGE_SIZE = 50;
@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
       select: {
         id: true, userId: true, planId: true, status: true, addonAgents: true, createdAt: true, updatedAt: true,
         currentPeriodStart: true, currentPeriodEnd: true,
+        user: { select: CAMPOS_DE_NOMBRE },
       },
       orderBy: { createdAt: "desc" },
       take: PAGE_SIZE,
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
 
   const enriched = subscriptions.map((s) => ({
     ...s,
-    user: { id: s.userId, codigo: codigoDeUsuario(s.userId) },
+    user: { ...s.user, codigo: codigoDeUsuario(s.userId) },
     mrr: calcMrr(s.planId, s.addonAgents),
   }));
 

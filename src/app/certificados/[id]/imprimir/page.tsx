@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { hoyEnBogota } from "@/lib/certificados";
 import QRCode from "qrcode";
 import { PrintButton } from "./PrintButton";
 
@@ -47,6 +48,9 @@ export default async function ImprimirCertificadoPage({
 
   // Demo mode never touches the DB (db is a stub there).
   if (process.env.DEMO_MODE === "true") notFound();
+  // Módulo en lanzamiento gradual: la impresión solo la ve quien puede usar el módulo.
+  const { modulosVisiblesDe } = await import("@/lib/modulos-acceso");
+  if (!(await modulosVisiblesDe({ email: session.user.email, role: session.user.role })).certificados) notFound();
 
   const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
   await ensureAdminSchema();
@@ -62,10 +66,10 @@ export default async function ImprimirCertificadoPage({
     select: { name: true, company: true, logoUrl: true, brandColor: true },
   });
 
+  // La dirección del QR sale de la configuración (NEXT_PUBLIC_APP_URL); solo si falta se toma de la petición.
   const h = await headers();
-  const host = h.get("host") || "sophia.app";
-  const proto = h.get("x-forwarded-proto") || "https";
-  const verifyUrl = `${proto}://${host}/verificar/${cert.verifyCode}`;
+  const { baseUrlPublica } = await import("@/lib/certificados");
+  const verifyUrl = `${baseUrlPublica(process.env.NEXT_PUBLIC_APP_URL, { host: h.get("host"), proto: h.get("x-forwarded-proto") })}/verificar/${cert.verifyCode}`;
   const qrSvg = await QRCode.toString(verifyUrl, {
     type: "svg",
     margin: 0,
@@ -126,6 +130,11 @@ export default async function ImprimirCertificadoPage({
         {meta.residesSince ? (
           <>
             , desde <strong>{meta.residesSince}</strong>
+          </>
+        ) : null}
+        {meta.validUntil ? (
+          <>
+            . Certificado válido hasta el <strong>{fechaDesdeIso(meta.validUntil)}</strong>
           </>
         ) : null}
         .
@@ -191,6 +200,27 @@ export default async function ImprimirCertificadoPage({
           >
             DOCUMENTO REVOCADO
             {cert.revokedAt ? ` el ${fechaLarga(cert.revokedAt)}` : ""} — NO VÁLIDO
+          </div>
+        )}
+
+        {/* Vencido: sigue siendo auténtico, pero ya no está vigente. Se avisa en el papel para que nadie lo tome como vigente. */}
+        {!revoked && meta.validUntil && meta.validUntil < hoyEnBogota() && (
+          <div
+            style={{
+              background: "#fffbeb",
+              border: "2px solid #d97706",
+              color: "#92400e",
+              textAlign: "center",
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              fontSize: 13,
+              padding: "10px 16px",
+              borderRadius: 8,
+              margin: "0 0 24px",
+              fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            }}
+          >
+            VENCIDO desde el {fechaDesdeIso(meta.validUntil)} — ya no está vigente
           </div>
         )}
 

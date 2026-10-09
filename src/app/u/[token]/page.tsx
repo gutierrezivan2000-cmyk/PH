@@ -8,7 +8,7 @@ import { Home, FileText, Megaphone, Wallet, CheckCircle2, AlertCircle, Sparkles 
 import { PortalPqrs } from "./PortalPqrs";
 import { PortalAssistant } from "./PortalAssistant";
 import { PortalPay } from "./PortalPay";
-import { COMING_SOON } from "@/lib/feature-flags";
+import { moduloAbiertoParaPropietario } from "@/lib/modulos-acceso";
 
 const DOC_LABELS: Record<string, string> = {
   reglamento_interno: "Reglamento interno",
@@ -84,6 +84,8 @@ export default async function ResidentPortalPage({
   }
 
   let unit: UnitView | null = null;
+  let carteraAbierta = false;
+  let pqrsAbierta = false;
   let admin: AdminView | null = null;
   let announcements: AnnouncementView[] = [];
   let documents: DocumentView[] = [];
@@ -175,6 +177,11 @@ export default async function ResidentPortalPage({
         select: { id: true, type: true, name: true, url: true },
       }),
     ]);
+    // Cartera y PQRS están en lanzamiento gradual: el portal los muestra solo si el módulo está abierto para el administrador.
+    [carteraAbierta, pqrsAbierta] = await Promise.all([
+      moduloAbiertoParaPropietario("cartera", dbUnit.property.userId),
+      moduloAbiertoParaPropietario("pqrs", dbUnit.property.userId),
+    ]);
     admin = dbAdmin;
     announcements = dbAnnouncements;
     documents = dbDocuments;
@@ -250,7 +257,7 @@ export default async function ResidentPortalPage({
         {/* Estado de cuenta — pausado junto con Cartera en el panel del
             administrador (ver src/lib/feature-flags.ts). Mostrar un saldo que
             nadie puede gestionar del otro lado sería peor que no mostrarlo. */}
-        {COMING_SOON.cartera ? (
+        {!carteraAbierta ? (
           <div style={cardStyle}>
             <div style={{ padding: "18px 20px" }}>
               <p style={{ ...sectionTitle, margin: "0 0 6px" }}>
@@ -364,7 +371,7 @@ export default async function ResidentPortalPage({
         {/* PQRS — pausado junto con el resto de PQRS (ver feature-flags.ts).
             Dejar el formulario activo enviaría solicitudes a una bandeja que
             hoy nadie revisa. */}
-        {COMING_SOON.pqrs ? (
+        {!pqrsAbierta ? (
           <div style={cardStyle}>
             <div style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: 10 }}>
               <Sparkles style={{ width: 16, height: 16, color: accent, flexShrink: 0 }} />

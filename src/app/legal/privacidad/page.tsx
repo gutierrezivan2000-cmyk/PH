@@ -78,7 +78,7 @@ export default function PrivacidadPage() {
             definir precios.
           </Item>
           <Item>
-            <strong style={fuerte}>Datos técnicos:</strong> dirección IP, navegador, registros de acceso y de seguridad,
+            <strong style={fuerte}>Datos técnicos:</strong> dirección IP, navegador, fecha de último ingreso, registros de acceso y de seguridad,
             contadores para evitar abusos y las cookies descritas en la <Ir a="/legal/cookies">Política de Cookies</Ir>.
           </Item>
           <Item>
@@ -143,10 +143,16 @@ export default function PrivacidadPage() {
 
       <Section number="06" title="Quién en SOPH.IA puede ver tus datos" icon={Eye}>
         <p>
-          El panel de administración de SOPH.IA no muestra datos personales de los clientes: cada cuenta se ve por un código
-          y por información operativa (plan, estado, consumo). El personal autorizado solo accede al contenido de una cuenta
-          de forma excepcional, para resolver un problema que tú reportes o por seguridad, bajo deber de confidencialidad y
-          solo con el alcance necesario.
+          El personal autorizado de SOPH.IA ve, en su panel de administración, tus datos de cuenta y de contacto (nombre,
+          correo, foto, cargo, teléfono, empresa, ciudad), las fechas de registro, de último ingreso y de aceptación de estos
+          documentos, tu plan y tu consumo, para administrar las cuentas, darte soporte, facturar y contactarte sobre el
+          servicio.
+        </p>
+        <p>
+          Ese panel no muestra el contenido que generas o cargas (documentos, actas, reuniones y transcripciones,
+          conversaciones con los asistentes, propiedades y sus datos). El personal solo accede a ese contenido de forma
+          excepcional, para resolver un problema que tú reportes o por seguridad, bajo deber de confidencialidad y solo con
+          el alcance necesario.
         </p>
       </Section>
 
@@ -193,7 +199,7 @@ export default function PrivacidadPage() {
       <Section number="10" title="Seguridad" icon={Lock}>
         <p>
           Aplicamos medidas técnicas y organizativas razonables: cifrado en tránsito (TLS), contraseñas con hash
-          criptográfico, controles de acceso por rol, panel administrativo sin datos personales, límites de intentos y
+          criptográfico, controles de acceso por rol, panel administrativo que no muestra el contenido de los clientes, límites de intentos y
           registro de la actividad administrativa. Ningún sistema es infalible: si detectamos un incidente que afecte tus
           datos, te lo notificaremos y lo reportaremos a la autoridad cuando corresponda.
         </p>

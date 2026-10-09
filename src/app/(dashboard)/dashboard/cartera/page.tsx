@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check, CalendarPlus, CirclePlus, Coins, Copy, FileText, HandCoins, Hourglass, Lock, MessageCircle, Percent,
   Receipt, Sparkles, Trash2, Users, Wallet, type LucideIcon,
 } from "lucide-react";
 import { Header } from "@/components/dashboard/Header";
 import { ComingSoon } from "@/components/dashboard/ComingSoon";
-import { COMING_SOON } from "@/lib/feature-flags";
+import { useModulos } from "@/components/dashboard/useModulos";
 import { fmtCOP, computeAgingReport } from "@/lib/cartera";
 import { waLink, paymentReminderMessage } from "@/lib/whatsapp";
 import {
@@ -284,6 +284,8 @@ function CarteraPage() {
   const [payRef, setPayRef] = useState("");
   const [payDate, setPayDate] = useState(todayIso());
   const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
+  // Clave del pago en curso: se reutiliza en un reintento del mismo pago y se borra cuando el pago queda registrado.
+  const claveDePago = useRef<{ firma: string; clave: string } | null>(null);
 
   // Cobro
   const [chUnit, setChUnit] = useState("");
@@ -419,6 +421,14 @@ function CarteraPage() {
       setError("Selecciona la unidad y un monto válido.");
       return;
     }
+    // La misma clave mientras el pago sea el mismo: si la respuesta se pierde y se reintenta, el servidor no duplica el pago.
+    // Si cambia algo del pago, es otro pago y lleva otra clave.
+    const firma = JSON.stringify([propertyId, payUnit, amt, payMethod, payRef.trim(), payDate]);
+    if (claveDePago.current?.firma !== firma) {
+      // randomUUID solo existe en contextos seguros (HTTPS o localhost): sin él, una clave alfanumérica equivalente para el servidor.
+      const clave = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+      claveDePago.current = { firma, clave };
+    }
     setBusy(true);
     setError(null);
     try {
@@ -432,6 +442,7 @@ function CarteraPage() {
           method: payMethod,
           reference: payRef.trim() || undefined,
           receivedAt: payDate ? `${payDate}T12:00:00` : undefined,
+          idempotencyKey: claveDePago.current.clave,
         }),
       });
       const data = await res.json();
@@ -439,10 +450,11 @@ function CarteraPage() {
         setError(data.error || "No se pudo registrar el pago.");
         return;
       }
+      claveDePago.current = null;
       avisar({
         tipo: "ok",
         titulo: `Pago de ${fmtCOP(amt)} registrado.`,
-        texto: data.credit > 0 ? `${fmtCOP(data.credit)} quedan como saldo a favor.` : undefined,
+        texto: data.repetido ? "Ese pago ya estaba registrado; no se duplicó." : data.credit > 0 ? `${fmtCOP(data.credit)} quedan como saldo a favor.` : undefined,
       });
       setPayAmount("");
       setPayRef("");
@@ -1374,7 +1386,8 @@ function CarteraPage() {
  * carga y se descargaban datos que nadie iba a ver.
  */
 export default function CarteraRoute() {
-  if (COMING_SOON.cartera) {
+  const { visible } = useModulos();
+  if (!visible("cartera")) {
     return (
       <div>
         <Header title="Cartera" subtitle="Cuotas, pagos y estados de cuenta por unidad" />

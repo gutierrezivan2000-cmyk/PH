@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/dashboard/Header";
 import { ComingSoon } from "@/components/dashboard/ComingSoon";
-import { COMING_SOON } from "@/lib/feature-flags";
+import { useModulos } from "@/components/dashboard/useModulos";
 import {
   Aviso,
   Boton,
@@ -381,7 +381,8 @@ function PqrsInboxPage() {
  * carga y se descargaban datos que nadie iba a ver.
  */
 export default function PqrsRoute() {
-  if (COMING_SOON.pqrs) {
+  const { visible } = useModulos();
+  if (!visible("pqrs")) {
     return (
       <div>
         <Header title="PQRS" subtitle="Peticiones, quejas y reclamos de los residentes" />

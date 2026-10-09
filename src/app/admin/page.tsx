@@ -1,7 +1,7 @@
 import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { db } from "@/lib/db";
-import { codigoDeUsuario } from "@/lib/admin/anonimo";
+
 import { calcMrr } from "@/lib/plan";
 import Link from "next/link";
 import {
@@ -59,7 +59,7 @@ async function loadOverview() {
     where: { status: { in: ["open", "pending"] } },
     orderBy: { createdAt: "desc" },
     take: 5,
-    select: { id: true, subject: true, category: true, priority: true, createdAt: true, userId: true },
+    select: { id: true, subject: true, category: true, priority: true, createdAt: true, userId: true, user: { select: { name: true, email: true } } },
   });
 
   return {
@@ -296,7 +296,7 @@ async function OverviewContent() {
                     className="text-[11px] text-muted-foreground/70 truncate"
                     style={{ fontFamily: "var(--font-mono)" }}
                   >
-                    {codigoDeUsuario(t.userId)} · {t.category} · {new Date(t.createdAt).toLocaleDateString("es-CO")}
+                    {t.user.name || t.user.email} · {t.user.email} · {t.category} · {new Date(t.createdAt).toLocaleDateString("es-CO")}
                   </p>
                 </div>
                 <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/60" />

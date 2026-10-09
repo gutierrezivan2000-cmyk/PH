@@ -11,6 +11,9 @@ type AddonAgent = "metra" | "nomethes" | "hermes" | "logistes";
 interface UserRow {
   id: string;
   codigo: string;
+  name: string | null;
+  email: string;
+  image: string | null;
   planId: string | null;
   subStatus: string;
   addonAgents: string[];
@@ -169,11 +172,14 @@ function MetricCard({
 }
 
 // ---- Avatar ----
-function UserAvatar({ codigo }: { codigo: string }) {
+function UserAvatar({ codigo, name, email }: { codigo: string; name: string | null; email: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <p style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
-        {codigo}
+    <div style={{ minWidth: 0 }}>
+      <p style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 200 }}>
+        {name || email.split("@")[0]}
+      </p>
+      <p style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "var(--font-mono)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 200 }}>
+        {email} · {codigo}
       </p>
     </div>
   );
@@ -305,7 +311,7 @@ export function AddonsContent() {
           />
           <input
             type="text"
-            placeholder="Código (U-ABC123) o correo completo..."
+            placeholder="Nombre, correo, empresa o U-código..."
             value={q}
             onChange={(e) => handleSearch(e.target.value)}
             style={{
@@ -408,7 +414,7 @@ export function AddonsContent() {
                 onMouseLeave={(e) => (e.currentTarget.style.background = "")}
               >
                 {/* User */}
-                <UserAvatar codigo={user.codigo} />
+                <UserAvatar codigo={user.codigo} name={user.name} email={user.email} />
 
                 {/* Plan */}
                 <div>
