@@ -59,3 +59,19 @@ describe("dar acceso", () => {
     expect(finDeAcceso(new Date("2026-10-09T00:00:00Z"), 30).toISOString()).toBe("2026-11-08T00:00:00.000Z");
   });
 });
+
+import { equipoAdministrador } from "./equipo";
+describe("equipo administrador", () => {
+  const d = new Date("2026-10-01T00:00:00Z");
+  it("marca a los propietarios, incluye a los que aún no ingresan y pone primero a los propietarios", () => {
+    const e = equipoAdministrador(
+      [{ id: "u1", email: "socia@x.com", createdAt: d }, { id: "u2", email: "GutierrezIvan2000@gmail.com", createdAt: d }],
+      ["gutierrezivan2000@gmail.com", "nuevo-dueno@x.com"],
+    );
+    expect(e.map((m) => [m.email, m.propietario, m.id])).toEqual([
+      ["GutierrezIvan2000@gmail.com", true, "u2"],
+      ["nuevo-dueno@x.com", true, null],
+      ["socia@x.com", false, "u1"],
+    ]);
+  });
+});

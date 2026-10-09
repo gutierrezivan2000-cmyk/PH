@@ -8,6 +8,9 @@ import Link from "next/link";
 import { Users, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { UsuariosFilters } from "./UsuariosFilters";
 import { codigoDeUsuario, filtroDeBusqueda } from "@/lib/admin/anonimo";
+import { requireAdmin } from "@/lib/admin-auth";
+import { adminEmails, esAdminDeEntorno } from "@/lib/admin-emails";
+import { equipoAdministrador } from "@/lib/admin/equipo";
 
 const PAGE_SIZE = 50;
 
@@ -91,6 +94,39 @@ export default async function UsuariosPage({
   );
 }
 
+async function EquipoAdministrador() {
+  const yo = await requireAdmin();
+  // Solo los propietarios ven quién administra (con su correo): es el equipo, no los clientes.
+  if (!yo || !esAdminDeEntorno(yo.email)) return null;
+  const admins = await db.user.findMany({ where: { role: "admin" }, select: { id: true, email: true, createdAt: true } });
+  const equipo = equipoAdministrador(admins, adminEmails());
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden mb-5">
+      <div className="px-5 py-3.5 border-b border-border flex items-baseline justify-between gap-3 flex-wrap">
+        <p className="text-[10px] uppercase text-muted-foreground/60" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.16em" }}>
+          Equipo administrador · {equipo.length}
+        </p>
+        <p className="text-[11.5px] text-muted-foreground">Solo los propietarios ven esta lista. Los propietarios no se pueden degradar ni bloquear.</p>
+      </div>
+      <ul className="divide-y divide-border">
+        {equipo.map((m) => (
+          <li key={m.email} className="px-5 py-3 flex items-center gap-3 flex-wrap">
+            <span className="text-[13px] text-foreground" style={{ fontFamily: "var(--font-mono)" }}>{m.email}</span>
+            <Badge variant={m.propietario ? "warn" : "accent"} className="text-[10px]">{m.propietario ? "propietario" : "admin"}</Badge>
+            {m.id ? (
+              <Link href={`/admin/usuarios/${m.id}`} className="text-[12px] text-muted-foreground hover:text-foreground ml-auto" style={{ fontFamily: "var(--font-mono)" }}>
+                {codigoDeUsuario(m.id)}
+              </Link>
+            ) : (
+              <span className="text-[12px] text-muted-foreground ml-auto">aún no ha ingresado</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 async function UsuariosContent({ sp }: { sp: SearchParams }) {
   const { users, total, page, totalPages } = await loadUsers(sp);
 
@@ -131,6 +167,8 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
       />
 
       {/* Filters row */}
+      <EquipoAdministrador />
+
       <UsuariosFilters
         defaultQ={q}
         defaultRole={role}
