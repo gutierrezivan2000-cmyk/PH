@@ -167,15 +167,36 @@ prometen datos que no ve.
 
 ---
 
-## 5. Decisiones que necesita el dueño
+## 5. Decisiones del dueño (9 de octubre de 2026)
 
-1. **Empaquetado:** qué módulo va en qué plan (hoy PQRS y Cartera exigen Business). Con la medición de consumo
-   ya activa se puede fijar el precio de cada uno.
-2. **Correo por cliente:** ¿cada administración envía desde su propio dominio verificado, o desde un subdominio de
-   SOPH.IA por cliente?
-3. **WhatsApp Business API:** ¿se asume el costo por conversación y en qué plan?
-4. **Pagos:** mantener que cada administrador use su propio comercio ePayco (SOPH.IA nunca toca el dinero) o
-   explorar un recaudo con comisión (implica regulación financiera).
-5. **Revisión legal:** validez de la votación electrónica, texto del paz y salvo, tope de intereses de mora,
-   proceso sancionatorio.
-6. **Pilotos:** 2 o 3 administradores reales por módulo, con su consentimiento.
+1. **Empaquetado:** los módulos de gestión irán en un plan **superior al Pro** (Pro = US$30 / COP 99.000 al mes). Con la
+   medición de consumo se fija el precio del plan nuevo según el costo real por función.
+2. **Correo:** cada administración envía **desde su propio dominio** verificado (SPF, DKIM y DMARC). Implica un asistente
+   de configuración de dominio dentro de la plataforma y envío con el dominio del cliente en Resend.
+3. **WhatsApp Business API:** pendiente de decidir (ver la explicación abajo). Mientras tanto se mantiene el envío por
+   correo y el enlace de WhatsApp con el texto ya escrito.
+4. **Pagos:** cada administrador sigue usando **su propio método de recaudo**; SOPH.IA solo organiza con IA la
+   contabilidad y la administración de esos pagos (no custodia dinero, no cobra comisión de recaudo). El texto legal ya lo dice
+   (`/legal/gestion`).
+5. **Revisión legal:** desarrollados los textos de votación electrónica, paz y salvo, intereses de mora, cobranza, sanciones y
+   pagos en `/legal/gestion`. Siguen requiriendo la lectura de un abogado antes de abrir cada módulo al público.
+6. **Piloto:** abierto, pero **por ahora solo con la cuenta Admin del dueño**. Los módulos están en modo `piloto`: los usan los
+   admins y las cuentas de la variable `PILOTO_EMAILS` (se llenará con la lista de testers). Pasar un módulo a todos es cambiar
+   `MODO_DE_MODULO` en `src/lib/feature-flags.ts`.
+
+### WhatsApp Business API: qué es y cómo decidir
+
+- **Hoy:** el botón de WhatsApp abre el chat del administrador con el mensaje ya escrito; el envío lo hace una persona desde su
+  teléfono. No hay costo ni verificación, pero tampoco hay envío masivo, confirmación de entrega ni lectura.
+- **Con la API oficial de Meta:** SOPH.IA enviaría los mensajes por el administrador (avisos de cobro, convocatorias, comunicados)
+  desde un número de la copropiedad o de la administración, con estado de entrega y respuestas dentro de la plataforma.
+- **Costo:** Meta cobra por cada mensaje de plantilla (mercadeo, utilidad, autenticación) según el país; las respuestas dentro de
+  las 24 horas de un mensaje del residente son gratuitas. Las tarifas de Colombia suben de forma periódica (Meta subió las de
+  utilidad y autenticación el 1 de octubre de 2025) y un proveedor intermediario añade su margen. Hay que consultar la tarifa
+  vigente de Meta antes de fijar precios.
+- **Requisitos:** cuenta de WhatsApp Business verificada, plantillas aprobadas por Meta para cada tipo de mensaje y el
+  consentimiento del residente para recibir mensajes (el aviso de privacidad y el contacto por unidad ya lo preparan).
+- **Alternativas:** (a) no ofrecerlo y dejar solo correo + enlace manual; (b) ofrecerlo como complemento de pago donde el cliente
+  paga el consumo de mensajes más un margen; (c) incluir una cantidad mensual en el plan superior y cobrar el exceso.
+- **Recomendación:** lanzar primero con correo (desde dominio propio) y el enlace de WhatsApp; ofrecer la API como complemento de
+  pago por consumo cuando haya clientes que lo pidan, porque el costo crece con el volumen y hoy no se puede acotar.

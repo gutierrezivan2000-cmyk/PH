@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { exigirModulo } from "@/lib/modulos-acceso";
 import { randomBytes } from "node:crypto";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
@@ -17,6 +18,10 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  {
+    const puerta = await exigirModulo("certificados");
+    if ("error" in puerta) return puerta.error;
   }
   if (IS_DEMO) {
     const { getDemoCertificates } = await import("@/lib/demo-store");
@@ -51,6 +56,10 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  {
+    const puerta = await exigirModulo("certificados");
+    if ("error" in puerta) return puerta.error;
   }
 
   const body = await req.json().catch(() => ({}));
@@ -165,6 +174,10 @@ export async function PATCH(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  {
+    const puerta = await exigirModulo("certificados");
+    if ("error" in puerta) return puerta.error;
   }
 
   const body = await req.json().catch(() => ({}));

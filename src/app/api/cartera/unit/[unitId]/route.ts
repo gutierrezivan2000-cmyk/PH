@@ -12,7 +12,7 @@ export async function GET(
 ) {
   if (IS_DEMO) return NextResponse.json({ charges: [], payments: [] });
 
-  const r = await requireCartera();
+  const r = await requireCartera("cartera");
   if ("error" in r) return r.error;
   const { userId } = r;
 

@@ -54,17 +54,6 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ ok: true, code: "PQR-DEMO12", demo: true }, { status: 201 });
 
-  // PQRS está pausado: la bandeja del administrador muestra "Próximamente", así
-  // que una solicitud radicada aquí caería en un buzón que nadie abre. Es peor
-  // que decirle al residente que todavía no está disponible.
-  const { COMING_SOON } = await import("@/lib/feature-flags");
-  if (COMING_SOON.pqrs) {
-    return NextResponse.json(
-      { error: "Las PQRS en línea no están disponibles por ahora. Escríbele a la administración por WhatsApp." },
-      { status: 503 }
-    );
-  }
-
   const body = await req.json().catch(() => ({}));
   const { token, type, subject, message, residentName, residentContact } = body as {
     token?: string;
@@ -89,10 +78,20 @@ export async function POST(req: NextRequest) {
     const unit = await unitFromToken(token);
     if (!unit) return NextResponse.json({ error: "Enlace inválido." }, { status: 404 });
 
+    // PQRS está en lanzamiento gradual: si no está abierto para el administrador de esta copropiedad, la bandeja de ese
+    // administrador muestra «Próximamente» y la solicitud caería en un buzón que nadie abre.
+    const { moduloAbiertoParaPropietario } = await import("@/lib/modulos-acceso");
+    if (!(await moduloAbiertoParaPropietario("pqrs", unit.property.userId))) {
+      return NextResponse.json(
+        { error: "Las PQRS en línea no están disponibles por ahora. Escríbele a la administración por WhatsApp." },
+        { status: 503 }
+      );
+    }
+
     // Never accept a request the administration can no longer read (e.g. their
     // plan no longer covers PQRS) — it would vanish with nobody to answer it.
     const { ownerHasCarteraPlan } = await import("@/lib/cartera-server");
-    if (!(await ownerHasCarteraPlan(unit.property.userId))) {
+    if (!(await ownerHasCarteraPlan(unit.property.userId, "pqrs"))) {
       return NextResponse.json(
         {
           error:

@@ -11,7 +11,7 @@ const TYPES = ["ingreso", "gasto", "fondo_aporte", "fondo_retiro"] as const;
 export async function POST(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ ok: true, demo: true }, { status: 201 });
 
-  const r = await requireCartera();
+  const r = await requireCartera("presupuesto");
   if ("error" in r) return r.error;
   const { userId } = r;
 
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ ok: true });
 
-  const r = await requireCartera();
+  const r = await requireCartera("presupuesto");
   if ("error" in r) return r.error;
   const { userId } = r;
 

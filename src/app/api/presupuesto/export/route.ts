@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No disponible en modo demo" }, { status: 400 });
   }
 
-  const r = await requireCartera();
+  const r = await requireCartera("presupuesto");
   if ("error" in r) return r.error;
   const { userId } = r;
 

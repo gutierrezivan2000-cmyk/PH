@@ -28,6 +28,7 @@ export const DOCUMENTOS_LEGALES = [
   { ruta: "/legal/habeas-data", titulo: "Tratamiento de Datos Personales (Habeas Data)", resumen: "Tus derechos como titular y cómo ejercerlos (Ley 1581 de 2012)." },
   { ruta: "/legal/reuniones", titulo: "Reuniones: grabación, transcripción y consentimiento", resumen: "Qué debes informar a los asistentes y qué hacemos con el audio." },
   { ruta: "/legal/encargado", titulo: "Acuerdo de Encargado del Tratamiento", resumen: "Cómo tratamos los datos de residentes y terceros que cargas en la plataforma." },
+  { ruta: "/legal/gestion", titulo: "Condiciones de los módulos de gestión", resumen: "Cartera, pagos, certificados, asambleas, comunicados y PQRS: qué te corresponde y qué hace SOPH.IA." },
   { ruta: "/legal/ia", titulo: "Uso de Inteligencia Artificial", resumen: "Alcance, límites y proveedores de los documentos asistidos por IA." },
   { ruta: "/legal/cookies", titulo: "Política de Cookies y almacenamiento local", resumen: "Qué guardamos en tu navegador y por qué." },
 ] as const;

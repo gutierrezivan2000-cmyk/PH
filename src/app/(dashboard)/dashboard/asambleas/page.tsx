@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/dashboard/Header";
 import { ComingSoon } from "@/components/dashboard/ComingSoon";
-import { COMING_SOON } from "@/lib/feature-flags";
+import { useModulos } from "@/components/dashboard/useModulos";
 import { addBusinessDays } from "@/lib/compliance";
 import {
   AreaTexto,
@@ -626,7 +626,8 @@ La Administración`;
  * carga y se descargaban datos que nadie iba a ver.
  */
 export default function AsambleasRoute() {
-  if (COMING_SOON.asambleas) {
+  const { visible } = useModulos();
+  if (!visible("asambleas")) {
     return (
       <div>
         <Header title="Asambleas" subtitle="Convocatorias y control de términos legales (Ley 675)" />

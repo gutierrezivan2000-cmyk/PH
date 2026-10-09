@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/dashboard/Header";
 import { ComingSoon } from "@/components/dashboard/ComingSoon";
-import { COMING_SOON } from "@/lib/feature-flags";
+import { useModulos } from "@/components/dashboard/useModulos";
 import { fmtCOP, computeAgingReport } from "@/lib/cartera";
 import { waLink, paymentReminderMessage } from "@/lib/whatsapp";
 import {
@@ -1374,7 +1374,8 @@ function CarteraPage() {
  * carga y se descargaban datos que nadie iba a ver.
  */
 export default function CarteraRoute() {
-  if (COMING_SOON.cartera) {
+  const { visible } = useModulos();
+  if (!visible("cartera")) {
     return (
       <div>
         <Header title="Cartera" subtitle="Cuotas, pagos y estados de cuenta por unidad" />

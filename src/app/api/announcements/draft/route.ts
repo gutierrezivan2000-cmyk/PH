@@ -3,6 +3,7 @@ export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { exigirModulo } from "@/lib/modulos-acceso";
 import { AGENTS } from "@/lib/agents";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
@@ -17,6 +18,10 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  {
+    const puerta = await exigirModulo("comunicados");
+    if ("error" in puerta) return puerta.error;
   }
 
   const body = await req.json().catch(() => ({}));

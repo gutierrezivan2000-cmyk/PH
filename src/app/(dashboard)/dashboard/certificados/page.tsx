@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Ban, BadgeCheck, Check, CircleCheck, Home, Link2, Printer, RotateCcw, X, type LucideIcon } from "lucide-react";
 import { Header } from "@/components/dashboard/Header";
 import { ComingSoon } from "@/components/dashboard/ComingSoon";
-import { COMING_SOON } from "@/lib/feature-flags";
+import { useModulos } from "@/components/dashboard/useModulos";
 import {
   Aviso,
   Boton,
@@ -561,7 +561,8 @@ function CertificadosPage() {
  * carga y se descargaban datos que nadie iba a ver.
  */
 export default function CertificadosRoute() {
-  if (COMING_SOON.certificados) {
+  const { visible } = useModulos();
+  if (!visible("certificados")) {
     return (
       <div>
         <Header title="Certificados" subtitle="Paz y salvos y constancias con verificación QR" />

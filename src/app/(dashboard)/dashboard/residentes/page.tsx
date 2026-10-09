@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { UnitImport } from "@/components/dashboard/UnitImport";
 import { waLink, portalLinkMessage } from "@/lib/whatsapp";
-import { COMING_SOON } from "@/lib/feature-flags";
+import { useModulos } from "@/components/dashboard/useModulos";
 import {
   AccionesFila,
   AreaTexto,
@@ -104,6 +104,7 @@ function avisarResultado(m: { ok: boolean; text: string }) {
 }
 
 export default function ResidentesPage() {
+  const carteraAbierta = useModulos().visible("cartera");
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState("");
   const [units, setUnits] = useState<UnitRow[]>([]);
@@ -195,7 +196,7 @@ export default function ResidentesPage() {
       if (res.ok) {
         setMsg({
           ok: true,
-          text: COMING_SOON.cartera
+          text: !carteraAbierta
             ? "Pago en línea configurado. Se activará en el portal cuando Cartera esté disponible."
             : "Pago en línea configurado. Los residentes con saldo ya pueden pagar desde su portal.",
         });
@@ -936,7 +937,7 @@ export default function ResidentesPage() {
                             )}
                             <p className="k-apoyo res-p">
                               {payConfigured
-                                ? COMING_SOON.cartera
+                                ? !carteraAbierta
                                   // El botón de pago del portal vive en la sección de
                                   // estado de cuenta, hoy pausada con Cartera: decir que
                                   // "ya pueden pagar" sería falso.

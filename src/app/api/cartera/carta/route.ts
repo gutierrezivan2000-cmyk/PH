@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const r = await requireCartera();
+  const r = await requireCartera("cartera");
   if ("error" in r) return r.error;
   const { userId, accessStatus } = r;
 

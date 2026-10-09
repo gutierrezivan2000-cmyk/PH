@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/dashboard/Header";
 import { ComingSoon } from "@/components/dashboard/ComingSoon";
-import { COMING_SOON } from "@/lib/feature-flags";
+import { useModulos } from "@/components/dashboard/useModulos";
 import { fmtCOP } from "@/lib/cartera";
 import { defaultBudgetItems, type BudgetItem, type BudgetExecution } from "@/lib/presupuesto";
 import {
@@ -781,7 +781,8 @@ function PresupuestoPage() {
  * carga y se descargaban datos que nadie iba a ver.
  */
 export default function PresupuestoRoute() {
-  if (COMING_SOON.presupuesto) {
+  const { visible } = useModulos();
+  if (!visible("presupuesto")) {
     return (
       <div>
         <Header title="Presupuesto" subtitle="Presupuesto anual, ejecución y fondo de imprevistos" />

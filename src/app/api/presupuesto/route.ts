@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const r = await requireCartera();
+  const r = await requireCartera("presupuesto");
   if ("error" in r) return r.error;
   const { userId } = r;
 
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ ok: true, demo: true });
 
-  const r = await requireCartera();
+  const r = await requireCartera("presupuesto");
   if ("error" in r) return r.error;
   const { userId } = r;
 

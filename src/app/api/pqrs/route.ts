@@ -25,9 +25,12 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+  const { exigirModulo } = await import("@/lib/modulos-acceso");
+  const puerta = await exigirModulo("pqrs");
+  if ("error" in puerta) return puerta.error;
   const userId = session.user.id;
   const { ownerHasCarteraPlan } = await import("@/lib/cartera-server");
-  const canAct = await ownerHasCarteraPlan(userId);
+  const canAct = await ownerHasCarteraPlan(userId, "pqrs");
 
   const propertyId = req.nextUrl.searchParams.get("propertyId") || undefined;
   const status = req.nextUrl.searchParams.get("status") || undefined;
@@ -65,7 +68,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ ok: true });
 
-  const r = await requireCartera();
+  const r = await requireCartera("pqrs");
   if ("error" in r) return r.error;
   const { userId } = r;
 

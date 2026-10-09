@@ -5,7 +5,8 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { COMING_SOON, puedeVerReuniones, type ComingSoonKey } from "@/lib/feature-flags";
+import { puedeVerReuniones, type ComingSoonKey } from "@/lib/feature-flags";
+import { useModulos } from "@/components/dashboard/useModulos";
 import { GrupoIndice, Indice, ItemIndice, Loseta, MODULOS, type ClaveModulo } from "@/components/kit";
 import { AGENTES_ACTIVOS, type DatosIndice } from "@/components/dashboard/datosIndice";
 import { abrirSoporte, useSoporteAbierto, useSoporteDisponible } from "@/components/dashboard/soporte";
@@ -124,7 +125,9 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse, datos }: S
   // Las funciones pausadas («Pronto») no ocupan el menú: van juntas, plegadas, bajo «Próximamente».
   // Si la pantalla actual es una de ellas, el grupo se abre solo.
   const [prontoAbierto, setProntoAbierto] = useState(false);
-  const esPronto = (item: EntradaIndice) => Boolean(item.comingSoon && COMING_SOON[item.comingSoon]);
+  // Un módulo en lanzamiento gradual sigue en «Próximamente» para quien el servidor no deja usarlo (admins y testers sí lo ven abierto).
+  const { visible: moduloAbierto } = useModulos();
+  const esPronto = (item: EntradaIndice) => Boolean(item.comingSoon && !moduloAbierto(item.comingSoon));
   // Las funciones en piloto (Reuniones) solo aparecen para quien la bandera deja verlas.
   // Aquí basta el rol de la sesión: los admins de ADMIN_EMAILS ya entran con rol admin.
   const verReuniones = puedeVerReuniones({ role: session?.user?.role, demo: process.env.NEXT_PUBLIC_DEMO_MODE === "true" });

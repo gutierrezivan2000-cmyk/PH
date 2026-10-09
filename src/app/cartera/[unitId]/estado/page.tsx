@@ -45,6 +45,9 @@ export default async function EstadoCuentaPage({
 
   // Demo mode never touches the DB (db is a stub there).
   if (process.env.DEMO_MODE === "true") notFound();
+  // Módulo en lanzamiento gradual: la impresión solo la ve quien puede usar el módulo.
+  const { modulosVisiblesDe } = await import("@/lib/modulos-acceso");
+  if (!(await modulosVisiblesDe({ email: session.user.email, role: session.user.role })).cartera) notFound();
 
   const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
   await ensureAdminSchema();

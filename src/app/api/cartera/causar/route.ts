@@ -18,7 +18,7 @@ const MONTH_NAMES = [
 export async function POST(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ ok: true, demo: true, created: 0 });
 
-  const r = await requireCartera();
+  const r = await requireCartera("cartera");
   if ("error" in r) return r.error;
   const { userId } = r;
 
