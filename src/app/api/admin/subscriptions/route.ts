@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401 } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { codigoDeUsuario, filtroDeBusqueda } from "@/lib/admin/anonimo";
 import { calcMrr } from "@/lib/plan";
 
 const PAGE_SIZE = 50;
@@ -23,20 +24,16 @@ export async function GET(req: NextRequest) {
     where.status = status;
   }
 
-  if (q) {
-    where.user = {
-      OR: [
-        { email: { contains: q, mode: "insensitive" } },
-        { name: { contains: q, mode: "insensitive" } },
-      ],
-    };
-  }
+  // Por código, o por correo completo y exacto. Nunca por nombre ni parcial.
+  const busqueda = filtroDeBusqueda(q);
+  if (busqueda) where.user = busqueda;
 
   const [subscriptions, total] = await Promise.all([
     db.subscription.findMany({
       where,
-      include: {
-        user: { select: { id: true, name: true, email: true, image: true } },
+      select: {
+        id: true, userId: true, planId: true, status: true, addonAgents: true, createdAt: true, updatedAt: true,
+        currentPeriodStart: true, currentPeriodEnd: true,
       },
       orderBy: { createdAt: "desc" },
       take: PAGE_SIZE,
@@ -65,6 +62,7 @@ export async function GET(req: NextRequest) {
 
   const enriched = subscriptions.map((s) => ({
     ...s,
+    user: { id: s.userId, codigo: codigoDeUsuario(s.userId) },
     mrr: calcMrr(s.planId, s.addonAgents),
   }));
 

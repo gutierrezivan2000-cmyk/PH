@@ -33,6 +33,7 @@ function LoginContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [acepta, setAcepta] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(
@@ -42,6 +43,10 @@ function LoginContent() {
   const handleCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (mode === "register" && !acepta) {
+      setError("Para crear tu cuenta debes aceptar los Términos y la Política de Privacidad.");
+      return;
+    }
     setLoading(true);
 
     try {
@@ -49,7 +54,7 @@ function LoginContent() {
         const res = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, name }),
+          body: JSON.stringify({ email, password, name, acepta }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -493,6 +498,24 @@ function LoginContent() {
                   </button>
                 </div>
 
+                {mode === "register" && (
+                  <label className="flex items-start gap-2.5 cursor-pointer" style={{ fontSize: 12, color: "var(--ink-3)", lineHeight: 1.5 }}>
+                    <input
+                      type="checkbox"
+                      checked={acepta}
+                      onChange={(e) => setAcepta(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer"
+                      style={{ accentColor: "var(--accent)" }}
+                    />
+                    <span>
+                      He leído y acepto los{" "}
+                      <Link href="/legal/terminos" target="_blank" style={{ color: "var(--accent-text)", textDecoration: "underline" }}>Términos y Condiciones</Link>, la{" "}
+                      <Link href="/legal/privacidad" target="_blank" style={{ color: "var(--accent-text)", textDecoration: "underline" }}>Política de Privacidad</Link> y autorizo el tratamiento de mis datos personales según la{" "}
+                      <Link href="/legal/habeas-data" target="_blank" style={{ color: "var(--accent-text)", textDecoration: "underline" }}>Política de Habeas Data</Link>.
+                    </span>
+                  </label>
+                )}
+
                 {/* Forgot password link */}
                 {mode === "login" && (
                   <div className="flex justify-end">
@@ -570,21 +593,29 @@ function LoginContent() {
             className="mt-6 text-center leading-relaxed"
             style={{ fontSize: 11, color: "var(--ink-4)" }}
           >
-            Al continuar, aceptas nuestros{" "}
+            Al continuar con Google o iniciar sesión, aceptas nuestros{" "}
             <Link
               href="/legal/terminos"
               className="cursor-pointer hover:opacity-80 transition-opacity"
               style={{ color: "var(--ink-3)", textDecoration: "underline", textUnderlineOffset: 2 }}
             >
-              Terminos de Servicio
-            </Link>{" "}
-            y la{" "}
+              Términos y Condiciones
+            </Link>
+            , la{" "}
             <Link
               href="/legal/privacidad"
               className="cursor-pointer hover:opacity-80 transition-opacity"
               style={{ color: "var(--ink-3)", textDecoration: "underline", textUnderlineOffset: 2 }}
             >
-              Politica de Privacidad
+              Política de Privacidad
+            </Link>{" "}
+            y la{" "}
+            <Link
+              href="/legal/habeas-data"
+              className="cursor-pointer hover:opacity-80 transition-opacity"
+              style={{ color: "var(--ink-3)", textDecoration: "underline", textUnderlineOffset: 2 }}
+            >
+              Política de Habeas Data
             </Link>
           </p>
         </div>

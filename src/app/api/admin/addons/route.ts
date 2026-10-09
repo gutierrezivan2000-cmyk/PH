@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401, logAdminAction } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { codigoDeUsuario, filtroDeBusqueda } from "@/lib/admin/anonimo";
 import { calcMrr } from "@/lib/plan";
 
 const ADDON_AGENTS = ["metra", "nomethes", "hermes", "logistes"] as const;
@@ -18,12 +19,9 @@ export async function GET(req: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: Record<string, any> = {};
-  if (q) {
-    where.OR = [
-      { email: { contains: q, mode: "insensitive" } },
-      { name: { contains: q, mode: "insensitive" } },
-    ];
-  }
+  // Por código, o por correo completo y exacto. Nunca por nombre ni parcial.
+  const busqueda = filtroDeBusqueda(q);
+  if (busqueda) Object.assign(where, busqueda);
   if (onlyWithSub) {
     where.subscription = { isNot: null };
   }
@@ -32,9 +30,6 @@ export async function GET(req: NextRequest) {
     where,
     select: {
       id: true,
-      name: true,
-      email: true,
-      image: true,
       subscription: {
         select: {
           id: true,
@@ -67,9 +62,7 @@ export async function GET(req: NextRequest) {
 
   const enriched = users.map((u) => ({
     id: u.id,
-    name: u.name,
-    email: u.email,
-    image: u.image,
+    codigo: codigoDeUsuario(u.id),
     planId: u.subscription?.planId ?? null,
     subStatus: u.subscription?.status ?? "none",
     addonAgents: u.subscription?.addonAgents ?? [],

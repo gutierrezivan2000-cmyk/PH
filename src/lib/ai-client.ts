@@ -1,4 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { TIPOS } from "@/lib/consumo/funciones";
+import type { Tokens } from "@/lib/consumo/precios";
+import { registrarConsumo, tipoDeLectura, type RefDeConsumo } from "@/lib/consumo/registrar";
+import { tokensDeAnthropic } from "@/lib/consumo/uso";
 
 // Lazy-init: only create client when actually called
 let _client: Anthropic | null = null;
@@ -47,8 +51,15 @@ export async function generateWithClaude(
    * siempre del presupuesto y la plataforma mataba la función, devolviendo el
    * 504 con cuerpo HTML que estos timeouts existen para evitar.
    */
-  opts: { timeoutMs?: number } = {}
-): Promise<{ text: string; tokensUsed: number }> {
+  opts: {
+    timeoutMs?: number;
+    /**
+     * Registrar el consumo de esta llamada con esta función (`TIPOS`). El usuario y la operación salen de aquí o del contexto
+     * (`conConsumo`). Sin esto, quien llama registra por su cuenta.
+     */
+    consumo?: { tipo: string; userId?: string; ref?: RefDeConsumo | null };
+  } = {}
+): Promise<{ text: string; tokensUsed: number; model: string; tokens: Tokens; costUsd: number }> {
   const client = getClient();
 
   try {
@@ -81,7 +92,11 @@ export async function generateWithClaude(
 
     console.log(`[AI] Response: ${text.length} chars, ${tokensUsed} tokens (in=${response.usage?.input_tokens}, out=${response.usage?.output_tokens})`);
 
-    return { text, tokensUsed };
+    const uso = tokensDeAnthropic(response, model);
+    const costUsd = opts.consumo
+      ? await registrarConsumo({ tipo: opts.consumo.tipo, proveedor: "anthropic", modelo: uso.modelo, tokens: uso.tokens, userId: opts.consumo.userId, ref: opts.consumo.ref })
+      : 0;
+    return { text, tokensUsed, model: uso.modelo, tokens: uso.tokens, costUsd };
   } catch (error: unknown) {
     // Translate common API errors to user-friendly Spanish messages
     const msg = error instanceof Error ? error.message : String(error);
@@ -121,12 +136,24 @@ export async function transcribeAudio(file: File): Promise<string> {
   // OpenAI SDK accepts File-like objects with name property
   const uploadFile = new File([buffer], file.name, { type: file.type });
 
-  const response = await openai.audio.transcriptions.create({
+  // `verbose_json` trae la duración del audio: con ella se registra lo que costó (Whisper se cobra por minuto).
+  const response = (await openai.audio.transcriptions.create({
     model: "whisper-1",
     file: uploadFile,
     language: "es", // Spanish — primary language for this app
-    response_format: "text",
-  });
+    response_format: "verbose_json",
+  })) as unknown as { text?: string; duration?: number } | string;
 
-  return typeof response === "string" ? response : (response as { text: string }).text;
+  const text = typeof response === "string" ? response : response.text ?? "";
+  const segundos = typeof response === "object" && typeof response.duration === "number" ? response.duration : 0;
+  if (segundos > 0) {
+    await registrarConsumo({
+      tipo: tipoDeLectura("audio", TIPOS.audioEnGeneracion),
+      proveedor: "openai",
+      modelo: "whisper-1",
+      audioSegundos: segundos,
+      tokensDelRegistro: Math.round(segundos),
+    });
+  }
+  return text;
 }

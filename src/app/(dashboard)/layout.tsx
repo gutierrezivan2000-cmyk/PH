@@ -7,6 +7,7 @@ import { Sidebar, esActiva } from "@/components/dashboard/Sidebar";
 import { useDatosIndice } from "@/components/dashboard/datosIndice";
 import { DemoBanner } from "@/components/dashboard/DemoBanner";
 import { RenewalBanner } from "@/components/dashboard/RenewalBanner";
+import { AvisoLegal } from "@/components/dashboard/AvisoLegal";
 import { AvisoDeGrabacion } from "@/components/reuniones/AvisoDeGrabacion";
 import { Dock, MODULOS, RegionAvisos, type ClaveModulo, type DestinoDock } from "@/components/kit";
 import { useState, useEffect, useRef } from "react";
@@ -85,6 +86,7 @@ export default function DashboardLayout({
           />
           <div ref={principalRef} id="k-principal" className="k-principal flex flex-col">
             <RenewalBanner />
+            <AvisoLegal />
             <AvisoDeGrabacion />
             {/* overflow-x: clip (no hidden): recorta como antes lo que se salga de lado sin
                 crear un contenedor de scroll, así la cabecera sticky sigue pegándose. */}

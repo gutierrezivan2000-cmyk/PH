@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { checkSubscriptionAccess, recordUsage } = await import("@/lib/usage");
+    const { checkSubscriptionAccess } = await import("@/lib/usage");
     const access = await checkSubscriptionAccess(session.user.id);
     if (!access.allowed) {
       return NextResponse.json(
@@ -73,7 +73,7 @@ No agregues nada fuera de ese formato. No uses markdown ni asteriscos.`;
     const user = `Copropiedad: ${propertyName || "la copropiedad"}.
 Lo que debe comunicar: ${brief.trim()}`;
 
-    const { text, tokensUsed } = await generateWithClaude(system, user, undefined, { timeoutMs: 25_000 }); // 25s x2 intentos = 50s < maxDuration 60
+    const { text } = await generateWithClaude(system, user, undefined, { timeoutMs: 25_000, consumo: { tipo: "comunicado_draft", userId: session.user.id, ref: null } }); // 25s x2 intentos = 50s < maxDuration 60
 
     // Parse "ASUNTO: ..." first line; the rest is the body.
     let subject = "Comunicado de la administración";
@@ -83,14 +83,6 @@ Lo que debe comunicar: ${brief.trim()}`;
       subject = match[1].trim().slice(0, 150);
       content = content.replace(/^ASUNTO:\s*.+$/im, "").trim();
     }
-
-    // Blended Sonnet pricing (~USD $9/M tokens avg in+out) — small drafts.
-    await recordUsage(
-      session.user.id,
-      tokensUsed,
-      (tokensUsed / 1_000_000) * 9,
-      "comunicado_draft"
-    ).catch(() => {});
 
     return NextResponse.json({ subject, content });
   } catch (error) {

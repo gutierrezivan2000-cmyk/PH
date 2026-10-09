@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { TIPOS } from "@/lib/consumo/funciones";
+import { conConsumo } from "@/lib/consumo/registrar";
 import { generatePdfHtml } from "@/lib/documents/pdf-generator";
 import { parseMarkdownToSlides } from "@/lib/documents/slide-parser";
 import { STRATEGOS_SYSTEM_PROMPT, buildStrategosPrompt } from "@/lib/ai/strategos";
@@ -60,6 +62,12 @@ export interface RunGenerationParams {
  * Assumes the Generation row already exists (status processing/pending).
  */
 export async function runGeneration(p: RunGenerationParams): Promise<void> {
+  // Todo lo que se haga con IA adentro (redactar, leer imágenes, transcribir audios, revisar el acta) se carga a esta
+  // persona y a esta generación: así se sabe cuánto costó cada una.
+  return conConsumo({ userId: p.userId, ref: { tipo: "generacion", id: p.generationId } }, () => ejecutarGeneracion(p));
+}
+
+async function ejecutarGeneracion(p: RunGenerationParams): Promise<void> {
   const updateProgress = async (progress: number, status?: string) => {
     try {
       await db.generation.update({
@@ -150,19 +158,20 @@ export async function runGeneration(p: RunGenerationParams): Promise<void> {
     let informeText: string | undefined;
     let actaText: string | undefined;
     let totalTokens = 0;
+    let costUsd = 0;
 
     const needInforme = p.includeInforme || p.includePptx;
     const informePromise = needInforme
-      ? generateWithAssistant(STRATEGOS_SYSTEM_PROMPT, buildStrategosPrompt(p.propertyName, p.month, p.year, consolidatedContent))
+      ? generateWithAssistant(STRATEGOS_SYSTEM_PROMPT, buildStrategosPrompt(p.propertyName, p.month, p.year, consolidatedContent), undefined, { consumo: { tipo: TIPOS.informe } })
       : null;
     const actaPromise = p.includeActa
-      ? generateWithAssistant(GRAMMATEUS_SYSTEM_PROMPT, buildGrammatusPrompt(p.propertyName, p.month, p.year, consolidatedContent))
+      ? generateWithAssistant(GRAMMATEUS_SYSTEM_PROMPT, buildGrammatusPrompt(p.propertyName, p.month, p.year, consolidatedContent), undefined, { consumo: { tipo: TIPOS.acta } })
       : null;
 
     await updateProgress(25);
     const [informeResult, actaResult] = await Promise.all([informePromise, actaPromise]);
-    if (informeResult) { informeText = informeResult.text; totalTokens += informeResult.tokensUsed; }
-    if (actaResult) { actaText = actaResult.text; totalTokens += actaResult.tokensUsed; }
+    if (informeResult) { informeText = informeResult.text; totalTokens += informeResult.tokensUsed; costUsd += informeResult.costUsd; }
+    if (actaResult) { actaText = actaResult.text; totalTokens += actaResult.tokensUsed; costUsd += actaResult.costUsd; }
 
     await updateProgress(60);
 
@@ -236,18 +245,12 @@ export async function runGeneration(p: RunGenerationParams): Promise<void> {
 
     await updateProgress(90);
 
-    const costUsd = totalTokens * 0.000009;
+    // El costo de la redacción (informe y acta) con el precio real de cada llamada; cada llamada ya dejó su registro de consumo
+    // (también las lecturas de imágenes, los audios y la revisión del acta, que se suman en el panel por generación).
     await db.generation.update({
       where: { id: p.generationId },
       data: { status: "completed", progress: 100, outputFiles: blobUrls, tokensUsed: totalTokens, costUsd, completedAt: new Date() },
     });
-
-    try {
-      const { recordUsage } = await import("@/lib/usage");
-      await recordUsage(p.userId, totalTokens, costUsd, "generacion");
-    } catch (e) {
-      console.error("[runGeneration] Usage recording failed:", e);
-    }
 
     // Free the raw input blobs — their parsed content is already in the output
     // document, and they're never shown again. Bounds Blob storage growth.

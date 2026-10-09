@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { TRIAL_DAYS, OPEN_TESTING } from "@/lib/plan";
+import { datosDeAceptacion } from "@/lib/legal/aceptacion";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const password = body.password as string | undefined;
     const name = body.name as string | undefined;
+    const acepta = body.acepta === true;
     const email = (body.email as string | undefined)?.trim().toLowerCase();
 
     if (!email || !password) {
@@ -74,11 +76,19 @@ export async function POST(req: NextRequest) {
       // verificar y entrar; quien no, ya no puede cambiar nada.
       credencialesIntactas = true;
     } else {
+      // Sin aceptación expresa de los términos y de la autorización de datos no se crea la cuenta.
+      if (!acepta) {
+        return NextResponse.json(
+          { error: "Para crear tu cuenta debes aceptar los Términos y Condiciones y la Política de Privacidad." },
+          { status: 400 }
+        );
+      }
       const created = await db.user.create({
         data: {
           email,
           name: name || email.split("@")[0],
           passwordHash,
+          ...datosDeAceptacion(),
           // emailVerified stays null until code is confirmed
         },
       });

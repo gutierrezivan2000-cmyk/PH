@@ -11,6 +11,7 @@ import { ErrorIA, crearClienteIA, tokensDeUso } from "@/lib/meetings/ia";
 import { leerPedido } from "@/lib/meetings/preguntar-pedido";
 import { responderPregunta } from "@/lib/meetings/preguntar-servidor";
 import { crearFlujoSSE } from "@/lib/meetings/sse";
+import { registrarConsumo } from "@/lib/consumo/registrar";
 
 type Contexto = { params: Promise<{ id: string }> };
 
@@ -88,9 +89,10 @@ export async function POST(req: NextRequest, { params }: Contexto) {
       }
       // Cada pregunta queda registrada (su costo y sus tokens, y cuenta para el cupo). Un fallo aquí no tumba la respuesta.
       const { uso } = r.respuesta;
-      await db.usageRecord
-        .create({ data: { userId: ctx.userId, type: TIPO_DE_USO_PREGUNTA, tokens: Math.round(tokensDeUso(uso)), costUsd: uso.costoUsd } })
-        .catch((e: unknown) => console.error("[api/meetings/[id]/preguntar] no se pudo registrar el uso de la pregunta", e));
+      await registrarConsumo({
+        tipo: TIPO_DE_USO_PREGUNTA, proveedor: "anthropic", modelo: r.respuesta.modelo, tokens: uso, costoUsd: uso.costoUsd,
+        tokensDelRegistro: tokensDeUso(uso), userId: ctx.userId, ref: { tipo: "reunion", id },
+      });
       enviar("done", { cortada: r.respuesta.cortada, modelo: r.respuesta.modelo });
     }, mensajeDelFallo);
     return new Response(flujo, { headers: ENCABEZADOS_SSE });

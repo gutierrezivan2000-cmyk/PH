@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401 } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { codigoDeUsuario } from "@/lib/admin/anonimo";
 
 const PAGE_SIZE = 50;
 
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         admin: {
-          select: { id: true, name: true, email: true, image: true },
+          select: { id: true },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -61,16 +62,16 @@ export async function GET(req: NextRequest) {
     // Return all admins for filter dropdown
     db.user.findMany({
       where: { role: "admin" },
-      select: { id: true, name: true, email: true },
-      orderBy: { name: "asc" },
+      select: { id: true },
+      orderBy: { createdAt: "asc" },
     }),
   ]);
 
   return NextResponse.json({
-    logs,
+    logs: logs.map((l) => ({ ...l, admin: { id: l.admin.id, codigo: codigoDeUsuario(l.admin.id) } })),
     total,
     page,
     pageSize: PAGE_SIZE,
-    admins,
+    admins: admins.map((a) => ({ id: a.id, codigo: codigoDeUsuario(a.id) })),
   });
 }

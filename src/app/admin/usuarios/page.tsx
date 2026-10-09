@@ -7,6 +7,10 @@ import { db } from "@/lib/db";
 import Link from "next/link";
 import { Users, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { UsuariosFilters } from "./UsuariosFilters";
+import { codigoDeUsuario, filtroDeBusqueda } from "@/lib/admin/anonimo";
+import { requireAdmin } from "@/lib/admin-auth";
+import { adminEmails, esAdminDeEntorno } from "@/lib/admin-emails";
+import { equipoAdministrador } from "@/lib/admin/equipo";
 
 const PAGE_SIZE = 50;
 
@@ -26,12 +30,9 @@ async function loadUsers(sp: SearchParams) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: Record<string, any> = {};
 
-  if (q) {
-    where.OR = [
-      { email: { contains: q, mode: "insensitive" } },
-      { name: { contains: q, mode: "insensitive" } },
-    ];
-  }
+  // Por código, o por correo completo y exacto (para dar acceso a quien lo pide). Nunca por nombre ni parcial.
+  const busqueda = filtroDeBusqueda(q);
+  if (busqueda) Object.assign(where, busqueda);
   if (role !== "all") where.role = role;
   if (planStatus === "no_sub") {
     where.subscription = { is: null };
@@ -42,8 +43,12 @@ async function loadUsers(sp: SearchParams) {
   const [users, total] = await Promise.all([
     db.user.findMany({
       where,
-      include: {
-        subscription: true,
+      select: {
+        id: true,
+        role: true,
+        banned: true,
+        createdAt: true,
+        subscription: { select: { planId: true, status: true } },
         _count: { select: { properties: true, generations: true, tickets: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -61,9 +66,15 @@ async function loadUsers(sp: SearchParams) {
     _count: { id: true },
   });
   const gen30dMap = Object.fromEntries(gen30d.map((g) => [g.userId, g._count.id]));
+  const costo30d = await db.usageRecord.groupBy({
+    by: ["userId"],
+    where: { userId: { in: userIds }, date: { gte: last30 } },
+    _sum: { costUsd: true },
+  });
+  const costoMap = Object.fromEntries(costo30d.map((c) => [c.userId, c._sum.costUsd ?? 0]));
 
   return {
-    users: users.map((u) => ({ ...u, generations30d: gen30dMap[u.id] || 0 })),
+    users: users.map((u) => ({ ...u, generations30d: gen30dMap[u.id] || 0, costo30d: costoMap[u.id] || 0 })),
     total,
     page,
     totalPages: Math.ceil(total / PAGE_SIZE),
@@ -80,6 +91,39 @@ export default async function UsuariosPage({
     <AdminGate>
       <UsuariosContent sp={sp} />
     </AdminGate>
+  );
+}
+
+async function EquipoAdministrador() {
+  const yo = await requireAdmin();
+  // Solo los propietarios ven quién administra (con su correo): es el equipo, no los clientes.
+  if (!yo || !esAdminDeEntorno(yo.email)) return null;
+  const admins = await db.user.findMany({ where: { role: "admin" }, select: { id: true, email: true, createdAt: true } });
+  const equipo = equipoAdministrador(admins, adminEmails());
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden mb-5">
+      <div className="px-5 py-3.5 border-b border-border flex items-baseline justify-between gap-3 flex-wrap">
+        <p className="text-[10px] uppercase text-muted-foreground/60" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.16em" }}>
+          Equipo administrador · {equipo.length}
+        </p>
+        <p className="text-[11.5px] text-muted-foreground">Solo los propietarios ven esta lista. Los propietarios no se pueden degradar ni bloquear.</p>
+      </div>
+      <ul className="divide-y divide-border">
+        {equipo.map((m) => (
+          <li key={m.email} className="px-5 py-3 flex items-center gap-3 flex-wrap">
+            <span className="text-[13px] text-foreground" style={{ fontFamily: "var(--font-mono)" }}>{m.email}</span>
+            <Badge variant={m.propietario ? "warn" : "accent"} className="text-[10px]">{m.propietario ? "propietario" : "admin"}</Badge>
+            {m.id ? (
+              <Link href={`/admin/usuarios/${m.id}`} className="text-[12px] text-muted-foreground hover:text-foreground ml-auto" style={{ fontFamily: "var(--font-mono)" }}>
+                {codigoDeUsuario(m.id)}
+              </Link>
+            ) : (
+              <span className="text-[12px] text-muted-foreground ml-auto">aún no ha ingresado</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -119,10 +163,12 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
       <PageHeader
         section="01 · Usuarios"
         title="Usuarios"
-        description={`${total.toLocaleString("es-CO")} usuarios registrados en la plataforma.`}
+        description={`${total.toLocaleString("es-CO")} cuentas. Por privacidad se ven por código: sin nombre, correo ni datos de contacto.`}
       />
 
       {/* Filters row */}
+      <EquipoAdministrador />
+
       <UsuariosFilters
         defaultQ={q}
         defaultRole={role}
@@ -147,13 +193,12 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
                   style={{ background: "rgb(var(--veil-rgb) / 0.02)" }}
                 >
                   {[
-                    "Usuario",
-                    "Email",
-                    "Empresa / Ciudad",
+                    "Cliente",
                     "Plan",
                     "Estado",
                     "Props",
                     "Gen 30d",
+                    "IA 30d",
                     "Registro",
                     "",
                   ].map((h) => (
@@ -179,31 +224,16 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
                     key={u.id}
                     className="hover:bg-secondary/50 transition-colors group"
                   >
-                    {/* Avatar + name */}
+                    {/* Código (el panel no muestra datos personales) */}
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3 min-w-[160px]">
-                        <div
-                          className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-white"
-                          style={{
-                            background: u.image
-                              ? undefined
-                              : "linear-gradient(135deg, var(--accent), var(--accent-lo))",
-                          }}
+                      <div className="flex items-center gap-2 min-w-[140px]">
+                        <Link
+                          href={`/admin/usuarios/${u.id}`}
+                          className="font-medium text-foreground hover:underline"
+                          style={{ fontFamily: "var(--font-mono)" }}
                         >
-                          {u.image ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={u.image}
-                              alt={u.name || ""}
-                              className="h-8 w-8 rounded-full object-cover"
-                            />
-                          ) : (
-                            (u.name?.[0] || u.email[0]).toUpperCase()
-                          )}
-                        </div>
-                        <span className="font-medium text-foreground truncate max-w-[120px]">
-                          {u.name || <span className="text-muted-foreground/50 italic">Sin nombre</span>}
-                        </span>
+                          {codigoDeUsuario(u.id)}
+                        </Link>
                         {u.role === "admin" && (
                           <Badge variant="accent" className="text-[9px] px-1.5 py-0.5 ml-0.5">
                             admin
@@ -213,35 +243,6 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
                           <Badge variant="destructive" className="text-[9px] px-1.5 py-0.5 ml-0.5">
                             baneado
                           </Badge>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Email */}
-                    <td className="px-4 py-3 text-muted-foreground max-w-[200px]">
-                      <span
-                        className="truncate block text-[12px]"
-                        style={{ fontFamily: "var(--font-mono)" }}
-                      >
-                        {u.email}
-                      </span>
-                    </td>
-
-                    {/* Company / City */}
-                    <td className="px-4 py-3">
-                      <div className="text-[12px] text-muted-foreground whitespace-nowrap">
-                        {u.company || u.city ? (
-                          <>
-                            {u.company && (
-                              <span className="text-foreground/80">{u.company}</span>
-                            )}
-                            {u.company && u.city && (
-                              <span className="text-muted-foreground/40 mx-1">·</span>
-                            )}
-                            {u.city && <span>{u.city}</span>}
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground/30">—</span>
                         )}
                       </div>
                     </td>
@@ -269,6 +270,13 @@ async function UsuariosContent({ sp }: { sp: SearchParams }) {
                         style={{ fontFamily: "var(--font-mono)" }}
                       >
                         {u.generations30d}
+                      </span>
+                    </td>
+
+                    {/* Costo de IA 30d */}
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-[12px] text-muted-foreground" style={{ fontFamily: "var(--font-mono)" }}>
+                        US$ {u.costo30d.toFixed(u.costo30d < 1 ? 3 : 2)}
                       </span>
                     </td>
 

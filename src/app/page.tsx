@@ -2132,6 +2132,9 @@ export default function LandingPage() {
                   ["Términos de uso", "/legal/terminos"],
                   ["Privacidad", "/legal/privacidad"],
                   ["Habeas Data", "/legal/habeas-data"],
+                  ["Reuniones y grabación", "/legal/reuniones"],
+                  ["Inteligencia Artificial", "/legal/ia"],
+                  ["Cookies", "/legal/cookies"],
                 ],
               },
               {

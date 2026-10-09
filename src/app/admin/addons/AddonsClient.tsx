@@ -10,9 +10,7 @@ type AddonAgent = "metra" | "nomethes" | "hermes" | "logistes";
 
 interface UserRow {
   id: string;
-  name: string | null;
-  email: string;
-  image: string | null;
+  codigo: string;
   planId: string | null;
   subStatus: string;
   addonAgents: string[];
@@ -171,61 +169,12 @@ function MetricCard({
 }
 
 // ---- Avatar ----
-function UserAvatar({ name, email, image }: { name: string | null; email: string; image: string | null }) {
-  const initials = (name || email).slice(0, 2).toUpperCase();
+function UserAvatar({ codigo }: { codigo: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <div
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: "50%",
-          background: "rgb(var(--accent-rgb) / 0.15)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 11,
-          fontWeight: 600,
-          color: "var(--accent-text)",
-          flexShrink: 0,
-          overflow: "hidden",
-        }}
-      >
-        {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : (
-          initials
-        )}
-      </div>
-      <div style={{ minWidth: 0 }}>
-        <p
-          style={{
-            fontSize: 13,
-            fontWeight: 500,
-            color: "var(--foreground)",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            maxWidth: 180,
-          }}
-        >
-          {name || "—"}
-        </p>
-        <p
-          style={{
-            ...MONO,
-            fontSize: 10,
-            color: "var(--ink-3)",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            maxWidth: 180,
-          }}
-        >
-          {email}
-        </p>
-      </div>
+      <p style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
+        {codigo}
+      </p>
     </div>
   );
 }
@@ -356,7 +305,7 @@ export function AddonsContent() {
           />
           <input
             type="text"
-            placeholder="Buscar por email o nombre..."
+            placeholder="Código (U-ABC123) o correo completo..."
             value={q}
             onChange={(e) => handleSearch(e.target.value)}
             style={{
@@ -459,11 +408,7 @@ export function AddonsContent() {
                 onMouseLeave={(e) => (e.currentTarget.style.background = "")}
               >
                 {/* User */}
-                <UserAvatar
-                  name={user.name}
-                  email={user.email}
-                  image={user.image}
-                />
+                <UserAvatar codigo={user.codigo} />
 
                 {/* Plan */}
                 <div>

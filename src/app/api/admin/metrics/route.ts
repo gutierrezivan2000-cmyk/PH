@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401 } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { codigoDeUsuario } from "@/lib/admin/anonimo";
 import { calcMrr, normalizePlanId } from "@/lib/plan";
 
 const ADDON_AGENTS = ["metra", "nomethes", "hermes", "logistes"] as const;
@@ -198,15 +199,13 @@ export async function GET(req: NextRequest) {
 
   const topUsersData = await db.user.findMany({
     where: { id: { in: topUserIds } },
-    select: { id: true, name: true, email: true, image: true },
+    select: { id: true },
   });
 
   const topUsers = topUsersData
     .map((u) => ({
       id: u.id,
-      name: u.name,
-      email: u.email,
-      image: u.image,
+      codigo: codigoDeUsuario(u.id),
       generations: genMap[u.id] || 0,
       chats: chatMap[u.id] || 0,
       properties: propMap[u.id] || 0,

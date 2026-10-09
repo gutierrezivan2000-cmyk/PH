@@ -15,6 +15,9 @@ import { AGENTS, isValidAgentId, isComingSoonAgent } from "@/lib/agents";
 import { PLANS } from "@/lib/epayco";
 import { normalizePlanId, canAccessAgent } from "@/lib/plan";
 import { contarPreguntasAReuniones } from "@/lib/meetings/cupo-preguntas";
+import { TIPOS } from "@/lib/consumo/funciones";
+import { conConsumo, registrarConsumo } from "@/lib/consumo/registrar";
+import { TOKENS_VACIOS, sumarTokens, tokensDeAnthropic, totalDeTokens } from "@/lib/consumo/uso";
 import { ensureAgentTables, isMissingRelationError } from "@/lib/ensure-agent-tables";
 import { parseAttachments, type ParsedAttachment } from "@/lib/parse-attachment";
 
@@ -527,7 +530,12 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
     let parsedCurrent: ParsedAttachment[] = [];
     if (reqAttachments && reqAttachments.length > 0) {
       try {
-        parsedCurrent = await parseAttachments(reqAttachments);
+        // Lo que se lea de los adjuntos (audios que se transcriben, imágenes que se describen) se carga a este chat. Los
+        // audios se registran como «transcription», que es lo que cuentan los cupos de minutos.
+        parsedCurrent = await conConsumo(
+          { userId, ref: chatId ? { tipo: "chat", id: chatId } : undefined, tipos: { audio: TIPOS.audioEnAgente, imagen: TIPOS.agenteLectura } },
+          () => parseAttachments(reqAttachments),
+        );
       } catch (err) {
         console.error("[api/agents/chat] parseAttachments failed:", err);
       }
@@ -576,25 +584,8 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
       );
     }
 
-    // Record transcription usage now that we've actually processed audio
-    // (size-based estimate: 1 MB ~ 1 minute of voice audio).
-    if (estimatedMinutesForThisRequest > 0 && allAudioAtts.length > 0) {
-      try {
-        const seconds = estimatedMinutesForThisRequest * 60;
-        // Whisper pricing ~ $0.006 per minute
-        const costUsd = estimatedMinutesForThisRequest * 0.006;
-        await db.usageRecord.create({
-          data: {
-            userId: session.user.id,
-            type: "transcription",
-            tokens: seconds,
-            costUsd,
-          },
-        });
-      } catch (err) {
-        console.error("[api/agents/chat] record transcription usage failed:", err);
-      }
-    }
+    // La transcripción de los audios ya quedó registrada al leer los adjuntos, con la duración real que dice Whisper (antes se
+    // estimaba por el tamaño: 1 MB ≈ 1 minuto).
 
     step = "build-anthropic-messages";
     const anthropicMessages = recentMessages.map((m, idx) => {
@@ -711,6 +702,9 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
 
             let fullReply = "";
             let stream!: ReturnType<typeof anthropic.messages.stream>;
+            // Lo que cuesta el mensaje: TODAS las vueltas (pedir un archivo y comentarlo son dos llamadas que se pagan).
+            let usoDelMensaje = TOKENS_VACIOS;
+            let modeloDelMensaje = "claude-haiku-4-5-20251001";
 
             // Dos vueltas: una para pedir el archivo y otra para comentarlo. Más
             // vueltas solo alargarían la espera sin aportar.
@@ -736,6 +730,9 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
               }
 
               const respuesta = await stream.finalMessage();
+              const usoDeLaVuelta = tokensDeAnthropic(respuesta, modeloDelMensaje);
+              usoDelMensaje = sumarTokens(usoDelMensaje, usoDeLaVuelta.tokens);
+              modeloDelMensaje = usoDeLaVuelta.modelo;
               if (respuesta.stop_reason !== "tool_use") break;
 
               const llamadas = respuesta.content.filter(
@@ -834,20 +831,11 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
             // único que no registraba nada: no aparecía en Consumo IA ni en las
             // métricas de admin, así que el costo real quedaba invisible.
             // Las demás rutas (carta, refine, imports, draft) sí lo registran.
-            try {
-              const final = await stream.finalMessage();
-              const inTok = final.usage?.input_tokens ?? 0;
-              const outTok = final.usage?.output_tokens ?? 0;
-              const total = inTok + outTok;
-              if (total > 0 && !IS_DEMO) {
-                // Haiku 4.5: $1/M entrada, $5/M salida.
-                const costUsd = (inTok / 1_000_000) * 1 + (outTok / 1_000_000) * 5;
-                await db.usageRecord.create({
-                  data: { userId, type: "agente_chat", tokens: total, costUsd },
-                });
-              }
-            } catch (err) {
-              console.error("[api/agents/chat] record chat usage failed:", err);
+            if (!IS_DEMO && totalDeTokens(usoDelMensaje) > 0) {
+              await registrarConsumo({
+                tipo: TIPOS.agenteChat, proveedor: "anthropic", modelo: modeloDelMensaje, tokens: usoDelMensaje,
+                userId, ref: chatId ? { tipo: "chat", id: chatId } : null,
+              });
             }
 
             // Auto-generate a semantic 3-5 word title for new chats. We already
@@ -869,6 +857,13 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
                     },
                   ],
                 });
+                if (!IS_DEMO) {
+                  const usoDelTitulo = tokensDeAnthropic(titleResp, "claude-haiku-4-5-20251001");
+                  await registrarConsumo({
+                    tipo: TIPOS.agenteTitulo, proveedor: "anthropic", modelo: usoDelTitulo.modelo, tokens: usoDelTitulo.tokens,
+                    userId, ref: { tipo: "chat", id: chatId },
+                  });
+                }
                 const raw =
                   titleResp.content[0]?.type === "text"
                     ? titleResp.content[0].text

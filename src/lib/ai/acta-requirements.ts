@@ -1,3 +1,7 @@
+import { TIPOS } from "@/lib/consumo/funciones";
+import { registrarConsumo } from "@/lib/consumo/registrar";
+import { tokensDeAnthropic } from "@/lib/consumo/uso";
+
 export interface ActaRequirement {
   item: string;
   status: "completo" | "pendiente";
@@ -29,8 +33,9 @@ export async function analyzeActaRequirements(actaText: string): Promise<ActaReq
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+  const modelo = "claude-haiku-4-5-20251001";
   const response = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: modelo,
     max_tokens: 2048,
     temperature: 0,
     system: "Eres un analista de documentos legales de Propiedad Horizontal en Colombia. Respondes SOLO con JSON valido, sin backticks ni explicaciones.",
@@ -44,6 +49,10 @@ export async function analyzeActaRequirements(actaText: string): Promise<ActaReq
     .filter((b) => b.type === "text")
     .map((b) => b.text)
     .join("");
+
+  // El usuario y la operación (la generación o la reunión) salen del contexto de quien pidió el acta.
+  const uso = tokensDeAnthropic(response, modelo);
+  await registrarConsumo({ tipo: TIPOS.requisitosDeActa, proveedor: "anthropic", modelo: uso.modelo, tokens: uso.tokens });
 
   try {
     const jsonMatch = text.match(/\[[\s\S]*\]/);

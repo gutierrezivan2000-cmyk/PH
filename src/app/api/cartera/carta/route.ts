@@ -165,7 +165,7 @@ En mora (vencido): ${fmtCOP(summary.overdueAmount)} — ${summary.overdueDays} d
 Detalle de conceptos pendientes:
 ${openList || "- (sin detalle)"}`;
 
-    const { text, tokensUsed } = await generateWithClaude(system, user, undefined, { timeoutMs: 25_000 }); // 25s x2 intentos = 50s < maxDuration 60
+    const { text } = await generateWithClaude(system, user, undefined, { timeoutMs: 25_000, consumo: { tipo: "carta_cobro", userId, ref: null } }); // 25s x2 intentos = 50s < maxDuration 60
 
     let letterSubject = `Estado de su cuenta — ${unit.property.name}`;
     let letterContent = text.trim();
@@ -174,11 +174,6 @@ ${openList || "- (sin detalle)"}`;
       letterSubject = match[1].trim().slice(0, 150);
       letterContent = letterContent.replace(/^ASUNTO:\s*.+$/im, "").trim();
     }
-
-    const { recordUsage } = await import("@/lib/usage");
-    await recordUsage(userId, tokensUsed, (tokensUsed / 1_000_000) * 9, "carta_cobro").catch(
-      () => {}
-    );
 
     return NextResponse.json({ subject: letterSubject, content: letterContent });
   } catch (error) {

@@ -3,6 +3,8 @@ import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { DEMO_USER } from "@/lib/demo-store";
 import { revokedByPasswordChange } from "@/lib/session-revocation";
+import { esAdminDeEntorno } from "@/lib/admin-emails";
+import { datosDeAceptacion } from "@/lib/legal/aceptacion";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -170,17 +172,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             token.sessionAt = Date.now();
           } else {
             // Auto-grant admin if email is in ADMIN_EMAILS env var
-            const adminEmails = (process.env.ADMIN_EMAILS || "")
-              .split(",")
-              .map((e) => e.trim().toLowerCase())
-              .filter(Boolean);
-            const role = adminEmails.includes(googleEmail) ? "admin" : "user";
+            const role = esAdminDeEntorno(googleEmail) ? "admin" : "user";
             const created = await db.user.create({
               data: {
                 email: googleEmail,
                 name: user.name,
                 image: user.image,
                 role,
+                // La pantalla de ingreso informa que continuar con Google es aceptar los términos.
+                ...datosDeAceptacion(),
               },
             });
             token.id = created.id;
@@ -238,11 +238,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       // Auto-promote based on ADMIN_EMAILS env if current token doesn't reflect it
       if (token.email && token.role !== "admin") {
-        const adminEmails = (process.env.ADMIN_EMAILS || "")
-          .split(",")
-          .map((e) => e.trim().toLowerCase())
-          .filter(Boolean);
-        if (adminEmails.includes((token.email as string).toLowerCase())) {
+        if (esAdminDeEntorno(token.email as string)) {
           try {
             const { db } = await import("@/lib/db");
             await db.user.update({

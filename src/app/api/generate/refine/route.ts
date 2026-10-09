@@ -7,6 +7,9 @@ export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { TIPOS } from "@/lib/consumo/funciones";
+import { conConsumo, registrarConsumo } from "@/lib/consumo/registrar";
+import { tokensDeAnthropic } from "@/lib/consumo/uso";
 import { generatePdfHtml } from "@/lib/documents/pdf-generator";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
@@ -88,7 +91,7 @@ export async function POST(req: NextRequest) {
             fileParts.push(`[Archivo adicional: ${file.name}]\n${await file.text()}`);
           } else {
             const { consolidateFiles } = await import("@/lib/parsers");
-            const parsed = await consolidateFiles([file]);
+            const parsed = await conConsumo({ userId: session.user.id, ref: { tipo: "generacion", id: generationId } }, () => consolidateFiles([file]));
             fileParts.push(parsed);
           }
         } catch (e) {
@@ -225,6 +228,12 @@ export async function POST(req: NextRequest) {
         .join("\n");
 
       const tokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+      // Cada llamada se paga aunque su resultado se descarte (cortada): se registra siempre.
+      const uso = tokensDeAnthropic(response, "claude-haiku-4-5-20251001");
+      await registrarConsumo({
+        tipo: TIPOS.correccion, proveedor: "anthropic", modelo: uso.modelo, tokens: uso.tokens,
+        userId: session.user.id, ref: { tipo: "generacion", id: generationId },
+      });
       // Si la respuesta se cortó por `max_tokens`, el documento vuelve a medias.
       // Guardarlo sustituiría el documento bueno por uno mutilado, así que se
       // descarta y se le dice al usuario.
@@ -290,7 +299,9 @@ export async function POST(req: NextRequest) {
     if (actaResult?.text.trim()) {
       try {
         const { analyzeActaRequirements } = await import("@/lib/ai/acta-requirements");
-        const requirements = await analyzeActaRequirements(actaResult.text);
+        const requirements = await conConsumo({ userId: session.user.id, ref: { tipo: "generacion", id: generationId } }, () =>
+          analyzeActaRequirements(actaResult.text),
+        );
         newUrls.actaRequirements = JSON.stringify(requirements);
       } catch (e) {
         console.error("[generate/refine] Acta requirements analysis failed:", e);
@@ -305,13 +316,6 @@ export async function POST(req: NextRequest) {
         data: { outputFiles: newUrls },
       });
 
-      try {
-        const { recordUsage } = await import("@/lib/usage");
-        const costUsd = totalTokens * 0.000003;
-        await recordUsage(session.user.id, totalTokens, costUsd, "correccion");
-      } catch (e) {
-        console.error("[generate/refine] Usage recording failed:", e);
-      }
     }
 
     const skipped = [

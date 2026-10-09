@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401, logAdminAction } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { codigoDeUsuario } from "@/lib/admin/anonimo";
 
 export async function GET(
   _req: NextRequest,
@@ -18,18 +19,7 @@ export async function GET(
       where: { id },
       include: {
         user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-            role: true,
-            cargo: true,
-            phone: true,
-            company: true,
-            city: true,
-            createdAt: true,
-          },
+          select: { id: true, role: true, createdAt: true },
         },
       },
     }),
@@ -37,7 +27,7 @@ export async function GET(
       where: { targetType: "subscription", targetId: id },
       orderBy: { createdAt: "desc" },
       take: 10,
-      include: { admin: { select: { name: true, email: true } } },
+      select: { id: true, action: true, metadata: true, createdAt: true, adminId: true },
     }),
   ]);
 
@@ -48,7 +38,10 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ subscription, auditLogs });
+  return NextResponse.json({
+    subscription: { ...subscription, user: { ...subscription.user, codigo: codigoDeUsuario(subscription.user.id) } },
+    auditLogs: auditLogs.map((l) => ({ ...l, admin: { codigo: codigoDeUsuario(l.adminId) } })),
+  });
 }
 
 export async function PATCH(

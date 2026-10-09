@@ -80,10 +80,8 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string): P
 export async function sendHealthAlertEmail(
   failing: { name: string; detail: string }[]
 ): Promise<{ sent: number }> {
-  const admins = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((e) => e.trim())
-    .filter(Boolean);
+  const { adminEmails } = await import("@/lib/admin-emails");
+  const admins = adminEmails();
   if (admins.length === 0 || !process.env.RESEND_API_KEY) return { sent: 0 };
 
   const rows = failing

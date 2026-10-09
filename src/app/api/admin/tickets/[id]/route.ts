@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401, logAdminAction } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { codigoDeUsuario } from "@/lib/admin/anonimo";
 
 export async function GET(
   _req: NextRequest,
@@ -19,9 +20,6 @@ export async function GET(
       user: {
         select: {
           id: true,
-          name: true,
-          email: true,
-          image: true,
           subscription: { select: { id: true, status: true, planId: true } },
         },
       },
@@ -44,7 +42,7 @@ export async function GET(
     select: { id: true, subject: true, status: true, createdAt: true, priority: true },
   });
 
-  return NextResponse.json({ ticket, recentTickets });
+  return NextResponse.json({ ticket: { ...ticket, user: { ...ticket.user, codigo: codigoDeUsuario(ticket.user.id) } }, recentTickets });
 }
 
 export async function PATCH(
