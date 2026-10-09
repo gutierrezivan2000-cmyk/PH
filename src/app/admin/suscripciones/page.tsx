@@ -4,6 +4,7 @@ import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/db";
+import { codigoDeUsuario, filtroDeBusqueda } from "@/lib/admin/anonimo";
 import Link from "next/link";
 import { CreditCard, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { SuscripcionesFilters } from "./SuscripcionesFilters";
@@ -25,14 +26,9 @@ async function loadSubs(sp: SearchParams) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: Record<string, any> = {};
   if (status !== "all") where.status = status;
-  if (q) {
-    where.user = {
-      OR: [
-        { email: { contains: q, mode: "insensitive" } },
-        { name: { contains: q, mode: "insensitive" } },
-      ],
-    };
-  }
+  // Por código, o por correo completo y exacto. Nunca por nombre ni parcial.
+  const busqueda = filtroDeBusqueda(q);
+  if (busqueda) where.user = busqueda;
 
   const last30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
@@ -40,8 +36,8 @@ async function loadSubs(sp: SearchParams) {
     await Promise.all([
       db.subscription.findMany({
         where,
-        include: {
-          user: { select: { id: true, name: true, email: true, image: true } },
+        select: {
+          id: true, userId: true, planId: true, status: true, addonAgents: true, createdAt: true, currentPeriodStart: true, currentPeriodEnd: true, epaycoSubscriptionId: true,
         },
         orderBy: { createdAt: "desc" },
         take: PAGE_SIZE,
@@ -234,38 +230,13 @@ async function SuscripcionesContent({ sp }: { sp: SearchParams }) {
                     >
                       {/* User */}
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3 min-w-[180px]">
-                          <div
-                            className="h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-white"
-                            style={{
-                              background: s.user.image
-                                ? undefined
-                                : "linear-gradient(135deg, var(--accent), var(--accent-lo))",
-                            }}
-                          >
-                            {s.user.image ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={s.user.image}
-                                alt=""
-                                className="h-7 w-7 rounded-full object-cover"
-                              />
-                            ) : (
-                              (s.user.name?.[0] || s.user.email[0]).toUpperCase()
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[13px] font-medium text-foreground truncate max-w-[130px]">
-                              {s.user.name || s.user.email.split("@")[0]}
-                            </p>
-                            <p
-                              className="text-[10px] text-muted-foreground/60 truncate max-w-[130px]"
-                              style={{ fontFamily: "var(--font-mono)" }}
-                            >
-                              {s.user.email}
-                            </p>
-                          </div>
-                        </div>
+                        <Link
+                          href={`/admin/suscripciones/${s.id}`}
+                          className="text-[13px] font-medium text-foreground hover:underline"
+                          style={{ fontFamily: "var(--font-mono)" }}
+                        >
+                          {codigoDeUsuario(s.userId)}
+                        </Link>
                       </td>
 
                       {/* Plan */}

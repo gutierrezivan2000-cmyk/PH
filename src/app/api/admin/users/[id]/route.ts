@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401, logAdminAction, isEnvAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { codigoDeUsuario } from "@/lib/admin/anonimo";
 
 export async function GET(
   _req: NextRequest,
@@ -19,8 +20,15 @@ export async function GET(
     await Promise.all([
       db.user.findUnique({
         where: { id },
-        include: {
-          subscription: true,
+        select: {
+          id: true,
+          role: true,
+          banned: true,
+          bannedAt: true,
+          banReason: true,
+          createdAt: true,
+          onboarded: true,
+          subscription: { select: { id: true, planId: true, status: true, currentPeriodStart: true, currentPeriodEnd: true, addonAgents: true } },
           accounts: { select: { provider: true } },
           _count: {
             select: {
@@ -36,12 +44,13 @@ export async function GET(
         where: { userId: id },
         orderBy: { createdAt: "desc" },
         take: 5,
-        include: { property: { select: { name: true } } },
+        select: { id: true, type: true, createdAt: true },
       }),
       db.ticket.findMany({
         where: { userId: id },
         orderBy: { createdAt: "desc" },
         take: 5,
+        select: { id: true, subject: true, status: true, createdAt: true },
       }),
       db.generation.count({
         where: { userId: id, createdAt: { gte: last30 } },
@@ -54,7 +63,7 @@ export async function GET(
   }
 
   return NextResponse.json({
-    user,
+    user: { ...user, codigo: codigoDeUsuario(user.id) },
     recentGenerations,
     recentTickets,
     generations30d,
@@ -96,6 +105,10 @@ export async function PATCH(
         { status: 400 }
       );
     }
+    // Bloquear a otro admin también es cosa de propietarios.
+    if (banned && existing.role === "admin" && !isEnvAdmin(admin.email)) {
+      return NextResponse.json({ error: "Solo los propietarios pueden bloquear a un administrador." }, { status: 403 });
+    }
     // Permanent admins (ADMIN_EMAILS) would be able to log in regardless — block.
     if (banned && isEnvAdmin(existing.email)) {
       return NextResponse.json(
@@ -114,7 +127,7 @@ export async function PATCH(
         bannedAt: banned ? new Date() : null,
         banReason: banned ? (reason?.trim() || null) : null,
       },
-      select: { id: true, email: true, role: true, banned: true, banReason: true },
+      select: { id: true, role: true, banned: true, banReason: true },
     });
 
     await logAdminAction({
@@ -129,6 +142,14 @@ export async function PATCH(
   }
 
   // ── Role change ─────────────────────────────────────────────
+  // Solo los propietarios (cuentas fijas / ADMIN_EMAILS) vuelven admin o quitan el rol: un admin
+  // común no puede escalar privilegios ni degradar a otros.
+  if (!isEnvAdmin(admin.email)) {
+    return NextResponse.json(
+      { error: "Solo los propietarios de la plataforma pueden cambiar roles." },
+      { status: 403 }
+    );
+  }
   if (id === admin.userId) {
     return NextResponse.json(
       { error: "No puedes cambiar tu propio rol." },
@@ -158,7 +179,7 @@ export async function PATCH(
   const updated = await db.user.update({
     where: { id },
     data: { role },
-    select: { id: true, email: true, role: true },
+    select: { id: true, role: true },
   });
 
   await logAdminAction({

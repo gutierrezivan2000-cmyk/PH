@@ -1,6 +1,7 @@
 import { AdminGate } from "@/components/admin/AdminGate";
 import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { codigoDeUsuario } from "@/lib/admin/anonimo";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import {
@@ -92,9 +93,6 @@ async function TicketDetailContent({ id }: { id: string }) {
       user: {
         select: {
           id: true,
-          name: true,
-          email: true,
-          image: true,
           subscription: { select: { id: true, status: true, planId: true } },
         },
       },
@@ -117,9 +115,9 @@ async function TicketDetailContent({ id }: { id: string }) {
   if (ticket.assignedTo) {
     const assignedUser = await db.user.findUnique({
       where: { id: ticket.assignedTo },
-      select: { name: true, email: true },
+      select: { id: true },
     });
-    assignedName = assignedUser?.name || assignedUser?.email || ticket.assignedTo;
+    assignedName = codigoDeUsuario(assignedUser?.id ?? ticket.assignedTo);
   }
 
   type Attachment = { name: string; url: string; size: number };
@@ -276,30 +274,15 @@ async function TicketDetailContent({ id }: { id: string }) {
                       </>
                     ) : (
                       <>
-                        {ticket.user.image ? (
-                          <img
-                            src={ticket.user.image}
-                            alt=""
-                            className="h-7 w-7 rounded-lg flex-shrink-0"
-                            style={{ border: "1px solid var(--border)" }}
-                          />
-                        ) : (
-                          <div
-                            className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style={{ background: "rgb(var(--veil-rgb) / 0.07)" }}
-                          >
-                            <User className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
-                          </div>
-                        )}
+                        <div
+                          className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ background: "rgb(var(--veil-rgb) / 0.07)" }}
+                        >
+                          <User className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
+                        </div>
                         <div>
-                          <span className="text-[13px] font-medium text-foreground">
-                            {ticket.user.name || ticket.user.email}
-                          </span>
-                          <span
-                            className="ml-1.5 text-[11px]"
-                            style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}
-                          >
-                            {ticket.user.email}
+                          <span className="text-[13px] font-medium text-foreground" style={{ fontFamily: "var(--font-mono)" }}>
+                            {codigoDeUsuario(ticket.user.id)}
                           </span>
                         </div>
                       </>
@@ -367,27 +350,15 @@ async function TicketDetailContent({ id }: { id: string }) {
               Usuario
             </p>
             <div className="flex items-center gap-3 mb-4">
-              {ticket.user.image ? (
-                <img
-                  src={ticket.user.image}
-                  alt=""
-                  className="h-10 w-10 rounded-xl flex-shrink-0"
-                  style={{ border: "1px solid var(--border)" }}
-                />
-              ) : (
-                <div
-                  className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgb(var(--veil-rgb) / 0.05)", border: "1px solid var(--border)" }}
-                >
-                  <User className="h-4.5 w-4.5" style={{ color: "var(--ink-4)" }} />
-                </div>
-              )}
+              <div
+                className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgb(var(--veil-rgb) / 0.05)", border: "1px solid var(--border)" }}
+              >
+                <User className="h-4.5 w-4.5" style={{ color: "var(--ink-4)" }} />
+              </div>
               <div className="min-w-0">
-                <p className="text-[13px] font-medium text-foreground truncate">
-                  {ticket.user.name || "—"}
-                </p>
-                <p className="text-[11px] truncate" style={{ fontFamily: "var(--font-mono)", color: "var(--ink-3)" }}>
-                  {ticket.user.email}
+                <p className="text-[13px] font-medium text-foreground truncate" style={{ fontFamily: "var(--font-mono)" }}>
+                  {codigoDeUsuario(ticket.user.id)}
                 </p>
               </div>
             </div>

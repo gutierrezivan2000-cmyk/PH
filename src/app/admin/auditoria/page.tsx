@@ -3,12 +3,13 @@ export const dynamic = "force-dynamic";
 import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { db } from "@/lib/db";
+import { codigoDeUsuario } from "@/lib/admin/anonimo";
 import type { Prisma } from "@/generated/prisma/client";
 import Link from "next/link";
 import { ShieldCheck, ChevronLeft, ChevronRight } from "lucide-react";
 
 type AuditLogRow = Prisma.AdminAuditLogGetPayload<{
-  include: { admin: { select: { id: true; name: true; email: true; image: true } } };
+  include: { admin: { select: { id: true } } };
 }>;
 
 // ---- Constants ----
@@ -23,6 +24,7 @@ const MONO: React.CSSProperties = {
 
 const ACTION_LABELS: Record<string, string> = {
   "user.role_change": "Cambió rol",
+  "user.grant_access": "Dio acceso a un plan",
   "user.ban": "Baneó usuario",
   "user.unban": "Reactivó usuario",
   "subscription.status_change": "Cambió estado de suscripción",
@@ -68,7 +70,7 @@ async function loadAudit(params: {
       db.adminAuditLog.findMany({
         where,
         include: {
-          admin: { select: { id: true, name: true, email: true, image: true } },
+          admin: { select: { id: true } },
         },
         orderBy: { createdAt: "desc" },
         take: PAGE_SIZE,
@@ -77,8 +79,8 @@ async function loadAudit(params: {
       db.adminAuditLog.count({ where }),
       db.user.findMany({
         where: { role: "admin" },
-        select: { id: true, name: true, email: true },
-        orderBy: { name: "asc" },
+        select: { id: true },
+        orderBy: { createdAt: "asc" },
       }),
     ]);
     return { logs: logs as AuditLogRow[], total, admins };
@@ -87,7 +89,7 @@ async function loadAudit(params: {
     return {
       logs: [] as AuditLogRow[],
       total: 0,
-      admins: [] as { id: string; name: string | null; email: string }[],
+      admins: [] as { id: string }[],
     };
   }
 }
@@ -129,70 +131,11 @@ function buildUrl(
 }
 
 // ---- Admin avatar ----
-function AdminAvatar({
-  name,
-  email,
-  image,
-}: {
-  name: string | null;
-  email: string;
-  image: string | null;
-}) {
-  const initials = (name || email).slice(0, 2).toUpperCase();
+function AdminAvatar({ id }: { id: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          background: "rgb(var(--accent-rgb) / 0.18)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 10,
-          fontWeight: 700,
-          color: "var(--accent-text)",
-          flexShrink: 0,
-          overflow: "hidden",
-        }}
-      >
-        {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : (
-          initials
-        )}
-      </div>
-      <div style={{ minWidth: 0 }}>
-        <p
-          style={{
-            fontSize: 12,
-            fontWeight: 500,
-            color: "var(--foreground)",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            maxWidth: 130,
-          }}
-        >
-          {name || "—"}
-        </p>
-        <p
-          style={{
-            ...MONO,
-            fontSize: 9,
-            color: "var(--ink-4)",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            maxWidth: 130,
-          }}
-        >
-          {email}
-        </p>
-      </div>
-    </div>
+    <p style={{ ...MONO, fontSize: 11, color: "var(--foreground)", whiteSpace: "nowrap", textTransform: "none" }}>
+      {codigoDeUsuario(id)}
+    </p>
   );
 }
 
@@ -202,7 +145,7 @@ function FilterBar({
   admins,
 }: {
   current: Record<string, string>;
-  admins: { id: string; name: string | null; email: string }[];
+  admins: { id: string }[];
 }) {
   return (
     <form
@@ -250,7 +193,7 @@ function FilterBar({
         <option value="">Todos los admins</option>
         {admins.map((a) => (
           <option key={a.id} value={a.id}>
-            {a.name || a.email}
+            {codigoDeUsuario(a.id)}
           </option>
         ))}
       </select>
@@ -468,11 +411,7 @@ async function AuditoriaContent({
                   onMouseLeave={(e) => (e.currentTarget.style.background = "")}
                 >
                   {/* Admin */}
-                  <AdminAvatar
-                    name={log.admin.name}
-                    email={log.admin.email}
-                    image={log.admin.image}
-                  />
+                  <AdminAvatar id={log.admin.id} />
 
                   {/* Action */}
                   <div>

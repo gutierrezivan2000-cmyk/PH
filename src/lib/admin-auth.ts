@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { esAdminDeEntorno } from "@/lib/admin-emails";
 
 export interface AdminSession {
   userId: string;
@@ -16,12 +17,7 @@ export interface AdminSession {
  * demoted normally.
  */
 export function isEnvAdmin(email?: string | null): boolean {
-  if (!email) return false;
-  const list = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  return list.includes(email.toLowerCase());
+  return esAdminDeEntorno(email);
 }
 
 /**

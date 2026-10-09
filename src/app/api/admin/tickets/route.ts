@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401, logAdminAction } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { codigoDeUsuario } from "@/lib/admin/anonimo";
 
 export async function GET(req: NextRequest) {
   const r = await requireAdminOr401();
@@ -31,14 +32,14 @@ export async function GET(req: NextRequest) {
   const tickets = await db.ticket.findMany({
     where,
     include: {
-      user: { select: { id: true, name: true, email: true, image: true } },
+      user: { select: { id: true } },
       _count: { select: { messages: true } },
       messages: { take: 1, orderBy: { createdAt: "desc" } },
     },
     orderBy: { updatedAt: "desc" },
   });
 
-  return NextResponse.json({ tickets });
+  return NextResponse.json({ tickets: tickets.map((t) => ({ ...t, user: { id: t.user.id, codigo: codigoDeUsuario(t.user.id) } })) });
 }
 
 export async function POST(req: NextRequest) {

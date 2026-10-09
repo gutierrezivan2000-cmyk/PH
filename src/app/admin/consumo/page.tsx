@@ -5,6 +5,7 @@ import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/db";
+import { codigoDeUsuario } from "@/lib/admin/anonimo";
 import { personas, registrosDelPeriodo, TOPE_DE_REGISTROS } from "@/lib/consumo/consultas";
 import { PRECIOS_VERIFICADOS_EL } from "@/lib/consumo/precios";
 import { diaEnBogota, informeDeConsumo, periodoPedido, type Distribucion } from "@/lib/consumo/reporte";
@@ -49,7 +50,7 @@ async function ConsumoContent({ desde, hasta }: { desde: string | null; hasta: s
     db.generationBatch.findMany({ where: { status: "processing" }, orderBy: { createdAt: "desc" }, take: 20 }),
     db.generation.findMany({
       where: { status: "failed" },
-      include: { property: { select: { name: true } }, user: { select: { email: true } } },
+      select: { id: true, userId: true, createdAt: true, errorMessage: true },
       orderBy: { createdAt: "desc" },
       take: 15,
     }),
@@ -179,8 +180,9 @@ async function ConsumoContent({ desde, hasta }: { desde: string | null; hasta: s
               return (
                 <tr key={u.userId} className="hover:bg-secondary/40 transition-colors align-top">
                   <td className="px-4 py-2.5 max-w-[260px]">
-                    <p className="text-foreground truncate">{p?.nombre || p?.email || u.userId}</p>
-                    {p?.nombre && <p className="text-[11px] text-muted-foreground truncate">{p.email}</p>}
+                    <Link href={`/admin/usuarios/${u.userId}`} className="text-foreground hover:underline" style={{ fontFamily: "var(--font-mono)" }}>
+                      {p?.codigo ?? codigoDeUsuario(u.userId)}
+                    </Link>
                   </td>
                   <td className="px-4 py-2.5 text-[12px] text-muted-foreground">{p?.plan ?? "—"}</td>
                   <Num fuerte>{usd(u.costoUsd)}</Num>
@@ -214,7 +216,7 @@ async function ConsumoContent({ desde, hasta }: { desde: string | null; hasta: s
               return (
                 <li key={b.id} className="px-5 py-3 flex items-center gap-4">
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-foreground truncate">{owner?.nombre || owner?.email || "Cliente"}</p>
+                    <p className="text-[13px] font-medium text-foreground truncate">{owner?.codigo ?? "Cliente"}</p>
                     <p className="text-[11px] text-muted-foreground" style={{ fontFamily: "var(--font-mono)" }}>
                       {MONTHS[(b.month - 1) % 12]} {b.year} · {b.docTypes.join(", ")}
                     </p>
@@ -239,13 +241,13 @@ async function ConsumoContent({ desde, hasta }: { desde: string | null; hasta: s
               <li key={g.id} className="px-5 py-3">
                 <div className="flex items-center gap-3">
                   <Badge variant="destructive">Error</Badge>
-                  <span className="text-[13px] text-foreground truncate">{g.property?.name ?? "Propiedad"}</span>
+                  <span className="text-[13px] text-foreground truncate">Generación fallida</span>
                   <span className="text-[11px] text-muted-foreground/60 ml-auto whitespace-nowrap" style={{ fontFamily: "var(--font-mono)" }}>
                     {new Date(g.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "2-digit" })}
                   </span>
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1 truncate">
-                  {g.user?.email} · {g.errorMessage || "sin detalle"}
+                  {codigoDeUsuario(g.userId)} · {g.errorMessage || "sin detalle"}
                 </p>
               </li>
             ))}

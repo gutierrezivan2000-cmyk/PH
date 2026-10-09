@@ -4,6 +4,7 @@ import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/db";
+import { codigoDeUsuario } from "@/lib/admin/anonimo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowUpRight, Calendar, User } from "lucide-react";
@@ -18,18 +19,7 @@ async function loadSubscription(id: string) {
       where: { id },
       include: {
         user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-            role: true,
-            cargo: true,
-            phone: true,
-            company: true,
-            city: true,
-            createdAt: true,
-          },
+          select: { id: true, role: true, createdAt: true },
         },
       },
     }),
@@ -37,7 +27,7 @@ async function loadSubscription(id: string) {
       where: { targetType: "subscription", targetId: id },
       orderBy: { createdAt: "desc" },
       take: 10,
-      include: { admin: { select: { name: true, email: true } } },
+      select: { id: true, action: true, metadata: true, createdAt: true, adminId: true },
     }),
   ]);
   return { subscription, auditLogs };
@@ -118,6 +108,7 @@ function auditActionLabel(action: string): string {
     "subscription.notes_update": "Nota actualizada",
     "subscription.plan_change": "Cambio de plan",
     "user.role_change": "Cambio de rol",
+    "user.grant_access": "Acceso otorgado",
   };
   return map[action] || action;
 }
@@ -147,8 +138,8 @@ async function SuscripcionDetail({ id }: { id: string }) {
     <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-7xl">
       <PageHeader
         section="02 · Suscripciones"
-        title={`${planLabel} — ${sub.user.name || sub.user.email}`}
-        description={sub.user.email}
+        title={`${planLabel} — Cliente ${codigoDeUsuario(sub.user.id)}`}
+        description="Los datos personales no se muestran en el panel."
         action={
           <SubscriptionActions subscriptionId={sub.id} status={sub.status} />
         }
@@ -174,48 +165,13 @@ async function SuscripcionDetail({ id }: { id: string }) {
         <div className="space-y-5">
           {/* User card */}
           <SectionCard title="Usuario">
-            <div className="flex items-center gap-4 mb-4">
-              <div
-                className="h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0 text-base font-bold text-white"
-                style={{
-                  background: sub.user.image
-                    ? undefined
-                    : "linear-gradient(135deg, var(--accent), var(--accent-lo))",
-                }}
-              >
-                {sub.user.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={sub.user.image}
-                    alt=""
-                    className="h-12 w-12 rounded-full object-cover"
-                  />
-                ) : (
-                  (sub.user.name?.[0] || sub.user.email[0]).toUpperCase()
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-[15px] font-semibold text-foreground truncate">
-                    {sub.user.name || sub.user.email.split("@")[0]}
-                  </p>
-                  <Badge variant={sub.user.role === "admin" ? "accent" : "secondary"}>
-                    {sub.user.role}
-                  </Badge>
-                </div>
-                <p
-                  className="text-[11px] text-muted-foreground/70 truncate mt-0.5"
-                  style={{ fontFamily: "var(--font-mono)" }}
-                >
-                  {sub.user.email}
-                </p>
-                {sub.user.company && (
-                  <p className="text-[12px] text-muted-foreground/60 mt-0.5">
-                    {sub.user.company}
-                    {sub.user.city ? ` · ${sub.user.city}` : ""}
-                  </p>
-                )}
-              </div>
+            <div className="flex items-center gap-3 mb-4">
+              <p className="text-[15px] font-semibold text-foreground" style={{ fontFamily: "var(--font-mono)" }}>
+                {codigoDeUsuario(sub.user.id)}
+              </p>
+              <Badge variant={sub.user.role === "admin" ? "accent" : "secondary"}>
+                {sub.user.role}
+              </Badge>
             </div>
             <Link
               href={`/admin/usuarios/${sub.user.id}`}
@@ -331,7 +287,7 @@ async function SuscripcionDetail({ id }: { id: string }) {
                             className="text-[11px] text-muted-foreground/60 mt-0.5 truncate"
                             style={{ fontFamily: "var(--font-mono)" }}
                           >
-                            {log.admin.name || log.admin.email}
+                            {codigoDeUsuario(log.adminId)}
                           </p>
                           {meta && Boolean(meta.from ?? meta.to) && (
                             <p

@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401 } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { codigoDeUsuario, filtroDeBusqueda } from "@/lib/admin/anonimo";
 
 const PAGE_SIZE = 50;
 
@@ -20,12 +21,9 @@ export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: Record<string, any> = {};
 
-  if (q) {
-    where.OR = [
-      { email: { contains: q, mode: "insensitive" } },
-      { name: { contains: q, mode: "insensitive" } },
-    ];
-  }
+  // Por código, o por correo completo y exacto. Nunca por nombre ni parcial.
+  const busqueda = filtroDeBusqueda(q);
+  if (busqueda) Object.assign(where, busqueda);
 
   if (role !== "all") {
     where.role = role;
@@ -41,8 +39,12 @@ export async function GET(req: NextRequest) {
   const [users, total] = await Promise.all([
     db.user.findMany({
       where,
-      include: {
-        subscription: true,
+      select: {
+        id: true,
+        role: true,
+        banned: true,
+        createdAt: true,
+        subscription: { select: { planId: true, status: true } },
         _count: {
           select: {
             properties: true,
@@ -70,6 +72,7 @@ export async function GET(req: NextRequest) {
 
   const enriched = users.map((u) => ({
     ...u,
+    codigo: codigoDeUsuario(u.id),
     generations30d: gen30dMap[u.id] || 0,
   }));
 

@@ -3,6 +3,7 @@
  */
 import { db } from "@/lib/db";
 import { normalizePlanId } from "@/lib/plan";
+import { codigoDeUsuario } from "@/lib/admin/anonimo";
 import { asegurarColumnasDeConsumo } from "./registrar";
 import type { Periodo, RegistroDeConsumo } from "./reporte";
 
@@ -23,15 +24,12 @@ export async function registrosDelPeriodo(periodo: Periodo): Promise<{ registros
   return { registros: filas.slice(0, TOPE_DE_REGISTROS), truncado: filas.length > TOPE_DE_REGISTROS };
 }
 
-export type PersonaDeConsumo = { email: string; nombre: string; plan: string };
+/** Lo único que el panel sabe de una cuenta: su código anónimo y su plan (nunca nombre ni correo; ver lib/admin/anonimo.ts). */
+export type PersonaDeConsumo = { codigo: string; plan: string };
 
-/** Correo, nombre y plan de cada cuenta (para leer el informe y para el CSV). */
 export async function personas(userIds: readonly string[]): Promise<Map<string, PersonaDeConsumo>> {
   if (userIds.length === 0) return new Map();
-  const [usuarios, suscripciones] = await Promise.all([
-    db.user.findMany({ where: { id: { in: [...userIds] } }, select: { id: true, email: true, name: true } }),
-    db.subscription.findMany({ where: { userId: { in: [...userIds] } }, select: { userId: true, planId: true, status: true } }),
-  ]);
+  const suscripciones = await db.subscription.findMany({ where: { userId: { in: [...userIds] } }, select: { userId: true, planId: true, status: true } });
   const planes = new Map(suscripciones.map((s) => [s.userId, `${normalizePlanId(s.planId) ?? s.planId ?? "sin plan"}${s.status && s.status !== "active" ? ` (${s.status})` : ""}`]));
-  return new Map(usuarios.map((u) => [u.id, { email: u.email ?? "", nombre: u.name ?? "", plan: planes.get(u.id) ?? "sin plan" }]));
+  return new Map(userIds.map((id) => [id, { codigo: codigoDeUsuario(id), plan: planes.get(id) ?? "sin plan" }]));
 }
