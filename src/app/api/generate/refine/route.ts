@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
 import { TIPOS } from "@/lib/consumo/funciones";
 import { conConsumo, registrarConsumo } from "@/lib/consumo/registrar";
 import { tokensDeAnthropic } from "@/lib/consumo/uso";
+import { configDeFuncion, esErrorDeEsfuerzo, parametroDeEsfuerzo } from "@/lib/ia/modelos";
 import { generatePdfHtml } from "@/lib/documents/pdf-generator";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
@@ -214,13 +215,20 @@ export async function POST(req: NextRequest) {
       const docLabel = doc.type === "informe" ? "Informe de Gestion" : "Acta Legal";
       const userPrompt = `DOCUMENTO ORIGINAL (${doc.sourceType === "markdown" ? "Markdown" : "HTML"}, tipo: ${docLabel}):\n---\n${doc.content}\n---\n\nINSTRUCCION DEL USUARIO:\n${instruction}${additionalContent}\n\nSi la instruccion o la informacion adicional aplica a este documento (${docLabel}), integra los cambios solicitados. Si NO aplica a este tipo de documento, devuelve el documento exactamente como esta.\n\nDevuelve el documento COMPLETO en formato Markdown.`;
 
-      const response = await client.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 16384,
-        temperature: 0.15,
+      const config = configDeFuncion(TIPOS.correccion);
+      const peticion = {
+        model: config.modelo,
+        max_tokens: 20_000, // el pensamiento de los modelos 5 comparte este tope con el documento
         system: REFINE_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: userPrompt }],
-      });
+        messages: [{ role: "user" as const, content: userPrompt }],
+      };
+      let response;
+      try {
+        response = await client.messages.create({ ...peticion, ...parametroDeEsfuerzo(config.modelo, config.esfuerzo) });
+      } catch (e) {
+        if (!esErrorDeEsfuerzo(e)) throw e;
+        response = await client.messages.create(peticion);
+      }
 
       const text = response.content
         .filter((b) => b.type === "text")
@@ -229,7 +237,7 @@ export async function POST(req: NextRequest) {
 
       const tokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
       // Cada llamada se paga aunque su resultado se descarte (cortada): se registra siempre.
-      const uso = tokensDeAnthropic(response, "claude-haiku-4-5-20251001");
+      const uso = tokensDeAnthropic(response, config.modelo);
       await registrarConsumo({
         tipo: TIPOS.correccion, proveedor: "anthropic", modelo: uso.modelo, tokens: uso.tokens,
         userId: session.user.id, ref: { tipo: "generacion", id: generationId },

@@ -3,6 +3,7 @@ import { TIPOS } from "@/lib/consumo/funciones";
 import type { Tokens } from "@/lib/consumo/precios";
 import { registrarConsumo, tipoDeLectura, type RefDeConsumo } from "@/lib/consumo/registrar";
 import { tokensDeAnthropic } from "@/lib/consumo/uso";
+import { configDeFuncion, esErrorDeEsfuerzo, parametroDeEsfuerzo } from "@/lib/ia/modelos";
 
 // Lazy-init: only create client when actually called
 let _client: Anthropic | null = null;
@@ -32,15 +33,12 @@ function getClient(): Anthropic {
   return _client;
 }
 
-// Model selection: Sonnet for quality, Haiku for speed.
-// Sonnet 5 is the current generation model (the older claude-sonnet-4-20250514
-// has been retired and now returns not_found). Override with ANTHROPIC_MODEL.
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
-
+// El modelo y el esfuerzo salen de `lib/ia/modelos.ts` según la función (`consumo.tipo`): el chat usa Sonnet 5.5 y todo lo demás
+// Haiku 5.5. Un modelo pasado a mano gana sobre esa tabla.
 export async function generateWithClaude(
   systemPrompt: string,
   userContent: string,
-  model: string = DEFAULT_MODEL,
+  model?: string,
   /**
    * Timeout por llamada. INVARIANTE: con `maxRetries: 1` el SDK hace hasta DOS
    * intentos completos, así que debe cumplirse
@@ -61,26 +59,39 @@ export async function generateWithClaude(
   } = {}
 ): Promise<{ text: string; tokensUsed: number; model: string; tokens: Tokens; costUsd: number }> {
   const client = getClient();
+  const config = configDeFuncion(opts.consumo?.tipo ?? "general");
+  const modelo = model ?? config.modelo;
 
   try {
-    console.log(`[AI] Sending request: system=${systemPrompt.length} chars, user=${userContent.length} chars, model=${model}`);
+    console.log(`[AI] Sending request: system=${systemPrompt.length} chars, user=${userContent.length} chars, model=${modelo}, effort=${config.esfuerzo}`);
 
-    const response = await client.messages.create(
-      {
-        model,
-        max_tokens: 16384,
+    // El pensamiento de los modelos 5 cuenta como salida y comparte `max_tokens` con la respuesta. 20.000 es el tope que el SDK
+    // permite sin streaming.
+    const peticion = {
+      model: modelo,
+      max_tokens: 20_000,
         // Cache the (stable, ~3.4k-token) system prompt so repeat generations —
         // including across users within the cache window — don't re-pay input
         // cost for it. The per-request user content stays uncached.
         system: [
-          { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
+          { type: "text" as const, text: systemPrompt, cache_control: { type: "ephemeral" as const } },
         ],
-        messages: [{ role: "user", content: userContent }],
-        // NOTE: no `temperature` — the Claude 5 family (default claude-sonnet-5)
-        // rejects it ("temperature is deprecated for this model").
-      },
-      opts.timeoutMs ? { timeout: opts.timeoutMs } : undefined
-    );
+        messages: [{ role: "user" as const, content: userContent }],
+        // NOTE: no `temperature` — la familia Claude 5 (Sonnet 5.5, Haiku 5.5) la rechaza.
+    };
+    const opcionesDeRed = opts.timeoutMs ? { timeout: opts.timeoutMs } : undefined;
+    let response;
+    try {
+      response = await client.messages.create({ ...peticion, ...parametroDeEsfuerzo(modelo, config.esfuerzo) }, opcionesDeRed);
+    } catch (e) {
+      // Si la API no entiende el esfuerzo de este modelo, se repite sin él en vez de fallar: lo importante es que responda.
+      if (!esErrorDeEsfuerzo(e)) throw e;
+      console.warn("[AI] el modelo no acepta `effort`: se reintenta sin él");
+      response = await client.messages.create(peticion, opcionesDeRed);
+    }
+    if (response.stop_reason === "refusal") {
+      throw new Error("La IA no pudo atender esta solicitud. Reformula el texto e intenta de nuevo.");
+    }
 
     const text = response.content
       .filter((block) => block.type === "text")
@@ -92,7 +103,7 @@ export async function generateWithClaude(
 
     console.log(`[AI] Response: ${text.length} chars, ${tokensUsed} tokens (in=${response.usage?.input_tokens}, out=${response.usage?.output_tokens})`);
 
-    const uso = tokensDeAnthropic(response, model);
+    const uso = tokensDeAnthropic(response, modelo);
     const costUsd = opts.consumo
       ? await registrarConsumo({ tipo: opts.consumo.tipo, proveedor: "anthropic", modelo: uso.modelo, tokens: uso.tokens, userId: opts.consumo.userId, ref: opts.consumo.ref })
       : 0;

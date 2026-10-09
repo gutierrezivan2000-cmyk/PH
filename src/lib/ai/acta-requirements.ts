@@ -1,6 +1,7 @@
 import { TIPOS } from "@/lib/consumo/funciones";
 import { registrarConsumo } from "@/lib/consumo/registrar";
 import { tokensDeAnthropic } from "@/lib/consumo/uso";
+import { configDeFuncion, esErrorDeEsfuerzo, parametroDeEsfuerzo } from "@/lib/ia/modelos";
 
 export interface ActaRequirement {
   item: string;
@@ -33,17 +34,25 @@ export async function analyzeActaRequirements(actaText: string): Promise<ActaReq
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const modelo = "claude-haiku-4-5-20251001";
-  const response = await client.messages.create({
+  const config = configDeFuncion(TIPOS.requisitosDeActa);
+  const modelo = config.modelo;
+  const peticion = {
     model: modelo,
-    max_tokens: 2048,
-    temperature: 0,
+    // El pensamiento de los modelos 5 comparte este tope con la respuesta (y sin `temperature`: los modelos 5 la rechazan).
+    max_tokens: 4096,
     system: "Eres un analista de documentos legales de Propiedad Horizontal en Colombia. Respondes SOLO con JSON valido, sin backticks ni explicaciones.",
     messages: [{
-      role: "user",
+      role: "user" as const,
       content: `${ANALYSIS_PROMPT}\n\nACTA A ANALIZAR:\n---\n${actaText}\n---`,
     }],
-  });
+  };
+  let response;
+  try {
+    response = await client.messages.create({ ...peticion, ...parametroDeEsfuerzo(modelo, config.esfuerzo) });
+  } catch (e) {
+    if (!esErrorDeEsfuerzo(e)) throw e;
+    response = await client.messages.create(peticion);
+  }
 
   const text = response.content
     .filter((b) => b.type === "text")

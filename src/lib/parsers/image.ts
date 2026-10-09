@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { TIPOS } from "@/lib/consumo/funciones";
 import { registrarConsumo, tipoDeLectura } from "@/lib/consumo/registrar";
 import { tokensDeAnthropic } from "@/lib/consumo/uso";
+import { configDeFuncion, esErrorDeEsfuerzo, parametroDeEsfuerzo } from "@/lib/ia/modelos";
 
 let _client: Anthropic | null = null;
 
@@ -36,20 +37,21 @@ export async function parseImageFile(file: File): Promise<string> {
     const base64 = buffer.toString("base64");
 
     const client = getClient();
-    const modelo = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
-    const response = await client.messages.create({
+    const config = configDeFuncion(TIPOS.lecturaDeImagenes);
+    const modelo = config.modelo;
+    const peticion = {
       model: modelo,
-      max_tokens: 2048,
+      max_tokens: 4096, // el pensamiento de los modelos 5 comparte este tope con la respuesta
       messages: [
         {
-          role: "user",
+          role: "user" as const,
           content: [
             {
-              type: "image",
-              source: { type: "base64", media_type: mediaType, data: base64 },
+              type: "image" as const,
+              source: { type: "base64" as const, media_type: mediaType, data: base64 },
             },
             {
-              type: "text",
+              type: "text" as const,
               text: `Analiza esta imagen en el contexto de un informe de gestión de propiedad horizontal (conjunto residencial/edificio en Colombia). Describe en detalle:
 - Qué muestra la imagen (mantenimiento, daños, reparaciones, obras, eventos, documentos, etc.)
 - Cualquier texto visible (letreros, documentos, facturas, recibos)
@@ -61,7 +63,14 @@ Responde en español. Sé preciso y descriptivo. Si es un documento o factura, t
           ],
         },
       ],
-    });
+    };
+    let response;
+    try {
+      response = await client.messages.create({ ...peticion, ...parametroDeEsfuerzo(modelo, config.esfuerzo) });
+    } catch (e) {
+      if (!esErrorDeEsfuerzo(e)) throw e;
+      response = await client.messages.create(peticion);
+    }
 
     const text = response.content
       .filter((b) => b.type === "text")

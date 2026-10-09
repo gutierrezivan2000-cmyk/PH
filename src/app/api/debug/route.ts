@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
   results.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ? "SET" : "MISSING";
   results.BLOB_READ_WRITE_TOKEN = process.env.BLOB_READ_WRITE_TOKEN ? "SET" : "MISSING";
   results.DEMO_MODE = process.env.DEMO_MODE || "not set";
-  results.ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "not set (default claude-sonnet-5)";
+  results.IA_MODELO_GENERAL = process.env.IA_MODELO_GENERAL || "not set (default claude-haiku-5-5)";
+  results.IA_MODELO_CHAT = process.env.IA_MODELO_CHAT || "not set (default claude-sonnet-5-5)";
   timings.envCheck = Date.now() - start;
 
   // Step 2: Test DB connection

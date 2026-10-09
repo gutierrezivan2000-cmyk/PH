@@ -3,9 +3,10 @@
  * reunión y, después, el acta y las preguntas).
  *
  * Decisiones, según la guía de la API de Claude:
- *  - Modelo `claude-opus-5-5` (se cambia con `MEETINGS_MODEL` en Vercel, sin desplegar).
- *  - En Opus 5.5 el pensamiento no se puede desactivar y el esfuerzo por defecto es `medium`: se fija el esfuerzo
- *    explícito (`MEETINGS_EFFORT`, por defecto `high`) y NO se manda `thinking` ni `temperature` (los rechaza).
+ *  - Modelo `claude-haiku-5-5` (se cambia con `MEETINGS_MODEL` en Vercel, sin desplegar; el acta y el análisis de reuniones largas
+ *    son candidatos a subir a Sonnet 5.5 si la calidad lo pide).
+ *  - Los modelos 5 piensan por defecto y el esfuerzo por defecto es `medium`: se fija el esfuerzo explícito
+ *    (`MEETINGS_EFFORT`, por defecto `high`) y NO se manda `thinking` ni `temperature` (los rechaza).
  *  - Streaming + `finalMessage()`: una llamada larga no choca con los tiempos de espera.
  *  - Salida estructurada (`output_config.format`): el modelo devuelve JSON que cumple el esquema; aun así se valida a
  *    mano en `ficha.ts` (los tiempos, los identificadores y las etiquetas tienen que existir de verdad).
@@ -19,10 +20,11 @@
  * Los registros nunca llevan texto de la reunión.
  */
 import { PRECIOS_ANTHROPIC, costoDeTokens, precioAnthropic, type PrecioPorToken } from "@/lib/consumo/precios";
+import { MODELO_GENERAL_POR_DEFECTO, aceptaRespaldoDelServidor } from "@/lib/ia/modelos";
 
 export type Esfuerzo = "low" | "medium" | "high" | "xhigh" | "max";
 
-export const MODELO_POR_DEFECTO = "claude-opus-5-5";
+export const MODELO_POR_DEFECTO = MODELO_GENERAL_POR_DEFECTO; // Haiku 5.5: todo lo que no es el chat de los agentes (ver lib/ia/modelos.ts)
 export const ESFUERZO_POR_DEFECTO: Esfuerzo = "high";
 const BETA_RESPALDO = "server-side-fallback-2026-07-01";
 const ESFUERZOS: readonly Esfuerzo[] = ["low", "medium", "high", "xhigh", "max"];
@@ -291,7 +293,7 @@ function textoDe(mensaje: MensajeCrudo): string {
 
 export function crearClienteIA(opciones: OpcionesClienteIA = {}): ClienteIA {
   const modelo = opciones.modelo ?? modeloDeReuniones();
-  const quiereRespaldo = opciones.respaldo ?? process.env.MEETINGS_FALLBACKS?.trim().toLowerCase() !== "off";
+  const quiereRespaldo = (opciones.respaldo ?? process.env.MEETINGS_FALLBACKS?.trim().toLowerCase() !== "off") && aceptaRespaldoDelServidor(modelo);
   let cliente: Promise<ClienteDeAnthropic> | null = null;
 
   const obtenerCliente = (): Promise<ClienteDeAnthropic> => {

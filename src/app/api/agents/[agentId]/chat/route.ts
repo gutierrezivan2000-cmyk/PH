@@ -19,6 +19,7 @@ import { TIPOS } from "@/lib/consumo/funciones";
 import { conConsumo, registrarConsumo } from "@/lib/consumo/registrar";
 import { TOKENS_VACIOS, sumarTokens, tokensDeAnthropic, totalDeTokens } from "@/lib/consumo/uso";
 import { ensureAgentTables, isMissingRelationError } from "@/lib/ensure-agent-tables";
+import { configDeFuncion, parametroDeEsfuerzo } from "@/lib/ia/modelos";
 import { parseAttachments, type ParsedAttachment } from "@/lib/parse-attachment";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
@@ -704,17 +705,20 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
             let stream!: ReturnType<typeof anthropic.messages.stream>;
             // Lo que cuesta el mensaje: TODAS las vueltas (pedir un archivo y comentarlo son dos llamadas que se pagan).
             let usoDelMensaje = TOKENS_VACIOS;
-            let modeloDelMensaje = "claude-haiku-4-5-20251001";
+            // El chat de los agentes usa Sonnet 5.5 (ver lib/ia/modelos.ts).
+            const configChat = configDeFuncion(TIPOS.agenteChat);
+            let modeloDelMensaje = configChat.modelo;
 
             // Dos vueltas: una para pedir el archivo y otra para comentarlo. Más
             // vueltas solo alargarían la espera sin aportar.
             for (let vuelta = 0; vuelta < 3; vuelta++) {
               stream = anthropic.messages.stream({
-                model: "claude-haiku-4-5-20251001",
-                // 2048 se quedaba corto en cuanto la herramienta lleva una tabla:
-                // el JSON se cortaba a medias y la llamada quedaba inválida.
-                max_tokens: 8192,
-                temperature: 0.5,
+                model: configChat.modelo,
+                // 2048 se quedaba corto en cuanto la herramienta lleva una tabla: el JSON se cortaba a medias y la llamada
+                // quedaba inválida. El pensamiento de los modelos 5 comparte este tope con la respuesta. Sin `temperature`:
+                // los modelos 5 la rechazan.
+                max_tokens: 16_000,
+                ...parametroDeEsfuerzo(configChat.modelo, configChat.esfuerzo),
                 system: systemBlocks,
                 messages: mensajes,
                 tools: HERRAMIENTAS_ARCHIVO,
@@ -733,6 +737,13 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
               const usoDeLaVuelta = tokensDeAnthropic(respuesta, modeloDelMensaje);
               usoDelMensaje = sumarTokens(usoDelMensaje, usoDeLaVuelta.tokens);
               modeloDelMensaje = usoDeLaVuelta.modelo;
+              if (respuesta.stop_reason === "refusal") {
+                // Los clasificadores de seguridad pueden declinar una solicitud: se le dice a la persona en vez de dejar la respuesta vacía.
+                const aviso = fullReply ? "\n\nNo puedo continuar con esa solicitud. Reformúlala y lo intento de nuevo." : "No puedo atender esa solicitud. Reformúlala y lo intento de nuevo.";
+                fullReply += aviso;
+                controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ text: aviso })}\n\n`));
+                break;
+              }
               if (respuesta.stop_reason !== "tool_use") break;
 
               const llamadas = respuesta.content.filter(
@@ -844,10 +855,11 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
             // title_update event so the client can refresh its sidebar.
             if (isNewChat && chatId && fullReply) {
               try {
+                const configTitulo = configDeFuncion(TIPOS.agenteTitulo);
                 const titleResp = await anthropic.messages.create({
-                  model: "claude-haiku-4-5-20251001",
-                  max_tokens: 30,
-                  temperature: 0.3,
+                  model: configTitulo.modelo,
+                  max_tokens: 400, // el título son 5 palabras, pero el pensamiento (aunque sea mínimo) comparte este tope
+                  ...parametroDeEsfuerzo(configTitulo.modelo, configTitulo.esfuerzo),
                   system:
                     "Eres un generador de titulos de chat. Dada una conversacion, devuelve UNICAMENTE un titulo conciso de 3 a 5 palabras en espanol que resuma el tema. Sin comillas, sin preambulo, sin punto final. Solo el titulo.",
                   messages: [
@@ -858,16 +870,14 @@ Después del archivo, resume en una o dos frases qué contiene; no repitas su co
                   ],
                 });
                 if (!IS_DEMO) {
-                  const usoDelTitulo = tokensDeAnthropic(titleResp, "claude-haiku-4-5-20251001");
+                  const usoDelTitulo = tokensDeAnthropic(titleResp, configTitulo.modelo);
                   await registrarConsumo({
                     tipo: TIPOS.agenteTitulo, proveedor: "anthropic", modelo: usoDelTitulo.modelo, tokens: usoDelTitulo.tokens,
                     userId, ref: { tipo: "chat", id: chatId },
                   });
                 }
-                const raw =
-                  titleResp.content[0]?.type === "text"
-                    ? titleResp.content[0].text
-                    : "";
+                // Con pensamiento adaptativo el primer bloque puede ser de pensamiento: se busca el de texto.
+                const raw = titleResp.content.find((b) => b.type === "text")?.text ?? "";
                 const generatedTitle = raw
                   .trim()
                   .replace(/^["'`]+|["'`.\s]+$/g, "")
