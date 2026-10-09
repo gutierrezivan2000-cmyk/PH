@@ -4,6 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 import { DEMO_USER } from "@/lib/demo-store";
 import { revokedByPasswordChange } from "@/lib/session-revocation";
 import { esAdminDeEntorno } from "@/lib/admin-emails";
+import { datosDeAceptacion } from "@/lib/legal/aceptacion";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -178,6 +179,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 name: user.name,
                 image: user.image,
                 role,
+                // La pantalla de ingreso informa que continuar con Google es aceptar los términos.
+                ...datosDeAceptacion(),
               },
             });
             token.id = created.id;

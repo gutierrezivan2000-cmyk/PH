@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import {
   Building2,
   BookOpen,
+  Scale,
   Target,
+  ShieldAlert,
   UserCheck,
   Send,
   FileSearch,
+  Globe,
   History,
 } from "lucide-react";
-import { LegalPage, Section, Item } from "../legal-shell";
+import { LegalPage, Section, Item, Correo, Ir, DatosDelResponsable, FECHA_LEGAL } from "../legal-shell";
 
 export const metadata: Metadata = {
   title: "Política de Tratamiento de Datos Personales — SOPH.IA",
@@ -16,171 +19,134 @@ export const metadata: Metadata = {
     "Política de Tratamiento de Datos Personales (Habeas Data) de SOPH.IA conforme a la Ley 1581 de 2012 y el Decreto 1377 de 2013 de Colombia.",
 };
 
+const fuerte = { color: "var(--ink)" } as const;
+
 export default function HabeasDataPage() {
   return (
     <LegalPage
-      eyebrow="Legal · Última actualización: junio 2026"
+      eyebrow={`Legal · Versión vigente desde el ${FECHA_LEGAL}`}
       title="Política de Tratamiento de Datos Personales (Habeas Data)"
-      intro="En cumplimiento de la Ley Estatutaria 1581 de 2012 y su Decreto Reglamentario 1377 de 2013, SOPH.IA adopta la presente política de tratamiento de datos personales, aplicable a toda la información recolectada a través de la plataforma."
-      disclaimer
+      intro="En cumplimiento de la Ley Estatutaria 1581 de 2012 y su Decreto Reglamentario 1377 de 2013 (compilado en el Decreto 1074 de 2015), SOPH.IA adopta esta política de tratamiento de datos personales, aplicable a la información recolectada a través de la plataforma."
     >
       <Section number="01" title="Responsable del tratamiento" icon={Building2}>
         <p>
-          El responsable del tratamiento de los datos personales es{" "}
-          <strong style={{ color: "var(--ink)" }}>SOPH.IA</strong>, plataforma
-          SaaS de generación de documentos con inteligencia artificial para
-          administradores de propiedad horizontal, con operación en la
-          República de Colombia.
+          El responsable del tratamiento de los datos personales de las cuentas es SOPH.IA, plataforma SaaS con inteligencia
+          artificial para administradores de propiedad horizontal, con operación en la República de Colombia.
         </p>
+        <DatosDelResponsable />
+        <p>
+          Cuando un administrador carga datos de residentes u otros terceros, el responsable de esos datos es el
+          administrador y SOPH.IA actúa como encargado (ver el{" "}
+          <Ir a="/legal/encargado">Acuerdo de Encargado del Tratamiento</Ir>). En ese caso, las solicitudes de los titulares
+          pueden dirigirse también al administrador de su copropiedad; si nos llegan a nosotros, las trasladamos.
+        </p>
+      </Section>
+
+      <Section number="02" title="Marco normativo y autoridad" icon={BookOpen}>
+        <p>
+          Esta política se fundamenta en el artículo 15 de la Constitución Política, la Ley Estatutaria 1581 de 2012, el
+          Decreto 1377 de 2013 (compilado en el Decreto 1074 de 2015) y las normas que los modifiquen, adicionen o
+          complementen.
+        </p>
+        <p>
+          La autoridad de control es la Superintendencia de Industria y Comercio (SIC), ante la cual el titular puede
+          presentar quejas una vez agotado el trámite ante SOPH.IA.
+        </p>
+      </Section>
+
+      <Section number="03" title="Principios que aplicamos" icon={Scale}>
         <ul className="space-y-2">
-          <Item>
-            Canal de atención al titular:{" "}
-            <a
-              href="mailto:soporte@sophiagrouph.com"
-              className="underline underline-offset-2"
-              style={{ color: "var(--accent-text)" }}
-            >
-              soporte@sophiagrouph.com
-            </a>
-          </Item>
-          <Item>Ámbito: usuarios registrados, prospectos y contactos de la plataforma.</Item>
+          <Item><strong style={fuerte}>Legalidad y finalidad:</strong> tratamos datos solo para las finalidades de esta política, que son legítimas e informadas.</Item>
+          <Item><strong style={fuerte}>Libertad:</strong> el tratamiento requiere tu autorización previa, expresa e informada.</Item>
+          <Item><strong style={fuerte}>Veracidad y transparencia:</strong> puedes saber en cualquier momento qué datos tenemos.</Item>
+          <Item><strong style={fuerte}>Acceso y circulación restringida:</strong> solo acceden quienes lo necesitan y los proveedores indicados en la Política de Privacidad.</Item>
+          <Item><strong style={fuerte}>Seguridad y confidencialidad:</strong> protegemos los datos con medidas técnicas y organizativas razonables.</Item>
         </ul>
       </Section>
 
-      <Section number="02" title="Marco normativo" icon={BookOpen}>
-        <p>
-          Esta política se fundamenta en el artículo 15 de la Constitución
-          Política de Colombia, la Ley Estatutaria 1581 de 2012 —régimen
-          general de protección de datos personales—, el Decreto 1377 de 2013
-          que la reglamenta parcialmente, y las demás normas que las
-          modifiquen, adicionen o complementen.
-        </p>
-        <p>
-          La autoridad de control en materia de protección de datos en
-          Colombia es la Superintendencia de Industria y Comercio (SIC),
-          ante la cual el titular puede presentar quejas una vez agotado el
-          trámite ante SOPH.IA.
-        </p>
-      </Section>
-
-      <Section number="03" title="Finalidades del tratamiento" icon={Target}>
+      <Section number="04" title="Finalidades del tratamiento" icon={Target}>
         <ul className="space-y-2">
-          <Item>
-            Gestionar el registro, autenticación y administración de la
-            cuenta del usuario.
-          </Item>
-          <Item>
-            Prestar el servicio contratado: generación de documentos de
-            gestión de propiedad horizontal con inteligencia artificial.
-          </Item>
+          <Item>Gestionar el registro, la autenticación y la administración de la cuenta.</Item>
+          <Item>Prestar el servicio: generación de documentos, transcripción y análisis de reuniones, asistentes virtuales, portal de residentes y demás funciones, con inteligencia artificial.</Item>
           <Item>Procesar pagos y emitir la facturación correspondiente.</Item>
-          <Item>
-            Brindar soporte, atender peticiones, quejas y reclamos, y enviar
-            comunicaciones relacionadas con el servicio.
-          </Item>
-          <Item>
-            Cumplir obligaciones legales, contables y contractuales del
-            responsable.
-          </Item>
+          <Item>Medir el consumo de recursos, aplicar límites de plan y planear precios y capacidad.</Item>
+          <Item>Brindar soporte, atender peticiones, quejas y reclamos, y enviar comunicaciones relacionadas con el servicio.</Item>
+          <Item>Mantener la seguridad, prevenir fraude y abusos y cumplir obligaciones legales, contables y contractuales.</Item>
         </ul>
+        <p>No usamos los datos para fines distintos ni los vendemos.</p>
       </Section>
 
-      <Section number="04" title="Derechos del titular" icon={UserCheck}>
+      <Section number="05" title="Datos sensibles y menores de edad" icon={ShieldAlert}>
         <p>
-          De conformidad con el artículo 8 de la Ley 1581 de 2012, el titular
-          de los datos tiene derecho a:
+          No solicitamos datos sensibles ni de menores. Si los incluyes en documentos o grabaciones, el tratamiento es
+          facultativo: no estás obligado a suministrarlos y solo se tratan para el fin que cargaste. Respecto de menores,
+          quien los carga debe contar con la autorización de sus representantes y respetar su interés superior y sus
+          derechos fundamentales (artículo 7 de la Ley 1581 de 2012).
         </p>
+        <p>
+          La voz de las personas en una grabación es un dato personal. Consulta las{" "}
+          <Ir a="/legal/reuniones">condiciones de Reuniones</Ir> para saber qué debes informar a los asistentes.
+        </p>
+      </Section>
+
+      <Section number="06" title="Derechos del titular" icon={UserCheck}>
+        <p>De conformidad con el artículo 8 de la Ley 1581 de 2012, tienes derecho a:</p>
         <ul className="space-y-2">
-          <Item>
-            <strong style={{ color: "var(--ink)" }}>Conocer</strong> los datos
-            personales que SOPH.IA trata y acceder a ellos de forma gratuita.
-          </Item>
-          <Item>
-            <strong style={{ color: "var(--ink)" }}>Actualizar y rectificar</strong>{" "}
-            los datos parciales, inexactos, incompletos o que induzcan a
-            error.
-          </Item>
-          <Item>
-            <strong style={{ color: "var(--ink)" }}>Suprimir</strong> los datos
-            cuando no exista un deber legal o contractual que imponga su
-            conservación.
-          </Item>
-          <Item>
-            <strong style={{ color: "var(--ink)" }}>Revocar la autorización</strong>{" "}
-            otorgada para el tratamiento, en los mismos supuestos de la
-            supresión.
-          </Item>
-          <Item>
-            Solicitar prueba de la autorización otorgada y ser informado
-            sobre el uso dado a sus datos.
-          </Item>
-          <Item>
-            Presentar quejas ante la Superintendencia de Industria y
-            Comercio por infracciones al régimen de protección de datos.
-          </Item>
+          <Item><strong style={fuerte}>Conocer</strong> los datos que tratamos y acceder a ellos de forma gratuita.</Item>
+          <Item><strong style={fuerte}>Actualizar y rectificar</strong> los datos parciales, inexactos, incompletos o que induzcan a error.</Item>
+          <Item><strong style={fuerte}>Suprimir</strong> los datos cuando no exista un deber legal o contractual que obligue a conservarlos.</Item>
+          <Item><strong style={fuerte}>Revocar la autorización</strong> otorgada, en los mismos supuestos de la supresión.</Item>
+          <Item>Solicitar prueba de la autorización y ser informado sobre el uso dado a tus datos.</Item>
+          <Item>Presentar quejas ante la Superintendencia de Industria y Comercio por infracciones al régimen de protección de datos.</Item>
         </ul>
       </Section>
 
-      <Section number="05" title="Procedimiento para ejercer los derechos" icon={Send}>
+      <Section number="07" title="Cómo ejercer tus derechos" icon={Send}>
         <p>
-          El titular o sus causahabientes pueden ejercer sus derechos
-          enviando una solicitud al correo{" "}
-          <a
-            href="mailto:soporte@sophiagrouph.com"
-            className="underline underline-offset-2"
-            style={{ color: "var(--accent-text)" }}
-          >
-            soporte@sophiagrouph.com
-          </a>
-          , indicando: nombre completo, dato de contacto, descripción de la
-          solicitud (consulta, actualización, rectificación, supresión o
-          revocatoria) y los documentos que la soporten.
+          El titular, sus causahabientes o su representante pueden ejercer sus derechos escribiendo a <Correo />, con: nombre
+          completo, un dato de contacto, la descripción de la solicitud (consulta, actualización, rectificación, supresión o
+          revocatoria) y los documentos que la soporten. Podemos pedirte que acredites tu identidad.
         </p>
         <p>
-          Conforme a los artículos 14 y 15 de la Ley 1581 de 2012, las{" "}
-          <strong style={{ color: "var(--ink)" }}>consultas</strong> serán
-          atendidas en un término máximo de diez (10) días hábiles y los{" "}
-          <strong style={{ color: "var(--ink)" }}>reclamos</strong> en un término
-          máximo de quince (15) días hábiles, contados a partir de su
-          recibo. Si no es posible atender la solicitud dentro de dicho
-          término, se informará al interesado los motivos de la demora y la
-          fecha en que se atenderá, sin que esta supere los plazos de
-          prórroga previstos en la ley.
+          Conforme a los artículos 14 y 15 de la Ley 1581 de 2012, las <strong style={fuerte}>consultas</strong> se atienden
+          en máximo diez (10) días hábiles desde su recibo, prorrogables por cinco (5) días hábiles más si lo informamos antes
+          con los motivos. Los <strong style={fuerte}>reclamos</strong> se atienden en máximo quince (15) días hábiles,
+          prorrogables por ocho (8) días hábiles más con la misma información.
         </p>
         <p>
-          Si el reclamo resulta incompleto, se requerirá al interesado dentro
-          de los cinco (5) días siguientes para que subsane las fallas;
-          transcurridos dos (2) meses sin respuesta, se entenderá desistido.
+          Si el reclamo está incompleto te pediremos subsanarlo dentro de los cinco (5) días siguientes; pasados dos (2)
+          meses sin respuesta, se entenderá desistido. Mientras se resuelve un reclamo, el dato disputado se marca como «reclamo
+          en trámite». La supresión o revocatoria no procede cuando exista un deber legal o contractual de conservar el dato.
         </p>
       </Section>
 
-      <Section number="06" title="Autorización" icon={FileSearch}>
+      <Section number="08" title="Autorización" icon={FileSearch}>
         <p>
-          SOPH.IA solicita la autorización previa, expresa e informada del
-          titular para el tratamiento de sus datos personales, la cual se
-          obtiene al momento del registro en la plataforma mediante la
-          aceptación de esta política y de los Términos y Condiciones.
+          Solicitamos tu autorización previa, expresa e informada al momento del registro o del primer ingreso con Google,
+          mediante la aceptación de los Términos y Condiciones y de esta política. Guardamos constancia de la fecha y de la
+          versión aceptada, y puedes pedir copia en cualquier momento.
         </p>
         <p>
-          Conforme al Decreto 1377 de 2013, la autorización puede constar por
-          cualquier medio que permita su consulta posterior. El titular puede
-          solicitar copia de su autorización en cualquier momento a través
-          del canal de atención.
+          Si cambiamos las finalidades de forma sustancial, te pediremos una nueva autorización. Para los datos que un
+          administrador carga sobre terceros, la autorización la obtiene el administrador como responsable.
         </p>
       </Section>
 
-      <Section number="07" title="Vigencia" icon={History}>
+      <Section number="09" title="Transmisión y transferencia internacional" icon={Globe}>
         <p>
-          La presente política rige a partir de junio de 2026 y permanecerá
-          vigente mientras SOPH.IA realice tratamiento de datos personales.
-          Las bases de datos se conservarán mientras subsistan las
-          finalidades del tratamiento o exista un deber legal de
-          conservación.
+          Algunos proveedores (alojamiento, base de datos, inteligencia artificial y correo) operan fuera de Colombia,
+          principalmente en Estados Unidos. Al aceptar esta política autorizas de forma expresa la transmisión y
+          transferencia de tus datos a esos proveedores, únicamente para prestar el servicio y bajo medidas de seguridad y
+          confidencialidad. Los proveedores y su función están en la <Ir a="/legal/privacidad">Política de Privacidad</Ir>.
         </p>
+      </Section>
+
+      <Section number="10" title="Vigencia y cambios" icon={History}>
         <p>
-          Cualquier modificación sustancial será comunicada a los titulares a
-          través de la plataforma o del correo registrado, antes de su
-          entrada en vigor.
+          Esta política rige desde el {FECHA_LEGAL} y permanece vigente mientras SOPH.IA trate datos personales. Las bases de
+          datos se conservan mientras subsistan las finalidades del tratamiento o exista un deber legal de conservación.
+          Cualquier modificación sustancial se comunicará a los titulares por la plataforma o por el correo registrado antes
+          de su entrada en vigor.
         </p>
       </Section>
     </LegalPage>

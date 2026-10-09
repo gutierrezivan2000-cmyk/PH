@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DOCUMENTOS_LEGALES, EMPRESA, LEGAL_FECHA_TEXTO } from "@/lib/legal/empresa";
 import { ArrowLeft, TriangleAlert, type LucideIcon } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -60,6 +61,13 @@ export function Footer() {
       className="border-t py-8"
       style={{ borderColor: "rgb(var(--veil-rgb) / 0.07)" }}
     >
+      <nav aria-label="Documentos legales" className="mx-auto max-w-3xl px-5 flex flex-wrap justify-center gap-x-5 gap-y-2 mb-5">
+        {DOCUMENTOS_LEGALES.map((d) => (
+          <Link key={d.ruta} href={d.ruta} className="text-[12px] underline underline-offset-2" style={{ color: "var(--ink-3)" }}>
+            {d.titulo.split(":")[0].split(" (")[0]}
+          </Link>
+        ))}
+      </nav>
       <p
         className="text-center"
         style={{ ...MONO_LABEL, color: "var(--ink-3)" }}
@@ -69,6 +77,46 @@ export function Footer() {
     </footer>
   );
 }
+
+/** Enlace a correo con el estilo de los documentos. */
+export function Correo({ para = EMPRESA.correoLegal }: { para?: string }) {
+  return (
+    <a href={`mailto:${para}`} className="underline underline-offset-2" style={{ color: "var(--accent-text)" }}>
+      {para}
+    </a>
+  );
+}
+
+/** Enlace interno con el estilo de los documentos. */
+export function Ir({ a, children }: { a: string; children: React.ReactNode }) {
+  return (
+    <Link href={a} className="underline underline-offset-2" style={{ color: "var(--accent-text)" }}>
+      {children}
+    </Link>
+  );
+}
+
+/** Quién es el responsable: solo muestra los datos que ya están escritos en `EMPRESA`. */
+export function DatosDelResponsable() {
+  const filas: [string, string][] = [
+    ["Marca", EMPRESA.marca],
+    ...(EMPRESA.razonSocial ? ([["Razón social", EMPRESA.razonSocial]] as [string, string][]) : []),
+    ...(EMPRESA.nit ? ([["NIT", EMPRESA.nit]] as [string, string][]) : []),
+    ...(EMPRESA.domicilio ? ([["Domicilio", EMPRESA.domicilio]] as [string, string][]) : []),
+    ["Correo de atención", EMPRESA.correoLegal],
+  ];
+  return (
+    <ul className="space-y-2">
+      {filas.map(([k, v]) => (
+        <Item key={k}>
+          <strong style={{ color: "var(--ink)" }}>{k}:</strong> {v}
+        </Item>
+      ))}
+    </ul>
+  );
+}
+
+export const FECHA_LEGAL = LEGAL_FECHA_TEXTO;
 
 export function LegalPage({
   eyebrow,
