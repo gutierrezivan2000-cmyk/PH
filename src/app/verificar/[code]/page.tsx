@@ -36,6 +36,21 @@ export default async function VerificarPage({
 }) {
   const { code } = await params;
 
+  // Consulta pública: se limita por IP para que no sirva para probar códigos en masa (los códigos de 72 bits no se adivinan,
+  // pero el abuso sigue sin ser gratis).
+  let limitado = false;
+  if (process.env.DEMO_MODE !== "true") {
+    try {
+      const { headers } = await import("next/headers");
+      const { rateLimit } = await import("@/lib/rate-limit");
+      const h = await headers();
+      const ip = (h.get("x-forwarded-for") || "").split(",")[0].trim() || h.get("x-real-ip") || "desconocida";
+      limitado = !(await rateLimit(`verificar:${ip}`, { max: 60, windowMs: 10 * 60 * 1000 })).allowed;
+    } catch {
+      // Mejor esfuerzo: nunca se bloquea la verificación por una falla del contador.
+    }
+  }
+
   let cert: {
     type: string;
     recipientName: string;
@@ -49,7 +64,7 @@ export default async function VerificarPage({
 
   // Only well-formed codes hit the DB (defensive against scanning noise).
   // Demo mode never touches the DB (db is a stub there) → "no encontrado".
-  if (process.env.DEMO_MODE !== "true" && /^[A-Za-z0-9_-]{8,40}$/.test(code)) {
+  if (!limitado && process.env.DEMO_MODE !== "true" && /^[A-Za-z0-9_-]{8,40}$/.test(code)) {
     try {
       const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
       await ensureAdminSchema();
@@ -81,7 +96,6 @@ export default async function VerificarPage({
   }).format(new Date()); // "YYYY-MM-DD" — lexical compare is safe for ISO dates
   const isExpired =
     isValid &&
-    cert?.type === "paz_y_salvo" &&
     typeof meta.validUntil === "string" &&
     meta.validUntil < todayBogota;
 
@@ -133,7 +147,7 @@ export default async function VerificarPage({
                 <ShieldQuestion className="h-8 w-8 flex-shrink-0" style={{ color: "var(--warn-text)" }} />
                 <div>
                   <p className="text-[16px] font-semibold" style={{ color: "var(--warn-text)" }}>
-                    Documento no encontrado
+                    {limitado ? "Demasiadas consultas. Intenta en unos minutos" : "Documento no encontrado"}
                   </p>
                   <p className="text-[12px]" style={{ color: "var(--ink-3)" }}>
                     Código: <span style={{ fontFamily: "monospace" }}>{code.slice(0, 40)}</span>
@@ -182,8 +196,8 @@ export default async function VerificarPage({
                     ? [{ label: "Documento", value: maskDoc(meta.recipientDocument) }]
                     : []),
                   { label: "Expedido", value: fecha(cert.createdAt) },
-                  ...(meta.validUntil && cert.type === "paz_y_salvo"
-                    ? [{ label: "Paz y salvo hasta", value: fecha(new Date(`${meta.validUntil}T12:00:00`)) }]
+                  ...(meta.validUntil
+                    ? [{ label: cert.type === "paz_y_salvo" ? "Paz y salvo hasta" : "Válido hasta", value: fecha(new Date(`${meta.validUntil}T12:00:00`)) }]
                     : []),
                   ...(!isValid && cert.revokedAt
                     ? [{ label: "Revocado el", value: fecha(cert.revokedAt) }]

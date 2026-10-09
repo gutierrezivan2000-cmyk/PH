@@ -65,10 +65,10 @@ export default async function ImprimirCertificadoPage({
     select: { name: true, company: true, logoUrl: true, brandColor: true },
   });
 
+  // La dirección del QR sale de la configuración (NEXT_PUBLIC_APP_URL); solo si falta se toma de la petición.
   const h = await headers();
-  const host = h.get("host") || "sophia.app";
-  const proto = h.get("x-forwarded-proto") || "https";
-  const verifyUrl = `${proto}://${host}/verificar/${cert.verifyCode}`;
+  const { baseUrlPublica } = await import("@/lib/certificados");
+  const verifyUrl = `${baseUrlPublica(process.env.NEXT_PUBLIC_APP_URL, { host: h.get("host"), proto: h.get("x-forwarded-proto") })}/verificar/${cert.verifyCode}`;
   const qrSvg = await QRCode.toString(verifyUrl, {
     type: "svg",
     margin: 0,
@@ -129,6 +129,11 @@ export default async function ImprimirCertificadoPage({
         {meta.residesSince ? (
           <>
             , desde <strong>{meta.residesSince}</strong>
+          </>
+        ) : null}
+        {meta.validUntil ? (
+          <>
+            . Certificado válido hasta el <strong>{fechaDesdeIso(meta.validUntil)}</strong>
           </>
         ) : null}
         .

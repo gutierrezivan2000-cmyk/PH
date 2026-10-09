@@ -13,6 +13,7 @@ import {
   Campo,
   Categoria,
   Entrada,
+  Casilla,
   Esqueleto,
   Etiqueta,
   Loseta,
@@ -120,6 +121,10 @@ function CertificadosPage() {
   const [residesSince, setResidesSince] = useState("");
   const [note, setNote] = useState("");
   const [creating, setCreating] = useState(false);
+  // Sin unidad del directorio no hay cartera que consultar: quien emite el paz y salvo declara que verificó que está al día.
+  const [confirmaAlDia, setConfirmaAlDia] = useState(false);
+  // Revocar es definitivo y pide un motivo.
+  const [motivoRevocacion, setMotivoRevocacion] = useState("");
   const [formError, setFormError] = useState("");
 
   const loadCerts = useCallback(async (pid: string) => {
@@ -195,6 +200,7 @@ function CertificadosPage() {
           validUntil: type === "paz_y_salvo" ? validUntil || undefined : undefined,
           residesSince: type === "residencia" ? residesSince.trim() || undefined : undefined,
           note: note.trim() || undefined,
+          confirmaAlDia: type === "paz_y_salvo" && !unitId ? confirmaAlDia : undefined,
         }),
       });
       const data = await res.json();
@@ -215,6 +221,7 @@ function CertificadosPage() {
       setUnitId("");
       setUnitLabel("");
       setValidUntil(endOfMonthIso());
+      setConfirmaAlDia(false);
       setShowForm(false);
       if (data.demo) {
         setNotice("Modo demo: el certificado se generó pero no se guarda ni se imprime en la demo.");
@@ -231,7 +238,7 @@ function CertificadosPage() {
 
   // Revocar cambia al instante la página pública de verificación a «REVOCADO»: la
   // dirección destructiva pide confirmación en un <Modal> (porRevocar) antes de llegar aquí.
-  async function toggleRevoke(cert: Certificate) {
+  async function toggleRevoke(cert: Certificate, motivo: string) {
     setActionError("");
     setBusyId(cert.id);
     try {
@@ -240,13 +247,15 @@ function CertificadosPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: cert.id,
-          action: cert.status === "valid" ? "revoke" : "restore",
+          action: "revoke",
+          reason: motivo,
         }),
       });
       if (res.ok) {
         await loadCerts(propertyId);
       } else {
-        setActionError("No se pudo actualizar el certificado. Intenta de nuevo.");
+        const d = await res.json().catch(() => ({}));
+        setActionError(d.error || "No se pudo revocar el certificado. Intenta de nuevo.");
       }
     } catch {
       setActionError("Error de red. Intenta de nuevo.");
@@ -390,6 +399,20 @@ function CertificadosPage() {
                           maxLength={30}
                         />
                       </Campo>
+                      {type === "paz_y_salvo" && (
+                        unitId ? (
+                          <p className="k-apoyo">
+                            Al expedir, se verifica la cartera de la unidad: si tiene valores vencidos sin pagar, no se emite el paz y salvo.
+                          </p>
+                        ) : (
+                          <Casilla
+                            checked={confirmaAlDia}
+                            onChange={(e) => setConfirmaAlDia(e.target.checked)}
+                            etiqueta="Verifiqué que la unidad está al día"
+                            detalle="Esta unidad no está en el directorio, así que no hay cartera para verificar. Tú respondes por esta afirmación."
+                          />
+                        )
+                      )}
                       {type === "paz_y_salvo" ? (
                         <Campo id="ce-hasta" etiqueta="A paz y salvo hasta">
                           <Entrada id="ce-hasta" type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
@@ -496,18 +519,9 @@ function CertificadosPage() {
                           >
                             {copied === c.id ? "Copiado" : "Copiar enlace"}
                           </BotonFila>
-                          {revoked ? (
+                          {revoked ? null : (
                             <BotonFila
-                              onClick={() => toggleRevoke(c)}
-                              disabled={busyId === c.id}
-                              icono={RotateCcw}
-                              tono="green"
-                            >
-                              {busyId === c.id ? "Guardando…" : "Restaurar"}
-                            </BotonFila>
-                          ) : (
-                            <BotonFila
-                              onClick={() => setPorRevocar(c)}
+                              onClick={() => { setMotivoRevocacion(""); setPorRevocar(c); }}
                               disabled={busyId === c.id}
                               icono={Ban}
                               tono="red"
@@ -537,10 +551,11 @@ function CertificadosPage() {
               variante="peligro"
               lleno
               icono={Ban}
+              disabled={motivoRevocacion.trim().length < 8}
               onClick={() => {
                 const c = porRevocar;
                 setPorRevocar(null);
-                if (c) void toggleRevoke(c);
+                if (c) void toggleRevoke(c, motivoRevocacion);
               }}
             >
               Revocar certificado
@@ -548,7 +563,16 @@ function CertificadosPage() {
           </>
         }
       >
-        <p>El enlace público de verificación mostrará «Documento REVOCADO». Podrás restaurarlo después.</p>
+        <p>El enlace público de verificación mostrará «Documento REVOCADO». La revocación es definitiva: si fue un error, expide un certificado nuevo.</p>
+        <Campo id="ce-motivo" etiqueta="Motivo (queda registrado)">
+          <Entrada
+            id="ce-motivo"
+            value={motivoRevocacion}
+            onChange={(e) => setMotivoRevocacion(e.target.value)}
+            placeholder="Ej.: se expidió a la unidad equivocada"
+            maxLength={300}
+          />
+        </Campo>
       </Modal>
     </div>
   );

@@ -4,10 +4,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { exigirModulo } from "@/lib/modulos-acceso";
 import { randomBytes } from "node:crypto";
+import { computeUnitSummary } from "@/lib/cartera";
+import {
+  TIPOS_DE_CERTIFICADO,
+  decidirPazYSalvo,
+  validarMotivoDeRevocacion,
+  vigenciaPorDefecto,
+  type TipoDeCertificado,
+} from "@/lib/certificados";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
-const TYPES = ["paz_y_salvo", "residencia"] as const;
+const TYPES = TIPOS_DE_CERTIFICADO;
 
 function newVerifyCode(): string {
   // 12 URL-safe chars ≈ 72 bits of entropy — unguessable, short enough to type.
@@ -63,8 +71,9 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const { propertyId, type, unitId, unitLabel, recipientName, recipientDocument, validUntil, residesSince, note } =
+  const { propertyId, type, unitId, unitLabel, recipientName, recipientDocument, validUntil, residesSince, note, confirmaAlDia } =
     body as {
+      confirmaAlDia?: boolean;
       propertyId?: string;
       type?: string;
       unitId?: string;
@@ -127,16 +136,23 @@ export async function POST(req: NextRequest) {
     // a unit is selected its directory label wins over any stale free text.
     let safeUnitId: string | null = null;
     let label = "";
+    let cartera: { enMora: number; saldo: number } | null = null;
     if (unitId) {
       const unit = await db.unit.findFirst({
         where: { id: unitId, propertyId },
-        select: { label: true },
+        select: {
+          label: true,
+          charges: { select: { amount: true, paidAmount: true, dueDate: true } },
+          payments: { select: { amount: true } },
+        },
       });
       if (!unit) {
         return NextResponse.json({ error: "Unidad no encontrada." }, { status: 400 });
       }
       safeUnitId = unitId;
       label = unit.label;
+      const resumen = computeUnitSummary(unit.charges, unit.payments.reduce((s, p) => s + p.amount, 0), new Date());
+      cartera = { enMora: resumen.overdueAmount, saldo: resumen.balance };
     } else {
       label = unitLabel?.trim().slice(0, 60) || "";
     }
@@ -144,9 +160,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Indica la unidad (ej: Apto 502)." }, { status: 400 });
     }
 
-    const meta: Record<string, string> = {};
+    const meta: Record<string, string | number> = {};
+    const tipo = type as TipoDeCertificado;
+    // Un paz y salvo afirma que la unidad está al día: se verifica contra la cartera antes de emitirlo y queda constancia.
+    if (tipo === "paz_y_salvo") {
+      const decision = decidirPazYSalvo({ cartera, confirmaAlDia: confirmaAlDia === true });
+      if (!decision.ok) {
+        return NextResponse.json(
+          { error: decision.mensaje, code: decision.codigo, enMora: decision.enMora, saldo: decision.saldo },
+          { status: decision.codigo === "saldo_pendiente" ? 409 : 400 }
+        );
+      }
+      meta.verificadoCon = decision.verificacion.origen;
+      meta.verificadoEn = new Date().toISOString();
+      if (decision.verificacion.origen === "cartera") {
+        meta.saldoAlEmitir = Math.round(decision.verificacion.saldo); // saldo total (puede incluir cobros que aún no vencen)
+        meta.vencidoAlEmitir = 0; // la regla: sin valores vencidos sin pagar
+      }
+    }
+    meta.emitidoEn = new Date().toISOString();
     if (recipientDocument?.trim()) meta.recipientDocument = recipientDocument.trim().slice(0, 30);
-    if (validUntil) meta.validUntil = validUntil;
+    // Todo certificado vence: si no se indica una fecha, se aplica la vigencia por defecto del tipo.
+    meta.validUntil = validUntil || vigenciaPorDefecto(tipo);
     if (residesSince?.trim()) meta.residesSince = residesSince.trim().slice(0, 100);
     if (note?.trim()) meta.note = note.trim().slice(0, 600);
 
@@ -181,10 +216,18 @@ export async function PATCH(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const { id, action } = body as { id?: string; action?: string };
-  if (!id || !["revoke", "restore"].includes(action || "")) {
+  const { id, action, reason } = body as { id?: string; action?: string; reason?: string };
+  if (action === "restore") {
+    return NextResponse.json(
+      { error: "Una revocación es definitiva. Si el certificado se revocó por error, expide uno nuevo." },
+      { status: 400 }
+    );
+  }
+  if (!id || action !== "revoke") {
     return NextResponse.json({ error: "Parámetros inválidos." }, { status: 400 });
   }
+  const motivo = validarMotivoDeRevocacion(reason);
+  if (!motivo.ok) return NextResponse.json({ error: motivo.error }, { status: 400 });
 
   if (IS_DEMO) return NextResponse.json({ ok: true });
 
@@ -195,18 +238,21 @@ export async function PATCH(req: NextRequest) {
 
     const existing = await db.certificate.findFirst({
       where: { id, userId: session.user.id },
-      select: { id: true },
+      select: { id: true, status: true, meta: true },
     });
     if (!existing) {
       return NextResponse.json({ error: "Certificado no encontrado" }, { status: 404 });
     }
+    if (existing.status === "revoked") return NextResponse.json({ ok: true });
 
+    const antes = (existing.meta && typeof existing.meta === "object" ? existing.meta : {}) as Record<string, unknown>;
     await db.certificate.update({
       where: { id },
-      data:
-        action === "revoke"
-          ? { status: "revoked", revokedAt: new Date() }
-          : { status: "valid", revokedAt: null },
+      data: {
+        status: "revoked",
+        revokedAt: new Date(),
+        meta: { ...antes, revocacion: { motivo: motivo.motivo, por: session.user.id, en: new Date().toISOString() } },
+      },
     });
     return NextResponse.json({ ok: true });
   } catch (error) {
