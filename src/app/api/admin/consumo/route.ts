@@ -4,7 +4,7 @@ export const maxDuration = 60;
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401 } from "@/lib/admin-auth";
 import { personas, registrosDelPeriodo } from "@/lib/consumo/consultas";
-import { codigoDeUsuario } from "@/lib/admin/anonimo";
+import { codigoDeUsuario } from "@/lib/admin/identidad";
 import { funcionDe } from "@/lib/consumo/funciones";
 import { aCsv, informeDeConsumo, periodoPedido, segundosDeAudio } from "@/lib/consumo/reporte";
 
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
         periodo: { desde: periodo.desdeDia, hasta: periodo.hastaDia },
         truncado,
         ...informe,
-        porUsuario: informe.porUsuario.map((u) => ({ ...u, ...(gente.get(u.userId) ?? { codigo: "", plan: "" }) })),
+        porUsuario: informe.porUsuario.map((u) => ({ ...u, ...(gente.get(u.userId) ?? { codigo: codigoDeUsuario(u.userId), nombre: "", email: "", empresa: "", plan: "" }) })),
       });
     }
 
@@ -55,15 +55,15 @@ export async function GET(req: NextRequest) {
         p.usdPorHoraDeAudio === null ? "" : usd(p.usdPorHoraDeAudio), p.composicion.map((c) => `${c.tipo}=${c.porOperacion.toFixed(4)}`).join(" "),
       ]);
     } else if (vista === "usuarios") {
-      encabezado = ["cliente", "plan", "grupo", "funcion", "tipo", "veces", "costo_usd"];
+      encabezado = ["codigo", "nombre", "correo", "empresa", "plan", "grupo", "funcion", "tipo", "veces", "costo_usd"];
       filas = informe.porUsuario.flatMap((u) => {
-        const p = gente.get(u.userId) ?? { codigo: codigoDeUsuario(u.userId), plan: "" };
-        return u.porTipo.map((t) => [p.codigo, p.plan, funcionDe(t.tipo).grupo, t.nombre, t.tipo, t.veces, usd(t.costoUsd)]);
+        const p = gente.get(u.userId) ?? { codigo: codigoDeUsuario(u.userId), nombre: "", email: "", empresa: "", plan: "" };
+        return u.porTipo.map((t) => [p.codigo, p.nombre, p.email, p.empresa, p.plan, funcionDe(t.tipo).grupo, t.nombre, t.tipo, t.veces, usd(t.costoUsd)]);
       });
     } else {
-      encabezado = ["fecha", "cliente", "funcion", "tipo", "proveedor", "modelo", "tokens_entrada", "tokens_salida", "tokens_cache_lectura", "tokens_cache_escritura", "segundos_audio", "costo_usd", "operacion", "operacion_id"];
+      encabezado = ["fecha", "codigo", "correo", "funcion", "tipo", "proveedor", "modelo", "tokens_entrada", "tokens_salida", "tokens_cache_lectura", "tokens_cache_escritura", "segundos_audio", "costo_usd", "operacion", "operacion_id"];
       filas = registros.map((r) => [
-        r.date.toISOString(), gente.get(r.userId)?.codigo ?? codigoDeUsuario(r.userId), funcionDe(r.type).nombre, r.type, r.provider ?? "", r.model ?? "",
+        r.date.toISOString(), codigoDeUsuario(r.userId), gente.get(r.userId)?.email ?? "", funcionDe(r.type).nombre, r.type, r.provider ?? "", r.model ?? "",
         r.inputTokens, r.outputTokens, r.cacheReadTokens, r.cacheWriteTokens, segundosDeAudio(r), usd(r.costUsd), r.refType ?? "", r.refId ?? "",
       ]);
     }

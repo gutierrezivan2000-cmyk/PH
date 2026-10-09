@@ -16,7 +16,9 @@ import {
   Zap,
   Ban,
 } from "lucide-react";
-import { codigoDeUsuario } from "@/lib/admin/anonimo";
+import { CAMPOS_DE_IDENTIDAD, codigoDeUsuario } from "@/lib/admin/identidad";
+import { Persona, fechaLarga } from "@/components/admin/Persona";
+import { LEGAL_VERSION } from "@/lib/legal/empresa";
 import { informeDeConsumo } from "@/lib/consumo/reporte";
 import { asegurarColumnasDeConsumo } from "@/lib/consumo/registrar";
 import { AccesoButton } from "./AccesoButton";
@@ -46,17 +48,13 @@ async function loadUser(id: string) {
   const last30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const [user, recentGenerations, recentTickets, generations30d, agentChatCount, admin] =
     await Promise.all([
-      // Solo lo operativo: nada de nombre, correo, teléfono, empresa, ciudad, foto,
-      // contraseña ni credenciales de pago (ver lib/admin/anonimo.ts).
+      // Identidad, contacto y fechas; nunca el hash de la contraseña ni las credenciales de pago (ver lib/admin/identidad.ts).
       db.user.findUnique({
         where: { id },
         select: {
-          id: true,
-          role: true,
-          banned: true,
+          ...CAMPOS_DE_IDENTIDAD,
           bannedAt: true,
           banReason: true,
-          createdAt: true,
           onboarded: true,
           subscription: {
             select: { id: true, planId: true, status: true, currentPeriodStart: true, currentPeriodEnd: true, addonAgents: true },
@@ -169,8 +167,8 @@ async function UsuarioDetail({ id }: { id: string }) {
     <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-7xl">
       <PageHeader
         section="01 · Usuarios"
-        title={`Cliente ${codigoDeUsuario(user.id)}`}
-        description="Los datos personales no se muestran en el panel. Se opera por código."
+        title={user.name || user.email}
+        description={`${user.email} · ${codigoDeUsuario(user.id)}`}
         action={
           <div className="flex items-center gap-3 flex-wrap justify-end">
             <AccesoButton userId={user.id} />
@@ -191,54 +189,43 @@ async function UsuarioDetail({ id }: { id: string }) {
         <div className="space-y-5">
           {/* Profile */}
           <SectionCard title="Perfil">
-            <div className="flex items-center gap-4 mb-5">
-              <div
-                className="h-14 w-14 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-white"
-                style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-lo))" }}
+            <div className="flex items-center gap-3 mb-5 flex-wrap">
+              <Persona id={user.id} name={user.name} email={user.email} image={user.image} enlace={false} grande />
+              <Badge variant={user.role === "admin" ? "accent" : "secondary"}>{user.role}</Badge>
+              {user.banned && <Badge variant="destructive">Baneado</Badge>}
+              <span
+                className="text-[10px] px-2.5 py-1 rounded-full border"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  letterSpacing: "0.1em",
+                  background: isGoogle ? "rgb(var(--ok-rgb) / 0.08)" : "rgb(var(--veil-rgb) / 0.05)",
+                  borderColor: isGoogle ? "rgb(var(--ok-rgb) / 0.3)" : "rgb(var(--veil-rgb) / 0.1)",
+                  color: isGoogle ? "var(--ok-text)" : "var(--ink-3)",
+                }}
               >
-                {codigoDeUsuario(user.id).slice(2)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[16px] font-semibold text-foreground" style={{ fontFamily: "var(--font-mono)" }}>
-                    {codigoDeUsuario(user.id)}
-                  </span>
-                  <Badge variant={user.role === "admin" ? "accent" : "secondary"}>
-                    {user.role}
-                  </Badge>
-                  {user.banned && <Badge variant="destructive">Baneado</Badge>}
-                </div>
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <span
-                    className="text-[10px] px-2.5 py-1 rounded-full border"
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      letterSpacing: "0.1em",
-                      background: isGoogle
-                        ? "rgb(var(--ok-rgb) / 0.08)"
-                        : "rgb(var(--veil-rgb) / 0.05)",
-                      borderColor: isGoogle
-                        ? "rgb(var(--ok-rgb) / 0.3)"
-                        : "rgb(var(--veil-rgb) / 0.1)",
-                      color: isGoogle ? "var(--ok-text)" : "var(--ink-3)",
-                    }}
-                  >
-                    {isGoogle ? "Google Account" : "Email login"}
-                  </span>
-                </div>
-              </div>
+                {isGoogle ? "Ingresa con Google" : "Ingresa con correo"}
+              </span>
             </div>
 
             <div className="space-y-0">
-              <div className="py-2.5 border-b border-border">
-                <MonoLabel>Registro</MonoLabel>
-                <p className="text-[13px] text-foreground">
-                  {new Date(user.createdAt).toLocaleString("es-CO", {
-                    dateStyle: "long",
-                    timeStyle: "short",
-                  })}
-                </p>
-              </div>
+              {(
+                [
+                  ["Registro", fechaLarga(user.createdAt)],
+                  ["Último ingreso", user.lastLoginAt ? fechaLarga(user.lastLoginAt) : "Sin registro (anterior a esta medición)"],
+                  ["Correo verificado", isGoogle ? "Verificado por Google" : user.emailVerified ? fechaLarga(user.emailVerified) : "No verificado"],
+                  [
+                    "Términos y privacidad",
+                    user.termsAcceptedAt
+                      ? `Aceptó la versión ${user.termsVersion} el ${fechaLarga(user.termsAcceptedAt)}${user.termsVersion === LEGAL_VERSION ? "" : " (hay una versión más nueva)"}`
+                      : "Sin aceptación registrada",
+                  ],
+                ] as const
+              ).map(([k, v]) => (
+                <div key={k} className="py-2.5 border-b border-border">
+                  <MonoLabel>{k}</MonoLabel>
+                  <p className="text-[13px] text-foreground">{v}</p>
+                </div>
+              ))}
               <div className="py-2.5">
                 <MonoLabel>Onboarding</MonoLabel>
                 <Badge variant={user.onboarded ? "ok" : "secondary"}>
@@ -283,6 +270,36 @@ async function UsuarioDetail({ id }: { id: string }) {
                 )}
               </div>
             )}
+          </SectionCard>
+
+          {/* Contacto */}
+          <SectionCard title="Contacto">
+            <div className="space-y-0">
+              {(
+                [
+                  ["Correo", user.email],
+                  ["Teléfono", user.phone],
+                  ["Cargo", user.cargo],
+                  ["Empresa", user.company],
+                  ["Ciudad", user.city],
+                ] as const
+              ).map(([k, v]) => (
+                <div key={k} className="py-2.5 border-b border-border last:border-0">
+                  <MonoLabel>{k}</MonoLabel>
+                  {v ? (
+                    k === "Correo" ? (
+                      <a href={`mailto:${v}`} className="text-[13px] underline underline-offset-2" style={{ color: "var(--accent-text)" }}>{v}</a>
+                    ) : k === "Teléfono" ? (
+                      <a href={`tel:${v.replace(/[^+\d]/g, "")}`} className="text-[13px] underline underline-offset-2" style={{ color: "var(--accent-text)" }}>{v}</a>
+                    ) : (
+                      <p className="text-[13px] text-foreground">{v}</p>
+                    )
+                  ) : (
+                    <p className="text-[13px] text-muted-foreground/60">No lo ha registrado</p>
+                  )}
+                </div>
+              ))}
+            </div>
           </SectionCard>
 
           {/* Subscription */}

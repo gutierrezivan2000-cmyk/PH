@@ -1,7 +1,4 @@
-/**
- * El equipo administrador: quién tiene acceso al panel. Es la única lista del panel que muestra correos, porque son
- * cuentas del equipo (no clientes) y saber quién puede administrar es un control de seguridad. Solo la ven los propietarios.
- */
+/** El equipo administrador: quién tiene acceso al panel y quién es propietario. Solo lo ven los propietarios. */
 export type MiembroDelEquipo = {
   email: string;
   /** null si es un propietario que todavía no ha ingresado nunca. */

@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401 } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
-import { codigoDeUsuario } from "@/lib/admin/anonimo";
+import { CAMPOS_DE_NOMBRE, codigoDeUsuario } from "@/lib/admin/identidad";
 
 const PAGE_SIZE = 50;
 
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         admin: {
-          select: { id: true },
+          select: CAMPOS_DE_NOMBRE,
         },
       },
       orderBy: { createdAt: "desc" },
@@ -62,16 +62,16 @@ export async function GET(req: NextRequest) {
     // Return all admins for filter dropdown
     db.user.findMany({
       where: { role: "admin" },
-      select: { id: true },
+      select: { id: true, name: true, email: true },
       orderBy: { createdAt: "asc" },
     }),
   ]);
 
   return NextResponse.json({
-    logs: logs.map((l) => ({ ...l, admin: { id: l.admin.id, codigo: codigoDeUsuario(l.admin.id) } })),
+    logs: logs.map((l) => ({ ...l, admin: { ...l.admin, codigo: codigoDeUsuario(l.admin.id) } })),
     total,
     page,
     pageSize: PAGE_SIZE,
-    admins: admins.map((a) => ({ id: a.id, codigo: codigoDeUsuario(a.id) })),
+    admins: admins.map((a) => ({ ...a, codigo: codigoDeUsuario(a.id) })),
   });
 }

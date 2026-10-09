@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401, logAdminAction, isEnvAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
-import { codigoDeUsuario } from "@/lib/admin/anonimo";
+import { CAMPOS_DE_IDENTIDAD, codigoDeUsuario } from "@/lib/admin/identidad";
 
 export async function GET(
   _req: NextRequest,
@@ -21,12 +21,9 @@ export async function GET(
       db.user.findUnique({
         where: { id },
         select: {
-          id: true,
-          role: true,
-          banned: true,
+          ...CAMPOS_DE_IDENTIDAD,
           bannedAt: true,
           banReason: true,
-          createdAt: true,
           onboarded: true,
           subscription: { select: { id: true, planId: true, status: true, currentPeriodStart: true, currentPeriodEnd: true, addonAgents: true } },
           accounts: { select: { provider: true } },

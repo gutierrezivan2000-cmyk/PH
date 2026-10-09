@@ -23,6 +23,9 @@ model User {
   // ya emitidas (hasta 30 días). El callback jwt lo compara en su recheck.
   passwordChangedAt DateTime?
 
+  // Último inicio de sesión (con correo o Google). Lo ve el panel de administración.
+  lastLoginAt     DateTime?
+
   // Aceptación de Términos / Privacidad / Habeas Data: cuándo y qué versión (src/lib/legal).
   termsAcceptedAt DateTime?
   termsVersion    String?

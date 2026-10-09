@@ -5,7 +5,8 @@ import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/db";
-import { codigoDeUsuario } from "@/lib/admin/anonimo";
+import { codigoDeUsuario } from "@/lib/admin/identidad";
+import { Persona } from "@/components/admin/Persona";
 import { personas, registrosDelPeriodo, TOPE_DE_REGISTROS } from "@/lib/consumo/consultas";
 import { PRECIOS_VERIFICADOS_EL } from "@/lib/consumo/precios";
 import { diaEnBogota, informeDeConsumo, periodoPedido, type Distribucion } from "@/lib/consumo/reporte";
@@ -61,7 +62,7 @@ async function ConsumoContent({ desde, hasta }: { desde: string | null; hasta: s
     ? await db.generation.groupBy({ by: ["batchId"], where: { batchId: { in: batchIds }, status: "completed" }, _count: { id: true } })
     : [];
   const doneMap = Object.fromEntries(doneByBatch.map((d) => [d.batchId, d._count.id]));
-  const gente = await personas([...new Set([...informe.porUsuario.map((u) => u.userId), ...batches.map((b) => b.userId)])]);
+  const gente = await personas([...new Set([...informe.porUsuario.map((u) => u.userId), ...batches.map((b) => b.userId), ...failures.map((g) => g.userId)])]);
 
   const qs = `desde=${periodo.desdeDia}&hasta=${periodo.hastaDia}`;
   const csv = (vista: string) => `/api/admin/consumo?${qs}&formato=csv&vista=${vista}`;
@@ -179,10 +180,8 @@ async function ConsumoContent({ desde, hasta }: { desde: string | null; hasta: s
               const p = gente.get(u.userId);
               return (
                 <tr key={u.userId} className="hover:bg-secondary/40 transition-colors align-top">
-                  <td className="px-4 py-2.5 max-w-[260px]">
-                    <Link href={`/admin/usuarios/${u.userId}`} className="text-foreground hover:underline" style={{ fontFamily: "var(--font-mono)" }}>
-                      {p?.codigo ?? codigoDeUsuario(u.userId)}
-                    </Link>
+                  <td className="px-4 py-2.5 min-w-[220px] max-w-[300px]">
+                    <Persona id={u.userId} name={p?.nombre} email={p?.email} />
                   </td>
                   <td className="px-4 py-2.5 text-[12px] text-muted-foreground">{p?.plan ?? "—"}</td>
                   <Num fuerte>{usd(u.costoUsd)}</Num>
@@ -216,7 +215,7 @@ async function ConsumoContent({ desde, hasta }: { desde: string | null; hasta: s
               return (
                 <li key={b.id} className="px-5 py-3 flex items-center gap-4">
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-foreground truncate">{owner?.codigo ?? "Cliente"}</p>
+                    <p className="text-[13px] font-medium text-foreground truncate">{owner?.nombre || owner?.email || "Cliente"}</p>
                     <p className="text-[11px] text-muted-foreground" style={{ fontFamily: "var(--font-mono)" }}>
                       {MONTHS[(b.month - 1) % 12]} {b.year} · {b.docTypes.join(", ")}
                     </p>
@@ -247,7 +246,7 @@ async function ConsumoContent({ desde, hasta }: { desde: string | null; hasta: s
                   </span>
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1 truncate">
-                  {codigoDeUsuario(g.userId)} · {g.errorMessage || "sin detalle"}
+                  {gente.get(g.userId)?.email || codigoDeUsuario(g.userId)} · {g.errorMessage || "sin detalle"}
                 </p>
               </li>
             ))}

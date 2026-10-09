@@ -3,7 +3,7 @@
  */
 import { db } from "@/lib/db";
 import { normalizePlanId } from "@/lib/plan";
-import { codigoDeUsuario } from "@/lib/admin/anonimo";
+import { codigoDeUsuario } from "@/lib/admin/identidad";
 import { asegurarColumnasDeConsumo } from "./registrar";
 import type { Periodo, RegistroDeConsumo } from "./reporte";
 
@@ -24,12 +24,21 @@ export async function registrosDelPeriodo(periodo: Periodo): Promise<{ registros
   return { registros: filas.slice(0, TOPE_DE_REGISTROS), truncado: filas.length > TOPE_DE_REGISTROS };
 }
 
-/** Lo único que el panel sabe de una cuenta: su código anónimo y su plan (nunca nombre ni correo; ver lib/admin/anonimo.ts). */
-export type PersonaDeConsumo = { codigo: string; plan: string };
+/** Quién es cada cuenta del informe: código, nombre, correo, empresa y plan (ver lib/admin/identidad.ts). */
+export type PersonaDeConsumo = { codigo: string; nombre: string; email: string; empresa: string; plan: string };
 
 export async function personas(userIds: readonly string[]): Promise<Map<string, PersonaDeConsumo>> {
   if (userIds.length === 0) return new Map();
-  const suscripciones = await db.subscription.findMany({ where: { userId: { in: [...userIds] } }, select: { userId: true, planId: true, status: true } });
+  const [usuarios, suscripciones] = await Promise.all([
+    db.user.findMany({ where: { id: { in: [...userIds] } }, select: { id: true, name: true, email: true, company: true } }),
+    db.subscription.findMany({ where: { userId: { in: [...userIds] } }, select: { userId: true, planId: true, status: true } }),
+  ]);
+  const quien = new Map(usuarios.map((u) => [u.id, u]));
   const planes = new Map(suscripciones.map((s) => [s.userId, `${normalizePlanId(s.planId) ?? s.planId ?? "sin plan"}${s.status && s.status !== "active" ? ` (${s.status})` : ""}`]));
-  return new Map(userIds.map((id) => [id, { codigo: codigoDeUsuario(id), plan: planes.get(id) ?? "sin plan" }]));
+  return new Map(
+    userIds.map((id) => {
+      const u = quien.get(id);
+      return [id, { codigo: codigoDeUsuario(id), nombre: u?.name ?? "", email: u?.email ?? "", empresa: u?.company ?? "", plan: planes.get(id) ?? "sin plan" }];
+    }),
+  );
 }

@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401, logAdminAction } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
-import { codigoDeUsuario } from "@/lib/admin/anonimo";
+import { CAMPOS_DE_IDENTIDAD, codigoDeUsuario } from "@/lib/admin/identidad";
 
 export async function GET(
   _req: NextRequest,
@@ -19,7 +19,7 @@ export async function GET(
     include: {
       user: {
         select: {
-          id: true,
+          ...CAMPOS_DE_IDENTIDAD,
           subscription: { select: { id: true, status: true, planId: true } },
         },
       },

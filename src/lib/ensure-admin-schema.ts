@@ -26,6 +26,7 @@ const STATEMENTS: string[] = [
   // Constancia de aceptación de los documentos legales (src/lib/legal).
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "termsAcceptedAt" TIMESTAMP(3)`,
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "termsVersion" TEXT`,
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "lastLoginAt" TIMESTAMP(3)`,
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "role" TEXT NOT NULL DEFAULT 'user'`,
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "logoUrl" TEXT`,
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "brandColor" TEXT`,

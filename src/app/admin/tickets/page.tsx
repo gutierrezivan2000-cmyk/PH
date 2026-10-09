@@ -2,7 +2,7 @@ import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
-import { codigoDeUsuario } from "@/lib/admin/anonimo";
+import { CAMPOS_DE_NOMBRE } from "@/lib/admin/identidad";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MessageSquare, Clock, ChevronRight } from "lucide-react";
@@ -143,7 +143,7 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
   const tickets = await db.ticket.findMany({
     where,
     include: {
-      user: { select: { id: true } },
+      user: { select: CAMPOS_DE_NOMBRE },
       _count: { select: { messages: true } },
       messages: { take: 1, orderBy: { createdAt: "desc" } },
     },
@@ -319,7 +319,7 @@ async function TicketsContent({ searchParams }: { searchParams: SearchParams }) 
                       className="text-[11px] mt-1 truncate"
                       style={{ ...monoSmall, color: "var(--ink-4)", textTransform: "none" }}
                     >
-                      Cliente {codigoDeUsuario(ticket.user.id)}
+                      {ticket.user.name || "—"} · {ticket.user.email}
                     </p>
                   </div>
 

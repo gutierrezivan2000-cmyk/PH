@@ -4,7 +4,8 @@ import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/db";
-import { codigoDeUsuario } from "@/lib/admin/anonimo";
+import { Persona } from "@/components/admin/Persona";
+import { CAMPOS_DE_IDENTIDAD, CAMPOS_DE_NOMBRE } from "@/lib/admin/identidad";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowUpRight, Calendar, User } from "lucide-react";
@@ -19,7 +20,7 @@ async function loadSubscription(id: string) {
       where: { id },
       include: {
         user: {
-          select: { id: true, role: true, createdAt: true },
+          select: CAMPOS_DE_IDENTIDAD,
         },
       },
     }),
@@ -27,7 +28,7 @@ async function loadSubscription(id: string) {
       where: { targetType: "subscription", targetId: id },
       orderBy: { createdAt: "desc" },
       take: 10,
-      select: { id: true, action: true, metadata: true, createdAt: true, adminId: true },
+      select: { id: true, action: true, metadata: true, createdAt: true, adminId: true, admin: { select: CAMPOS_DE_NOMBRE } },
     }),
   ]);
   return { subscription, auditLogs };
@@ -138,8 +139,8 @@ async function SuscripcionDetail({ id }: { id: string }) {
     <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-7xl">
       <PageHeader
         section="02 · Suscripciones"
-        title={`${planLabel} — Cliente ${codigoDeUsuario(sub.user.id)}`}
-        description="Los datos personales no se muestran en el panel."
+        title={`${planLabel} — ${sub.user.name || sub.user.email}`}
+        description={sub.user.email}
         action={
           <SubscriptionActions subscriptionId={sub.id} status={sub.status} />
         }
@@ -165,10 +166,8 @@ async function SuscripcionDetail({ id }: { id: string }) {
         <div className="space-y-5">
           {/* User card */}
           <SectionCard title="Usuario">
-            <div className="flex items-center gap-3 mb-4">
-              <p className="text-[15px] font-semibold text-foreground" style={{ fontFamily: "var(--font-mono)" }}>
-                {codigoDeUsuario(sub.user.id)}
-              </p>
+            <div className="flex items-center gap-3 mb-4 flex-wrap">
+              <Persona id={sub.user.id} name={sub.user.name} email={sub.user.email} image={sub.user.image} enlace={false} />
               <Badge variant={sub.user.role === "admin" ? "accent" : "secondary"}>
                 {sub.user.role}
               </Badge>
@@ -287,7 +286,7 @@ async function SuscripcionDetail({ id }: { id: string }) {
                             className="text-[11px] text-muted-foreground/60 mt-0.5 truncate"
                             style={{ fontFamily: "var(--font-mono)" }}
                           >
-                            {codigoDeUsuario(log.adminId)}
+                            {log.admin.name || log.admin.email}
                           </p>
                           {meta && Boolean(meta.from ?? meta.to) && (
                             <p

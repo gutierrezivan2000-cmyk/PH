@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401, logAdminAction } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
-import { codigoDeUsuario } from "@/lib/admin/anonimo";
+import { CAMPOS_DE_IDENTIDAD, CAMPOS_DE_NOMBRE, codigoDeUsuario } from "@/lib/admin/identidad";
 
 export async function GET(
   _req: NextRequest,
@@ -19,7 +19,7 @@ export async function GET(
       where: { id },
       include: {
         user: {
-          select: { id: true, role: true, createdAt: true },
+          select: CAMPOS_DE_IDENTIDAD,
         },
       },
     }),
@@ -27,7 +27,7 @@ export async function GET(
       where: { targetType: "subscription", targetId: id },
       orderBy: { createdAt: "desc" },
       take: 10,
-      select: { id: true, action: true, metadata: true, createdAt: true, adminId: true },
+      select: { id: true, action: true, metadata: true, createdAt: true, adminId: true, admin: { select: CAMPOS_DE_NOMBRE } },
     }),
   ]);
 
@@ -40,7 +40,7 @@ export async function GET(
 
   return NextResponse.json({
     subscription: { ...subscription, user: { ...subscription.user, codigo: codigoDeUsuario(subscription.user.id) } },
-    auditLogs: auditLogs.map((l) => ({ ...l, admin: { codigo: codigoDeUsuario(l.adminId) } })),
+    auditLogs: auditLogs.map((l) => ({ ...l, admin: { ...l.admin, codigo: codigoDeUsuario(l.adminId) } })),
   });
 }
 

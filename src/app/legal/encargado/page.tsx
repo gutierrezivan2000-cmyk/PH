@@ -44,7 +44,7 @@ export default function EncargadoPage() {
       <Section number="04" title="Seguridad e incidentes" icon={ShieldCheck}>
         <p>
           Aplicamos las medidas descritas en la <Ir a="/legal/privacidad">Política de Privacidad</Ir> (cifrado en tránsito,
-          controles de acceso, panel administrativo sin datos personales, registros de seguridad). Si confirmamos un incidente de
+          controles de acceso, panel administrativo que no muestra el contenido de los clientes, registros de seguridad). Si confirmamos un incidente de
           seguridad que afecte los datos que nos confiaste, te avisaremos sin demora injustificada y te daremos la información
           disponible para que cumplas tus deberes frente a los titulares y la SIC.
         </p>
