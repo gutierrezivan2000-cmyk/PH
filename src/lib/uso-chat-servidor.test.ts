@@ -33,25 +33,25 @@ describe("limitesDelPlan: cada plan tiene los suyos", () => {
 
   it("un plan que no se reconoce cuenta como Pro, y Élite tiene los suyos", () => {
     expect(limitesDelPlan("raro").chatBudgetUsd).toBe(PLANS.pro.limits.chatBudgetUsd);
-    expect(limitesDelPlan(null).chatBudgetUsd).toBe(5);
-    expect(limitesDelPlan("elite").chatBudgetUsd).toBe(40);
+    expect(limitesDelPlan(null).chatBudgetUsd).toBe(0.75);
+    expect(limitesDelPlan("elite").chatBudgetUsd).toBe(6);
   });
 });
 
 describe("usoDelChat: el presupuesto y el periodo de cada cuenta", () => {
-  it("un plan Business tiene US$15 al mes", async () => {
+  it("un plan Business tiene US$2,25 al mes", async () => {
     acceso.mockResolvedValue({ allowed: true, status: "active" });
     await db.subscription.create({ data: { userId: "u1", planId: "business" } });
-    expect(await usoDelChat("u1", AHORA)).toMatchObject({ ilimitado: false, presupuestoUsd: 15 });
+    expect(await usoDelChat("u1", AHORA)).toMatchObject({ ilimitado: false, presupuestoUsd: 2.25 });
   });
 
-  it("la prueba gratis tiene US$1 en su periodo de 7 días, y su gasto cuenta contra ese periodo", async () => {
+  it("la prueba gratis tiene US$0,25 en su periodo de 7 días, y su gasto cuenta contra ese periodo", async () => {
     acceso.mockResolvedValue({ allowed: true, status: "trialing" });
     await db.subscription.create({ data: { userId: "u1", planId: "pro", currentPeriodStart: hace(24), currentPeriodEnd: hace(-6 * 24) } });
-    await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.agenteChat, costUsd: 0.1, date: hace(1) } });
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.agenteChat, costUsd: 0.02, date: hace(1) } });
     const uso = await usoDelChat("u1", AHORA);
-    // Sesión: 0,1 de 0,2 (20 % de US$1) → queda 50 %. Mes (el periodo de la prueba): 0,1 de 1 → 90 %. Manda el 50 %.
-    expect(uso).toMatchObject({ ilimitado: false, presupuestoUsd: 1, estado: { porcentajeRestante: 50, ventana: "sesion" } });
+    // Sesión: 0,02 de 0,05 (20 % de US$0,25) → queda 60 %. Semana: 0,02 de 0,10 → 80 %. Mes (el periodo de la prueba): 0,02 de 0,25 → 92 %. Manda el 60 %.
+    expect(uso).toMatchObject({ ilimitado: false, presupuestoUsd: 0.25, estado: { porcentajeRestante: 60, ventana: "sesion" } });
   });
 
   it("una cuenta beta o en pruebas no tiene tope", async () => {

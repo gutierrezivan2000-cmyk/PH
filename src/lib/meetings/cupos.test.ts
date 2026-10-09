@@ -22,9 +22,9 @@ describe("inicioDeMes", () => {
 });
 
 describe("horasPorMes", () => {
-  it("Pro 10, Business 40, Élite 120; un plan que no se reconoce cuenta como Pro", () => {
-    expect([horasPorMes("pro"), horasPorMes("plan-business-ph"), horasPorMes("elite"), horasPorMes("plan-elite-ph")]).toEqual([10, 40, 120, 120]);
-    expect([horasPorMes(null), horasPorMes(undefined), horasPorMes("raro")]).toEqual([10, 10, 10]);
+  it("Pro 8, Business 24, Élite 60; un plan que no se reconoce cuenta como Pro", () => {
+    expect([horasPorMes("pro"), horasPorMes("plan-business-ph"), horasPorMes("elite"), horasPorMes("plan-elite-ph")]).toEqual([8, 24, 60, 60]);
+    expect([horasPorMes(null), horasPorMes(undefined), horasPorMes("raro")]).toEqual([8, 8, 8]);
   });
 });
 
@@ -69,28 +69,35 @@ describe("comprobarCupoDeReuniones", () => {
     expect(await comprobar(1)).toMatchObject({ permitido: false, ilimitado: false, mensaje: "Tu suscripción terminó." });
   });
 
-  it("Pro: 10 h al mes; cabe lo que queda y no cabe lo que se pasa (con el mensaje de cuánto dura y cuánto queda)", async () => {
+  it("Pro: 8 h al mes; cabe lo que queda y no cabe lo que se pasa (con el mensaje de cuánto dura y cuánto queda)", async () => {
     await plan("pro");
     await reunion("a", 5);
-    await reunion("b", 3);
-    expect(await comprobar(2)).toMatchObject({ permitido: true, usadoMs: 8 * H, limiteMs: 10 * H, restanMs: 2 * H, periodo: "mes", mensaje: null }); // justo cabe
-    expect(await comprobar(3)).toMatchObject({ permitido: false, mensaje: "Esta reunión dura 3 h y te quedan 2 h este mes." });
+    expect(await comprobar(3)).toMatchObject({ permitido: true, usadoMs: 5 * H, limiteMs: 8 * H, restanMs: 3 * H, periodo: "mes", mensaje: null }); // justo cabe
+    expect(await comprobar(3.5)).toMatchObject({ permitido: false, mensaje: "Esta reunión dura 3 h 30 min y te quedan 3 h este mes." });
+  });
+
+  it("una reunión de 8 h cabe en el cupo de Pro, pero no si ya se usó una hora", async () => {
+    await plan("pro");
+    expect(await comprobar(8)).toMatchObject({ permitido: true, limiteMs: 8 * H });
+    await reunion("a", 1);
+    expect(await comprobar(8)).toMatchObject({ permitido: false });
   });
 
   it("con todo el cupo usado lo dice así", async () => {
     await plan("pro");
-    await reunion("a", 10);
-    expect(await comprobar(0.5)).toMatchObject({ permitido: false, restanMs: 0, mensaje: "Ya usaste las 10 h de reuniones de este mes." });
+    await reunion("a", 8);
+    expect(await comprobar(0.5)).toMatchObject({ permitido: false, restanMs: 0, mensaje: "Ya usaste las 8 h de reuniones de este mes." });
   });
 
-  it("Business y Élite tienen más horas", async () => {
+  it("Business y Élite tienen sus horas: 24 y 60", async () => {
     await plan("business");
-    await reunion("a", 30);
-    expect(await comprobar(10)).toMatchObject({ permitido: true, limiteMs: 40 * H });
-    expect(await comprobar(11)).toMatchObject({ permitido: false });
+    await reunion("a", 20);
+    expect(await comprobar(4)).toMatchObject({ permitido: true, limiteMs: 24 * H });
+    expect(await comprobar(5)).toMatchObject({ permitido: false });
     db.subscription.filas.length = 0;
+    db.meeting.filas.length = 0; // Élite empieza con el mes en blanco
     await plan("plan-elite-ph");
-    expect(await comprobar(90)).toMatchObject({ permitido: true, limiteMs: 120 * H });
+    expect(await comprobar(60)).toMatchObject({ permitido: true, limiteMs: 60 * H });
   });
 
   it("solo cuenta lo que consume cupo: las reuniones de este usuario, de este mes, con audio y sin las que esperan cupo", async () => {
@@ -106,10 +113,10 @@ describe("comprobarCupoDeReuniones", () => {
 
   it("la reunión que se evalúa no cuenta contra sí misma (reprocesar no cobra dos veces)", async () => {
     await plan("pro");
-    await reunion("esta", 8);
+    await reunion("esta", 6);
     await reunion("otra", 1);
-    expect((await comprobar(8, "esta")).usadoMs).toBe(H);
-    expect((await comprobar(8, "esta")).permitido).toBe(true);
+    expect((await comprobar(6, "esta")).usadoMs).toBe(H);
+    expect((await comprobar(6, "esta")).permitido).toBe(true);
     expect((await comprobar(8)).permitido).toBe(false);
   });
 
@@ -148,10 +155,10 @@ describe("resumenDeHoras (lo que se le muestra a la persona)", () => {
     await plan("pro");
     await reunion("a", 3);
     await reunion("b", 0.5);
-    expect(await resumenDeHoras("u1", AHORA)).toEqual({ ilimitado: false, periodo: "mes", usadoMs: 3.5 * H, limiteMs: 10 * H, restanMs: 6.5 * H });
+    expect(await resumenDeHoras("u1", AHORA)).toEqual({ ilimitado: false, periodo: "mes", usadoMs: 3.5 * H, limiteMs: 8 * H, restanMs: 4.5 * H });
     db.subscription.filas.length = 0;
     await plan("business");
-    expect(await resumenDeHoras("u1", AHORA)).toMatchObject({ limiteMs: 40 * H, restanMs: 36.5 * H });
+    expect(await resumenDeHoras("u1", AHORA)).toMatchObject({ limiteMs: 24 * H, restanMs: 20.5 * H });
   });
 
   it("cuenta lo mismo que el cupo: solo este mes, este usuario, con audio y sin las que esperan horas", async () => {
@@ -168,7 +175,7 @@ describe("resumenDeHoras (lo que se le muestra a la persona)", () => {
   it("si se pasó del tope, lo que queda es cero (no negativo) y lo usado es la cifra real", async () => {
     await plan("pro");
     await reunion("a", 12);
-    expect(await resumenDeHoras("u1", AHORA)).toMatchObject({ usadoMs: 12 * H, limiteMs: 10 * H, restanMs: 0 });
+    expect(await resumenDeHoras("u1", AHORA)).toMatchObject({ usadoMs: 12 * H, limiteMs: 8 * H, restanMs: 0 });
   });
 
   it("la prueba gratis son 2 horas en total, de cualquier mes", async () => {

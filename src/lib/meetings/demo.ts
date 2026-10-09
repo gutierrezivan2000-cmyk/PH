@@ -412,11 +412,12 @@ export function demoReuniones(userId: string, propertyId?: string | null): Reuni
 }
 
 /**
- * Las horas de reuniones del plan en el demo (Pro: 10 h al mes), fijas y coherentes con la reunión «sin horas» del ejemplo, que dice
- * «dura 8 h y te quedan 2 h este mes»: lleva 8 h usadas. (Procesar de nuevo esa reunión en el demo supone que ya hay horas.)
+ * Las horas de reuniones del plan en el demo (Pro: 8 h al mes), fijas y coherentes con la reunión «sin horas» del ejemplo, que dice
+ * «dura 8 h y te quedan 2 h este mes»: lleva 6 h usadas de 8. Por eso una reunión de 8 h no cabe. (Procesar de nuevo esa reunión en
+ * el demo supone que ya hay horas.)
  */
 export function demoHorasDeReuniones(): HorasDeReunionesDTO {
-  return { ilimitado: false, periodo: "mes", usadoMs: 8 * HORA, limiteMs: 10 * HORA, restanMs: 2 * HORA };
+  return { ilimitado: false, periodo: "mes", usadoMs: 6 * HORA, limiteMs: 8 * HORA, restanMs: 2 * HORA };
 }
 
 export function demoReunion(userId: string, id: string): ReunionDetalle | null {

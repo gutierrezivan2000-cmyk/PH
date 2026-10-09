@@ -26,7 +26,7 @@ import { crearDbFalsa, type DbFalsa } from "./db-falsa";
 const H = 3_600_000;
 const AHORA = new Date("2026-10-07T15:00:00Z"); // miércoles
 const hace = (horas: number) => new Date(AHORA.getTime() - horas * H);
-// Plan Pro: US$5 al mes. Ventanas: sesión 20 % (US$1 en 5 h), semana 40 % (US$2 en 7 días).
+// Plan Pro: US$0,75 al mes. Ventanas: sesión 20 % (US$0,15 en 5 h), semana 40 % (US$0,30 en 7 días).
 let db: DbFalsa;
 
 const escribir = () =>
@@ -71,8 +71,8 @@ describe("el chat se mide por el uso que le queda a la cuenta (porcentaje, en d�
     expect(r.cuerpo.error).toContain("Vuelve a tener uso");
   });
 
-  it("con poco gastado (US$0,5), todavía queda uso: el chat pasa la compuerta (se detiene después, en la IA)", async () => {
-    await gastar(0.5, 1);
+  it("con poco gastado (US$0,05), todavía queda uso: el chat pasa la compuerta (se detiene después, en la IA)", async () => {
+    await gastar(0.05, 1);
     await llegaALaIA(await escribir());
   });
 
@@ -97,8 +97,8 @@ describe("el chat se mide por el uso que le queda a la cuenta (porcentaje, en d�
     await llegaALaIA(await escribir());
   });
 
-  it("lo gastado hace más de 5 horas ya no cuenta en la sesión (la semana, con US$1, sigue en 50 %)", async () => {
-    await gastar(1, 6);
+  it("lo gastado hace más de 5 horas ya no cuenta en la sesión (la semana, con US$0,1, queda en 67 %)", async () => {
+    await gastar(0.1, 6);
     await llegaALaIA(await escribir());
   });
 

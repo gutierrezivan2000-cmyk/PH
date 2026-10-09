@@ -50,7 +50,8 @@ describe("comprobarCupoDePreguntas: «Preguntar» usa el mismo uso del chat", ()
   });
 
   it("con uso disponible, deja preguntar y dice cuánto queda", async () => {
-    await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 0.25, date: hace(1) } });
+    // Plan Pro: la sesión de 5 h tiene US$0,15; gastar US$0,0375 deja 75 %.
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 0.0375, date: hace(1) } });
     expect(await comprobarCupoDePreguntas("u1", AHORA)).toMatchObject({ permitido: true, ilimitado: false, porcentajeRestante: 75, mensaje: null });
   });
 

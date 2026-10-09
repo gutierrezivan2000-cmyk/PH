@@ -104,7 +104,7 @@ describe("GET /api/usage: las horas de reuniones", () => {
     vi.resetModules();
     const { GET } = await import("@/app/api/usage/route");
     const cuerpo = await (await GET()).json();
-    expect(cuerpo.reuniones).toEqual({ ilimitado: false, periodo: "mes", usadoMs: 8 * H, limiteMs: 10 * H, restanMs: 2 * H });
+    expect(cuerpo.reuniones).toEqual({ ilimitado: false, periodo: "mes", usadoMs: 6 * H, limiteMs: 8 * H, restanMs: 2 * H });
     expect(resumen).not.toHaveBeenCalled();
   });
 });
@@ -120,16 +120,16 @@ describe("GET /api/agents/usage: el uso del chat (porcentaje) incluye las pregun
 
   it("suma el costo del chat y el de las preguntas a reuniones, y deja fuera lo que no es chat y lo de otras personas", async () => {
     await db.agentChat.create({ data: { id: "c1", userId: "u1" } });
-    // Chat: US$0,3 hace 1 h y US$0,2 de una pregunta a una reunión hace 2 h: en la sesión de 5 h (cap US$1) queda 50 %.
-    await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.agenteChat, costUsd: 0.3, date: hace(1) } });
-    await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 0.2, date: hace(2) } });
+    // Chat: US$0,0375 hace 1 h y otro tanto de una pregunta a una reunión hace 2 h: en la sesión de 5 h (cap US$0,15) queda 50 %.
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.agenteChat, costUsd: 0.0375, date: hace(1) } });
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 0.0375, date: hace(2) } });
     // No cuentan: un acta de reunión, otra persona y un gasto de hace 8 días (antes del mes).
     await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.reunionActa, costUsd: 9, date: hace(1) } });
     await db.usageRecord.create({ data: { userId: "otra", type: TIPOS.agenteChat, costUsd: 9, date: hace(1) } });
     await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.agenteChat, costUsd: 9, date: hace(24 * 8) } });
 
     const cuerpo = await (await usoDeAgentes()).json();
-    expect(cuerpo.chat).toMatchObject({ ilimitado: false, presupuestoUsd: 5, porcentajeRestante: 50, ventana: "sesion", agotado: false });
+    expect(cuerpo.chat).toMatchObject({ ilimitado: false, presupuestoUsd: 0.75, porcentajeRestante: 50, ventana: "sesion", agotado: false });
   });
 
   it("sin consumo, el chat está al 100 %", async () => {
