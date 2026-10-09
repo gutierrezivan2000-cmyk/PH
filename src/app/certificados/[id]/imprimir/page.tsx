@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { hoyEnBogota } from "@/lib/certificados";
 import QRCode from "qrcode";
 import { PrintButton } from "./PrintButton";
 
@@ -199,6 +200,27 @@ export default async function ImprimirCertificadoPage({
           >
             DOCUMENTO REVOCADO
             {cert.revokedAt ? ` el ${fechaLarga(cert.revokedAt)}` : ""} — NO VÁLIDO
+          </div>
+        )}
+
+        {/* Vencido: sigue siendo auténtico, pero ya no está vigente. Se avisa en el papel para que nadie lo tome como vigente. */}
+        {!revoked && meta.validUntil && meta.validUntil < hoyEnBogota() && (
+          <div
+            style={{
+              background: "#fffbeb",
+              border: "2px solid #d97706",
+              color: "#92400e",
+              textAlign: "center",
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              fontSize: 13,
+              padding: "10px 16px",
+              borderRadius: 8,
+              margin: "0 0 24px",
+              fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            }}
+          >
+            VENCIDO desde el {fechaDesdeIso(meta.validUntil)} — ya no está vigente
           </div>
         )}
 

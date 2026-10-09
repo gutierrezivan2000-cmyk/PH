@@ -20,6 +20,11 @@ export function vigenciaPorDefecto(tipo: TipoDeCertificado, ahora: Date = new Da
   return f.toISOString().slice(0, 10);
 }
 
+/** Vencido: su fecha de validez (último día, hora de Bogotá) ya pasó. Sin fecha válida no se considera vencido. */
+export function estaVencido(validUntil: unknown, ahora: Date = new Date()): boolean {
+  return typeof validUntil === "string" && /^\d{4}-\d{2}-\d{2}$/.test(validUntil) && validUntil < hoyEnBogota(ahora);
+}
+
 export type VerificacionDeSaldo =
   | { origen: "cartera"; enMora: number; saldo: number }
   | { origen: "declarado" };

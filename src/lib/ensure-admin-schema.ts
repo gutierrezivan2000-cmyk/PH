@@ -332,6 +332,9 @@ const STATEMENTS: string[] = [
     ALTER TABLE "UnitPayment" ADD CONSTRAINT "UnitPayment_unitId_fkey"
       FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // Clave de idempotencia del pago manual (ver cartera/payments): un reintento no duplica el pago.
+  `ALTER TABLE "UnitPayment" ADD COLUMN IF NOT EXISTS "idempotencyKey" TEXT`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "UnitPayment_idempotencyKey_key" ON "UnitPayment"("idempotencyKey")`,
   // Presupuesto y ejecución (F2.3).
   `CREATE TABLE IF NOT EXISTS "Budget" (
     "id" TEXT NOT NULL,

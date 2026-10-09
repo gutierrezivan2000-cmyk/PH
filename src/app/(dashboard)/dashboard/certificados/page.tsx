@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Ban, BadgeCheck, Check, CircleCheck, Home, Link2, Printer, RotateCcw, X, type LucideIcon } from "lucide-react";
+import { Ban, BadgeCheck, Check, CircleCheck, Clock, Home, Link2, Printer, X, type LucideIcon } from "lucide-react";
+import { estaVencido } from "@/lib/certificados";
 import { Header } from "@/components/dashboard/Header";
 import { ComingSoon } from "@/components/dashboard/ComingSoon";
 import { useModulos } from "@/components/dashboard/useModulos";
@@ -49,6 +50,7 @@ interface Certificate {
   status: string;
   verifyCode: string;
   createdAt: string;
+  meta?: { validUntil?: string } | null;
   property?: { name: string };
 }
 
@@ -502,6 +504,8 @@ function CertificadosPage() {
                             <span className="cod">{c.verifyCode}</span>
                             {revoked ? (
                               <Etiqueta icono={Ban} tono="red">Revocado</Etiqueta>
+                            ) : estaVencido(c.meta?.validUntil) ? (
+                              <Etiqueta icono={Clock} tono="amber">Vencido</Etiqueta>
                             ) : (
                               <Etiqueta icono={CircleCheck} tono="green">Vigente</Etiqueta>
                             )}

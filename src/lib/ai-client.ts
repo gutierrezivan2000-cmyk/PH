@@ -92,6 +92,12 @@ export async function generateWithClaude(
     if (response.stop_reason === "refusal") {
       throw new Error("La IA no pudo atender esta solicitud. Reformula el texto e intenta de nuevo.");
     }
+    // Una respuesta cortada por el tope no es un documento: guardarla sería entregar un informe o un acta a medias como si
+    // estuvieran completos. Se falla con un mensaje que dice qué hacer.
+    if (response.stop_reason === "max_tokens") {
+      console.error("[AI] respuesta cortada por max_tokens", { modelo, salida: response.usage?.output_tokens });
+      throw new Error("La respuesta de la IA se cortó por ser demasiado larga y no se guardó. Intenta de nuevo, o reduce el material del periodo.");
+    }
 
     const text = response.content
       .filter((block) => block.type === "text")

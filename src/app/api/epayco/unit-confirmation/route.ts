@@ -73,9 +73,10 @@ export async function POST(req: NextRequest) {
       // which would silently strand a REAL payment. Flag it for review instead
       // of leaving the order pending forever with no trace.
       console.error("[unit-confirmation] invalid signature", { ref: x_ref_payco });
+      // Solo si sigue pendiente: una orden ya acreditada nunca pasa a revisión por un callback falso.
       await db.unitPaymentOrder
-        .update({
-          where: { id: order.id },
+        .updateMany({
+          where: { id: order.id, status: "pending" },
           data: { status: "needs_review", failReason: "invalid_signature", epaycoRef: x_ref_payco },
         })
         .catch(() => {});
@@ -150,8 +151,10 @@ export async function POST(req: NextRequest) {
         // The claim also writes epaycoRef, which carries a UNIQUE index: if this
         // same ePayco transaction already settled another order, the insert
         // fails and the whole transaction rolls back (anti cross-replay).
+        // Acepta también «needs_review» (la conciliación la marcó por demora, o hubo una firma rechazada) y «rejected» (un
+        // intento anterior se rechazó y este es el que ePayco aprobó): un pago aprobado siempre se acredita una sola vez.
         const claim = await tx.unitPaymentOrder.updateMany({
-          where: { id: order.id, status: "pending" },
+          where: { id: order.id, status: { in: ["pending", "needs_review", "rejected"] } },
           data: { status: "completed", epaycoRef: x_ref_payco, completedAt: new Date() },
         });
         if (claim.count !== 1) return; // already reconciled by another callback
@@ -197,7 +200,10 @@ export async function POST(req: NextRequest) {
     } else if (codResponse === "2" || codResponse === "4") {
       // ── REJECTED / FAILED ──
       await db.unitPaymentOrder
-        .update({ where: { id: order.id }, data: { status: "rejected", epaycoRef: x_ref_payco } })
+        .updateMany({
+          where: { id: order.id, status: { not: "completed" } },
+          data: { status: "rejected", epaycoRef: x_ref_payco },
+        })
         .catch(() => {});
     }
     // "3" (pending) — wait for a final confirmation.

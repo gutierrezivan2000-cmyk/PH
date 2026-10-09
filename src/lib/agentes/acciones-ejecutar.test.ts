@@ -133,3 +133,34 @@ describe("decidir", () => {
     expect(estado.pagos).toHaveLength(0);
   });
 });
+
+describe("coincidencia de unidad (no por parecido)", () => {
+  it("«Apto 10» NO se asigna a «Apto 101» ni «Apto 1» aunque el texto contenga esas letras", async () => {
+    const r = await proponerAccion(ctx(abiertos), { ...pago, datos: { unidad: "Apto 10", monto: 100_000, metodo: "efectivo" } });
+    expect(r).toMatchObject({ ok: false, error: expect.stringContaining("No encuentro la unidad") });
+    expect(estado.acciones).toHaveLength(0);
+  });
+  it("la etiqueta se compara sin importar mayúsculas y la tarjeta guarda la unidad EXACTA del directorio", async () => {
+    const r = await proponerAccion(ctx(abiertos), { ...pago, datos: { unidad: "  apto 101 ", monto: 100_000, metodo: "efectivo" } });
+    expect(r).toMatchObject({ ok: true });
+    expect(estado.acciones[0].payload).toMatchObject({ unidad: "Apto 101" });
+    expect(String(estado.acciones[0].summary)).toContain("Apto 101");
+  });
+});
+
+describe("un fallo al anotar el resultado después de aplicar el pago", () => {
+  it("la acción queda APROBADA (el pago sí se aplicó) y no se marca como fallida", async () => {
+    const p = await proponerAccion(ctx(abiertos), pago);
+    if (!p.ok) throw new Error("no se propuso");
+    const original = db.agentAction.update;
+    db.agentAction.update = async () => { throw new Error("conexión perdida al anotar"); };
+    try {
+      const r = await decidirAccion("u1", p.id, "aprobar", abiertos);
+      expect(r).toMatchObject({ ok: true, estado: "aprobada" });
+      expect(estado.pagos).toHaveLength(1);
+      expect(estado.acciones[0].status).toBe("aprobada");
+    } finally {
+      db.agentAction.update = original;
+    }
+  });
+});

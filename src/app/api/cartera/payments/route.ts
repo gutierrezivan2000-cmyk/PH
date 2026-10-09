@@ -18,7 +18,9 @@ export async function POST(req: NextRequest) {
   const { userId } = r;
 
   const body = await req.json().catch(() => ({}));
-  const { propertyId, unitId, amount, method, reference, note, receivedAt } = body as {
+  const { propertyId, unitId, amount, method, reference, note, receivedAt, idempotencyKey } = body as {
+    /** Clave del intento (la genera el navegador): repetirla no duplica el pago. */
+    idempotencyKey?: string;
     propertyId?: string;
     unitId?: string;
     amount?: number;
@@ -44,8 +46,20 @@ export async function POST(req: NextRequest) {
     when = d;
   }
 
+  const clave = typeof idempotencyKey === "string" && /^[A-Za-z0-9-]{8,64}$/.test(idempotencyKey) ? idempotencyKey : null;
+
   try {
     const { db } = await import("@/lib/db");
+    // Un reintento de la MISMA clave devuelve el pago ya registrado (si el mismo intento llegó dos veces, o la respuesta se perdió).
+    if (clave) {
+      const previo = await db.unitPayment.findFirst({ where: { userId, idempotencyKey: clave }, select: { id: true, amount: true, unitId: true } });
+      if (previo) {
+        if (previo.amount !== amt || previo.unitId !== unitId) {
+          return NextResponse.json({ error: "Esa clave ya se usó para otro pago. Recarga la página e inténtalo de nuevo." }, { status: 409 });
+        }
+        return NextResponse.json({ ok: true, id: previo.id, repetido: true }, { status: 200 });
+      }
+    }
     const unit = await db.unit.findFirst({
       where: { id: unitId, propertyId, userId },
       select: { id: true, label: true },
@@ -73,6 +87,7 @@ export async function POST(req: NextRequest) {
           note: note?.trim().slice(0, 300) || null,
           allocations: allocations as unknown as object,
           receivedAt: when,
+          idempotencyKey: clave,
         },
       });
       return { payment: created, leftover: rest };
@@ -93,6 +108,13 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    // Dos peticiones simultáneas con la misma clave: la que llegó segundo choca con el índice único y se revierte entera
+    // (también sus asignaciones FIFO). Se responde con el pago que sí quedó.
+    if (clave && (error as { code?: string })?.code === "P2002") {
+      const { db } = await import("@/lib/db");
+      const ya = await db.unitPayment.findFirst({ where: { userId, idempotencyKey: clave }, select: { id: true } });
+      if (ya) return NextResponse.json({ ok: true, id: ya.id, repetido: true }, { status: 200 });
+    }
     console.error("[cartera payments POST]", error);
     return NextResponse.json({ error: "Error al registrar el pago" }, { status: 500 });
   }

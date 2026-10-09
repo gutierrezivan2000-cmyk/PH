@@ -138,24 +138,42 @@ export async function POST(req: NextRequest) {
     let safeUnitId: string | null = null;
     let label = "";
     let cartera: { enMora: number; saldo: number } | null = null;
+    const SELECCION_DE_UNIDAD = {
+      label: true,
+      charges: { select: { amount: true, paidAmount: true, dueDate: true } },
+      payments: { select: { amount: true } },
+    } as const;
+    const aCartera = (unit: { charges: { amount: number; paidAmount: number; dueDate: Date }[]; payments: { amount: number }[] }) => {
+      const resumen = computeUnitSummary(unit.charges, unit.payments.reduce((s, p) => s + p.amount, 0), new Date());
+      return { enMora: resumen.overdueAmount, saldo: resumen.balance };
+    };
     if (unitId) {
-      const unit = await db.unit.findFirst({
-        where: { id: unitId, propertyId },
-        select: {
-          label: true,
-          charges: { select: { amount: true, paidAmount: true, dueDate: true } },
-          payments: { select: { amount: true } },
-        },
-      });
+      const unit = await db.unit.findFirst({ where: { id: unitId, propertyId }, select: SELECCION_DE_UNIDAD });
       if (!unit) {
         return NextResponse.json({ error: "Unidad no encontrada." }, { status: 400 });
       }
       safeUnitId = unitId;
       label = unit.label;
-      const resumen = computeUnitSummary(unit.charges, unit.payments.reduce((s, p) => s + p.amount, 0), new Date());
-      cartera = { enMora: resumen.overdueAmount, saldo: resumen.balance };
+      cartera = aCartera(unit);
     } else {
-      label = unitLabel?.trim().slice(0, 60) || "";
+      const escrita = unitLabel?.trim().slice(0, 60) || "";
+      label = escrita;
+      // Una unidad escrita a mano que SÍ existe en el directorio se trata como tal: su cartera se consulta igual. Si no, el
+      // «está al día» de quien emite sería la única verificación, y el paz y salvo podría afirmar algo falso.
+      if (escrita) {
+        const coincidencias = await db.unit.findMany({
+          where: { propertyId, label: { equals: escrita, mode: "insensitive" } },
+          select: { id: true, ...SELECCION_DE_UNIDAD },
+          take: 2,
+        });
+        if (coincidencias.length === 1) {
+          safeUnitId = coincidencias[0].id;
+          label = coincidencias[0].label;
+          cartera = aCartera(coincidencias[0]);
+        } else if (coincidencias.length > 1) {
+          return NextResponse.json({ error: "Hay varias unidades con ese nombre en la copropiedad. Elígela de la lista." }, { status: 400 });
+        }
+      }
     }
     if (!label) {
       return NextResponse.json({ error: "Indica la unidad (ej: Apto 502)." }, { status: 400 });
@@ -257,14 +275,16 @@ export async function PATCH(req: NextRequest) {
     if (existing.status === "revoked") return NextResponse.json({ ok: true });
 
     const antes = (existing.meta && typeof existing.meta === "object" ? existing.meta : {}) as Record<string, unknown>;
-    await db.certificate.update({
-      where: { id },
+    // Solo si sigue vigente: dos revocaciones a la vez no pueden pisarse el registro de quién y por qué.
+    const revocado = await db.certificate.updateMany({
+      where: { id, userId: session.user.id, status: "valid" },
       data: {
         status: "revoked",
         revokedAt: new Date(),
         meta: { ...antes, revocacion: { motivo: motivo.motivo, por: session.user.id, en: new Date().toISOString() } },
       },
     });
+    if (revocado.count !== 1) return NextResponse.json({ ok: true });
     await registrarEvento({
       userId: session.user.id,
       propertyId: existing.propertyId,

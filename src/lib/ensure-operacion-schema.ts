@@ -61,11 +61,24 @@ const STATEMENTS: string[] = [
 
 let listo: Promise<void> | null = null;
 
-/** Crea (una vez por proceso) lo que falte. Si falla, no se cachea el fallo: la próxima llamada lo intenta de nuevo. */
+/**
+ * Crea (una vez por proceso) lo que falte. Cada sentencia va por separado: si un índice falla (por ejemplo, porque ya
+ * existe con otro nombre), no impide crear las tablas que vienen después. Si falla una TABLA, la llamada falla y no se
+ * cachea: la próxima vez lo intenta de nuevo.
+ */
 export function ensureOperacionSchema(): Promise<void> {
   if (!listo) {
     listo = (async () => {
-      for (const sql of STATEMENTS) await db.$executeRawUnsafe(sql);
+      const fallosDeTabla: unknown[] = [];
+      for (const sql of STATEMENTS) {
+        try {
+          await db.$executeRawUnsafe(sql);
+        } catch (e) {
+          if (sql.startsWith("CREATE TABLE")) fallosDeTabla.push(e);
+          else console.error("[ensure-operacion-schema] índice no creado:", sql.slice(0, 80), e);
+        }
+      }
+      if (fallosDeTabla.length > 0) throw fallosDeTabla[0];
     })().catch((e) => {
       listo = null;
       throw e;

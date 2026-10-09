@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import { isEnvAdmin } from "@/lib/admin-auth";
 import { auth } from "@/lib/auth";
 import {
+  MODO_DE_MODULO,
   MODULOS_PAUSADOS,
   esDePiloto,
   moduloVisible,
@@ -49,5 +50,33 @@ export async function moduloAbiertoParaPropietario(clave: ComingSoonKey, ownerUs
   } catch {
     // Ante una falla de la base de datos no se abre nada: mejor «no disponible» que mover dinero sin control.
     return false;
+  }
+}
+
+/** Módulos que requieren plan Business/Élite (los que pasan por requireCartera). */
+const MODULOS_CON_PLAN = ["cartera", "presupuesto", "pqrs"] as const;
+
+/**
+ * Lo que la cuenta puede usar AHORA, contando su plan: mientras un módulo está en piloto no se exige plan (es para probar);
+ * al abrirlo a todos, cartera, presupuesto y PQRS exigen Business/Élite o un periodo de prueba/beta. Si no se puede comprobar
+ * el plan, se cierran esos módulos (los que mueven dinero o datos de residentes no se abren por un fallo).
+ */
+export async function modulosDeLaCuenta(u: { id: string; email?: string | null; role?: string | null }): Promise<Record<ComingSoonKey, boolean>> {
+  const visibles = await modulosVisiblesDe({ email: u.email, role: u.role });
+  if (DEMO()) return visibles;
+  try {
+    const { db } = await import("@/lib/db");
+    const { checkSubscriptionAccess } = await import("@/lib/usage");
+    const { canUseCartera } = await import("@/lib/cartera");
+    const { normalizePlanId } = await import("@/lib/plan");
+    const acceso = await checkSubscriptionAccess(u.id);
+    const sub = await db.subscription.findUnique({ where: { userId: u.id }, select: { planId: true } });
+    const planCubre = acceso.allowed && canUseCartera(acceso.status, normalizePlanId(sub?.planId));
+    for (const k of MODULOS_CON_PLAN) if (MODO_DE_MODULO[k] !== "piloto" && !planCubre) visibles[k] = false;
+    return visibles;
+  } catch (e) {
+    console.error("[modulos-acceso] no se pudo comprobar el plan; se cierran los módulos con plan:", e instanceof Error ? e.message : e);
+    for (const k of MODULOS_CON_PLAN) if (MODO_DE_MODULO[k] !== "piloto") visibles[k] = false;
+    return visibles;
   }
 }

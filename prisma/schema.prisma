@@ -377,6 +377,8 @@ model UnitPayment {
   note        String?
   allocations Json     @default("[]")
   receivedAt  DateTime @default(now())
+  // Clave que manda el navegador por cada intento de registrar el pago: un reintento tras un corte de red no duplica el pago.
+  idempotencyKey String? @unique
 
   unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
 

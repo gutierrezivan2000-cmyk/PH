@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { ETIQUETA_DE_ACCION, type TipoDeAccion } from "@/lib/agentes/acciones";
 import { decidirAccion } from "@/lib/agentes/acciones-ejecutar";
-import { modulosVisiblesDe } from "@/lib/modulos-acceso";
+import { modulosDeLaCuenta } from "@/lib/modulos-acceso";
 
 const DEMO = process.env.DEMO_MODE === "true";
 
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   const { id, decision } = body as { id?: string; decision?: string };
   if (!id || (decision !== "aprobar" && decision !== "rechazar")) return NextResponse.json({ error: "Parámetros inválidos." }, { status: 400 });
   try {
-    const visibles = await modulosVisiblesDe({ email: session.user.email, role: session.user.role });
+    const visibles = await modulosDeLaCuenta({ id: session.user.id, email: session.user.email, role: session.user.role });
     const r = await decidirAccion(session.user.id, id, decision, visibles);
     return NextResponse.json(r, { status: r.estado === "no_encontrada" ? 404 : r.estado === "ya_decidida" ? 409 : 200 });
   } catch (e) {

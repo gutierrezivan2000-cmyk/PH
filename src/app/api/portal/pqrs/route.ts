@@ -38,11 +38,21 @@ export async function GET(req: NextRequest) {
     if (!unit) return NextResponse.json({ pqrs: [] });
 
     const { db } = await import("@/lib/db");
+    // Solo lo que el residente necesita ver: nada de ids internos de la administración (userId, propertyId).
     const pqrs = await db.pqrs.findMany({
       where: { unitId: unit.id },
       orderBy: { createdAt: "desc" },
       take: 30,
-      include: { messages: { orderBy: { createdAt: "asc" } } },
+      select: {
+        id: true,
+        code: true,
+        type: true,
+        subject: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        messages: { orderBy: { createdAt: "asc" }, select: { id: true, fromAdmin: true, content: true, createdAt: true } },
+      },
     });
     return NextResponse.json({ pqrs });
   } catch (e) {

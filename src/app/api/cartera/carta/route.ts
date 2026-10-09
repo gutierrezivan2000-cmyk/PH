@@ -3,7 +3,7 @@ export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireCartera } from "@/lib/cartera-server";
-import { computeUnitSummary, fmtCOP } from "@/lib/cartera";
+import { computeUnitSummary, estaVencidoEl, fmtCOP, pendientesDespuesDelCredito } from "@/lib/cartera";
 import { registrarEvento } from "@/lib/agentes/eventos";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
@@ -146,12 +146,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const openList = charges
-      .filter((c) => c.amount - c.paidAmount > 0)
-      .map(
-        (c) =>
-          `- ${c.concept}: ${fmtCOP(c.amount - c.paidAmount)} (vencía ${new Date(c.dueDate).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" })})`
-      )
+    // Detalle cargo por cargo, descontando el crédito a favor FIFO: así la lista suma lo mismo que la deuda total.
+    const pendientes = pendientesDespuesDelCredito(charges, paymentsAgg._sum.amount || 0);
+    const openList = pendientes
+      .map((c) => {
+        const fecha = new Date(c.dueDate).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
+        return `- ${c.concept}: ${fmtCOP(c.pendiente)} (${estaVencidoEl(c.dueDate) ? "venció" : "vence"} el ${fecha})`;
+      })
       .join("\n");
 
     const { generateWithClaude } = await import("@/lib/ai-client");

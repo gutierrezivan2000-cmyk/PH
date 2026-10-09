@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { baseUrlPublica, decidirPazYSalvo, hoyEnBogota, validarMotivoDeRevocacion, vigenciaPorDefecto } from "./certificados";
+import { baseUrlPublica, decidirPazYSalvo, estaVencido, hoyEnBogota, validarMotivoDeRevocacion, vigenciaPorDefecto } from "./certificados";
 
 describe("decidirPazYSalvo", () => {
   it("no se emite si la cartera dice que la unidad tiene valores vencidos", () => {
@@ -52,3 +52,18 @@ describe("baseUrlPublica", () => {
     expect(baseUrlPublica("no es una url", { host: "mi.app", proto: "http" })).toBe("http://mi.app");
   });
 });
+
+describe("estaVencido", () => {
+  it("vence después de su último día (inclusive), en el calendario de Bogotá", () => {
+    // 10 de octubre 8 p. m. en Bogotá = 11 de octubre en UTC: aún no vence un certificado con validez hasta el 10.
+    expect(estaVencido("2026-10-10", new Date("2026-10-11T01:00:00Z"))).toBe(false);
+    expect(estaVencido("2026-10-10", new Date("2026-10-11T13:00:00Z"))).toBe(true);
+  });
+
+  it("sin fecha válida no se marca como vencido", () => {
+    expect(estaVencido(undefined)).toBe(false);
+    expect(estaVencido(null)).toBe(false);
+    expect(estaVencido("ayer")).toBe(false);
+  });
+});
+

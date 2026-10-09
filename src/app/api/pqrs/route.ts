@@ -26,11 +26,11 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  const { exigirModulo } = await import("@/lib/modulos-acceso");
-  const puerta = await exigirModulo("pqrs");
-  if ("error" in puerta) return puerta.error;
-  const userId = session.user.id;
-  const { ownerHasCarteraPlan } = await import("@/lib/cartera-server");
+  // La bandeja tiene la misma compuerta que escribir en ella: módulo abierto para la cuenta Y plan que lo cubra (salvo piloto).
+  const { requireCartera, ownerHasCarteraPlan } = await import("@/lib/cartera-server");
+  const acceso = await requireCartera("pqrs");
+  if ("error" in acceso) return acceso.error;
+  const userId = acceso.userId;
   const canAct = await ownerHasCarteraPlan(userId, "pqrs");
 
   const propertyId = req.nextUrl.searchParams.get("propertyId") || undefined;

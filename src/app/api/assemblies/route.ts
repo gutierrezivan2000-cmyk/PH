@@ -176,6 +176,13 @@ export async function PATCH(req: NextRequest) {
     const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
     await ensureAdminSchema();
 
+    // Igual que al crear: sin suscripción activa no se cambia el estado de una asamblea (convocar, cerrar, cancelar).
+    const { checkSubscriptionAccess } = await import("@/lib/usage");
+    const access = await checkSubscriptionAccess(session.user.id);
+    if (!access.allowed) {
+      return NextResponse.json({ error: access.reason || "Necesitas una suscripción activa." }, { status: 403 });
+    }
+
     const existing = await db.assembly.findFirst({
       where: { id, userId: session.user.id },
       select: { id: true, propertyId: true, type: true, date: true },

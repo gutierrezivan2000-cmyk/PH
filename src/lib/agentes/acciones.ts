@@ -105,7 +105,7 @@ export function validarRespuestaPqrs(e: Record<string, unknown>): Resultado<Dato
   if (!/^PQR-[A-Z0-9]{4,10}$/.test(codigo)) return { ok: false, error: "El código de la PQRS debe verse así: PQR-ABC123." };
   if (!respuesta) return { ok: false, error: "La respuesta debe tener entre 10 y 4.000 caracteres." };
   if (estado === "invalido") return { ok: false, error: `El estado debe ser uno de: ${ESTADOS_DE_PQRS.join(", ")}.` };
-  return { ok: true, datos: { codigo, respuesta, estado }, resumen: `Responder la ${codigo}${estado ? ` y marcarla «${estado}»` : ""}: «${respuesta.length > 140 ? `${respuesta.slice(0, 139)}…` : respuesta}»` };
+  return { ok: true, datos: { codigo, respuesta, estado }, resumen: `Responder la ${codigo}${estado ? ` y marcarla «${estado}»` : ""}. Texto completo que se enviará a la administración:\n${respuesta}` };
 }
 
 export function validarBitacora(e: Record<string, unknown>, hoy: string): Resultado<DatosBitacora> {

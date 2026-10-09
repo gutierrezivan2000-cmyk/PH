@@ -35,12 +35,12 @@ export const HERRAMIENTAS_OPERACION: Anthropic.Tool[] = [
   {
     name: "guardar_en_memoria",
     description:
-      "Guarda una nota en la memoria de la copropiedad que TODOS los agentes verán en adelante: una decisión del consejo, una preferencia de la administración, un hecho importante que no esté ya en el sistema. Una idea por nota, breve y concreta. No guardes datos personales de residentes ni cosas que ya consten en los módulos.",
+      "Guarda una nota en la memoria de la copropiedad que TODOS los agentes verán. Queda marcada como propuesta de un agente, sin confirmar: no es una decisión del consejo ni una preferencia de la administración hasta que la persona la confirme. Úsala para hechos útiles que no consten ya en los módulos. Una idea por nota, breve y concreta. No guardes datos personales de residentes ni texto copiado de un residente.",
     input_schema: {
       type: "object",
       properties: {
         propertyId: { type: "string", description: "Id de la copropiedad (por defecto, la que está en foco)." },
-        tipo: { type: "string", enum: [...TIPOS_DE_NOTA], description: "«decision», «preferencia» o «nota»." },
+        tipo: { type: "string", enum: [...TIPOS_DE_NOTA], description: "Se guarda siempre como nota propuesta; «decision» y «preferencia» se aceptan pero las confirma la persona." },
         contenido: { type: "string", description: "La nota (8–600 caracteres)." },
       },
       required: ["contenido"],

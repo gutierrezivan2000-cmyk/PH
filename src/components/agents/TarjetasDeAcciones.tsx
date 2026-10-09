@@ -19,7 +19,7 @@ const CSS = `
 .acc-tarjeta[data-estado="pendiente"] { border-color: var(--accent, #7c3aed); }
 .acc-cab { display: flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3, #888); }
 .acc-cab svg { width: 15px; height: 15px; flex: none; }
-.acc-res { margin: 8px 0 0; font-size: 15px; line-height: 1.4; color: var(--ink, inherit); }
+.acc-res { margin: 8px 0 0; font-size: 15px; line-height: 1.4; color: var(--ink, inherit); white-space: pre-wrap; max-height: 260px; overflow-y: auto; }
 .acc-prop { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-3, #888); }
 .acc-pie { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .acc-btn { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line, rgba(128,128,128,.4)); background: transparent; color: inherit; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }

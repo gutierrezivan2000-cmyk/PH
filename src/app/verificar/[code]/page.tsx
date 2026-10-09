@@ -44,7 +44,10 @@ export default async function VerificarPage({
       const { headers } = await import("next/headers");
       const { rateLimit } = await import("@/lib/rate-limit");
       const h = await headers();
-      const ip = (h.get("x-forwarded-for") || "").split(",")[0].trim() || h.get("x-real-ip") || "desconocida";
+      // Se toma el ÚLTIMO valor de x-forwarded-for: el que añade la plataforma. El primero lo escribe el cliente y se puede falsificar
+      // para no agotar nunca el límite.
+      const ultimo = (h.get("x-forwarded-for") || "").split(",").map((x) => x.trim()).filter(Boolean).pop();
+      const ip = ultimo || h.get("x-real-ip") || "desconocida";
       limitado = !(await rateLimit(`verificar:${ip}`, { max: 60, windowMs: 10 * 60 * 1000 })).allowed;
     } catch {
       // Mejor esfuerzo: nunca se bloquea la verificación por una falla del contador.

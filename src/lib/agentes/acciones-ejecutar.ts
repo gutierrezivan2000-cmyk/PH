@@ -33,10 +33,6 @@ async function propiedadDe(userId: string, propertyId: string) {
 /** Comprobaciones previas (para no mostrarle a la persona una tarjeta que no se va a poder cumplir). Devuelve un error o null. */
 async function comprobarAntes(userId: string, propertyId: string, a: Ok): Promise<string | null> {
   const { db } = await import("@/lib/db");
-  if (a.tipo === "registrar_pago") {
-    const r = await resolverUnidad(userId, propertyId, a.datos.unidad);
-    return "error" in r ? r.error : null;
-  }
   if (a.tipo === "responder_pqrs") {
     const q = await db.pqrs.findFirst({ where: { code: a.datos.codigo, userId, propertyId }, select: { id: true } });
     return q ? null : `No encuentro la PQRS ${a.datos.codigo} en esta copropiedad.`;
@@ -44,16 +40,19 @@ async function comprobarAntes(userId: string, propertyId: string, a: Ok): Promis
   return null;
 }
 
-async function resolverUnidad(userId: string, propertyId: string, etiqueta: string): Promise<{ id: string; label: string } | { error: string }> {
+/**
+ * La unidad a la que se aplica un pago: SOLO por coincidencia exacta de su etiqueta (sin mayúsculas ni espacios de más).
+ * Nunca por parecido: «Apto 1» no es «Apto 12», y un pago mal asignado mueve dinero entre residentes.
+ */
+export async function resolverUnidad(userId: string, propertyId: string, etiqueta: string): Promise<{ id: string; label: string } | { error: string }> {
   const { db } = await import("@/lib/db");
-  const unidades = await db.unit.findMany({ where: { propertyId, userId }, select: { id: true, label: true } });
   const buscada = normalizar(etiqueta);
+  if (!buscada) return { error: "Indica la unidad (por ejemplo «Apto 502»)." };
+  const unidades = await db.unit.findMany({ where: { propertyId, userId }, select: { id: true, label: true } });
   const exactas = unidades.filter((u) => normalizar(u.label) === buscada);
   if (exactas.length === 1) return exactas[0];
-  if (exactas.length > 1) return { error: `Hay varias unidades llamadas «${etiqueta}»; indica cuál.` };
-  const parecidas = unidades.filter((u) => normalizar(u.label).includes(buscada) || buscada.includes(normalizar(u.label)));
-  if (parecidas.length === 1) return parecidas[0];
-  return { error: parecidas.length > 1 ? `«${etiqueta}» coincide con varias unidades (${parecidas.slice(0, 4).map((u) => u.label).join(", ")}); indica cuál.` : `No encuentro la unidad «${etiqueta}» en esta copropiedad.` };
+  if (exactas.length > 1) return { error: `Hay varias unidades llamadas «${etiqueta}»; no se puede elegir una sola.` };
+  return { error: `No encuentro la unidad «${etiqueta}» en esta copropiedad. Escríbela tal como aparece en el directorio.` };
 }
 
 export type RespuestaDePropuesta =
@@ -68,7 +67,16 @@ export async function proponerAccion(ctx: ContextoDeAccion, entrada: { tipo?: un
   if (typeof entrada.propertyId !== "string" || !entrada.propertyId) return { ok: false, error: "Falta la copropiedad (propertyId)." };
   const propiedad = await propiedadDe(ctx.userId, entrada.propertyId);
   if (!propiedad) return { ok: false, error: "Esa copropiedad no existe en esta cuenta." };
-  const previo = await comprobarAntes(ctx.userId, propiedad.id, a);
+  let aGuardar = a;
+  if (a.tipo === "registrar_pago") {
+    const unidad = await resolverUnidad(ctx.userId, propiedad.id, a.datos.unidad);
+    if ("error" in unidad) return { ok: false, error: unidad.error };
+    // La tarjeta y lo que se guarda llevan la etiqueta exacta del directorio: lo que ve la persona es lo que se aplicará.
+    const revalidada = validarAccion(a.tipo, { ...a.datos, unidad: unidad.label }, hoyEnBogota());
+    if (!revalidada.ok) return { ok: false, error: revalidada.error };
+    aGuardar = revalidada;
+  }
+  const previo = await comprobarAntes(ctx.userId, propiedad.id, aGuardar);
   if (previo) return { ok: false, error: previo };
 
   const { db } = await import("@/lib/db");
@@ -78,10 +86,10 @@ export async function proponerAccion(ctx: ContextoDeAccion, entrada: { tipo?: un
   if (pendientes >= TOPE_DE_PENDIENTES) return { ok: false, error: "Hay demasiadas acciones sin decidir. Pídele a la persona que apruebe o rechace las pendientes primero." };
 
   const fila = await db.agentAction.create({
-    data: { userId: ctx.userId, propertyId: propiedad.id, chatId: ctx.chatId ?? null, agentId: ctx.agentId, type: a.tipo, summary: a.resumen, payload: a.datos as unknown as object },
+    data: { userId: ctx.userId, propertyId: propiedad.id, chatId: ctx.chatId ?? null, agentId: ctx.agentId, type: aGuardar.tipo, summary: aGuardar.resumen, payload: aGuardar.datos as unknown as object },
     select: { id: true },
   });
-  return { ok: true, id: fila.id, tipo: a.tipo, etiqueta: ETIQUETA_DE_ACCION[a.tipo], resumen: a.resumen, propiedad: propiedad.name };
+  return { ok: true, id: fila.id, tipo: aGuardar.tipo, etiqueta: ETIQUETA_DE_ACCION[aGuardar.tipo], resumen: aGuardar.resumen, propiedad: propiedad.name };
 }
 
 /* ── Ejecución ─────────────────────────────────────────────────────── */
@@ -159,20 +167,27 @@ export async function decidirAccion(userId: string, id: string, decision: "aprob
     await db.agentAction.update({ where: { id }, data: { status: "fallida", result: { error: mensaje } } });
     return { ok: false, estado: "fallida", mensaje };
   };
+  let r: Awaited<ReturnType<typeof ejecutar>>;
   try {
     const a = validarAccion(accion.type, accion.payload, hoyEnBogota());
     if (!a.ok) return await falla(a.error);
     if (!moduloPermitido(a.tipo, visibles)) return await falla("Esa acción no está disponible para esta cuenta.");
     if (!accion.propertyId) return await falla("La acción no tiene copropiedad.");
     if (!(await propiedadDe(userId, accion.propertyId))) return await falla("La copropiedad ya no existe.");
-    const r = await ejecutar(userId, accion.propertyId, a);
-    await db.agentAction.update({ where: { id }, data: { result: { mensaje: r.mensaje, refType: r.refType, refId: r.refId } } });
-    await registrarEvento({ userId, propertyId: accion.propertyId, modulo: r.modulo, accion: `${a.tipo}_aprobada`, resumen: r.resumenEvento, refType: r.refType, refId: r.refId, actor: `agente:${accion.agentId}` });
-    return { ok: true, estado: "aprobada", mensaje: r.mensaje };
+    r = await ejecutar(userId, accion.propertyId, a);
   } catch (e) {
     console.error("[agentes/acciones] falló la ejecución:", e instanceof Error ? e.message : e);
     return await falla(e instanceof Error && e.message.length < 200 ? e.message : "No se pudo completar la acción.");
   }
+  // Desde aquí el cambio YA está hecho (el pago aplicado, la respuesta guardada). Si anotar el resultado o el evento falla,
+  // la acción sigue siendo aprobada: marcarla como fallida haría creer a la persona que no pasó nada.
+  try {
+    await db.agentAction.update({ where: { id }, data: { result: { mensaje: r.mensaje, refType: r.refType, refId: r.refId } } });
+    await registrarEvento({ userId, propertyId: accion.propertyId as string, modulo: r.modulo, accion: `${accion.type}_aprobada`, resumen: r.resumenEvento, refType: r.refType, refId: r.refId, actor: `agente:${accion.agentId}` });
+  } catch (e) {
+    console.error("[agentes/acciones] la acción quedó aplicada pero no se anotó su resultado:", e instanceof Error ? e.message : e);
+  }
+  return { ok: true, estado: "aprobada", mensaje: r.mensaje };
 }
 
 export { moduloVisible };

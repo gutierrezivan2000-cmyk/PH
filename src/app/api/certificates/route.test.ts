@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { db, puerta } = vi.hoisted(() => ({
   db: {
     property: { findFirst: vi.fn() },
-    unit: { findFirst: vi.fn() },
-    certificate: { create: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+    unit: { findFirst: vi.fn(), findMany: vi.fn() },
+    certificate: { create: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   },
   puerta: { error: null as unknown },
 }));
@@ -27,6 +27,8 @@ beforeEach(() => {
   Object.values(db).forEach((t) => Object.values(t).forEach((f) => f.mockReset()));
   puerta.error = null;
   db.property.findFirst.mockResolvedValue({ id: "p1" });
+  db.unit.findMany.mockResolvedValue([]);
+  db.certificate.updateMany.mockResolvedValue({ count: 1 });
   db.certificate.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "c1", ...data }));
 });
 
@@ -70,6 +72,13 @@ describe("POST paz y salvo", () => {
     expect(db.certificate.create.mock.calls[0][0].data.meta.validUntil).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it("una unidad escrita a mano que SÍ está en el directorio se verifica con su cartera (no con la declaración)", async () => {
+    db.unit.findMany.mockResolvedValue([{ id: "un1", label: "Apto 502", charges: [{ amount: 300_000, paidAmount: 0, dueDate: hace(40) }], payments: [] }]);
+    const r = await post({ ...base, unitLabel: "apto 502", confirmaAlDia: true });
+    expect(r.status).toBe(409);
+    expect(await r.json()).toMatchObject({ code: "saldo_pendiente" });
+    expect(db.certificate.create).not.toHaveBeenCalled();
+  });
   it("una cuenta sin acceso al módulo no emite nada", async () => {
     puerta.error = new Response(null, { status: 404 });
     expect((await post({ ...base, unitLabel: "Apto 9", confirmaAlDia: true })).status).toBe(404);
@@ -86,9 +95,10 @@ describe("PATCH revocar", () => {
     db.certificate.findFirst.mockResolvedValue({ id: "c1", status: "valid", meta: { validUntil: "2026-11-01" } });
     expect((await patch({ id: "c1", action: "revoke", reason: "mal" })).status).toBe(400);
     expect((await patch({ id: "c1", action: "revoke", reason: "Se expidió a la unidad equivocada" })).status).toBe(200);
-    const data = db.certificate.update.mock.calls[0][0].data;
+    const data = db.certificate.updateMany.mock.calls[0][0].data;
     expect(data.status).toBe("revoked");
     expect(data.meta.validUntil).toBe("2026-11-01");
+    expect(db.certificate.updateMany.mock.calls[0][0].where).toMatchObject({ id: "c1", status: "valid" });
     expect(data.meta.revocacion).toMatchObject({ motivo: "Se expidió a la unidad equivocada", por: "u1" });
   });
   it("revocar un certificado ya revocado no cambia nada", async () => {

@@ -4,6 +4,8 @@ import {
   canUseCartera,
   allocateFifo,
   computeUnitSummary,
+  estaVencidoEl,
+  pendientesDespuesDelCredito,
   agingBucket,
   parseNumericToken,
   computeAgingReport,
@@ -232,5 +234,64 @@ describe("parseNumericToken (bulk import)", () => {
     expect(parseNumericToken("")).toBeNull();
     // 100-999: ambiguous (too big for coef, too small for a fee) → text
     expect(parseNumericToken("500")).toBeNull();
+  });
+});
+
+describe("días de mora en el calendario de Bogotá", () => {
+  // Vence el 10 de octubre (mediodía, como lo guarda la app). El servidor corre en UTC.
+  const vence = new Date("2026-10-10T12:00:00Z");
+  const cargo = [{ amount: 100, paidAmount: 0, dueDate: vence }];
+
+  it("a las 8 p. m. del día de vencimiento en Bogotá (ya es 11 en UTC) la cuenta NO está en mora", () => {
+    const ahora = new Date("2026-10-11T01:00:00Z"); // 10 de octubre, 8 p. m. en Bogotá
+    const s = computeUnitSummary(cargo, 0, ahora);
+    expect(s.overdueAmount).toBe(0);
+    expect(s.overdueDays).toBe(0);
+    expect(estaVencidoEl(vence, ahora)).toBe(false);
+  });
+
+  it("al día siguiente en Bogotá sí está en mora, con un día", () => {
+    const ahora = new Date("2026-10-11T13:00:00Z"); // 11 de octubre, 8 a. m. en Bogotá
+    const s = computeUnitSummary(cargo, 0, ahora);
+    expect(s.overdueAmount).toBe(100);
+    expect(s.overdueDays).toBe(1);
+    expect(estaVencidoEl(vence, ahora)).toBe(true);
+  });
+});
+
+describe("pendientesDespuesDelCredito", () => {
+  const jan = (d: number) => new Date(2026, 0, d, 12);
+  const feb = (d: number) => new Date(2026, 1, d, 12);
+  const mar = (d: number) => new Date(2026, 2, d, 12);
+
+  it("sin crédito, devuelve lo abierto de cada cargo", () => {
+    const r = pendientesDespuesDelCredito(
+      [
+        { concept: "Enero", amount: 300, paidAmount: 100, dueDate: jan(10) },
+        { concept: "Febrero", amount: 300, paidAmount: 0, dueDate: feb(10) },
+      ],
+      100
+    );
+    expect(r.map((c) => [c.concept, c.pendiente])).toEqual([
+      ["Enero", 200],
+      ["Febrero", 300],
+    ]);
+  });
+
+  it("un crédito no imputado se descuenta FIFO: el detalle suma el saldo y omite lo ya cubierto", () => {
+    // Pagó 500: 200 quedaron imputados a Enero y 300 aún no tienen cargo que cubrir. Saldo = 900 - 500 = 400.
+    const r = pendientesDespuesDelCredito(
+      [
+        { concept: "Enero", amount: 300, paidAmount: 200, dueDate: jan(10) },
+        { concept: "Febrero", amount: 300, paidAmount: 0, dueDate: feb(10) },
+        { concept: "Marzo", amount: 300, paidAmount: 0, dueDate: mar(10) },
+      ],
+      500
+    );
+    expect(r.map((c) => [c.concept, c.pendiente])).toEqual([
+      ["Febrero", 100],
+      ["Marzo", 300],
+    ]);
+    expect(r.reduce((s, c) => s + c.pendiente, 0)).toBe(400);
   });
 });

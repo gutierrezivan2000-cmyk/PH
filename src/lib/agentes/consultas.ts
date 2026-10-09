@@ -72,12 +72,15 @@ export async function consultarOperacion(userId: string, visibles: Visibles, enF
       if (!etiqueta) return "Indica la unidad (por ejemplo «Apto 502»).";
       const unidades = await db.unit.findMany({
         where: { propertyId: propiedad.id, userId },
-        select: { label: true, coeficiente: true, monthlyFee: true, charges: { orderBy: { dueDate: "desc" }, take: 14, select: { concept: true, amount: true, paidAmount: true, dueDate: true } }, payments: { orderBy: { receivedAt: "desc" }, take: 10, select: { amount: true, method: true, receivedAt: true } } },
+        select: { id: true, label: true, coeficiente: true, monthlyFee: true, charges: { orderBy: { dueDate: "desc" }, take: 14, select: { concept: true, amount: true, paidAmount: true, dueDate: true } }, payments: { orderBy: { receivedAt: "desc" }, take: 10, select: { amount: true, method: true, receivedAt: true } } },
       });
-      const u = unidades.find((x) => normalizar(x.label) === normalizar(etiqueta)) ?? unidades.find((x) => normalizar(x.label).includes(normalizar(etiqueta)));
-      if (!u) return `No encuentro la unidad «${etiqueta}».`;
-      const todas = await db.charge.findMany({ where: { unit: { label: u.label, propertyId: propiedad.id }, userId }, select: { amount: true, paidAmount: true, dueDate: true } });
-      const pagos = await db.unitPayment.aggregate({ where: { unit: { label: u.label, propertyId: propiedad.id }, userId }, _sum: { amount: true } });
+      const exactas = unidades.filter((x) => normalizar(x.label) === normalizar(etiqueta));
+      if (exactas.length > 1) return `Hay varias unidades llamadas «${etiqueta}»: no puedo distinguirlas. Revisa el directorio.`;
+      const u = exactas[0];
+      if (!u) return `No encuentro la unidad «${etiqueta}» en esta copropiedad. Escríbela tal como aparece en el directorio.`;
+      // Por el id de la unidad (no por etiqueta): dos unidades con el mismo nombre no mezclan sus saldos.
+      const todas = await db.charge.findMany({ where: { unitId: u.id, userId }, select: { amount: true, paidAmount: true, dueDate: true } });
+      const pagos = await db.unitPayment.aggregate({ where: { unitId: u.id, userId }, _sum: { amount: true } });
       const r = computeUnitSummary(todas, pagos._sum.amount ?? 0, ahora);
       return limitar([
         `${encabezado}: ${u.label}${u.coeficiente ? ` · coeficiente ${u.coeficiente}` : ""}${u.monthlyFee ? ` · cuota ${fmtCOP(u.monthlyFee)}` : ""}`,
@@ -182,9 +185,15 @@ export async function guardarNota(userId: string, agentId: string, enFoco: strin
   if (!propiedad) return "Esa copropiedad no existe en esta cuenta.";
   const { ensureOperacionSchema } = await import("@/lib/ensure-operacion-schema");
   await ensureOperacionSchema();
-  if ((await db.propertyMemory.count({ where: { propertyId, userId } })) >= TOPE_DE_NOTAS_POR_PROPIEDAD) return "La memoria de esta copropiedad está llena. Pídele a la persona que borre notas viejas.";
-  const parecida = await db.propertyMemory.findFirst({ where: { propertyId, userId, content: v.contenido }, select: { id: true } });
-  if (parecida) return "Esa nota ya estaba guardada.";
-  await db.propertyMemory.create({ data: { userId, propertyId, kind: v.tipo, content: v.contenido, authorAgent: agentId } });
-  return "Nota guardada en la memoria de la copropiedad: todos los agentes la verán.";
+  // Contar, comprobar duplicados y guardar van juntos bajo un bloqueo de la copropiedad: dos notas a la vez no pueden
+  // pasar ambas el tope (las dos contarían 49 y guardarían la 50.ª).
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Property" WHERE id = ${propertyId} FOR UPDATE`;
+    if ((await tx.propertyMemory.count({ where: { propertyId, userId } })) >= TOPE_DE_NOTAS_POR_PROPIEDAD) return "La memoria de esta copropiedad está llena. Pídele a la persona que borre notas viejas.";
+    const parecida = await tx.propertyMemory.findFirst({ where: { propertyId, userId, content: v.contenido }, select: { id: true } });
+    if (parecida) return "Esa nota ya estaba guardada.";
+    // Un agente nunca guarda una «decisión» ni una «preferencia»: esas las confirma la persona. Su nota queda como propuesta.
+    await tx.propertyMemory.create({ data: { userId, propertyId, kind: "nota", content: v.contenido, authorAgent: agentId } });
+    return "Nota guardada en la memoria de la copropiedad: todos los agentes la verán.";
+  });
 }
