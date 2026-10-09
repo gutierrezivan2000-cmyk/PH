@@ -231,7 +231,7 @@ function responderFicha(usuario: string): unknown {
   };
 }
 
-export function crearIASimulada({ modelo = "claude-haiku-5-5", alLlamar, alLlamarTexto, alCalentar, olvidar = [], pausaEntreTrozosMs = 0 }: OpcionesIASimulada = {}): IASimulada {
+export function crearIASimulada({ modelo = "claude-opus-5-5", alLlamar, alLlamarTexto, alCalentar, olvidar = [], pausaEntreTrozosMs = 0 }: OpcionesIASimulada = {}): IASimulada {
   const llamadas: EntradaIA[] = [];
   const textos: EntradaTexto[] = [];
   const calentamientos: EntradaDeCalentamiento[] = [];
