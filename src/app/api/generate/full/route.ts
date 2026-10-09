@@ -365,6 +365,23 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     console.error("[generate/full] file-limit check failed:", e);
   }
 
+  // Audio: el cupo mensual de minutos se comparte con el chat. Se estima por tamaño (1 MB ≈ 1 minuto), como en el chat.
+  try {
+    const { esAudio: esAudioArchivo } = await import("@/lib/upload-limits");
+    const audios = blobFiles.filter((f) => esAudioArchivo(f.name));
+    if (audios.length > 0) {
+      const { cupoDeAudioMensual } = await import("@/lib/uso-chat-servidor");
+      const minutos = Math.max(1, Math.ceil(audios.reduce((s, f) => s + f.size, 0) / (1024 * 1024)));
+      const cupo = await cupoDeAudioMensual(dbUserId, minutos);
+      if (cupo.bloqueado) {
+        await discardBlobs();
+        return NextResponse.json({ error: cupo.mensaje }, { status: 429 });
+      }
+    }
+  } catch (e) {
+    console.error("[generate/full] audio quota check failed:", e);
+  }
+
   // Step 4: Check usage limits
   try {
     const { checkUsageLimits } = await import("@/lib/usage");

@@ -67,7 +67,7 @@ beforeEach(() => {
   iaActual.actual = ia;
   auth.mockReset();
   cupo.mockReset();
-  cupo.mockResolvedValue({ permitido: true, ilimitado: false, usadoHoy: 3, limiteHoy: 30, usadoEstaSemana: 3, limiteSemana: 150, mensaje: null });
+  cupo.mockResolvedValue({ permitido: true, ilimitado: false, porcentajeRestante: 97, mensaje: null });
   vi.stubEnv("DEMO_MODE", "false");
   vi.stubEnv("ANTHROPIC_API_KEY", "clave-de-prueba");
   auth.mockResolvedValue({ user: { id: "u1", email: "u1@x.com", role: "admin" } });
@@ -162,10 +162,10 @@ describe("POST /api/meetings/[id]/preguntar", () => {
 
     it("sin cupo en el plan: 429 con el motivo, y sin llamar a la IA", async () => {
       await sembrarReunion();
-      cupo.mockResolvedValue({ permitido: false, ilimitado: false, usadoHoy: 30, limiteHoy: 30, usadoEstaSemana: 30, limiteSemana: 150, mensaje: "Has alcanzado el límite diario de 30 mensajes. Intenta mañana." });
+      cupo.mockResolvedValue({ permitido: false, ilimitado: false, porcentajeRestante: 0, mensaje: "Se agotó tu uso del chat de esta sesión de 5 horas. Vuelve a tener uso a las 5:00 p. m." });
       const r = await preguntar(pedir({ pregunta: "hola" }), ctx());
       expect(r.status).toBe(429);
-      expect(await r.json()).toEqual({ error: "Has alcanzado el límite diario de 30 mensajes. Intenta mañana." });
+      expect(await r.json()).toEqual({ error: "Se agotó tu uso del chat de esta sesión de 5 horas. Vuelve a tener uso a las 5:00 p. m." });
       expect(cupo).toHaveBeenCalledWith("u1");
       expect(ia.textos).toHaveLength(0);
       expect(db.usageRecord.filas).toHaveLength(0);

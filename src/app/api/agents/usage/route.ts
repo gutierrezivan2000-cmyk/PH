@@ -4,12 +4,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { PLANS } from "@/lib/epayco";
-import { normalizePlanId, accessibleAgents } from "@/lib/plan";
+import { accessibleAgents } from "@/lib/plan";
 import { INCLUDED_AGENT_IDS } from "@/lib/agents";
-import { contarPreguntasAReuniones } from "@/lib/meetings/cupo-preguntas";
+import { limitesDelPlan, minutosDeAudioDesde, usoDelChat } from "@/lib/uso-chat-servidor";
+import { periodoMensualBogota } from "@/lib/uso-chat";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
+/** El uso del chat (porcentaje) y los minutos de transcripción de la cuenta: lo que muestra el panel del asistente. */
 export async function GET() {
   try {
     const session = await auth();
@@ -20,26 +22,14 @@ export async function GET() {
     const userId = session.user.id;
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const day = now.getDay();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - ((day + 6) % 7));
-    startOfWeek.setHours(0, 0, 0, 0);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    let limits: {
-      agentMessagesPerDay: number;
-      agentMessagesPerWeek: number;
-      transcriptionMinutesPerDay: number;
-      transcriptionMinutesPerMonth: number;
-    } = { ...PLANS.pro.limits };
     // Coming-soon agents are locked for everyone (demo included) — only the
     // launched agents (Themis + Chronos) are accessible.
+    let limits = limitesDelPlan(null);
     let accessible: string[] = [...INCLUDED_AGENT_IDS];
     try {
       const sub = await db.subscription.findUnique({ where: { userId } });
-      if (normalizePlanId(sub?.planId) === "elite") {
-        limits = { ...PLANS.elite.limits };
-      }
+      limits = limitesDelPlan(sub?.planId);
       if (!IS_DEMO) {
         accessible = accessibleAgents(sub);
       }
@@ -47,78 +37,41 @@ export async function GET() {
       // default to pro limits + included agents
     }
 
-    let dailyCount = 0;
-    let weeklyCount = 0;
+    // El porcentaje del chat: null si no aplica (demo) o no se pudo calcular; `ilimitado` en las cuentas beta y la prueba de pruebas.
+    const uso = IS_DEMO ? null : await usoDelChat(userId, now);
+    const chat = uso === null ? null : uso.ilimitado ? { ilimitado: true as const } : {
+      ilimitado: false as const,
+      presupuestoUsd: uso.presupuestoUsd,
+      porcentajeRestante: uso.estado.porcentajeRestante,
+      ventana: uso.estado.ventana,
+      renovaEn: uso.estado.renovaEn.toISOString(),
+      agotado: uso.estado.agotado,
+    };
+
     let transcriptionMinutesDay = 0;
     let transcriptionMinutesMonth = 0;
-
     try {
-      const chatIds = await db.agentChat.findMany({
-        where: { userId },
-        select: { id: true },
-      });
-      const chatIdList = chatIds.map((c) => c.id);
-
-      if (chatIdList.length > 0) {
-        const [d, w] = await Promise.all([
-          db.agentMessage.count({
-            where: {
-              chatId: { in: chatIdList },
-              role: "user",
-              createdAt: { gte: startOfDay },
-            },
-          }),
-          db.agentMessage.count({
-            where: {
-              chatId: { in: chatIdList },
-              role: "user",
-              createdAt: { gte: startOfWeek },
-            },
-          }),
-        ]);
-        dailyCount = d;
-        weeklyCount = w;
-      }
-    } catch (err) {
-      console.error("[api/agents/usage] count error (tables may not exist):", err);
-    }
-
-    // Las preguntas a las reuniones («Preguntar») salen de esta misma bolsa de mensajes del plan.
-    if (!IS_DEMO) {
-      const [preguntasHoy, preguntasSemana] = await Promise.all([
-        contarPreguntasAReuniones(userId, startOfDay),
-        contarPreguntasAReuniones(userId, startOfWeek),
-      ]);
-      dailyCount += preguntasHoy;
-      weeklyCount += preguntasSemana;
-    }
-
-    try {
-      const [daySum, monthSum] = await Promise.all([
+      // El mes incluye el audio de los documentos: es el mismo cupo que el del chat (ver uso-chat-servidor).
+      const [daySum, mes] = await Promise.all([
         db.usageRecord.aggregate({
           where: { userId, type: "transcription", date: { gte: startOfDay } },
           _sum: { tokens: true },
         }),
-        db.usageRecord.aggregate({
-          where: { userId, type: "transcription", date: { gte: startOfMonth } },
-          _sum: { tokens: true },
-        }),
+        minutosDeAudioDesde(userId, periodoMensualBogota(now).inicio),
       ]);
       transcriptionMinutesDay = Math.ceil((daySum._sum.tokens ?? 0) / 60);
-      transcriptionMinutesMonth = Math.ceil((monthSum._sum.tokens ?? 0) / 60);
+      transcriptionMinutesMonth = mes;
     } catch (err) {
       console.error("[api/agents/usage] transcription aggregate error:", err);
     }
 
     return NextResponse.json({
-      daily: dailyCount,
-      weekly: weeklyCount,
+      chat,
       transcriptionMinutesDay,
       transcriptionMinutesMonth,
       accessibleAgents: accessible,
       limits: {
-        agentMessagesPerDay: limits.agentMessagesPerDay,
-        agentMessagesPerWeek: limits.agentMessagesPerWeek,
+        chatBudgetUsd: limits.chatBudgetUsd,
         transcriptionMinutesPerDay: limits.transcriptionMinutesPerDay,
         transcriptionMinutesPerMonth: limits.transcriptionMinutesPerMonth,
       },
@@ -127,13 +80,11 @@ export async function GET() {
     console.error("[api/agents/usage] Error:", error);
     return NextResponse.json(
       {
-        daily: 0,
-        weekly: 0,
+        chat: null,
         transcriptionMinutesDay: 0,
         transcriptionMinutesMonth: 0,
         limits: {
-          agentMessagesPerDay: PLANS.pro.limits.agentMessagesPerDay,
-          agentMessagesPerWeek: PLANS.pro.limits.agentMessagesPerWeek,
+          chatBudgetUsd: PLANS.pro.limits.chatBudgetUsd,
           transcriptionMinutesPerDay: PLANS.pro.limits.transcriptionMinutesPerDay,
           transcriptionMinutesPerMonth: PLANS.pro.limits.transcriptionMinutesPerMonth,
         },

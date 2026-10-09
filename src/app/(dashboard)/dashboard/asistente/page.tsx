@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { AGENTS, AGENT_IDS, INCLUDED_AGENT_IDS } from "@/lib/agents";
 import { SUGERENCIAS } from "@/lib/agent-sugerencias";
+import { BarraDeUso, type UsoVista } from "@/components/agents/BarraDeUso";
 import {
   BotonSugerencia,
   CabeceraPieza,
@@ -15,9 +16,7 @@ import {
 } from "@/components/kit";
 
 interface AgentUsage {
-  daily: number;
-  weekly: number;
-  limits: { agentMessagesPerDay: number; agentMessagesPerWeek: number };
+  chat: ({ ilimitado: false } & UsoVista) | { ilimitado: true } | null;
 }
 
 /* Estilos locales de la pantalla (SPEC §g 04, lista de agentes):
@@ -66,9 +65,7 @@ export default function AsistentePage() {
     fetch("/api/agents/usage")
       .then((r) => r.json())
       .then((data) => {
-        if (data && typeof data.daily === "number" && data.limits) {
-          setUsage({ daily: data.daily, weekly: data.weekly, limits: data.limits });
-        }
+        if (data && "chat" in data) setUsage({ chat: data.chat });
         if (Array.isArray(data?.accessibleAgents)) {
           setAccessible(data.accessibleAgents);
         }
@@ -101,16 +98,10 @@ export default function AsistentePage() {
             titulo="Asistente IA"
             subtitulo={subtitulo}
             acciones={
-              // Uso real de /api/agents/usage (mensajes enviados hoy y esta semana frente al límite del plan).
-              usage && (
-                <div className="asis-uso">
-                  <span>Mensajes a los agentes</span>
-                  <p>
-                    <b>{usage.daily}</b>
-                    <span>de {usage.limits.agentMessagesPerDay} hoy</span>
-                    <b>{usage.weekly}</b>
-                    <span>de {usage.limits.agentMessagesPerWeek} esta semana</span>
-                  </p>
+              // El porcentaje del chat que le queda a la cuenta (ver src/lib/uso-chat.ts). Sin tope para las cuentas beta.
+              usage?.chat && !usage.chat.ilimitado && (
+                <div className="asis-uso asis-uso-barra">
+                  <BarraDeUso uso={usage.chat} />
                 </div>
               )
             }

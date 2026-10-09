@@ -1,6 +1,6 @@
 /**
- * El uso del plan con Reuniones: `/api/usage` trae las horas de reuniones solo a quien ve Reuniones, y `/api/agents/usage` suma las
- * preguntas a reuniones a los mensajes de agente (es una sola bolsa).
+ * El uso del plan con Reuniones: `/api/usage` trae las horas de reuniones solo a quien ve Reuniones, y `/api/agents/usage` trae el
+ * porcentaje del chat, que incluye las preguntas a reuniones.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -30,6 +30,7 @@ import { GET as usoDelPlan } from "@/app/api/usage/route";
 import { GET as usoDeAgentes } from "@/app/api/agents/usage/route";
 import { crearDbFalsa, type DbFalsa } from "./db-falsa";
 import { TIPO_DE_USO_PREGUNTA } from "./cupo-preguntas";
+import { TIPOS } from "@/lib/consumo/funciones";
 
 const H = 3_600_000;
 const HORAS = { ilimitado: false, periodo: "mes", usadoMs: 3.5 * H, limiteMs: 10 * H, restanMs: 6.5 * H };
@@ -108,7 +109,7 @@ describe("GET /api/usage: las horas de reuniones", () => {
   });
 });
 
-describe("GET /api/agents/usage: las preguntas a reuniones cuentan como mensajes", () => {
+describe("GET /api/agents/usage: el uso del chat (porcentaje) incluye las preguntas a reuniones", () => {
   const AHORA = new Date("2026-10-07T15:00:00Z"); // miércoles
   const hace = (horas: number) => new Date(AHORA.getTime() - horas * H);
 
@@ -117,38 +118,37 @@ describe("GET /api/agents/usage: las preguntas a reuniones cuentan como mensajes
     vi.setSystemTime(AHORA);
   });
 
-  it("suma a los mensajes que le escribió a los agentes las preguntas que le hizo a sus reuniones, por día y por semana", async () => {
+  it("suma el costo del chat y el de las preguntas a reuniones, y deja fuera lo que no es chat y lo de otras personas", async () => {
     await db.agentChat.create({ data: { id: "c1", userId: "u1" } });
-    // Mensajes a los agentes: 2 hoy, 1 ayer (misma semana), 1 de la semana pasada, 1 del agente (no cuenta).
-    await db.agentMessage.create({ data: { chatId: "c1", role: "user", createdAt: hace(1) } });
-    await db.agentMessage.create({ data: { chatId: "c1", role: "user", createdAt: hace(2) } });
-    await db.agentMessage.create({ data: { chatId: "c1", role: "user", createdAt: hace(26) } });
-    await db.agentMessage.create({ data: { chatId: "c1", role: "user", createdAt: hace(24 * 8) } });
-    await db.agentMessage.create({ data: { chatId: "c1", role: "assistant", createdAt: hace(1) } });
-    // Preguntas a reuniones: 3 hoy, 1 ayer, 1 de la semana pasada; y un uso de otro tipo y de otra persona, que no cuentan.
-    for (const h of [0.5, 1, 3, 26, 24 * 8]) await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, date: hace(h) } });
-    await db.usageRecord.create({ data: { userId: "u1", type: "reunion_acta", date: hace(1) } });
-    await db.usageRecord.create({ data: { userId: "otra", type: TIPO_DE_USO_PREGUNTA, date: hace(1) } });
+    // Chat: US$0,3 hace 1 h y US$0,2 de una pregunta a una reunión hace 2 h: en la sesión de 5 h (cap US$1) queda 50 %.
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.agenteChat, costUsd: 0.3, date: hace(1) } });
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 0.2, date: hace(2) } });
+    // No cuentan: un acta de reunión, otra persona y un gasto de hace 8 días (antes del mes).
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.reunionActa, costUsd: 9, date: hace(1) } });
+    await db.usageRecord.create({ data: { userId: "otra", type: TIPOS.agenteChat, costUsd: 9, date: hace(1) } });
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.agenteChat, costUsd: 9, date: hace(24 * 8) } });
 
     const cuerpo = await (await usoDeAgentes()).json();
-    expect(cuerpo.daily).toBe(2 + 3);
-    expect(cuerpo.weekly).toBe(3 + 4);
+    expect(cuerpo.chat).toMatchObject({ ilimitado: false, presupuestoUsd: 5, porcentajeRestante: 50, ventana: "sesion", agotado: false });
   });
 
-  it("sin chats con los agentes igual cuentan las preguntas a reuniones", async () => {
-    await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, date: hace(1) } });
+  it("sin consumo, el chat está al 100 %", async () => {
     const cuerpo = await (await usoDeAgentes()).json();
-    expect(cuerpo).toMatchObject({ daily: 1, weekly: 1 });
+    expect(cuerpo.chat).toMatchObject({ porcentajeRestante: 100, agotado: false });
   });
 
-  it("si no se pueden contar las preguntas, el uso de los agentes sale igual (solo con sus mensajes)", async () => {
+  it("con la sesión agotada, lo dice (0 % y agotado)", async () => {
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.agenteChat, costUsd: 1, date: hace(1) } });
+    const cuerpo = await (await usoDeAgentes()).json();
+    expect(cuerpo.chat).toMatchObject({ porcentajeRestante: 0, agotado: true });
+  });
+
+  it("si no se puede leer el uso, el asistente sale igual, con el chat en null", async () => {
     const consola = vi.spyOn(console, "error").mockImplementation(() => {});
-    await db.agentChat.create({ data: { id: "c1", userId: "u1" } });
-    await db.agentMessage.create({ data: { chatId: "c1", role: "user", createdAt: hace(1) } });
-    vi.spyOn(db.usageRecord, "count").mockRejectedValue(new Error("conexión perdida"));
+    vi.spyOn(db.usageRecord, "findMany").mockRejectedValue(new Error("conexión perdida"));
     const r = await usoDeAgentes();
     expect(r.status).toBe(200);
-    expect(await r.json()).toMatchObject({ daily: 1, weekly: 1 });
+    expect(await r.json()).toMatchObject({ chat: null });
     expect(consola).toHaveBeenCalled();
   });
 });

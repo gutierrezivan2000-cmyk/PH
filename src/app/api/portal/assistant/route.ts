@@ -5,6 +5,7 @@ import { TIPOS } from "@/lib/consumo/funciones";
 import { conConsumo } from "@/lib/consumo/registrar";
 import { NextRequest, NextResponse } from "next/server";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { inicioDelDiaBogota, periodoMensualBogota, topeDelAsistenteDelPortal } from "@/lib/uso-chat";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 const TOKEN_RE = /^[A-Za-z0-9_-]{16,48}$/;
@@ -48,6 +49,19 @@ export async function POST(req: NextRequest) {
     if (!rl1.allowed || !rl2.allowed) {
       return NextResponse.json({ error: "Has hecho muchas preguntas seguidas. Intenta en un rato." }, { status: 429 });
     }
+
+    // Tope por administrador (el que paga): al día y al mes. Si no se puede contar, no bloquea.
+    const ahora = new Date();
+    const periodo = periodoMensualBogota(ahora);
+    const contar = (desde: Date) =>
+      db.usageRecord.count({ where: { userId: unit.property.userId, type: TIPOS.portalAsistente, date: { gte: desde } } });
+    const tope = await Promise.all([contar(inicioDelDiaBogota(ahora)), contar(periodo.inicio)])
+      .then(([hoy, mes]) => topeDelAsistenteDelPortal({ hoy, mes }))
+      .catch((e) => {
+        console.error("[portal assistant] no se pudo contar el uso; se deja pasar", e);
+        return null;
+      });
+    if (tope) return NextResponse.json({ error: tope }, { status: 429 });
 
     const { getReglamentoText } = await import("@/lib/reglamento");
     // Leer por primera vez un reglamento escaneado (imágenes) gasta IA: se carga a la administración de la copropiedad.

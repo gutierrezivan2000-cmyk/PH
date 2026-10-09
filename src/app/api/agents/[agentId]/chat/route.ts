@@ -12,14 +12,14 @@ import {
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AGENTS, isValidAgentId, isComingSoonAgent } from "@/lib/agents";
-import { PLANS } from "@/lib/epayco";
-import { normalizePlanId, canAccessAgent } from "@/lib/plan";
-import { contarPreguntasAReuniones } from "@/lib/meetings/cupo-preguntas";
+import { canAccessAgent } from "@/lib/plan";
+import { cupoDeAudioMensual, limitesDelPlan, usoDelChat } from "@/lib/uso-chat-servidor";
+import { mensajeDeAgotado } from "@/lib/uso-chat";
 import { TIPOS } from "@/lib/consumo/funciones";
 import { conConsumo, registrarConsumo } from "@/lib/consumo/registrar";
 import { TOKENS_VACIOS, sumarTokens, tokensDeAnthropic, totalDeTokens } from "@/lib/consumo/uso";
 import { ensureAgentTables, isMissingRelationError } from "@/lib/ensure-agent-tables";
-import { configDeFuncion, parametroDeEsfuerzo } from "@/lib/ia/modelos";
+import { configDeFuncion, esfuerzoDelTurno, parametroDeEsfuerzo } from "@/lib/ia/modelos";
 import { agentePausadoAbierto } from "@/lib/agentes/acceso";
 import { contextoOperativo } from "@/lib/agentes/briefing-datos";
 import { HERRAMIENTAS_OPERACION, ejecutarOperacion, esHerramientaDeOperacion } from "@/lib/agentes/herramientas";
@@ -195,32 +195,19 @@ export async function POST(
 
       try {
         const subPlan = (await db.subscription.findFirst({ where: { userId: session.user.id } }))?.planId;
-        const tLimits = normalizePlanId(subPlan) === "elite" ? PLANS.elite.limits : PLANS.pro.limits;
+        // Los límites del plan que tiene la cuenta (Business antes recibía los de Pro).
+        const tLimits = limitesDelPlan(subPlan);
         const dailyCap = tLimits.transcriptionMinutesPerDay;
-        const monthlyCap = tLimits.transcriptionMinutesPerMonth;
-
-        const startOfMonth = new Date();
-        startOfMonth.setDate(1);
-        startOfMonth.setHours(0, 0, 0, 0);
 
         const startOfDayT = new Date();
         startOfDayT.setHours(0, 0, 0, 0);
 
-        const [monthlyAgg, dailyAgg] = await Promise.all([
-          db.usageRecord.aggregate({
-            where: { userId: session.user.id, type: "transcription", date: { gte: startOfMonth } },
-            _sum: { tokens: true },
-          }),
-          db.usageRecord.aggregate({
-            where: { userId: session.user.id, type: "transcription", date: { gte: startOfDayT } },
-            _sum: { tokens: true },
-          }),
-        ]);
-
-        const secondsUsedMonth = monthlyAgg._sum.tokens ?? 0;
-        const secondsUsedDay = dailyAgg._sum.tokens ?? 0;
-        const minutesUsedMonth = Math.ceil(secondsUsedMonth / 60);
-        const minutesUsedDay = Math.ceil(secondsUsedDay / 60);
+        // El cupo diario es del chat. El mensual lo comparte con los documentos con audio (ver uso-chat-servidor).
+        const dailyAgg = await db.usageRecord.aggregate({
+          where: { userId: session.user.id, type: "transcription", date: { gte: startOfDayT } },
+          _sum: { tokens: true },
+        });
+        const minutesUsedDay = Math.ceil((dailyAgg._sum.tokens ?? 0) / 60);
 
         if (minutesUsedDay + estimatedMinutesForThisRequest > dailyCap) {
           return NextResponse.json(
@@ -230,13 +217,9 @@ export async function POST(
             { status: 429 }
           );
         }
-        if (minutesUsedMonth + estimatedMinutesForThisRequest > monthlyCap) {
-          return NextResponse.json(
-            {
-              error: `Has alcanzado el límite mensual de ${monthlyCap} minutos de transcripción. (Usado este mes: ${minutesUsedMonth} min)`,
-            },
-            { status: 429 }
-          );
+        const cupoMes = await cupoDeAudioMensual(session.user.id, estimatedMinutesForThisRequest);
+        if (cupoMes.bloqueado) {
+          return NextResponse.json({ error: cupoMes.mensaje }, { status: 429 });
         }
       } catch (err) {
         console.error("[api/agents/chat] transcription limit check failed:", err);
@@ -245,70 +228,18 @@ export async function POST(
 
     const userId = session.user.id;
 
-    // ── Usage limits (fail-open if tables missing) ─────────────────────────
+    // ── Uso del chat (porcentaje, como Claude o ChatGPT) ──────────────────
+    // Se mira ANTES de gastar: con el uso agotado no entra el mensaje. Sin tope para las cuentas beta y la fase de pruebas.
     step = "usage-limits";
-    let planLimits: {
-      agentMessagesPerDay: number;
-      agentMessagesPerWeek: number;
-      transcriptionMinutesPerDay: number;
-      transcriptionMinutesPerMonth: number;
-    } = { ...PLANS.pro.limits };
-
     if (!IS_DEMO) {
-      try {
-        const subscription = await db.subscription.findFirst({ where: { userId } });
-        if (normalizePlanId(subscription?.planId) === "elite") {
-          planLimits = { ...PLANS.elite.limits };
-        }
-      } catch (err) {
-        console.error("[api/agents/chat] subscription check failed:", err);
-      }
-    }
-
-    const now = new Date();
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
-    const day = now.getDay();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - ((day + 6) % 7));
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    try {
-      const chatIds = IS_DEMO ? [] : await db.agentChat.findMany({
-        where: { userId },
-        select: { id: true },
-      });
-      const chatIdList = chatIds.map((c) => c.id);
-      // Las preguntas a las reuniones («Preguntar») salen de esta misma bolsa de mensajes del plan.
-      const [preguntasHoy, preguntasSemana] = IS_DEMO
-        ? [0, 0]
-        : await Promise.all([contarPreguntasAReuniones(userId, startOfDay), contarPreguntasAReuniones(userId, startOfWeek)]);
-      const mensajesDesde = (desde: Date) =>
-        chatIdList.length > 0
-          ? db.agentMessage.count({ where: { chatId: { in: chatIdList }, role: "user", createdAt: { gte: desde } } })
-          : Promise.resolve(0);
-
-      const dailyCount = (await mensajesDesde(startOfDay)) + preguntasHoy;
-      if (!isBeta && dailyCount >= planLimits.agentMessagesPerDay) {
+      const uso = await usoDelChat(userId);
+      if (uso && !uso.ilimitado && uso.estado.agotado) {
+        const ahora = new Date();
         return NextResponse.json(
-          {
-            error: `Has alcanzado el límite diario de ${planLimits.agentMessagesPerDay} mensajes. Intenta mañana.`,
-          },
+          { error: mensajeDeAgotado(uso.estado, ahora), uso: { porcentajeRestante: 0, renovaEn: uso.estado.renovaEn.toISOString() } },
           { status: 429 }
         );
       }
-
-      const weeklyCount = (await mensajesDesde(startOfWeek)) + preguntasSemana;
-      if (!isBeta && weeklyCount >= planLimits.agentMessagesPerWeek) {
-        return NextResponse.json(
-          {
-            error: `Has alcanzado el límite semanal de ${planLimits.agentMessagesPerWeek} mensajes.`,
-          },
-          { status: 429 }
-        );
-      }
-    } catch (err) {
-      console.error("[api/agents/chat] usage check failed:", err);
     }
 
     // ── Create or reuse chat ────────────────────────────────────────────────
@@ -732,6 +663,8 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
             // El chat de los agentes usa Sonnet 5.5 (ver lib/ia/modelos.ts).
             const configChat = configDeFuncion(TIPOS.agenteChat);
             let modeloDelMensaje = configChat.modelo;
+            // El esfuerzo se decide por turno: un saludo casi no piensa; un análisis o un adjunto, sí.
+            const esfuerzoDelMensaje = esfuerzoDelTurno(message, { adjuntos: Array.isArray(reqAttachments) ? reqAttachments.length : 0 });
 
             // Dos vueltas: una para pedir el archivo y otra para comentarlo. Más
             // vueltas solo alargarían la espera sin aportar.
@@ -743,7 +676,7 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
                 // quedaba inválida. El pensamiento de los modelos 5 comparte este tope con la respuesta. Sin `temperature`:
                 // los modelos 5 la rechazan.
                 max_tokens: 16_000,
-                ...parametroDeEsfuerzo(configChat.modelo, configChat.esfuerzo),
+                ...parametroDeEsfuerzo(configChat.modelo, esfuerzoDelMensaje),
                 system: systemBlocks,
                 messages: mensajes,
                 // Las herramientas de operación solo existen con datos reales (no en el demo).
@@ -951,6 +884,17 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
               }
             }
 
+            // El uso que le queda después de este mensaje: la barra se actualiza sin recargar la página.
+            if (!IS_DEMO) {
+              const despues = await usoDelChat(userId);
+              if (despues && !despues.ilimitado) {
+                controller.enqueue(
+                  encoder.encode(
+                    `event: uso\ndata: ${JSON.stringify({ porcentajeRestante: despues.estado.porcentajeRestante, renovaEn: despues.estado.renovaEn.toISOString(), ventana: despues.estado.ventana })}\n\n`
+                  )
+                );
+              }
+            }
             controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
             controller.close();
           } catch (err) {

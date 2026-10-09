@@ -55,8 +55,8 @@ export const PLANS = {
       maxFileSizeMb: 50, // documentos; el audio va aparte en @/lib/upload-limits
       maxFilesPerGeneration: 20,
       maxAudioMinutes: 30,
-      agentMessagesPerDay: 30,
-      agentMessagesPerWeek: 150,
+      // Chat de los agentes: presupuesto de costo al mes (US$); el porcentaje de uso sale de aquí (src/lib/uso-chat.ts).
+      chatBudgetUsd: 5,
       transcriptionMinutesPerDay: 20,
       transcriptionMinutesPerMonth: 120,
       transcriptionMaxFileMb: 25,
@@ -81,8 +81,7 @@ export const PLANS = {
       maxFileSizeMb: 50, // documentos; el audio va aparte en @/lib/upload-limits
       maxFilesPerGeneration: 20,
       maxAudioMinutes: 45,
-      agentMessagesPerDay: 60,
-      agentMessagesPerWeek: 400,
+      chatBudgetUsd: 15,
       transcriptionMinutesPerDay: 40,
       transcriptionMinutesPerMonth: 300,
       transcriptionMaxFileMb: 25,
@@ -106,8 +105,7 @@ export const PLANS = {
       maxFileSizeMb: 50, // documentos; el audio va aparte en @/lib/upload-limits
       maxFilesPerGeneration: 20,
       maxAudioMinutes: 60,
-      agentMessagesPerDay: 150,
-      agentMessagesPerWeek: 1000,
+      chatBudgetUsd: 40,
       transcriptionMinutesPerDay: 60,
       transcriptionMinutesPerMonth: 800,
       transcriptionMaxFileMb: 25,
@@ -124,7 +122,8 @@ export const PLANS = {
 export const TRIAL_LIMITS = {
   totalGenerations: 5,
   generationsPerDay: 2,
-  agentMessagesPerDay: 15,
+  // Prueba gratis: US$1 de chat en total, en el mismo porcentaje que los planes.
+  chatBudgetUsd: 1,
   transcriptionMinutesTotal: 20,
   // Reuniones: 2 horas de audio en total durante la prueba.
   meetingHoursTotal: 2,

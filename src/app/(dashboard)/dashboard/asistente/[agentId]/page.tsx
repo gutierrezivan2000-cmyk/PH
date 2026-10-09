@@ -9,6 +9,7 @@ import { Header } from "@/components/dashboard/Header";
 import { AudioRecorder } from "@/components/dashboard/AudioRecorder";
 import { RespuestaMarkdown } from "@/components/agents/RespuestaMarkdown";
 import { TarjetasDeAcciones, type AccionUI } from "@/components/agents/TarjetasDeAcciones";
+import { BarraDeUso, type UsoVista } from "@/components/agents/BarraDeUso";
 import { AGENTS, isValidAgentId, isIncludedAgent, INCLUDED_AGENT_IDS, type AgentId } from "@/lib/agents";
 import { saveAudio, getPendingAudios, deleteAudio } from "@/lib/audio-storage";
 import { MAX_IMAGE_BYTES, MAX_IMAGE_MB_LABEL, isImageMediaType } from "@/lib/chat-limits";
@@ -340,6 +341,8 @@ export default function AgentPage() {
   const [propiedades, setPropiedades] = useState<{ id: string; name: string }[]>([]);
   const [propiedadId, setPropiedadId] = useState("");
   const [acciones, setAcciones] = useState<AccionUI[]>([]);
+  // El uso del chat que le queda a la cuenta (porcentaje): al entrar y después de cada mensaje.
+  const [uso, setUso] = useState<UsoVista | null>(null);
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
   // Id del chat recién creado por el envío en curso (ver el efecto de carga).
   const skipReloadForChatId = useRef<string | null>(null);
@@ -361,6 +364,16 @@ export default function AgentPage() {
   }, []);
 
   useEffect(() => { scrollToBottom(); }, [messages, isLoading, scrollToBottom]);
+
+  // Uso del chat al entrar. Si no se puede cargar, el chat sigue funcionando (el servidor igual lo aplica).
+  useEffect(() => {
+    fetch("/api/agents/usage")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.chat && !data.chat.ilimitado) setUso(data.chat as UsoVista);
+      })
+      .catch(() => { /* sin barra */ });
+  }, []);
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
@@ -869,6 +882,11 @@ export default function AgentPage() {
                     prev.map((m) => m.id === assistantMsgId ? { ...m, content: m.content + "\n\n" + error } : m)
                   );
                 }
+              } catch { /* ignore */ }
+            } else if (eventType === "uso") {
+              try {
+                const u = JSON.parse(data) as Omit<UsoVista, "agotado">;
+                setUso({ ...u, agotado: u.porcentajeRestante <= 0 });
               } catch { /* ignore */ }
             } else if (eventType === "title_update") {
               try {
@@ -1464,6 +1482,7 @@ export default function AgentPage() {
 
           {/* ── Redactor (receta del kit: .k-redactor) ── */}
           <div className="asis-redactar">
+            {uso && <BarraDeUso uso={uso} />}
             {uploadStatus && (
               <p className="asis-subiendo" role="status">
                 {uploadStatus}
@@ -1478,7 +1497,7 @@ export default function AgentPage() {
                 placeholder={`Escríbele a ${agent.name}… o pídele un Excel, un Word o un PDF`}
                 aria-label={`Mensaje para ${agent.name}`}
                 rows={1}
-                disabled={isLoading}
+                disabled={isLoading || uso?.agotado === true}
                 maxLength={4000}
               />
               <div className="herr">

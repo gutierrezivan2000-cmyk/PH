@@ -7,13 +7,14 @@ import {
   configDeFuncion,
   esErrorDeEsfuerzo,
   esfuerzoDeFuncion,
+  esfuerzoDelTurno,
   modeloDeFuncion,
   parametroDeEsfuerzo,
 } from "./modelos";
 
 describe("qué modelo usa cada función", () => {
   it("el chat de los agentes usa Sonnet 5.5 y todo lo demás Haiku 5.5; ninguna usa Opus", () => {
-    expect(modeloDeFuncion(TIPOS.agenteChat, {})).toBe("claude-sonnet-5-5");
+    expect(modeloDeFuncion(TIPOS.agenteChat, {})).toBe("claude-haiku-5-5");
     for (const t of Object.values(TIPOS)) {
       if (t === TIPOS.agenteChat) continue;
       expect(modeloDeFuncion(t, {}), t).toBe("claude-haiku-5-5");
@@ -44,7 +45,7 @@ describe("esfuerzo por función", () => {
     expect(esfuerzoDeFuncion(TIPOS.acta, { IA_ESFUERZO_ACTA: " LOW " })).toBe("low");
   });
   it("configDeFuncion junta ambos", () => {
-    expect(configDeFuncion(TIPOS.agenteChat, {})).toEqual({ modelo: "claude-sonnet-5-5", esfuerzo: "medium" });
+    expect(configDeFuncion(TIPOS.agenteChat, {})).toEqual({ modelo: "claude-haiku-5-5", esfuerzo: "medium" });
   });
 });
 
@@ -86,3 +87,28 @@ describe("precio de Haiku 5.5", () => {
     expect(costoDeTokens({ entrada: 500_000, salida: 0, cacheLectura: 0, cacheEscritura: 0 }, s)).toBeCloseTo(1, 9);
   });
 });
+
+describe("esfuerzo de cada turno del chat", () => {
+  it("un saludo o una confirmación casi no piensa", () => {
+    expect(esfuerzoDelTurno("hola", {}, {})).toBe("low");
+    expect(esfuerzoDelTurno("gracias, listo", {}, {})).toBe("low");
+  });
+
+  it("una pregunta corta o una frase normal va a esfuerzo medio", () => {
+    expect(esfuerzoDelTurno("¿Cuál es el saldo del apto 502?", {}, {})).toBe("medium");
+    expect(esfuerzoDelTurno("Muéstrame la cartera de la torre B de este mes", {}, {})).toBe("medium");
+  });
+
+  it("un análisis, un cálculo, un documento o un adjunto piensan más", () => {
+    expect(esfuerzoDelTurno("Analiza por qué sube la morosidad", {}, {})).toBe("high");
+    expect(esfuerzoDelTurno("redacta un borrador de comunicado", {}, {})).toBe("high");
+    expect(esfuerzoDelTurno("mira esto", { adjuntos: 1 }, {})).toBe("high");
+    expect(esfuerzoDelTurno("x".repeat(601), {}, {})).toBe("high");
+  });
+
+  it("una variable de entorno fija el esfuerzo de todos los turnos", () => {
+    expect(esfuerzoDelTurno("hola", {}, { IA_ESFUERZO_AGENTE_CHAT: "max" })).toBe("max");
+    expect(esfuerzoDelTurno("hola", {}, { IA_ESFUERZO_AGENTE_CHAT: "enorme" })).toBe("low");
+  });
+});
+

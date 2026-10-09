@@ -1,0 +1,141 @@
+/**
+ * Cuánto del uso del chat de los agentes le queda a la cuenta, al estilo de Claude o ChatGPT: un porcentaje que baja con cada
+ * mensaje según lo que cueste de verdad (el costo en dólares de cada llamada, ya registrado en UsageRecord).
+ *
+ * Tres ventanas, y se muestra la más ajustada:
+ *  - sesión: 20 % del presupuesto del plan, móvil de 5 horas;
+ *  - semana: 40 % del presupuesto, móvil de 7 días;
+ *  - mes: el presupuesto completo, desde el inicio del periodo (mes calendario en Bogotá, o la prueba gratis).
+ *
+ * Pura: recibe los consumos y el instante; no toca la base.
+ */
+
+const HORA_MS = 60 * 60 * 1000;
+const DIA_MS = 24 * HORA_MS;
+/** Bogotá es UTC-5 todo el año (sin horario de verano). */
+const DESPLAZAMIENTO_BOGOTA_MS = 5 * HORA_MS;
+
+export const VENTANAS_DE_USO = {
+  sesion: { duracionMs: 5 * HORA_MS, parte: 0.2 },
+  semana: { duracionMs: 7 * DIA_MS, parte: 0.4 },
+} as const;
+
+export type VentanaDeUso = keyof typeof VENTANAS_DE_USO | "mes";
+
+export type Consumo = { fecha: Date; costUsd: number };
+
+export type EstadoDeUso = {
+  /** Lo que queda, en % entero (0 a 100). */
+  porcentajeRestante: number;
+  /** La ventana que más se está agotando. */
+  ventana: VentanaDeUso;
+  /**
+   * Cuándo empieza a liberarse uso en esa ventana: en las móviles, cuando sale el consumo más antiguo; en el mes, al
+   * renovarse el periodo.
+   */
+  renovaEn: Date;
+  agotado: boolean;
+};
+
+/** El periodo mensual de facturación en Bogotá: del día 1 a las 00:00 hasta el día 1 del mes siguiente. */
+export function periodoMensualBogota(ahora: Date): { inicio: Date; fin: Date } {
+  const local = new Date(ahora.getTime() - DESPLAZAMIENTO_BOGOTA_MS);
+  const y = local.getUTCFullYear();
+  const m = local.getUTCMonth();
+  return {
+    inicio: new Date(Date.UTC(y, m, 1) + DESPLAZAMIENTO_BOGOTA_MS),
+    fin: new Date(Date.UTC(y, m + 1, 1) + DESPLAZAMIENTO_BOGOTA_MS),
+  };
+}
+
+export function estadoDeUso({
+  presupuestoUsd,
+  periodo,
+  consumos,
+  ahora,
+}: {
+  presupuestoUsd: number;
+  periodo: { inicio: Date; fin: Date };
+  consumos: Consumo[];
+  ahora: Date;
+}): EstadoDeUso {
+  if (!(presupuestoUsd > 0)) return { porcentajeRestante: 0, ventana: "mes", renovaEn: periodo.fin, agotado: true };
+
+  const ahoraMs = ahora.getTime();
+  // Solo cuenta lo gastado dentro del periodo y ya ocurrido (un consumo con fecha futura no debería existir, pero no se suma).
+  const delPeriodo = consumos.filter((c) => {
+    const t = c.fecha.getTime();
+    return t >= periodo.inicio.getTime() && t <= ahoraMs && Number.isFinite(c.costUsd) && c.costUsd > 0;
+  });
+  const sumar = (xs: Consumo[]) => xs.reduce((s, c) => s + c.costUsd, 0);
+
+  const candidatos: { ventana: VentanaDeUso; restante: number; renovaEn: Date }[] = [
+    { ventana: "mes", restante: 1 - sumar(delPeriodo) / presupuestoUsd, renovaEn: periodo.fin },
+  ];
+  for (const [nombre, v] of Object.entries(VENTANAS_DE_USO) as [keyof typeof VENTANAS_DE_USO, (typeof VENTANAS_DE_USO)[keyof typeof VENTANAS_DE_USO]][]) {
+    const desde = ahoraMs - v.duracionMs;
+    const dentro = delPeriodo.filter((c) => c.fecha.getTime() >= desde);
+    const tope = presupuestoUsd * v.parte;
+    const masAntiguo = dentro.reduce<number | null>((min, c) => (min === null || c.fecha.getTime() < min ? c.fecha.getTime() : min), null);
+    candidatos.push({
+      ventana: nombre,
+      restante: 1 - sumar(dentro) / tope,
+      renovaEn: masAntiguo === null ? ahora : new Date(masAntiguo + v.duracionMs),
+    });
+  }
+
+  const peor = candidatos.reduce((a, b) => (b.restante < a.restante ? b : a));
+  const porcentajeRestante = Math.max(0, Math.min(100, Math.floor(peor.restante * 100)));
+  return { porcentajeRestante, ventana: peor.ventana, renovaEn: peor.renovaEn, agotado: porcentajeRestante <= 0 };
+}
+
+/** Cuánto aviso mostrar: 20 % y 5 % son los dos umbrales de la barra. */
+export function nivelDeAviso(porcentajeRestante: number): "ok" | "poco" | "casi_agotado" | "agotado" {
+  if (porcentajeRestante <= 0) return "agotado";
+  if (porcentajeRestante <= 5) return "casi_agotado";
+  if (porcentajeRestante <= 20) return "poco";
+  return "ok";
+}
+
+const NOMBRE_DE_VENTANA: Record<VentanaDeUso, string> = { sesion: "sesión de 5 horas", semana: "semana", mes: "mes" };
+const FECHA_BOGOTA = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", day: "numeric", month: "long" });
+const HORA_BOGOTA = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", hour: "numeric", minute: "2-digit" });
+
+/** Una fecha en palabras de Bogotá: «1 de noviembre». */
+export const fechaBogota = (fecha: Date): string => FECHA_BOGOTA.format(fecha);
+
+/** Cuándo vuelve el uso, en palabras de Bogotá: «a las 3:15 p. m.» el mismo día, «el 16 de octubre a las 9:00 a. m.» después. */
+export function cuandoSeLibera(fecha: Date, ahora: Date): string {
+  if (FECHA_BOGOTA.format(fecha) === FECHA_BOGOTA.format(ahora)) return `a las ${HORA_BOGOTA.format(fecha)}`;
+  return `el ${FECHA_BOGOTA.format(fecha)} a las ${HORA_BOGOTA.format(fecha)}`;
+}
+
+/** Lo que se le dice a la persona cuando el uso se agotó. */
+export function mensajeDeAgotado(estado: EstadoDeUso, ahora: Date): string {
+  if (estado.ventana === "mes") return `Se agotó tu uso del chat de este mes. Se renueva el ${FECHA_BOGOTA.format(estado.renovaEn)}.`;
+  return `Se agotó tu uso del chat de esta ${NOMBRE_DE_VENTANA[estado.ventana]}. Vuelve a tener uso ${cuandoSeLibera(estado.renovaEn, ahora)}.`;
+}
+
+/** Inicio del día de hoy en Bogotá (medianoche). */
+export function inicioDelDiaBogota(ahora: Date): Date {
+  const local = new Date(ahora.getTime() - DESPLAZAMIENTO_BOGOTA_MS);
+  return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) + DESPLAZAMIENTO_BOGOTA_MS);
+}
+
+/**
+ * El asistente del reglamento que usan los residentes lo paga la administración dueña de la copropiedad, y el residente no tiene
+ * cuenta: se topa por administrador (cada pregunta queda como `UsageRecord` de esa cuenta).
+ */
+export const LIMITE_DEL_ASISTENTE_DEL_PORTAL = { porDia: 100, porMes: 1000 } as const;
+
+/** El mensaje si ya se llegó al tope, o null si todavía se puede preguntar. */
+export function topeDelAsistenteDelPortal(preguntas: { hoy: number; mes: number }): string | null {
+  if (preguntas.hoy >= LIMITE_DEL_ASISTENTE_DEL_PORTAL.porDia) {
+    return "La administración de esta copropiedad llegó hoy al límite de preguntas al asistente del reglamento. Intenta mañana o escribe a la administración.";
+  }
+  if (preguntas.mes >= LIMITE_DEL_ASISTENTE_DEL_PORTAL.porMes) {
+    return "La administración de esta copropiedad llegó este mes al límite de preguntas al asistente del reglamento. Escribe a la administración.";
+  }
+  return null;
+}
+

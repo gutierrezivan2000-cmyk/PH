@@ -1,6 +1,6 @@
 /**
- * El chat de los agentes y «Preguntar» comparten una sola bolsa de mensajes del plan: el chat suma las preguntas a reuniones a
- * los mensajes que ya contaba (si no, se podrían gastar los dos cupos completos).
+ * El uso del chat de los agentes (el porcentaje, en dólares de costo) lo comparten el chat y «Preguntar»: una pregunta a una
+ * reunión gasta del mismo uso que un mensaje al agente. Los documentos y las reuniones (horas) no entran en ese porcentaje.
  */
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,7 +9,7 @@ const { auth, fake, acceso } = vi.hoisted(() => ({ auth: vi.fn(), fake: { db: nu
 vi.mock("@/lib/auth", () => ({ auth: (...a: unknown[]) => auth(...a) }));
 vi.mock("@/lib/db", () => ({ get db() { return fake.db; } }));
 vi.mock("@/lib/usage", () => ({ checkSubscriptionAccess: (...a: unknown[]) => acceso(...a) }));
-// Si el chat pasa la compuerta de los cupos llega hasta la IA: que ahí se detenga, sin red.
+// Si el chat pasa la compuerta del uso llega hasta la IA: que ahí se detenga, sin red.
 vi.mock("@anthropic-ai/sdk", () => ({
   default: class {
     constructor() {
@@ -19,30 +19,27 @@ vi.mock("@anthropic-ai/sdk", () => ({
 }));
 
 import { POST } from "@/app/api/agents/[agentId]/chat/route";
-import { PLANS } from "@/lib/epayco";
-import { TIPO_DE_USO_PREGUNTA } from "./cupo-preguntas";
+import { TIPOS } from "@/lib/consumo/funciones";
+import { TIPO_DE_USO_PREGUNTA } from "@/lib/meetings/cupo-preguntas";
 import { crearDbFalsa, type DbFalsa } from "./db-falsa";
 
 const H = 3_600_000;
 const AHORA = new Date("2026-10-07T15:00:00Z"); // miércoles
 const hace = (horas: number) => new Date(AHORA.getTime() - horas * H);
-const { agentMessagesPerDay: POR_DIA, agentMessagesPerWeek: POR_SEMANA } = PLANS.pro.limits;
+// Plan Pro: US$5 al mes. Ventanas: sesión 20 % (US$1 en 5 h), semana 40 % (US$2 en 7 días).
 let db: DbFalsa;
 
 const escribir = () =>
   POST(new NextRequest("http://localhost/api/agents/themis/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: "Hola" }) }), {
     params: Promise.resolve({ agentId: "themis" }),
   });
-const mensajesAlAgente = async (n: number, haceHoras: number) => {
-  for (let i = 0; i < n; i++) await db.agentMessage.create({ data: { chatId: "c1", role: "user", content: "x", createdAt: hace(haceHoras) } });
+const gastar = async (usd: number, haceHoras: number, extra: Record<string, unknown> = {}) => {
+  await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.agenteChat, costUsd: usd, date: hace(haceHoras), ...extra } });
 };
-const preguntasAReuniones = async (n: number, haceHoras: number, extra: Record<string, unknown> = {}) => {
-  for (let i = 0; i < n; i++) await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, date: hace(haceHoras), ...extra } });
-};
-const sinCupo = async (r: Response) => ({ status: r.status, cuerpo: (await r.json()) as { error?: string } });
-/** El chat pasó la compuerta de los cupos y llegó hasta la IA, donde las pruebas lo detienen. */
+const sinUso = async (r: Response) => ({ status: r.status, cuerpo: (await r.json()) as { error?: string } });
+/** El chat pasó la compuerta del uso y llegó hasta la IA, donde las pruebas lo detienen. */
 const llegaALaIA = async (r: Response) => {
-  expect(await sinCupo(r)).toEqual({ status: 502, cuerpo: { error: "Error del servicio de IA: sin red en las pruebas" } });
+  expect(await sinUso(r)).toEqual({ status: 502, cuerpo: { error: "Error del servicio de IA: sin red en las pruebas" } });
 };
 
 beforeEach(async () => {
@@ -65,53 +62,55 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("el chat de los agentes y las preguntas a reuniones comparten la bolsa de mensajes del plan", () => {
-  it("con el tope del día a una pregunta de distancia, una pregunta a una reunión lo completa: el chat dice que se acabó", async () => {
-    await mensajesAlAgente(POR_DIA - 1, 1);
-    await preguntasAReuniones(1, 1);
-    const r = await sinCupo(await escribir());
+describe("el chat se mide por el uso que le queda a la cuenta (porcentaje, en dólares de costo)", () => {
+  it("con la sesión de 5 horas agotada (US$1), el chat no deja escribir y dice cuándo vuelve el uso", async () => {
+    await gastar(1, 1);
+    const r = await sinUso(await escribir());
     expect(r.status).toBe(429);
-    expect(r.cuerpo.error).toBe(`Has alcanzado el límite diario de ${POR_DIA} mensajes. Intenta mañana.`);
+    expect(r.cuerpo.error).toContain("sesión de 5 horas");
+    expect(r.cuerpo.error).toContain("Vuelve a tener uso");
   });
 
-  it("sin esa pregunta, todavía alcanza: el chat pasa la compuerta (se detiene después, en la IA)", async () => {
-    await mensajesAlAgente(POR_DIA - 1, 1);
+  it("con poco gastado (US$0,5), todavía queda uso: el chat pasa la compuerta (se detiene después, en la IA)", async () => {
+    await gastar(0.5, 1);
     await llegaALaIA(await escribir());
   });
 
-  it("también cuenta por semana: lo de otros días de la semana suma", async () => {
-    await mensajesAlAgente(POR_SEMANA - 50, 48); // el lunes
-    await preguntasAReuniones(50, 48);
-    const r = await sinCupo(await escribir());
+  it("la semana también se agota: US$2 en los últimos 6 días", async () => {
+    await gastar(1, 6 * 24);
+    await gastar(1, 5 * 24);
+    const r = await sinUso(await escribir());
     expect(r.status).toBe(429);
-    expect(r.cuerpo.error).toBe(`Has alcanzado el límite semanal de ${POR_SEMANA} mensajes.`);
+    expect(r.cuerpo.error).toContain("esta semana");
   });
 
-  it("alguien que solo ha usado Preguntar (sin ningún chat con los agentes) también llega al tope", async () => {
-    await db.agentChat.filas.splice(0);
-    await preguntasAReuniones(POR_DIA, 1);
-    const r = await sinCupo(await escribir());
+  it("las preguntas a las reuniones gastan del mismo uso que el chat", async () => {
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 1, date: hace(1) } });
+    const r = await sinUso(await escribir());
     expect(r.status).toBe(429);
-    expect(r.cuerpo.error).toMatch(/límite diario/);
+    expect(r.cuerpo.error).toContain("sesión de 5 horas");
   });
 
-  it("no cuenta lo que no es una pregunta suya a una reunión: otros usos, otras personas, otros días", async () => {
-    await mensajesAlAgente(POR_DIA - 1, 1);
-    await preguntasAReuniones(5, 1, { type: "reunion_acta" });
-    await preguntasAReuniones(5, 1, { userId: "otra" });
-    await preguntasAReuniones(5, 24 * 9); // la semana pasada
+  it("no cuenta lo que no es chat (un acta de reunión) ni lo de otras personas", async () => {
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPOS.reunionActa, costUsd: 5, date: hace(1) } });
+    await gastar(5, 1, { userId: "otra" });
     await llegaALaIA(await escribir());
   });
 
-  it("las cuentas beta no tienen tope de mensajes, tampoco con las preguntas a reuniones", async () => {
+  it("lo gastado hace más de 5 horas ya no cuenta en la sesión (la semana, con US$1, sigue en 50 %)", async () => {
+    await gastar(1, 6);
+    await llegaALaIA(await escribir());
+  });
+
+  it("las cuentas beta no tienen tope de uso", async () => {
     acceso.mockResolvedValue({ allowed: true, status: "beta" });
-    await preguntasAReuniones(POR_DIA + 5, 1);
+    await gastar(100, 1);
     await llegaALaIA(await escribir());
   });
 
-  it("si no se pueden contar las preguntas, no se tumba el chat: se cuenta solo lo del chat", async () => {
-    await mensajesAlAgente(POR_DIA - 1, 1);
-    vi.spyOn(db.usageRecord, "count").mockRejectedValue(new Error("conexión perdida"));
+  it("si no se puede leer el uso, no se tumba el chat", async () => {
+    await gastar(1, 1);
+    vi.spyOn(db.usageRecord, "findMany").mockRejectedValue(new Error("conexión perdida"));
     await llegaALaIA(await escribir());
   });
 });

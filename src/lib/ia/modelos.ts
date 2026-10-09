@@ -1,9 +1,10 @@
 /**
  * Qué modelo de Claude y qué esfuerzo usa cada función de la app: un solo lugar.
  *
- * Regla del dueño (9 de octubre de 2026):
- *  - El CHAT de los agentes usa Claude Sonnet 5.5.
- *  - TODO lo demás usa Claude Haiku 5.5.
+ * Regla del dueño (actualizada el 15 de octubre de 2026, con el tope de uso por porcentaje):
+ *  - TODO usa Claude Haiku 5.5, con el esfuerzo que corresponde a cada función (y a cada turno del chat).
+ *  - Sonnet 5.5 no se usa por defecto: el chat lo usaría solo si se asigna con `IA_MODELO_AGENTE_CHAT` (o `IA_MODELO_CHAT`),
+ *    porque con el uso real cuesta ~20 veces más por mensaje y casi todo el chat es consulta corta.
  *  - Opus 5.5 no se usa salvo que haga falta de verdad (hoy no se usa en ninguna función; se puede asignar a una con
  *    una variable de entorno, sin desplegar).
  *
@@ -19,7 +20,7 @@
  */
 export type Esfuerzo = "low" | "medium" | "high" | "xhigh" | "max";
 
-export const MODELO_CHAT_POR_DEFECTO = "claude-sonnet-5-5";
+export const MODELO_CHAT_POR_DEFECTO = "claude-haiku-5-5";
 export const MODELO_GENERAL_POR_DEFECTO = "claude-haiku-5-5";
 
 const ESFUERZOS: readonly Esfuerzo[] = ["low", "medium", "high", "xhigh", "max"];
@@ -66,6 +67,23 @@ export function modeloDeFuncion(tipo: string, env: Entorno = process.env): strin
 export function esfuerzoDeFuncion(tipo: string, env: Entorno = process.env): Esfuerzo {
   const pedido = env[`IA_ESFUERZO_${sufijo(tipo)}`]?.trim().toLowerCase();
   return ESFUERZOS.find((e) => e === pedido) ?? ESFUERZO_POR_FUNCION[tipo] ?? ESFUERZO_POR_DEFECTO;
+}
+
+/** Frases que piden análisis, un documento o un cálculo: ahí el chat piensa más. */
+const PIDE_ANALISIS = /\b(analiz|compar|resum|explic|por qu[ée]|proyec|present|detall|paso a paso|redact|borrador|tabla|informe|acta|estrategia|calcul|cu[aá]nto)/i;
+
+/**
+ * Esfuerzo de UN turno del chat. Lo decide el asistente según lo que se pide: un saludo o una confirmación casi no piensan;
+ * una consulta con análisis, un archivo adjunto o un texto largo sí. Si `IA_ESFUERZO_AGENTE_CHAT` está definida, la fija para todos.
+ */
+export function esfuerzoDelTurno(mensaje: string, { adjuntos = 0 }: { adjuntos?: number } = {}, env: Entorno = process.env): Esfuerzo {
+  const fijo = env.IA_ESFUERZO_AGENTE_CHAT?.trim().toLowerCase();
+  const pedido = ESFUERZOS.find((e) => e === fijo);
+  if (pedido) return pedido;
+  const texto = mensaje.trim();
+  if (adjuntos > 0 || texto.length > 600 || PIDE_ANALISIS.test(texto)) return "high";
+  if (texto.length <= 25 && !texto.includes("?")) return "low";
+  return "medium";
 }
 
 export const configDeFuncion = (tipo: string, env: Entorno = process.env) => ({ modelo: modeloDeFuncion(tipo, env), esfuerzo: esfuerzoDeFuncion(tipo, env) });
