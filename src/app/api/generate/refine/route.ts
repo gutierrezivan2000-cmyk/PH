@@ -12,6 +12,7 @@ import { conConsumo, registrarConsumo } from "@/lib/consumo/registrar";
 import { tokensDeAnthropic } from "@/lib/consumo/uso";
 import { configDeFuncion, esErrorDeEsfuerzo, parametroDeEsfuerzo } from "@/lib/ia/modelos";
 import { generatePdfHtml } from "@/lib/documents/pdf-generator";
+import { rateLimit } from "@/lib/rate-limit";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -27,6 +28,13 @@ const MAX_EXTRA_CHARS = 60_000;
 // ~16.384 tokens de salida ≈ 65.000 caracteres. Por encima de esto el modelo
 // no alcanza a devolver el documento completo.
 const MAX_DOC_CHARS = 55_000;
+// La instrucción de una corrección es una frase o un párrafo. Sin tope, una sola podía pasar de 100.000 tokens (el tramo que cuesta
+// 5 veces más) en cada una de las dos llamadas en paralelo.
+const MAX_INSTRUCCION_CHARS = 4_000;
+// 12 correcciones por hora por persona, y 10 por documento (cada una son dos llamadas: informe y acta). Es más de lo que se corrige de
+// verdad un documento; frena los bucles y las ráfagas.
+const MAX_CORRECCIONES_POR_HORA = 12;
+const MAX_LLAMADAS_POR_DOCUMENTO = 20;
 
 const REFINE_SYSTEM_PROMPT = `Eres un asistente de edicion de documentos de Propiedad Horizontal. Tu tarea es corregir o complementar un documento existente segun las instrucciones del usuario.
 
@@ -60,6 +68,12 @@ export async function POST(req: NextRequest) {
     if (!generationId || !instruction?.trim()) {
       return NextResponse.json({ error: "generationId e instruccion requeridos" }, { status: 400 });
     }
+    if (typeof instruction !== "string" || instruction.length > MAX_INSTRUCCION_CHARS) {
+      return NextResponse.json(
+        { error: `La instrucción es muy larga (máximo ${MAX_INSTRUCCION_CHARS.toLocaleString("es-CO")} caracteres). Resúmela, o sube el material como archivo adjunto.` },
+        { status: 400 }
+      );
+    }
 
     // Gate on active plan/trial (refine calls the paid AI too).
     if (!IS_DEMO) {
@@ -75,6 +89,27 @@ export async function POST(req: NextRequest) {
 
     if (blobFiles.length > 10) {
       return NextResponse.json({ error: "Máximo 10 archivos por corrección." }, { status: 400 });
+    }
+
+    if (!IS_DEMO) {
+      const ritmo = await rateLimit(`refine:${session.user.id}`, { max: MAX_CORRECCIONES_POR_HORA, windowMs: 3_600_000 });
+      if (!ritmo.allowed) {
+        return NextResponse.json({ error: "Has pedido muchas correcciones seguidas. Intenta de nuevo en un rato." }, { status: 429 });
+      }
+      try {
+        const { db } = await import("@/lib/db");
+        const llamadas = await db.usageRecord.count({
+          where: { userId: session.user.id, type: TIPOS.correccion, refType: "generacion", refId: generationId },
+        });
+        if (llamadas >= MAX_LLAMADAS_POR_DOCUMENTO) {
+          return NextResponse.json(
+            { error: "Este documento ya se corrigió 10 veces. Descárgalo y edita lo que falte, o genera uno nuevo." },
+            { status: 429 }
+          );
+        }
+      } catch (e) {
+        console.error("[generate/refine] no se pudieron contar las correcciones; se deja pasar", e);
+      }
     }
 
     // Parse any additional uploaded files into text context

@@ -20,6 +20,13 @@ import {
 } from "./transcripcion/claves";
 
 const EN_CURSO = ["pending", "processing"];
+
+/**
+ * Cuántas actas se redactan de una misma reunión: 3. Lo normal es una, o dos si se pide otra con otro enfoque. Cada una de una
+ * reunión larga lee la transcripción completa y puede costar ≈ US$0,4; sin tope, 15 actas de la misma reunión eran ≈ US$6 que el
+ * cupo de generaciones del plan no distingue de 15 informes de texto de US$0,01. El acta ya escrita se corrige con «Corregir documento».
+ */
+export const MAX_ACTAS_POR_REUNION = 3;
 const esObjeto = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** ¿La tarea de calentar dejó la caché escrita? (`false` solo si se sabe que no la dejó.) */
@@ -131,6 +138,16 @@ export async function iniciarActa({
     // Si un corte la dejó sin su primer paso, volver a pedirla la rescata en vez de dejarla esperando a que el cron lo note.
     await avanzarActa(meetingId, enCurso).catch((e) => console.error("[meetings/acta-orquestador] no se pudo avanzar el acta", enCurso, e));
     return { ok: true, generationId: enCurso, yaEnCurso: true };
+  }
+
+  // Tope de actas por reunión (las ya escritas y las en curso; las que fallaron no cuentan).
+  const previas = await db.generation.count({ where: { meetingId, type: "acta", status: { in: [...EN_CURSO, "completed"] } } });
+  if (previas >= MAX_ACTAS_POR_REUNION) {
+    return {
+      ok: false,
+      codigo: "sin_cupo",
+      error: `Esta reunión ya tiene ${MAX_ACTAS_POR_REUNION} actas. Descarga la que mejor quedó y ajústala con «Corregir documento».`,
+    };
   }
 
   // El cupo se mira solo cuando se va a gastar una generación nueva (pedir otra vez la que ya está en curso no gasta nada).

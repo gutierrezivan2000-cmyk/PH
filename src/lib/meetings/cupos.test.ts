@@ -83,6 +83,28 @@ describe("comprobarCupoDeReuniones", () => {
     expect(await comprobar(8)).toMatchObject({ permitido: false });
   });
 
+  it("borrar una reunión ya transcrita NO devuelve sus horas: el audio ya se pagó", async () => {
+    await plan("pro");
+    // Una reunión de 6 h que se transcribió este mes (queda su registro de consumo) y luego se borró: ya no existe como reunión.
+    await db.usageRecord.create({ data: { userId: "u1", type: "reunion_audio", refId: "borrada", tokens: 6 * 3600, date: new Date("2026-10-03T12:00:00Z") } });
+    expect(await comprobar(2)).toMatchObject({ permitido: true, usadoMs: 6 * H, restanMs: 2 * H });
+    expect(await comprobar(3)).toMatchObject({ permitido: false });
+  });
+
+  it("una reunión que sigue existiendo no se cuenta dos veces (la reunión y su registro de consumo)", async () => {
+    await plan("pro");
+    await reunion("viva", 3);
+    await db.usageRecord.create({ data: { userId: "u1", type: "reunion_audio", refId: "viva", tokens: 3 * 3600, date: new Date("2026-10-05T12:00:00Z") } });
+    expect(await comprobar(1)).toMatchObject({ permitido: true, usadoMs: 3 * H });
+  });
+
+  it("el consumo de otra persona o de otro mes no entra en la cuenta", async () => {
+    await plan("pro");
+    await db.usageRecord.create({ data: { userId: "otra", type: "reunion_audio", refId: "x", tokens: 8 * 3600, date: new Date("2026-10-03T12:00:00Z") } });
+    await db.usageRecord.create({ data: { userId: "u1", type: "reunion_audio", refId: "y", tokens: 8 * 3600, date: new Date("2026-09-20T12:00:00Z") } });
+    expect(await comprobar(8)).toMatchObject({ permitido: true, usadoMs: 0 });
+  });
+
   it("con todo el cupo usado lo dice así", async () => {
     await plan("pro");
     await reunion("a", 8);

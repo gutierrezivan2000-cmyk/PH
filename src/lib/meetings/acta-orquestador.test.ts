@@ -8,7 +8,7 @@ vi.mock("@/lib/db", () => ({ get db() { return fake.db; } }));
 
 import { planificarSecciones, type SeccionDeActa } from "./acta";
 import {
-  avanzarActa, avanzarActasEnCurso, cacheCalentada, iniciarActa, planificarSiguientesDeActa, reanudarActa, type TareaDeActa,
+  MAX_ACTAS_POR_REUNION, avanzarActa, avanzarActasEnCurso, cacheCalentada, iniciarActa, planificarSiguientesDeActa, reanudarActa, type TareaDeActa,
 } from "./acta-orquestador";
 import { FUTURO_LEJANO, fallar, reintentarFallidas } from "./cola";
 import { DURACION_SEPTIEMBRE_MS, FICHA_SEPTIEMBRE, construirIntervenciones } from "./demo-datos";
@@ -151,6 +151,23 @@ describe("iniciarActa", () => {
     const secciones = (db.meetingTask.filas[0].payload as { secciones: SeccionDeActa[] }).secciones;
     expect(secciones.length).toBeGreaterThan(1);
     expect(secciones[0].titulo).toMatch(/^Parte 1/);
+  });
+
+  it("a la tercera acta ya escrita, la cuarta se rechaza (las que fallaron no cuentan)", async () => {
+    await sembrarReunion();
+    for (let i = 0; i < MAX_ACTAS_POR_REUNION - 1; i++) {
+      await db.generation.create({ data: { userId: "u1", type: "acta", status: "completed", meetingId: ID } });
+    }
+    await db.generation.create({ data: { userId: "u1", type: "acta", status: "failed", meetingId: ID } });
+    // Con dos escritas y una fallida todavía cabe otra…
+    const tercera = await iniciarActa({ meetingId: ID, userId: "u1" });
+    expect(tercera).toMatchObject({ ok: true, yaEnCurso: false });
+    // …pero ya con tres (dos escritas y una en curso) no.
+    const generationId = (tercera as { generationId: string }).generationId;
+    await db.generation.updateMany({ where: { id: generationId }, data: { status: "completed" } });
+    const cuarta = await iniciarActa({ meetingId: ID, userId: "u1" });
+    expect(cuarta).toMatchObject({ ok: false, codigo: "sin_cupo" });
+    expect((cuarta as { error: string }).error).toContain("ya tiene 3 actas");
   });
 
   it("rechaza lo que no se puede: otra persona, una reunión que aún se procesa o una sin transcripción", async () => {

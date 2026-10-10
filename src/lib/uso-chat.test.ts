@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estadoDeUso, inicioDelDiaBogota, LIMITE_DEL_ASISTENTE_DEL_PORTAL, mensajeDeAgotado, nivelDeAviso, periodoMensualBogota, topeDelAsistenteDelPortal } from "./uso-chat";
+import { estadoDeUso, inicioDelDiaBogota, LIMITES_DEL_ASISTENTE_DEL_PORTAL, limitesDelAsistenteDelPortal, mensajeDeAgotado, nivelDeAviso, periodoMensualBogota, topeDelAsistenteDelPortal } from "./uso-chat";
 
 const ahora = new Date("2026-10-15T15:00:00Z");
 const periodo = periodoMensualBogota(ahora);
@@ -105,14 +105,28 @@ describe("mensajeDeAgotado", () => {
   });
 });
 
-describe("asistente del reglamento (portal de residentes): tope por administrador", () => {
+describe("asistente del reglamento (portal de residentes): tope por administrador y por plan", () => {
+  const pro = LIMITES_DEL_ASISTENTE_DEL_PORTAL.pro;
+
   it("sin preguntas, puede preguntar", () => {
-    expect(topeDelAsistenteDelPortal({ hoy: 0, mes: 0 })).toBeNull();
+    expect(topeDelAsistenteDelPortal({ hoy: 0, mes: 0 }, pro)).toBeNull();
   });
 
   it("al llegar al tope del día, no puede; el tope del mes también corta", () => {
-    expect(topeDelAsistenteDelPortal({ hoy: LIMITE_DEL_ASISTENTE_DEL_PORTAL.porDia, mes: 10 })).toContain("hoy");
-    expect(topeDelAsistenteDelPortal({ hoy: 1, mes: LIMITE_DEL_ASISTENTE_DEL_PORTAL.porMes })).toContain("este mes");
+    expect(topeDelAsistenteDelPortal({ hoy: pro.porDia, mes: 10 }, pro)).toContain("hoy");
+    expect(topeDelAsistenteDelPortal({ hoy: 1, mes: pro.porMes }, pro)).toContain("este mes");
+  });
+
+  it("el tope sube con el plan: 300 al mes en Pro, 600 en Business y 1.000 en Élite", () => {
+    expect([limitesDelAsistenteDelPortal("pro").porMes, limitesDelAsistenteDelPortal("business").porMes, limitesDelAsistenteDelPortal("elite").porMes]).toEqual([300, 600, 1000]);
+    // 300 preguntas ya cortan a Pro, pero no a Business.
+    expect(topeDelAsistenteDelPortal({ hoy: 1, mes: 300 }, limitesDelAsistenteDelPortal("pro"))).not.toBeNull();
+    expect(topeDelAsistenteDelPortal({ hoy: 1, mes: 300 }, limitesDelAsistenteDelPortal("business"))).toBeNull();
+  });
+
+  it("las cuentas beta y la fase de pruebas (sin plan) llevan un techo de seguridad, no ninguno", () => {
+    expect(limitesDelAsistenteDelPortal(null)).toEqual({ porDia: 120, porMes: 1200 });
+    expect(topeDelAsistenteDelPortal({ hoy: 120, mes: 1 }, limitesDelAsistenteDelPortal(null))).not.toBeNull();
   });
 
   it("el día que cuenta es el de Bogotá: a las 8 p. m. ya es el mismo día, no el siguiente", () => {

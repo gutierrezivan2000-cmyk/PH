@@ -5,7 +5,7 @@ vi.mock("@/lib/db", () => ({ get db() { return fake.db; } }));
 vi.mock("@/lib/usage", () => ({ checkSubscriptionAccess: (...a: unknown[]) => acceso(...a) }));
 
 import { TIPOS } from "@/lib/consumo/funciones";
-import { comprobarCupoDePreguntas, TIPO_DE_USO_PREGUNTA } from "./cupo-preguntas";
+import { comprobarCupoDePreguntas, MAX_PREGUNTAS_POR_DIA_SIN_PLAN, TIPO_DE_USO_PREGUNTA } from "./cupo-preguntas";
 import { crearDbFalsa, type DbFalsa } from "./db-falsa";
 
 const H = 3_600_000;
@@ -40,6 +40,22 @@ describe("comprobarCupoDePreguntas: «Preguntar» usa el mismo uso del chat", ()
       await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 100, date: hace(1) } });
       expect(await comprobarCupoDePreguntas("u1", AHORA)).toMatchObject({ permitido: true, ilimitado: true, mensaje: null });
     }
+  });
+
+  it("las cuentas beta y la fase de pruebas llevan un techo de seguridad de 60 preguntas al día", async () => {
+    acceso.mockResolvedValue({ allowed: true, status: "testing" });
+    for (let i = 0; i < MAX_PREGUNTAS_POR_DIA_SIN_PLAN - 1; i++) await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 0.01, date: hace(1) } });
+    expect(await comprobarCupoDePreguntas("u1", AHORA)).toMatchObject({ permitido: true, ilimitado: true });
+    await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 0.01, date: hace(1) } });
+    const c = await comprobarCupoDePreguntas("u1", AHORA);
+    expect(c.permitido).toBe(false);
+    expect(c.mensaje).toContain("60 preguntas de hoy");
+  });
+
+  it("las preguntas de ayer no cuentan para el techo de hoy", async () => {
+    acceso.mockResolvedValue({ allowed: true, status: "testing" });
+    for (let i = 0; i < 70; i++) await db.usageRecord.create({ data: { userId: "u1", type: TIPO_DE_USO_PREGUNTA, costUsd: 0.01, date: hace(30) } });
+    expect((await comprobarCupoDePreguntas("u1", AHORA)).permitido).toBe(true);
   });
 
   it("con el uso agotado (la sesión de 5 h), no deja preguntar y dice cuándo vuelve", async () => {

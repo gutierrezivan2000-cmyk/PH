@@ -4,6 +4,13 @@
 
 const MAX_TOTAL_CHARS = 45000; // keep the prompt within budget
 
+// Leer un documento por primera vez gasta IA (fotos, PDF escaneado) y lo paga la administración desde una pregunta de un residente
+// (endpoint público). Se acota: hasta 8 documentos, hasta 3 sin leer por llamada (los demás se leen en las siguientes preguntas,
+// porque el texto se guarda), nada de audios y nada de archivos de más de 15 MB. Un reglamento real es uno o dos documentos.
+const MAX_DOCUMENTOS = 8;
+const MAX_LECTURAS_NUEVAS_POR_LLAMADA = 3;
+const MAX_BYTES_DE_DOCUMENTO = 15 * 1024 * 1024;
+
 /**
  * Los lectores de archivos no lanzan cuando fallan: devuelven un marcador entre corchetes («[Imagen: foto.jpg — error al
  * analizar: …]»). Eso NO es el reglamento: no se guarda ni se le entrega a la IA, o la copropiedad se quedaría respondiendo
@@ -48,19 +55,25 @@ export async function getReglamentoText(propertyId: string): Promise<string> {
   const docs = await db.propertyDocument.findMany({
     where: { propertyId, type: { in: ["reglamento_interno", "manual_convivencia", "otro"] } },
     orderBy: { createdAt: "asc" },
-    select: { id: true, name: true, url: true, mimeType: true, extractedText: true },
+    select: { id: true, name: true, url: true, mimeType: true, size: true, extractedText: true },
   });
   if (docs.length === 0) return "";
 
   const parts: string[] = [];
   let total = 0;
+  let lecturasNuevas = 0;
+  const { detectFileType } = await import("@/lib/parsers");
 
-  for (const doc of docs) {
+  for (const doc of docs.slice(0, MAX_DOCUMENTOS)) {
     if (total >= MAX_TOTAL_CHARS) break;
 
     // Un texto guardado que en realidad es un marcador de fallo (de antes de este arreglo) se vuelve a leer.
     let text = doc.extractedText && !esLecturaFallida(doc.extractedText) ? doc.extractedText : "";
     if (!text) {
+      // Un audio o un archivo enorme no es un reglamento que valga la pena leer aquí.
+      if (detectFileType(doc.name, doc.mimeType || "") === "audio" || doc.size > MAX_BYTES_DE_DOCUMENTO) continue;
+      if (lecturasNuevas >= MAX_LECTURAS_NUEVAS_POR_LLAMADA) continue;
+      lecturasNuevas++;
       const buf = await fetchBlob(doc.url);
       if (!buf) continue;
       try {

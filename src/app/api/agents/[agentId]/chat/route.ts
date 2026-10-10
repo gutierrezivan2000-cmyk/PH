@@ -25,8 +25,26 @@ import { contextoOperativo } from "@/lib/agentes/briefing-datos";
 import { HERRAMIENTAS_OPERACION, ejecutarOperacion, esHerramientaDeOperacion } from "@/lib/agentes/herramientas";
 import { modulosDeLaCuenta } from "@/lib/modulos-acceso";
 import { parseAttachments, seTranscribe, type ParsedAttachment } from "@/lib/parse-attachment";
+import { rateLimit } from "@/lib/rate-limit";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
+
+/**
+ * Topes de seguridad del chat: valen para todas las cuentas (también beta y fase de pruebas) y están muy por encima de lo que hace una
+ * persona de verdad; solo frenan abusos y ráfagas.
+ *  - 5 adjuntos por mensaje: lo mismo que la interfaz. El servidor no lo asumía y una petición directa podía mandar cientos.
+ *  - 12.000 caracteres de mensaje.
+ *  - 12 mensajes por minuto: una persona no escribe más de ~6; frena scripts y mensajes en paralelo.
+ *  - 4 vueltas con herramientas (consultar, consultar, archivo o acción, respuesta), 4 herramientas por vuelta y 2 archivos por mensaje.
+ *  - 25 archivos generados por día.
+ */
+const MAX_ADJUNTOS = 5;
+const MAX_CARACTERES_DE_MENSAJE = 12_000;
+const MAX_MENSAJES_POR_MINUTO = 12;
+const MAX_DE_VUELTAS = 4;
+const MAX_HERRAMIENTAS_POR_VUELTA = 4;
+const MAX_ARCHIVOS_POR_MENSAJE = 2;
+const MAX_ARCHIVOS_POR_DIA = 25;
 
 type ContentBlock =
   | { type: "text"; text: string }
@@ -93,6 +111,12 @@ export async function POST(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
+    if (!IS_DEMO) {
+      const ritmo = await rateLimit(`chat:${session.user.id}`, { max: MAX_MENSAJES_POR_MINUTO, windowMs: 60_000 });
+      if (!ritmo.allowed) {
+        return NextResponse.json({ error: "Vas muy rápido: espera unos segundos e inténtalo de nuevo." }, { status: 429 });
+      }
+    }
 
     step = "validate-agent";
     const { agentId } = await params;
@@ -158,7 +182,7 @@ export async function POST(
 
     step = "parse-body";
     const body = await req.json();
-    const { chatId: existingChatId, message, attachments: reqAttachments, history: demoHistory, propertyId: propiedadPedida } = body as {
+    const { chatId: existingChatId, message, attachments: adjuntosCrudos, history: demoHistory, propertyId: propiedadPedida } = body as {
       chatId?: string;
       /** La copropiedad en foco de la conversación (si no viene, se usa la guardada en el chat, o la única que tenga). */
       propertyId?: string;
@@ -171,6 +195,13 @@ export async function POST(
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "El mensaje es requerido" }, { status: 400 });
     }
+    if (message.length > MAX_CARACTERES_DE_MENSAJE) {
+      return NextResponse.json({ error: `Tu mensaje es muy largo (máximo ${MAX_CARACTERES_DE_MENSAJE.toLocaleString("es-CO")} caracteres): adjúntalo como archivo.` }, { status: 400 });
+    }
+    // Sin repetidos (la misma URL pegaría su texto varias veces) y con el mismo tope que la interfaz.
+    const reqAttachments = Array.isArray(adjuntosCrudos)
+      ? [...new Map(adjuntosCrudos.filter((a) => a && typeof a.url === "string").map((a) => [a.url, a])).values()].slice(0, MAX_ADJUNTOS)
+      : undefined;
 
     step = "check-api-key";
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -677,9 +708,8 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
             // El esfuerzo se decide por turno: un saludo casi no piensa; un análisis o un adjunto, sí.
             const esfuerzoDelMensaje = esfuerzoDelTurno(message, { adjuntos: Array.isArray(reqAttachments) ? reqAttachments.length : 0 });
 
-            // Dos vueltas: una para pedir el archivo y otra para comentarlo. Más
-            // vueltas solo alargarían la espera sin aportar.
-            const MAX_DE_VUELTAS = 6;
+            // Hasta MAX_DE_VUELTAS vueltas: consultar datos, pedir un archivo o una acción y la respuesta final (la última no admite
+            // herramientas). El caso normal usa 2 o 3; más vueltas solo alargarían la espera y repetirían el historial en la entrada.
             for (let vuelta = 0; vuelta < MAX_DE_VUELTAS; vuelta++) {
               stream = anthropic.messages.stream({
                 model: configChat.modelo,
@@ -731,7 +761,14 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
               mensajes.push({ role: "assistant", content: respuesta.content });
 
               const resultados: Anthropic.ToolResultBlockParam[] = [];
+              let atendidas = 0;
               for (const llamada of llamadas) {
+                // Cada tool_use necesita su resultado: las que pasan del tope se contestan con un error que le dice al modelo qué hacer.
+                if (atendidas >= MAX_HERRAMIENTAS_POR_VUELTA) {
+                  resultados.push({ type: "tool_result", tool_use_id: llamada.id, is_error: true, content: `Máximo ${MAX_HERRAMIENTAS_POR_VUELTA} herramientas por vuelta: pide el resto en el siguiente mensaje.` });
+                  continue;
+                }
+                atendidas++;
                 // Aviso en vivo: generar y subir un archivo tarda varios segundos
                 // y sin esto la pantalla se queda muda a mitad de la respuesta.
                 controller.enqueue(
@@ -749,6 +786,17 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
                     controller.enqueue(encoder.encode(`event: accion\ndata: ${JSON.stringify(r.propuesta)}\n\n`));
                   }
                   resultados.push({ type: "tool_result", tool_use_id: llamada.id, is_error: r.esError, content: r.texto });
+                  continue;
+                }
+
+                // Archivos: dos por mensaje y 25 al día. Un tercero en el mismo mensaje es raro («Excel + acta» ya son dos).
+                if (archivosGenerados.length >= MAX_ARCHIVOS_POR_MENSAJE) {
+                  resultados.push({ type: "tool_result", tool_use_id: llamada.id, is_error: true, content: `Ya entregaste ${MAX_ARCHIVOS_POR_MENSAJE} archivos en este mensaje: ofrece el resto en el siguiente.` });
+                  continue;
+                }
+                const ritmoDeArchivos = await rateLimit(`chat-file:${userId}`, { max: MAX_ARCHIVOS_POR_DIA, windowMs: 24 * 3_600_000 });
+                if (!ritmoDeArchivos.allowed) {
+                  resultados.push({ type: "tool_result", tool_use_id: llamada.id, is_error: true, content: "Llegaste al máximo de archivos generados por hoy. Dile al usuario que mañana podrá pedir más, o que te pida el contenido en el chat." });
                   continue;
                 }
 

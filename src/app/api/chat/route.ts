@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { TIPOS } from "@/lib/consumo/funciones";
 import { registrarConsumo } from "@/lib/consumo/registrar";
 import { tokensDeOpenAI } from "@/lib/consumo/uso";
+import { rateLimit } from "@/lib/rate-limit";
 
 const WHATSAPP_SUPPORT_URL = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT_URL || "https://wa.me/message/PLACEHOLDER";
 
@@ -80,6 +81,9 @@ interface ChatMessage {
   content: string;
 }
 
+/** El tope del mensaje y de cada turno del historial. Una consulta de soporte cabe de sobra. */
+const MAX_CARACTERES_DE_SOPORTE = 1500;
+
 interface ChatRequestBody {
   message: string;
   history?: ChatMessage[];
@@ -92,11 +96,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    // Una persona de verdad escribe pocas veces por hora: 12 por hora y 40 al día cubren cualquier consulta de soporte.
+    if (process.env.DEMO_MODE !== "true") {
+      const [porHora, porDia] = await Promise.all([
+        rateLimit(`soporte:h:${session.user.id}`, { max: 12, windowMs: 3_600_000 }),
+        rateLimit(`soporte:d:${session.user.id}`, { max: 40, windowMs: 24 * 3_600_000 }),
+      ]);
+      if (!porHora.allowed || !porDia.allowed) {
+        return NextResponse.json({ error: "Has hecho muchas consultas seguidas. Intenta de nuevo en un rato, o escríbenos por WhatsApp." }, { status: 429 });
+      }
+    }
+
     const body = (await req.json()) as ChatRequestBody;
     const { message, history = [] } = body;
 
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return NextResponse.json({ error: "El mensaje es requerido" }, { status: 400 });
+    }
+    if (message.length > MAX_CARACTERES_DE_SOPORTE) {
+      return NextResponse.json({ error: `Tu mensaje es muy largo (máximo ${MAX_CARACTERES_DE_SOPORTE} caracteres). Resúmelo un poco.` }, { status: 400 });
     }
 
     if (!process.env.OPENAI_API_KEY) {
@@ -107,7 +125,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const trimmedHistory = history.slice(-10);
+    // El historial lo manda el navegador: solo los últimos 6 turnos, cada uno acotado, y solo con los roles de una conversación (nada de
+    // «system»), para que una petición manipulada no dispare el costo ni cambie las instrucciones.
+    const trimmedHistory = (Array.isArray(history) ? history : [])
+      .slice(-6)
+      .filter((m) => m && typeof m.content === "string" && (m.role === "user" || m.role === "assistant"))
+      .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_CARACTERES_DE_SOPORTE) }));
 
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
       { role: "system", content: SOPHIA_SYSTEM_PROMPT },

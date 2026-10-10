@@ -156,6 +156,16 @@ describe("POST sources (registrar un archivo ya subido)", () => {
     expect(JSON.stringify(a.cuerpo)).not.toMatch(/blob\.vercel-storage|pathname/);
   });
 
+  it("el mismo archivo (mismo nombre y tamaño) subido otra vez con otra ruta se rechaza (409): duplicaría el audio y gastaría el doble de horas", async () => {
+    await nuevaReunion();
+    head.mockResolvedValue({ size: 5000 });
+    expect((await registrarFuente(pedir(cuerpoFuente("aaaaaaa1")), ctx({ id: ID }))).status).toBe(201);
+    const repetido = await json(await registrarFuente(pedir(cuerpoFuente("aaaaaaa2")), ctx({ id: ID })));
+    expect(repetido.status).toBe(409);
+    expect(repetido.cuerpo.error).toBe("Este archivo ya está en la reunión.");
+    expect(db.meetingSource.filas).toHaveLength(1);
+  });
+
   it("es idempotente: si la respuesta se perdió y el cliente reintenta, no se duplica (200)", async () => {
     await nuevaReunion();
     head.mockResolvedValue({ size: 5000 });

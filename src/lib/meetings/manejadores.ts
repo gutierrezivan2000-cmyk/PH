@@ -18,6 +18,7 @@ import { actaFinalTarea, calentarActaTarea, seccionDeActaTarea } from "./acta-ta
 import { analizarBloqueTarea, fichaTarea } from "./analisis";
 import { comprobarCupoDeReuniones } from "./cupos";
 import { avanzar } from "./orquestador";
+import { MAX_DURACION_DE_REUNION_MS, formatearDuracion } from "./tipos";
 import { KIND_ACTA_CALENTAR, KIND_ACTA_FINAL, KIND_ACTA_SECCION } from "./transcripcion/claves";
 import { transcribirTramoTarea, unirTarea, vocesTarea } from "./transcripcion/manejadores";
 
@@ -141,10 +142,15 @@ export const armarAudioTarea: Manejador = async ({ tarea, senal, deps }) => {
   // «sin_cupo» (con el motivo) en vez de gastar la transcripción.
   const dueno = await db.meeting.findFirst({ where: { id: tarea.meetingId }, select: { userId: true } });
   const cupo = dueno ? await comprobarCupoDeReuniones(dueno.userId, duracionMs, tarea.meetingId) : null;
-  const sinCupo = cupo !== null && !cupo.permitido;
+  // Además del cupo del plan hay un máximo por reunión que vale para todos: más de 12 h no se transcribe.
+  const demasiadoLarga = duracionMs > MAX_DURACION_DE_REUNION_MS;
+  const sinCupo = demasiadoLarga || (cupo !== null && !cupo.permitido);
+  const motivo = demasiadoLarga
+    ? `Esta reunión dura ${formatearDuracion(duracionMs)} y el máximo por reunión es ${formatearDuracion(MAX_DURACION_DE_REUNION_MS)}: divídela en dos y súbelas por separado.`
+    : cupo?.mensaje ?? null;
   await db.meeting.update({
     where: { id: tarea.meetingId },
-    data: { audioUrl: armado.url, durationMs: duracionMs, ...(sinCupo ? { status: "sin_cupo", stage: null, progress: 0, errorMessage: cupo.mensaje } : {}) },
+    data: { audioUrl: armado.url, durationMs: duracionMs, ...(sinCupo ? { status: "sin_cupo", stage: null, progress: 0, errorMessage: motivo } : {}) },
   });
   return { resultado: { durationMs: armado.durationMs, bytes: armado.bytes, ...(sinCupo ? { sinCupo: true } : {}) } };
 };

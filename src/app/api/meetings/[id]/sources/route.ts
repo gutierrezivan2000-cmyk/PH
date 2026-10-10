@@ -50,6 +50,12 @@ export async function POST(req: NextRequest, { params }: Contexto) {
       return NextResponse.json({ error: `Máximo ${MAX_FUENTES_POR_REUNION} archivos por reunión.` }, { status: 400 });
     }
 
+    // El mismo archivo (mismo nombre y tamaño) dos veces en la misma reunión es casi siempre una subida repetida: duplicaría el audio
+    // (una grabación de 8 h pasaría a ser de 16 h) y gastaría el doble de transcripción y de horas del cupo.
+    if (await db.meetingSource.findFirst({ where: { meetingId: id, name: nombre, sizeBytes: tamano }, select: { id: true } })) {
+      return NextResponse.json({ error: "Este archivo ya está en la reunión." }, { status: 409 });
+    }
+
     const { head } = await import("@vercel/blob");
     let almacenado: { size: number };
     try {

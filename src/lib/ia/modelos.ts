@@ -71,8 +71,11 @@ export function esfuerzoDeFuncion(tipo: string, env: Entorno = process.env): Esf
   return ESFUERZOS.find((e) => e === pedido) ?? ESFUERZO_POR_FUNCION[tipo] ?? ESFUERZO_POR_DEFECTO;
 }
 
-/** Frases que piden análisis, un documento o un cálculo: ahí el chat piensa más. */
-const PIDE_ANALISIS = /\b(analiz|compar|resum|explic|por qu[ée]|proyec|present|detall|paso a paso|redact|borrador|tabla|informe|acta|estrategia|calcul|cu[aá]nto)/i;
+/**
+ * Frases que piden análisis o redactar un documento: ahí el chat piensa más. Preguntar «¿cuánto debe…?», «resume…» o «explica…» NO
+ * entra: la respuesta sale de las herramientas con los datos reales y pensar más solo la encarece.
+ */
+const PIDE_ANALISIS = /\b(analiz|compar|proyec|redact|borrador|informe|acta|estrategia)/i;
 
 /**
  * Esfuerzo de UN turno del chat. Lo decide el asistente según lo que se pide: un saludo o una confirmación casi no piensan;

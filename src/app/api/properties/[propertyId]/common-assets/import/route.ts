@@ -48,6 +48,11 @@ export async function POST(
       { status: 413 }
     );
   }
+  // Un listado no es una grabación: un audio aquí se transcribiría (y se pagaría) para nada.
+  const { detectFileType } = await import("@/lib/parsers");
+  if (detectFileType(file.name, file.type) === "audio") {
+    return NextResponse.json({ error: "Este archivo es un audio. Sube un Excel, CSV, PDF o Word con el listado." }, { status: 400 });
+  }
 
   const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -72,9 +77,10 @@ export async function POST(
     }
 
     const { rateLimit } = await import("@/lib/rate-limit");
-    const rl = await rateLimit(`assets-import:${session.user.id}`, { max: 20, windowMs: 60 * 60 * 1000 });
-    if (!rl.allowed) {
-      return NextResponse.json({ error: "Alcanzaste el límite de importaciones por hora. Intenta más tarde." }, { status: 429 });
+    const rl = await rateLimit(`assets-import:${session.user.id}`, { max: 10, windowMs: 60 * 60 * 1000 });
+    const rlDia = await rateLimit(`assets-import-dia:${session.user.id}`, { max: 30, windowMs: 24 * 60 * 60 * 1000 });
+    if (!rl.allowed || !rlDia.allowed) {
+      return NextResponse.json({ error: "Alcanzaste el límite de importaciones. Intenta más tarde." }, { status: 429 });
     }
 
     const { parseFile } = await import("@/lib/parsers");

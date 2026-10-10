@@ -52,6 +52,12 @@ export async function generateWithClaude(
   opts: {
     timeoutMs?: number;
     /**
+     * Tope de tokens de la respuesta (cuenta también el pensamiento). Por defecto 20.000, que es lo que necesitan los documentos
+     * largos; las funciones cuya respuesta es corta (una carta, un borrador, una respuesta del portal) pasan uno menor para que una
+     * respuesta desbocada no cueste 10 veces lo normal.
+     */
+    maxTokens?: number;
+    /**
      * Registrar el consumo de esta llamada con esta función (`TIPOS`). El usuario y la operación salen de aquí o del contexto
      * (`conConsumo`). Sin esto, quien llama registra por su cuenta.
      */
@@ -69,7 +75,7 @@ export async function generateWithClaude(
     // permite sin streaming.
     const peticion = {
       model: modelo,
-      max_tokens: 20_000,
+      max_tokens: opts.maxTokens ?? 20_000,
         // Cache the (stable, ~3.4k-token) system prompt so repeat generations —
         // including across users within the cache window — don't re-pay input
         // cost for it. The per-request user content stays uncached.

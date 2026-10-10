@@ -148,12 +148,16 @@ export async function POST(req: NextRequest) {
 
     // Detalle cargo por cargo, descontando el crédito a favor FIFO: así la lista suma lo mismo que la deuda total.
     const pendientes = pendientesDespuesDelCredito(charges, paymentsAgg._sum.amount || 0);
+    // Una carta con más de 60 conceptos ya no se lee: se listan los 60 más antiguos y se dice cuántos faltan (el total sí es completo).
+    const MAX_CONCEPTOS_EN_CARTA = 60;
+    const restantes = Math.max(0, pendientes.length - MAX_CONCEPTOS_EN_CARTA);
     const openList = pendientes
+      .slice(0, MAX_CONCEPTOS_EN_CARTA)
       .map((c) => {
         const fecha = new Date(c.dueDate).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
         return `- ${c.concept}: ${fmtCOP(c.pendiente)} (${estaVencidoEl(c.dueDate) ? "venció" : "vence"} el ${fecha})`;
       })
-      .join("\n");
+      .join("\n") + (restantes > 0 ? `\n- …y ${restantes} conceptos más (incluidos en la deuda total)` : "");
 
     const { generateWithClaude } = await import("@/lib/ai-client");
     const system = `Eres Metra, la analista financiera de SOPH.IA para Propiedad Horizontal en Colombia, redactando una carta de cobro de expensas de administración.
@@ -176,7 +180,7 @@ En mora (vencido): ${fmtCOP(summary.overdueAmount)} — ${summary.overdueDays} d
 Detalle de conceptos pendientes:
 ${openList || "- (sin detalle)"}`;
 
-    const { text } = await generateWithClaude(system, user, undefined, { timeoutMs: 25_000, consumo: { tipo: "carta_cobro", userId, ref: null } }); // 25s x2 intentos = 50s < maxDuration 60
+    const { text } = await generateWithClaude(system, user, undefined, { timeoutMs: 25_000, maxTokens: 4_000, consumo: { tipo: "carta_cobro", userId, ref: null } }); // 25s x2 intentos = 50s < maxDuration 60
 
     let letterSubject = `Estado de su cuenta — ${unit.property.name}`;
     let letterContent = text.trim();

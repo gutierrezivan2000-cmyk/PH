@@ -3,10 +3,11 @@
  * los agentes (ver `uso-chat-servidor.ts`). Sin tope para las cuentas beta y mientras dure la fase de pruebas (`OPEN_TESTING`).
  * Una falla al consultar NO bloquea: se deja pasar y se registra, como el resto de los topes de la plataforma.
  */
+import { db } from "@/lib/db";
 import { TIPOS } from "@/lib/consumo/funciones";
 import { checkSubscriptionAccess } from "@/lib/usage";
 import { usoDelChat } from "@/lib/uso-chat-servidor";
-import { mensajeDeAgotado } from "@/lib/uso-chat";
+import { inicioDelDiaBogota, mensajeDeAgotado } from "@/lib/uso-chat";
 
 /** El tipo con que se registra cada pregunta (su costo y sus tokens quedan en `UsageRecord`). */
 export const TIPO_DE_USO_PREGUNTA = TIPOS.reunionPregunta;
@@ -21,6 +22,12 @@ export type CupoDePreguntas = {
   mensaje: string | null;
 };
 
+/**
+ * Las cuentas beta y la fase de pruebas no tienen porcentaje de uso, pero una pregunta sobre una reunión larga puede costar hasta
+ * ≈ US$0,15 (la transcripción completa va delante en cada una): llevan un techo de seguridad de 60 preguntas al día.
+ */
+export const MAX_PREGUNTAS_POR_DIA_SIN_PLAN = 60;
+
 const SIN_TOPE: CupoDePreguntas = { permitido: true, ilimitado: true, porcentajeRestante: null, mensaje: null };
 
 export async function comprobarCupoDePreguntas(userId: string, ahora: Date = new Date()): Promise<CupoDePreguntas> {
@@ -31,7 +38,13 @@ export async function comprobarCupoDePreguntas(userId: string, ahora: Date = new
     }
     const uso = await usoDelChat(userId, ahora);
     if (!uso) return { permitido: true, ilimitado: false, porcentajeRestante: null, mensaje: null };
-    if (uso.ilimitado) return SIN_TOPE;
+    if (uso.ilimitado) {
+      const hoy = await db.usageRecord.count({ where: { userId, type: TIPO_DE_USO_PREGUNTA, date: { gte: inicioDelDiaBogota(ahora) } } });
+      if (hoy >= MAX_PREGUNTAS_POR_DIA_SIN_PLAN) {
+        return { permitido: false, ilimitado: true, porcentajeRestante: null, mensaje: `Llegaste al máximo de ${MAX_PREGUNTAS_POR_DIA_SIN_PLAN} preguntas de hoy a tus reuniones. Intenta mañana.` };
+      }
+      return SIN_TOPE;
+    }
     if (uso.estado.agotado) {
       return { permitido: false, ilimitado: false, porcentajeRestante: 0, mensaje: mensajeDeAgotado(uso.estado, ahora) };
     }

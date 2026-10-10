@@ -7,6 +7,7 @@
  * (su duración), no de un contador aparte: así reintentar o reprocesar nunca cuenta dos veces.
  */
 import { db } from "@/lib/db";
+import { TIPOS } from "@/lib/consumo/funciones";
 import { PLANS, TRIAL_LIMITS } from "@/lib/epayco";
 import { normalizePlanId } from "@/lib/plan";
 import { checkSubscriptionAccess } from "@/lib/usage";
@@ -64,9 +65,15 @@ async function limiteDeHorasMs(userId: string, prueba: boolean): Promise<number>
 
 /**
  * Las horas que ya consumió: las de sus reuniones con audio y duración, de este mes (o de toda la prueba), sin las que esperan
- * cupo. `excluirReunionId` es la que se está evaluando: su propia duración no cuenta como consumida.
+ * cupo, MÁS las de reuniones que ya transcribió y luego borró. `excluirReunionId` es la que se está evaluando: su propia duración
+ * no cuenta como consumida.
+ *
+ * Lo borrado cuenta porque la transcripción ya se pagó: si borrar devolviera las horas, se podía subir, procesar, borrar y repetir
+ * sin fin dentro de un mismo cupo. Queda en el registro de consumo (`reunion_audio`, con los segundos y el id de la reunión), que
+ * no se borra con la reunión.
  */
 async function consumidoMs(userId: string, prueba: boolean, ahora: Date, excluirReunionId?: string): Promise<number> {
+  const inicio = prueba ? null : inicioDeMes(ahora);
   const suma = await db.meeting.aggregate({
     where: {
       userId,
@@ -74,11 +81,24 @@ async function consumidoMs(userId: string, prueba: boolean, ahora: Date, excluir
       audioUrl: { not: null },
       status: { not: "sin_cupo" },
       ...(excluirReunionId ? { id: { not: excluirReunionId } } : {}),
-      ...(prueba ? {} : { createdAt: { gte: inicioDeMes(ahora) } }),
+      ...(inicio ? { createdAt: { gte: inicio } } : {}),
     },
     _sum: { durationMs: true },
   });
-  return suma._sum.durationMs ?? 0;
+  const vivasMs = suma._sum.durationMs ?? 0;
+
+  const registros = await db.usageRecord.findMany({
+    where: { userId, type: TIPOS.reunionAudio, ...(inicio ? { date: { gte: inicio } } : {}) },
+    select: { refId: true, tokens: true },
+  });
+  const ids = registros.map((r: { refId: string | null }) => r.refId).filter((id: string | null): id is string => !!id && id !== excluirReunionId);
+  if (ids.length === 0) return vivasMs;
+  const existentes = await db.meeting.findMany({ where: { userId, id: { in: ids } }, select: { id: true } });
+  const siguenVivas = new Set(existentes.map((m: { id: string }) => m.id));
+  const borradasMs = registros
+    .filter((r: { refId: string | null }) => !!r.refId && r.refId !== excluirReunionId && !siguenVivas.has(r.refId))
+    .reduce((s: number, r: { tokens: number | null }) => s + (r.tokens ?? 0) * 1000, 0);
+  return vivasMs + borradasMs;
 }
 
 /** Las horas de reuniones tal como se le muestran a la persona: lo usado, el tope y lo que queda. */

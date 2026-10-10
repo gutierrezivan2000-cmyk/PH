@@ -155,18 +155,30 @@ export function inicioDelDiaBogota(ahora: Date): Date {
 
 /**
  * El asistente del reglamento que usan los residentes lo paga la administración dueña de la copropiedad, y el residente no tiene
- * cuenta: se topa por administrador (cada pregunta queda como `UsageRecord` de esa cuenta).
+ * cuenta: se topa por administrador (cada pregunta queda como `UsageRecord` de esa cuenta). Los residentes crecen con el tamaño de
+ * la administración, así que el tope sube con el plan. Una pregunta cuesta ≈ US$0,002.
  */
-export const LIMITE_DEL_ASISTENTE_DEL_PORTAL = { porDia: 100, porMes: 1000 } as const;
+export type LimitesDelAsistenteDelPortal = { porDia: number; porMes: number };
+
+export const LIMITES_DEL_ASISTENTE_DEL_PORTAL: Readonly<Record<"pro" | "business" | "elite" | "sinPlan", LimitesDelAsistenteDelPortal>> = {
+  pro: { porDia: 40, porMes: 300 },
+  business: { porDia: 80, porMes: 600 },
+  elite: { porDia: 120, porMes: 1000 },
+  // Cuentas beta y fase de pruebas: no tienen plan, pero sí un techo de seguridad (no quedan sin ningún límite).
+  sinPlan: { porDia: 120, porMes: 1200 },
+};
+
+export function limitesDelAsistenteDelPortal(plan: "pro" | "business" | "elite" | null): LimitesDelAsistenteDelPortal {
+  return LIMITES_DEL_ASISTENTE_DEL_PORTAL[plan ?? "sinPlan"];
+}
 
 /** El mensaje si ya se llegó al tope, o null si todavía se puede preguntar. */
-export function topeDelAsistenteDelPortal(preguntas: { hoy: number; mes: number }): string | null {
-  if (preguntas.hoy >= LIMITE_DEL_ASISTENTE_DEL_PORTAL.porDia) {
+export function topeDelAsistenteDelPortal(preguntas: { hoy: number; mes: number }, limites: LimitesDelAsistenteDelPortal): string | null {
+  if (preguntas.hoy >= limites.porDia) {
     return "La administración de esta copropiedad llegó hoy al límite de preguntas al asistente del reglamento. Intenta mañana o escribe a la administración.";
   }
-  if (preguntas.mes >= LIMITE_DEL_ASISTENTE_DEL_PORTAL.porMes) {
+  if (preguntas.mes >= limites.porMes) {
     return "La administración de esta copropiedad llegó este mes al límite de preguntas al asistente del reglamento. Escribe a la administración.";
   }
   return null;
 }
-

@@ -5,7 +5,8 @@ import { TIPOS } from "@/lib/consumo/funciones";
 import { conConsumo } from "@/lib/consumo/registrar";
 import { NextRequest, NextResponse } from "next/server";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { inicioDelDiaBogota, periodoMensualBogota, topeDelAsistenteDelPortal } from "@/lib/uso-chat";
+import { inicioDelDiaBogota, limitesDelAsistenteDelPortal, periodoMensualBogota, topeDelAsistenteDelPortal } from "@/lib/uso-chat";
+import { normalizePlanId } from "@/lib/plan";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 const TOKEN_RE = /^[A-Za-z0-9_-]{16,48}$/;
@@ -50,24 +51,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Has hecho muchas preguntas seguidas. Intenta en un rato." }, { status: 429 });
     }
 
-    // Tope por administrador (el que paga): al día y al mes. Las cuentas beta y la fase de pruebas no tienen tope, y si no se
-    // puede contar, no bloquea.
+    // Tope por administrador (el que paga), según su plan: al día y al mes. Las cuentas beta y la fase de pruebas no tienen plan: llevan
+    // un techo de seguridad. Si no se puede contar, no bloquea. Solo cuentan las preguntas (lo que lleva el tipo del asistente), no las
+    // lecturas de las fotos del reglamento.
     const ahora = new Date();
     const periodo = periodoMensualBogota(ahora);
-    const { checkSubscriptionAccess } = await import("@/lib/usage");
-    const acceso = await checkSubscriptionAccess(unit.property.userId).catch(() => null);
-    const sinTope = acceso !== null && (acceso.status === "beta" || acceso.status === "testing");
-    // Solo cuentan las preguntas (lo que lleva el tipo del asistente), no las lecturas de las fotos del reglamento.
-    const contar = (desde: Date) =>
-      db.usageRecord.count({ where: { userId: unit.property.userId, type: TIPOS.portalAsistente, date: { gte: desde } } });
-    const tope = sinTope
-      ? null
-      : await Promise.all([contar(inicioDelDiaBogota(ahora)), contar(periodo.inicio)])
-          .then(([hoy, mes]) => topeDelAsistenteDelPortal({ hoy, mes }))
-          .catch((e) => {
-            console.error("[portal assistant] no se pudo contar el uso; se deja pasar", e);
-            return null;
-          });
+    const tope = await (async () => {
+      try {
+        const { checkSubscriptionAccess } = await import("@/lib/usage");
+        const acceso = await checkSubscriptionAccess(unit.property.userId);
+        const sinPlan = acceso.status === "beta" || acceso.status === "testing";
+        const sub = sinPlan ? null : await db.subscription.findUnique({ where: { userId: unit.property.userId }, select: { planId: true } });
+        const limites = limitesDelAsistenteDelPortal(sinPlan ? null : normalizePlanId(sub?.planId));
+        const contar = (desde: Date) =>
+          db.usageRecord.count({ where: { userId: unit.property.userId, type: TIPOS.portalAsistente, date: { gte: desde } } });
+        const [hoy, mes] = await Promise.all([contar(inicioDelDiaBogota(ahora)), contar(periodo.inicio)]);
+        return topeDelAsistenteDelPortal({ hoy, mes }, limites);
+      } catch (e) {
+        console.error("[portal assistant] no se pudo contar el uso; se deja pasar", e);
+        return null;
+      }
+    })();
     if (tope) return NextResponse.json({ error: tope }, { status: 429 });
 
     const { getReglamentoText } = await import("@/lib/reglamento");
@@ -95,6 +99,7 @@ ${reglamento}
 
     const { text } = await generateWithClaude(system, question.trim(), undefined, {
       timeoutMs: 25_000, // 25s x2 intentos = 50s < maxDuration 60
+      maxTokens: 4_000, // una respuesta breve del reglamento; el pensamiento comparte este tope
       // Se carga a la administración dueña de la copropiedad (el residente no tiene cuenta).
       consumo: { tipo: "asistente_reglamento", userId: unit.property.userId, ref: null },
     });

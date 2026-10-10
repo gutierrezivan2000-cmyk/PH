@@ -23,6 +23,9 @@ import { blobRefToFile, runGeneration, type BlobFileRef } from "@/lib/generation
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
+/** Máximo de audio (estimado por tamaño, 1 MB ≈ 1 minuto) que entra en UNA generación de documentos: 5 horas. */
+const MAX_MINUTOS_DE_AUDIO_POR_GENERACION = 300;
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -381,6 +384,14 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     if (audios.length > 0) {
       const { cupoDeAudioMensual } = await import("@/lib/uso-chat-servidor");
       const minutos = Math.max(1, Math.ceil(audios.reduce((s, f) => s + f.size, 0) / (1024 * 1024)));
+      // Techo por generación, para todas las cuentas: unas 5 horas de audio (≈ US$1,8). Las asambleas más largas se graban en Reuniones.
+      if (minutos > MAX_MINUTOS_DE_AUDIO_POR_GENERACION) {
+        await discardBlobs();
+        return NextResponse.json(
+          { error: `Los audios de una generación suman unas ${Math.round(minutos / 60)} horas y el máximo es ${MAX_MINUTOS_DE_AUDIO_POR_GENERACION / 60} h. Para reuniones largas usa Reuniones, o sube el audio por partes.` },
+          { status: 400 }
+        );
+      }
       const cupo = await cupoDeAudioMensual(dbUserId, minutos);
       if (cupo.bloqueado) {
         await discardBlobs();

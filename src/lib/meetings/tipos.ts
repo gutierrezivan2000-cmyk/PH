@@ -194,6 +194,11 @@ export const MAX_MARCADORES = 500;
 export const MAX_NOTA_MARCADOR = 300;
 /** Ninguna marca cae más allá de las 48 h de una reunión. */
 export const MAX_MS_REUNION = 48 * 3_600_000;
+/**
+ * Lo más largo que se transcribe de UNA reunión: 12 h (la de diseño es de 8 h). Vale para todas las cuentas, también beta y fase de
+ * pruebas: sin esto una sola grabación de 48 h o más costaba ≈ US$20 y no había quién la frenara. Más largo, se divide en dos.
+ */
+export const MAX_DURACION_DE_REUNION_MS = 12 * 3_600_000;
 
 /* ════════════════════════════════════════════════════════════════════
    Retención

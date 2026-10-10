@@ -64,6 +64,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 30 al día además de los 10 por hora: un administrador redacta unas pocas circulares al día, no cientos.
+    const rlDia = await rateLimit(`draft-comunicado-dia:${session.user.id}`, { max: 30, windowMs: 24 * 60 * 60 * 1000 });
+    if (!rlDia.allowed) {
+      return NextResponse.json({ error: "Alcanzaste el límite de borradores de hoy. Intenta mañana." }, { status: 429 });
+    }
+
     const { generateWithClaude } = await import("@/lib/ai-client");
 
     const system = `${AGENTS.hermes.systemPrompt}
@@ -75,10 +81,12 @@ Formato de salida OBLIGATORIO:
 - Cuerpo del comunicado (saludo, contenido claro y cordial, despedida y firma "La Administración").
 No agregues nada fuera de ese formato. No uses markdown ni asteriscos.`;
 
-    const user = `Copropiedad: ${propertyName || "la copropiedad"}.
+    // El nombre viene del cuerpo de la petición y entra al prompt: se acota (un nombre de copropiedad no pasa de unos 120 caracteres).
+    const nombre = (typeof propertyName === "string" ? propertyName : "").trim().slice(0, 120);
+    const user = `Copropiedad: ${nombre || "la copropiedad"}.
 Lo que debe comunicar: ${brief.trim()}`;
 
-    const { text } = await generateWithClaude(system, user, undefined, { timeoutMs: 25_000, consumo: { tipo: "comunicado_draft", userId: session.user.id, ref: null } }); // 25s x2 intentos = 50s < maxDuration 60
+    const { text } = await generateWithClaude(system, user, undefined, { timeoutMs: 25_000, maxTokens: 4_000, consumo: { tipo: "comunicado_draft", userId: session.user.id, ref: null } }); // 25s x2 intentos = 50s < maxDuration 60
 
     // Parse "ASUNTO: ..." first line; the rest is the body.
     let subject = "Comunicado de la administración";

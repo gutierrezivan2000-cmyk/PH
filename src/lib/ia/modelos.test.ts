@@ -96,6 +96,8 @@ describe("esfuerzo de cada turno del chat", () => {
 
   it("una pregunta corta o una frase normal va a esfuerzo medio", () => {
     expect(esfuerzoDelTurno("¿Cuál es el saldo del apto 502?", {}, {})).toBe("medium");
+    expect(esfuerzoDelTurno("¿Cuánto debe el apto 502 este mes?", {}, {})).toBe("medium");
+    expect(esfuerzoDelTurno("Explícame cómo funciona el cobro de intereses de mora", {}, {})).toBe("medium");
     expect(esfuerzoDelTurno("Muéstrame la cartera de la torre B de este mes", {}, {})).toBe("medium");
   });
 
