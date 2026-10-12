@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { normalizarCorreo, identificadorReset } from "@/lib/validar-entrada";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const email = (body.email as string | undefined)?.trim().toLowerCase();
-    const token = body.token as string | undefined;
-    const password = body.password as string | undefined;
+    // Mismo formato estricto que register: el correo forma parte del identifier del token ("pwreset:<correo>").
+    const email = normalizarCorreo(body.email);
+    const token = typeof body.token === "string" ? body.token : undefined;
+    const password = typeof body.password === "string" ? body.password : undefined;
 
     if (!email || !token || !password) {
       return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
@@ -18,25 +20,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Esta entrada no tenía freno. El token es de 256 bits (no se adivina), pero
-    // sí se podía inundar la base con comprobaciones. Se limita por IP y no por
-    // correo: así nadie puede bloquear el restablecimiento de otra persona solo
-    // con conocer su correo. failClosed: si la base falla, se deniega.
+    // El token es de 256 bits (no se adivina), pero sí se podía inundar la base con comprobaciones. Se limita por IP y,
+    // además, por correo (tope holgado: 5 por 15 min) para que no se pueda probar sin fin contra una misma cuenta desde
+    // muchas IP. failClosed: si la base falla, se deniega.
     const { rateLimit, clientIp } = await import("@/lib/rate-limit");
     const attempt = await rateLimit(`reset:ip:${clientIp(req)}`, {
       max: 20,
       windowMs: 15 * 60 * 1000,
       failClosed: true,
     });
-    if (!attempt.allowed) {
+    const intentoCorreo = await rateLimit(`reset:email:${email}`, {
+      max: 5,
+      windowMs: 15 * 60 * 1000,
+      failClosed: true,
+    });
+    if (!attempt.allowed || !intentoCorreo.allowed) {
       return NextResponse.json(
         { error: "Demasiados intentos. Espera unos minutos e inténtalo de nuevo." },
         { status: 429 }
       );
     }
 
+    // El token de recuperación siempre son 64 hex (32 bytes). Cualquier otra forma (p. ej. un código de 6 dígitos del
+    // flujo de verificación) no puede ser válida: se rechaza sin consultar la base.
+    if (!/^[0-9a-f]{64}$/i.test(token)) {
+      return NextResponse.json(
+        { error: "El enlace es inválido o expiró. Solicita uno nuevo." },
+        { status: 400 }
+      );
+    }
+
     const { db } = await import("@/lib/db");
-    const identifier = `pwreset:${email}`;
+    const identifier = identificadorReset(email);
     const hashed = crypto.createHash("sha256").update(token).digest("hex");
 
     const valid = await db.verificationToken.findFirst({
@@ -60,10 +75,12 @@ export async function POST(req: NextRequest) {
     const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
     await ensureAdminSchema().catch(() => {});
     const updated = await db.user.updateMany({
-      where: { email },
+      // Solo cuentas con contraseña: una cuenta de Google no debe poder recibir contraseña ni emailVerified por esta vía.
+      where: { email, passwordHash: { not: null } },
       data: { passwordHash, emailVerified: new Date(), passwordChangedAt: new Date() },
     });
     if (updated.count === 0) {
+      // Cuenta inexistente o de Google (sin contraseña): se gasta el token y no se cambia nada.
       return NextResponse.json({ error: "Cuenta no encontrada." }, { status: 400 });
     }
 

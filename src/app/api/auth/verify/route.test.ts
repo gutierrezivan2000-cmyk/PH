@@ -101,3 +101,19 @@ describe("POST /api/auth/verify — freno de intentos (el código es de 6 dígit
     expect(rateLimit).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/auth/verify — formato de correo y código", () => {
+  it("un correo con ':' o espacios (p. ej. 'pwreset:…') se rechaza sin consultar tokens", async () => {
+    for (const email of ["pwreset:ana@x.co", "ana@x.co:1", "a na@x.co", 5]) {
+      const r = await POST(peticion({ email, code: CODIGO, password: "mi-clave-nueva" }));
+      expect(r.status).toBe(400);
+    }
+    expect(db.verificationToken.findFirst).not.toHaveBeenCalled();
+    expect(db.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("un código que no es texto responde 400 en vez de reventar", async () => {
+    const r = await POST(peticion({ email: "ana@x.co", code: 123456, password: "mi-clave-nueva" }));
+    expect(r.status).toBe(400);
+  });
+});

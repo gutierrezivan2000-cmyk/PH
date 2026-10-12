@@ -278,7 +278,13 @@ describe("rateLimit — limpieza oportunista de contadores viejos", () => {
 
     expect(db.rateLimit.deleteMany).toHaveBeenCalledTimes(1);
     const { where } = db.rateLimit.deleteMany.mock.calls[0][0];
-    expect(where.windowStart.lt).toEqual(new Date(Date.now() - 7 * DIA));
+    const [cortas, mensuales] = where.OR;
+    expect(cortas.windowStart.lt).toEqual(new Date(Date.now() - 7 * DIA));
+    // Los contadores mensuales de correos NO entran en la purga de 7 días.
+    expect(cortas.NOT).toEqual({ key: { startsWith: "emails:" } });
+    // Se purgan aparte, pasados ~40 días.
+    expect(mensuales.key).toEqual({ startsWith: "emails:" });
+    expect(mensuales.windowStart.lt).toEqual(new Date(Date.now() - 40 * DIA));
   });
 
   it("el borde del 1 % no dispara la limpieza", async () => {

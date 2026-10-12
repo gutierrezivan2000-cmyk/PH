@@ -219,12 +219,25 @@ export type OpcionesNormalizar = {
 /** Cuánto esperar a que ffmpeg cierre limpio tras pedirle que pare, antes de matarlo. */
 const GRACIA_AL_DETENER_MS = 10_000;
 
+/**
+ * Protocolos que ffmpeg puede abrir para UNA entrada. Sin esto, una lista HLS/DASH/concat metida dentro del archivo subido
+ * podría hacer que ffmpeg pida URLs de la red del servidor (SSRF) o lea archivos locales. La entrada normal de esta
+ * plataforma es el servidor HTTP local de `servirFuente` (el propio protocolo de la entrada también debe estar permitido, así
+ * que `file,pipe` a secas la rechazaría: «Protocol 'http' not on whitelist»): para ella solo `http,tcp`, sin `file` ni `pipe`.
+ * Para una entrada que es un archivo o una tubería, solo `file,pipe`.
+ */
+export function protocolosPermitidosDeEntrada(url: string): string {
+  return /^https?:\/\//i.test(url) ? "http,tcp" : "file,pipe";
+}
+
 export function argumentosDeNormalizacion(o: { url: string; desdeMs: number; numeroInicial: number; tramoMs: number; carpeta: string }): string[] {
   return [
     "-hide_banner", "-nostdin", "-nostats", "-loglevel", "info",
     // Entrada por HTTP local: si se corta, se vuelve a pedir desde donde iba (y no se queda colgado en silencio).
     "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "4", "-rw_timeout", "30000000",
     ...(o.desdeMs > 0 ? ["-ss", (o.desdeMs / 1000).toFixed(3)] : []),
+    // La lista blanca va justo antes de la entrada a la que se aplica (ffmpeg la toma como opción de esa entrada).
+    "-protocol_whitelist", protocolosPermitidosDeEntrada(o.url),
     "-i", o.url,
     "-vn", "-map_metadata", "-1", "-ac", "1", "-ar", "16000", "-c:a", "libmp3lame", "-b:a", "32k",
     // Las opciones del MP3 van DENTRO de segment_format_options: sueltas las recibiría el muxer «segment». Sin Xing ni

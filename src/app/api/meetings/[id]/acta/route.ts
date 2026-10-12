@@ -5,6 +5,8 @@ export const maxDuration = 300;
 import { NextRequest, NextResponse } from "next/server";
 import { ensureMeetingsSchema } from "@/lib/ensure-meetings-schema";
 import { checkUsageLimits } from "@/lib/usage";
+import { rateLimit } from "@/lib/rate-limit";
+import { MAX_ACTAS_EN_CURSO, conCandadoDeGeneracion } from "@/lib/meetings/candado-generacion";
 import { reanudarActa, iniciarActa, type ComprobarCupo } from "@/lib/meetings/acta-orquestador";
 import { leerActa } from "@/lib/meetings/acta-estado";
 import { exigirVisible, reunionDelUsuario } from "@/lib/meetings/acceso";
@@ -89,17 +91,38 @@ export async function POST(req: NextRequest, { params }: Contexto) {
       return { permitido: r.allowed, mensaje: r.reason };
     };
 
-    let creada = false;
-    let yaEnCurso = false;
-    if (reanudar) {
-      const r = await reanudarActa(id, reanudar, new Date(), comprobarCupo);
-      if (!r.ok) return NextResponse.json({ error: r.error }, { status: CODIGOS[r.codigo] });
-    } else {
-      const r = await iniciarActa({ meetingId: id, userId: ctx.userId, comprobarCupo });
-      if (!r.ok) return NextResponse.json({ error: r.error }, { status: CODIGOS[r.codigo] });
-      yaEnCurso = r.yaEnCurso;
-      creada = !r.yaEnCurso;
+    // Freno a las ráfagas: cada acta llama a IA de pago. Va antes de cualquier trabajo pesado.
+    const rl = await rateLimit(`acta:${ctx.userId}`, { max: 3, windowMs: 60_000 });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Estás pidiendo actas muy seguido. Espera un minuto e intenta de nuevo." },
+        { status: 429, headers: rl.retryAfterSec ? { "Retry-After": String(rl.retryAfterSec) } : undefined },
+      );
     }
+
+    // Comprobar el cupo y crear la generación como UNA sola operación por usuario (candado de asesoría): sin él, una ráfaga de
+    // peticiones leía todas el mismo conteo y superaba el tope del plan.
+    type Reserva = { ok: true; creada: boolean; yaEnCurso: boolean } | { ok: false; status: number; error: string };
+    const reserva = await conCandadoDeGeneracion<Reserva>(ctx.userId, async (tx) => {
+      // Tope de actas redactándose a la vez. Pedir otra vez la de ESTA reunión (doble clic) no suma: devuelve la que está en curso.
+      const estaEnCurso = await tx.generation.count({ where: { userId: ctx.userId, meetingId: id, type: "acta", status: { in: ["pending", "processing"] } } });
+      if (estaEnCurso === 0) {
+        const enCurso = await tx.generation.count({ where: { userId: ctx.userId, meetingId: { not: id }, type: "acta", status: { in: ["pending", "processing"] } } });
+        if (enCurso >= MAX_ACTAS_EN_CURSO) {
+          return { ok: false, status: 429, error: "Ya tienes actas redactándose. Espera a que terminen para pedir otra." };
+        }
+      }
+      if (reanudar) {
+        const r = await reanudarActa(id, reanudar, new Date(), comprobarCupo);
+        if (!r.ok) return { ok: false, status: CODIGOS[r.codigo], error: r.error };
+        return { ok: true, creada: false, yaEnCurso: false };
+      }
+      const r = await iniciarActa({ meetingId: id, userId: ctx.userId, comprobarCupo });
+      if (!r.ok) return { ok: false, status: CODIGOS[r.codigo], error: r.error };
+      return { ok: true, creada: !r.yaEnCurso, yaEnCurso: r.yaEnCurso };
+    });
+    if (!reserva.ok) return NextResponse.json({ error: reserva.error }, { status: reserva.status });
+    const { creada, yaEnCurso } = reserva;
 
     empujar();
     const { acta } = await leerActa(id);

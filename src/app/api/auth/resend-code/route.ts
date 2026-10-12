@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { normalizarCorreo } from "@/lib/validar-entrada";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const email = (body.email as string | undefined)?.trim().toLowerCase();
-    if (!email) {
+    if (typeof body?.email !== "string" || !body.email.trim()) {
       return NextResponse.json({ error: "Email requerido" }, { status: 400 });
+    }
+    // Mismo formato que register: el correo es el identifier del código y no puede imitar el prefijo "pwreset:".
+    const email = normalizarCorreo(body.email);
+    if (!email) {
+      return NextResponse.json({ error: "Ingresa un correo electrónico válido" }, { status: 400 });
     }
 
     // El único freno era un token reciente en base, que solo cuenta por correo

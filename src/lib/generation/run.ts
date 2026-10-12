@@ -8,6 +8,7 @@ import { GRAMMATEUS_SYSTEM_PROMPT, buildGrammatusPrompt } from "@/lib/ai/grammat
 import { registrarEvento } from "@/lib/agentes/eventos";
 import { blobAutorizado, primerBlobAjeno } from "@/lib/blob-owner";
 import { borrarBlobsPropios } from "@/lib/blob-owner-server";
+import { limiteBytesPara } from "@/lib/upload-limits";
 
 export type BlobFileRef = { url: string; name: string; type: string; size: number };
 
@@ -53,24 +54,60 @@ import { isAllowedBlobUrl } from "@/lib/blob-url";
  * parse-attachment). Todo lo que se lee a partir de una URL que mandó el
  * navegador debe pasar `dueno`.
  */
-export async function blobRefToFile(ref: BlobFileRef, dueno?: DuenoDeBlob): Promise<File> {
+export async function blobRefToFile(ref: BlobFileRef, dueno?: DuenoDeBlob, opciones?: { maxBytes?: number }): Promise<File> {
   if (!isAllowedBlobUrl(ref.url)) {
     throw new Error(`Origen de archivo no permitido para "${ref.name}"`);
   }
   if (dueno && !blobAutorizado(ref.url, dueno.userId, { propertyId: dueno.propertyId })) {
     throw new BlobAjenoError(ref.name);
   }
+  // El tamaño que declara el cliente no vale: el tope se aplica al tamaño REAL de lo descargado
+  // (por tipo: audio o documento, igual que al subir), para que un tamaño declarado pequeño no
+  // permita colar un archivo enorme que luego se transcriba o parsee entero.
+  const tope = Math.min(limiteBytesPara(ref.name), opciones?.maxBytes ?? Infinity);
   const { get } = await import("@vercel/blob");
   const result = await get(ref.url, { access: "private" }).catch(() => null);
   let buffer: ArrayBuffer;
   if (result) {
-    buffer = await new Response(result.stream).arrayBuffer();
+    if (!result.stream) throw new Error(`No se pudo leer el archivo "${ref.name}"`);
+    buffer = await leerConTope(result.stream, tope, ref.name);
   } else {
     const res = await fetch(ref.url);
     if (!res.ok) throw new Error(`No se pudo descargar el archivo "${ref.name}" (${res.status})`);
-    buffer = await res.arrayBuffer();
+    const declarado = Number(res.headers?.get("content-length"));
+    if (Number.isFinite(declarado) && declarado > tope) throw archivoMuyGrande(ref.name, tope);
+    buffer = res.body ? await leerConTope(res.body, tope, ref.name) : await res.arrayBuffer();
+    if (buffer.byteLength > tope) throw archivoMuyGrande(ref.name, tope);
   }
   return new File([buffer], ref.name, { type: ref.type || "application/octet-stream" });
+}
+
+function archivoMuyGrande(nombre: string, tope: number): Error {
+  return new Error(`El archivo "${nombre}" supera el límite de ${Math.round(tope / (1024 * 1024))} MB`);
+}
+
+/** Lee el flujo completo, pero lo corta (sin seguir descargando) en cuanto pasa del tope. */
+async function leerConTope(stream: ReadableStream<Uint8Array>, tope: number, nombre: string): Promise<ArrayBuffer> {
+  const reader = stream.getReader();
+  const partes: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > tope) {
+      await reader.cancel().catch(() => {});
+      throw archivoMuyGrande(nombre, tope);
+    }
+    partes.push(value);
+  }
+  const salida = new Uint8Array(total);
+  let pos = 0;
+  for (const parte of partes) {
+    salida.set(parte, pos);
+    pos += parte.byteLength;
+  }
+  return salida.buffer;
 }
 
 export interface RunGenerationParams {

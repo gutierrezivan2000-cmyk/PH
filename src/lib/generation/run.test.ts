@@ -192,3 +192,53 @@ describe("runGeneration: limpieza de insumos", () => {
     expect(ultimoEstado()).toMatchObject({ status: "completed" });
   });
 });
+
+describe("blobRefToFile: tope sobre el tamaño REAL descargado", () => {
+  const flujo = (bytes: number) => new Response(new Uint8Array(bytes)).body;
+  const MB = 1024 * 1024;
+
+  it("rechaza un documento cuyo tamaño real pasa de 50 MB aunque declare 100 bytes", async () => {
+    get.mockImplementation(async () => ({ stream: flujo(50 * MB + 1) }));
+    const grande = { ...propio("a"), name: "a.pdf", type: "application/pdf", size: 100 };
+    await expect(blobRefToFile(grande, { userId: U1 })).rejects.toThrow(/supera el límite de 50 MB/);
+  });
+
+  it("rechaza un audio que pasa de 200 MB reales con tamaño declarado minúsculo", async () => {
+    get.mockImplementation(async () => ({ stream: flujo(200 * MB + 1) }));
+    const audio = { url: `${HOST}/subidas/${U1}/uploads/a-AbC123.mp3`, name: "a.mp3", type: "audio/mpeg", size: 10 };
+    await expect(blobRefToFile(audio, { userId: U1 })).rejects.toThrow(/supera el límite de 200 MB/);
+  });
+
+  it("acepta un archivo que cabe en el tope", async () => {
+    get.mockImplementation(async () => ({ stream: flujo(1024) }));
+    const f = await blobRefToFile(propio("a"), { userId: U1 });
+    expect(f.size).toBe(1024);
+  });
+
+  it("opciones.maxBytes baja el tope (p. ej. 10 MB del chat)", async () => {
+    get.mockImplementation(async () => ({ stream: flujo(2048) }));
+    await expect(blobRefToFile(propio("a"), { userId: U1 }, { maxBytes: 1024 })).rejects.toThrow(/supera el límite/);
+  });
+
+  it("sin get() (fetch): content-length enorme se rechaza sin leer el cuerpo", async () => {
+    get.mockResolvedValue(null);
+    const cuerpo = vi.fn();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      headers: new Headers({ "content-length": String(60 * MB) }),
+      get body() { cuerpo(); return flujo(10); },
+    } as unknown as Response);
+    await expect(blobRefToFile(propio("a"), { userId: U1 })).rejects.toThrow(/supera el límite/);
+    expect(cuerpo).not.toHaveBeenCalled();
+    fetchMock.mockRestore();
+  });
+
+  it("sin get() (fetch): content-length mentiroso, el cuerpo real se corta al pasar del tope", async () => {
+    get.mockResolvedValue(null);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(new Uint8Array(51 * MB), { headers: { "content-length": "10" } }),
+    );
+    await expect(blobRefToFile(propio("a"), { userId: U1 })).rejects.toThrow(/supera el límite de 50 MB/);
+    fetchMock.mockRestore();
+  });
+});

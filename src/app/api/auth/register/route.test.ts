@@ -187,3 +187,61 @@ describe("POST /api/auth/register — límites con failClosed", () => {
     expect(correo.sendVerificationEmail).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/auth/register — validación de entrada", () => {
+  const sinEfectos = () => {
+    expect(db.user.create).not.toHaveBeenCalled();
+    expect(db.verificationToken.deleteMany).not.toHaveBeenCalled();
+    expect(db.verificationToken.create).not.toHaveBeenCalled();
+    expect(correo.sendVerificationEmail).not.toHaveBeenCalled();
+  };
+
+  it("rechaza correos con prefijo/':' (intento de sembrar un token pwreset:) sin tocar la base", async () => {
+    for (const email of ["pwreset:victima@gmail.com", "a:b@x.co", "pwreset:v@gmail.com ", "a b@x.co", "sin-arroba", "a@b", "a@@b.co"]) {
+      const r = await POST(peticion({ ...cuerpoValido, email }));
+      expect(r.status).toBe(400);
+    }
+    sinEfectos();
+  });
+
+  it("rechaza un correo de más de 254 caracteres", async () => {
+    const r = await POST(peticion({ ...cuerpoValido, email: `${"a".repeat(250)}@x.co` }));
+    expect(r.status).toBe(400);
+    sinEfectos();
+  });
+
+  it("rechaza correo o contraseña que no sean texto", async () => {
+    for (const parcial of [{ email: { a: 1 } }, { email: ["a@x.co"] }, { password: { x: 1 } }, { password: 12345678 }]) {
+      const r = await POST(peticion({ ...cuerpoValido, ...parcial }));
+      expect(r.status).toBe(400);
+    }
+    sinEfectos();
+  });
+
+  it("rechaza una contraseña de más de 128 caracteres antes de hacer el hash", async () => {
+    const r = await POST(peticion({ ...cuerpoValido, password: "x".repeat(129) }));
+    expect(r.status).toBe(400);
+    sinEfectos();
+  });
+
+  it("rechaza un nombre enorme o que no es texto; no llega a la base", async () => {
+    for (const name of ["n".repeat(121), "n".repeat(4_400_000), { a: 1 }, ["x"], 5]) {
+      const r = await POST(peticion({ ...cuerpoValido, name }));
+      expect(r.status).toBe(400);
+    }
+    sinEfectos();
+  });
+
+  it("acepta un nombre de 120 caracteres y lo guarda recortado", async () => {
+    const r = await POST(peticion({ ...cuerpoValido, name: `  ${"n".repeat(120)}  ` }));
+    expect(r.status).toBe(200);
+    expect(db.user.create).toHaveBeenCalledWith({ data: expect.objectContaining({ name: "n".repeat(120) }) });
+  });
+
+  it("sin nombre usa la parte local del correo, y el token se guarda con el correo normal", async () => {
+    const r = await POST(peticion({ email: "Ana@X.co", password: "una-clave-larga", acepta: true }));
+    expect(r.status).toBe(200);
+    expect(db.user.create).toHaveBeenCalledWith({ data: expect.objectContaining({ name: "ana" }) });
+    expect(db.verificationToken.create).toHaveBeenCalledWith({ data: expect.objectContaining({ identifier: "ana@x.co" }) });
+  });
+});

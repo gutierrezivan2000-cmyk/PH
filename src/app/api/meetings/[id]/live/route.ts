@@ -7,12 +7,14 @@ import { exigirVisible, reunionDelUsuario } from "@/lib/meetings/acceso";
 import { rutaDeParteViva } from "@/lib/meetings/almacen";
 import { leerCuerpoAcotado } from "@/lib/meetings/cuerpo";
 import { demoRegistrarParteViva } from "@/lib/meetings/demo";
+import { esCabeceraDeGrabadora } from "@/lib/meetings/firma-medios";
 import { VIVO_PARTE_MAX_BYTES, puedeAgregarFuentes } from "@/lib/meetings/tipos";
 import { validarParteViva } from "@/lib/meetings/validar";
 
 type Contexto = { params: Promise<{ id: string }> };
 
 const CERRADA = "Esta reunión ya no admite más audio: se está procesando o ya está lista.";
+const NO_ES_AUDIO = "La primera parte de la grabación no parece un audio válido.";
 const SIN_CONSTANCIA = "Antes de grabar, confirma que avisaste a los asistentes.";
 
 /**
@@ -50,6 +52,9 @@ export async function POST(req: NextRequest, { params }: Contexto) {
   );
   if (!valida.ok) return NextResponse.json({ error: valida.error }, { status: cuerpo.byteLength > VIVO_PARTE_MAX_BYTES ? 413 : 400 });
   const parte = valida.valor;
+  // La parte 0 lleva la cabecera del contenedor: si no es la de una grabación (webm, mp4 u ogg), p. ej. una lista HLS que ffmpeg
+  // seguiría descargando de la red del servidor, no se guarda. Va antes del modo demo y de tocar el almacén.
+  if (parte.seq === 0 && !esCabeceraDeGrabadora(cuerpo)) return NextResponse.json({ error: NO_ES_AUDIO }, { status: 400 });
 
   if (ctx.demo) {
     const r = demoRegistrarParteViva(ctx.userId, id, { ...parte, bytes: cuerpo.byteLength });

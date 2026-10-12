@@ -43,6 +43,10 @@ export type RateLimitResult = {
 
 // Ninguna ventana en uso pasa de 24 h; 7 días deja margen de sobra antes de borrar.
 const CLEANUP_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+// Los contadores mensuales de cuota de correos ("emails:<usuario>:<AAAA-MM>") viven todo el mes
+// (y su windowStart se refresca en cada envío): se purgan aparte, pasados ~40 días.
+const MONTHLY_KEY_PREFIX = "emails:";
+const MONTHLY_CLEANUP_AFTER_MS = 40 * 24 * 60 * 60 * 1000;
 // Una de cada ~100 llamadas aprovecha para borrar contadores muy viejos.
 const CLEANUP_PROBABILITY = 0.01;
 // Espera sugerida cuando se deniega por falla de la base: no hay ventana real que leer.
@@ -56,7 +60,16 @@ function purgeExpired(): void {
   if (Math.random() >= CLEANUP_PROBABILITY) return;
   try {
     void db.rateLimit
-      .deleteMany({ where: { windowStart: { lt: new Date(Date.now() - CLEANUP_AFTER_MS) } } })
+      .deleteMany({
+        where: {
+          OR: [
+            // Ventanas cortas: 7 días. Los contadores mensuales de correos ("emails:") se excluyen
+            // para no reiniciar la cuota a mitad de mes.
+            { NOT: { key: { startsWith: MONTHLY_KEY_PREFIX } }, windowStart: { lt: new Date(Date.now() - CLEANUP_AFTER_MS) } },
+            { key: { startsWith: MONTHLY_KEY_PREFIX }, windowStart: { lt: new Date(Date.now() - MONTHLY_CLEANUP_AFTER_MS) } },
+          ],
+        },
+      })
       .catch(() => {});
   } catch {
     // Mejor esfuerzo: nunca debe afectar la respuesta del límite.

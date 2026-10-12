@@ -32,7 +32,7 @@ describe("POST /api/auth/reset-password — freno por IP", () => {
   it("limita por IP y falla CERRADO si la base de contadores cae", async () => {
     const r = await POST(peticion({ ...valida, email: " Ana@X.co " }));
     expect(r.status).toBe(200);
-    expect(limite.rateLimit).toHaveBeenCalledTimes(1);
+    expect(limite.rateLimit).toHaveBeenCalledTimes(2);
     expect(limite.rateLimit).toHaveBeenCalledWith("reset:ip:1.2.3.4", {
       max: 20,
       windowMs: 15 * 60 * 1000,
@@ -40,10 +40,37 @@ describe("POST /api/auth/reset-password — freno por IP", () => {
     });
   });
 
-  it("no limita por correo: nadie puede bloquear el restablecimiento de otra persona", async () => {
-    await POST(peticion(valida));
-    const claves = limite.rateLimit.mock.calls.map((c) => String(c[0]));
-    expect(claves.some((k) => k.includes("ana@x.co"))).toBe(false);
+  it("también limita por correo normalizado: 5 por 15 min, failClosed", async () => {
+    await POST(peticion({ ...valida, email: " Ana@X.co " }));
+    expect(limite.rateLimit).toHaveBeenCalledWith("reset:email:ana@x.co", {
+      max: 5,
+      windowMs: 15 * 60 * 1000,
+      failClosed: true,
+    });
+  });
+
+  it("pasado el límite por correo responde 429 sin consultar el token", async () => {
+    limite.rateLimit.mockImplementation(async (k: string) => ({ allowed: !k.startsWith("reset:email:") }));
+    const r = await POST(peticion(valida));
+    expect(r.status).toBe(429);
+    expect(db.verificationToken.findFirst).not.toHaveBeenCalled();
+    expect(db.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("correo con ':' o espacios (identifier plantado) se rechaza sin tocar la base", async () => {
+    for (const email of ["pwreset:ana@x.co", "ana@x.co:1", "a na@x.co"]) {
+      expect((await POST(peticion({ ...valida, email }))).status).toBe(400);
+    }
+    expect(db.verificationToken.findFirst).not.toHaveBeenCalled();
+    expect(db.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("un código de 6 dígitos no es un token de recuperación: se rechaza sin consultar la base", async () => {
+    for (const token of ["123456", "z".repeat(64), "a".repeat(63)]) {
+      expect((await POST(peticion({ ...valida, token }))).status).toBe(400);
+    }
+    expect(db.verificationToken.findFirst).not.toHaveBeenCalled();
+    expect(db.user.updateMany).not.toHaveBeenCalled();
   });
 
   it("pasado el límite responde 429 sin consultar el token ni tocar la cuenta", async () => {
@@ -89,11 +116,22 @@ describe("POST /api/auth/reset-password — comportamiento que no cambió", () =
     const r = await POST(peticion(valida));
     expect(r.status).toBe(200);
     const { where, data } = db.user.updateMany.mock.calls[0][0];
-    expect(where).toEqual({ email: "ana@x.co" });
+    expect(where).toEqual({ email: "ana@x.co", passwordHash: { not: null } });
     expect(data.emailVerified).toBeInstanceOf(Date);
     expect(data.passwordChangedAt).toBeInstanceOf(Date);
     expect(await bcrypt.compare("mi-clave-nueva", data.passwordHash)).toBe(true);
     expect(db.verificationToken.deleteMany).toHaveBeenCalledWith({ where: { identifier: "pwreset:ana@x.co" } });
+  });
+
+  it("cuenta de Google (sin contraseña): el update filtra por passwordHash no nulo, responde 400 y no gasta el token", async () => {
+    // Simula la base: la cuenta existe pero sin passwordHash, así que el filtro no la encuentra.
+    db.user.updateMany.mockImplementation(async ({ where }: { where: { passwordHash?: unknown } }) => ({
+      count: where.passwordHash ? 0 : 1,
+    }));
+    const r = await POST(peticion(valida));
+    expect(r.status).toBe(400);
+    expect(db.user.updateMany.mock.calls[0][0].where.passwordHash).toEqual({ not: null });
+    expect(db.verificationToken.deleteMany).not.toHaveBeenCalled();
   });
 
   it("cuenta inexistente: 400 y no gasta el token", async () => {

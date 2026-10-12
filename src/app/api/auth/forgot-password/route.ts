@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { urlBase } from "@/lib/app-url";
+import { normalizarCorreo, identificadorReset } from "@/lib/validar-entrada";
 import { MENSAJE_CAPTCHA_FALLIDO, verificarCaptcha } from "@/lib/captcha";
 
 const MENSAJE_NEUTRO = "Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña.";
@@ -31,9 +32,14 @@ function direccionPublica(): string | null {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const email = (body.email as string | undefined)?.trim().toLowerCase();
-    if (!email) {
+    if (typeof body.email !== "string" || !body.email.trim()) {
       return NextResponse.json({ error: "Email requerido" }, { status: 400 });
+    }
+    // Mismo formato que register: el correo forma parte del identifier "pwreset:<correo>". Es validación de formato, no
+    // depende de si la cuenta existe, así que no revela nada.
+    const email = normalizarCorreo(body.email);
+    if (!email) {
+      return NextResponse.json({ error: "Ingresa un correo electrónico válido" }, { status: 400 });
     }
 
     const { rateLimit, clientIp } = await import("@/lib/rate-limit");
@@ -68,7 +74,7 @@ export async function POST(req: NextRequest) {
     // Only accounts with a password can reset one (Google-only accounts sign
     // in with Google). Still return success to avoid enumeration.
     if (user?.passwordHash) {
-      const identifier = `pwreset:${email}`;
+      const identifier = identificadorReset(email);
 
       // Rate limit: one request per minute
       const recent = await db.verificationToken.findFirst({

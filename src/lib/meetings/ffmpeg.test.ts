@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  ErrorAudio, argumentosDeNormalizacion, clasificarSalidaFfmpeg, leerDuracionDeFfmpeg, leerLineaDeSegmento, leerRangoHttp,
+  ErrorAudio, argumentosDeNormalizacion, protocolosPermitidosDeEntrada, clasificarSalidaFfmpeg, leerDuracionDeFfmpeg, leerLineaDeSegmento, leerRangoHttp,
 } from "./ffmpeg";
 
 describe("leerRangoHttp", () => {
@@ -105,6 +105,21 @@ describe("argumentosDeNormalizacion", () => {
     expect(valorDe(seguir, "-ss")).toBe("1234.567");
     expect(seguir.indexOf("-ss")).toBeLessThan(seguir.indexOf("-i"));
     expect(valorDe(seguir, "-segment_start_number")).toBe("2");
+  });
+  it("-protocol_whitelist va justo antes de -i (después de -ss) y solo deja el protocolo de la entrada", () => {
+    const i = args.indexOf("-i");
+    expect(args[i - 2]).toBe("-protocol_whitelist");
+    expect(args[i - 1]).toBe("http,tcp");
+    expect(args.filter((a) => a === "-i")).toHaveLength(1);
+    const seguir = argumentosDeNormalizacion({ url: "http://127.0.0.1:1/x", desdeMs: 5000, numeroInicial: 0, tramoMs: 600_000, carpeta: "/t" });
+    expect(seguir.indexOf("-ss")).toBeLessThan(seguir.indexOf("-protocol_whitelist"));
+    expect(seguir.indexOf("-protocol_whitelist")).toBe(seguir.indexOf("-i") - 2);
+    expect(seguir[seguir.indexOf("-protocol_whitelist") + 1]).not.toMatch(/https|crypto|data|hls|concat|ftp|rtmp/);
+  });
+  it("una entrada que es archivo o tubería solo permite file,pipe; una URL de la red no recibe file ni pipe", () => {
+    expect(protocolosPermitidosDeEntrada("/tmp/a.webm")).toBe("file,pipe");
+    expect(protocolosPermitidosDeEntrada("pipe:0")).toBe("file,pipe");
+    expect(protocolosPermitidosDeEntrada("http://127.0.0.1:9/x")).toBe("http,tcp");
   });
   it("si se corta la conexión con la fuente, vuelve a pedir desde donde iba", () => {
     expect(valorDe(args, "-reconnect")).toBe("1");

@@ -56,7 +56,7 @@ describe("comprobarCupoDeReuniones", () => {
   const comprobar = (horas: number, excluir?: string) => comprobarCupoDeReuniones("u1", horas * H, excluir, AHORA);
 
   it("las cuentas beta y la fase de pruebas abierta no tienen tope: ni siquiera consulta la base", async () => {
-    const consulta = vi.spyOn(db.meeting, "aggregate");
+    const consulta = vi.spyOn(db.meeting, "findMany");
     for (const status of ["beta", "testing"]) {
       acceso.mockResolvedValue({ allowed: true, status });
       expect(await comprobar(500)).toMatchObject({ permitido: true, ilimitado: true, mensaje: null });
@@ -96,6 +96,29 @@ describe("comprobarCupoDeReuniones", () => {
     await reunion("viva", 3);
     await db.usageRecord.create({ data: { userId: "u1", type: "reunion_audio", refId: "viva", tokens: 3 * 3600, date: new Date("2026-10-05T12:00:00Z") } });
     expect(await comprobar(1)).toMatchObject({ permitido: true, usadoMs: 3 * H });
+  });
+
+  it("una reunión creada el mes pasado y procesada este mes SÍ se cobra este mes (cuenta el mes del consumo, no el de creación)", async () => {
+    await plan("pro");
+    await reunion("vieja", 5, { createdAt: new Date("2026-09-10T12:00:00Z") });
+    await db.usageRecord.create({ data: { userId: "u1", type: "reunion_audio", refId: "vieja", tokens: 5 * 3600, date: new Date("2026-10-04T12:00:00Z") } });
+    expect(await comprobar(3)).toMatchObject({ permitido: true, usadoMs: 5 * H, restanMs: 3 * H });
+    expect((await comprobar(3.5)).permitido).toBe(false);
+  });
+
+  it("sin doble cuenta entre el registro y el respaldo: con registro solo cuenta el registro; sin registro, la duración", async () => {
+    await plan("pro");
+    await reunion("con-registro", 2); // dura 2 h pero el registro dice 1 h: manda el registro
+    await db.usageRecord.create({ data: { userId: "u1", type: "reunion_audio", refId: "con-registro", tokens: 3600, date: new Date("2026-10-05T12:00:00Z") } });
+    await reunion("sin-registro", 1.5); // viva, aún sin registro: respaldo
+    expect((await comprobar(1)).usadoMs).toBe(2.5 * H);
+  });
+
+  it("la reunión evaluada no cuenta contra sí misma ni por su registro de consumo", async () => {
+    await plan("pro");
+    await reunion("esta", 4);
+    await db.usageRecord.create({ data: { userId: "u1", type: "reunion_audio", refId: "esta", tokens: 4 * 3600, date: new Date("2026-10-05T12:00:00Z") } });
+    expect((await comprobar(4, "esta")).usadoMs).toBe(0);
   });
 
   it("el consumo de otra persona o de otro mes no entra en la cuenta", async () => {
@@ -153,7 +176,7 @@ describe("comprobarCupoDeReuniones", () => {
   it("si no se puede consultar, no se bloquea a nadie por una falla nuestra", async () => {
     const consola = vi.spyOn(console, "error").mockImplementation(() => {});
     await plan("pro");
-    vi.spyOn(db.meeting, "aggregate").mockRejectedValue(new Error("conexión perdida"));
+    vi.spyOn(db.meeting, "findMany").mockRejectedValue(new Error("conexión perdida"));
     expect(await comprobar(100)).toMatchObject({ permitido: true, ilimitado: true });
     expect(consola).toHaveBeenCalledTimes(1);
   });
@@ -222,7 +245,7 @@ describe("resumenDeHoras (lo que se le muestra a la persona)", () => {
   it("si no se puede consultar es información que falta, no un error: devuelve null y lo registra", async () => {
     const consola = vi.spyOn(console, "error").mockImplementation(() => {});
     await plan("pro");
-    vi.spyOn(db.meeting, "aggregate").mockRejectedValue(new Error("conexión perdida"));
+    vi.spyOn(db.meeting, "findMany").mockRejectedValue(new Error("conexión perdida"));
     expect(await resumenDeHoras("u1", AHORA)).toBeNull();
     expect(consola).toHaveBeenCalledTimes(1);
   });

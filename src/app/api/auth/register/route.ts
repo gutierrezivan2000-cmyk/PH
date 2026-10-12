@@ -2,22 +2,46 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { TRIAL_DAYS, OPEN_TESTING } from "@/lib/plan";
 import { datosDeAceptacion } from "@/lib/legal/aceptacion";
+import { LIMITES, normalizarCorreo, textoAcotado } from "@/lib/validar-entrada";
 import { MENSAJE_CAPTCHA_FALLIDO, verificarCaptcha } from "@/lib/captcha";
+
+const MAX_PASSWORD = 128;
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const password = body.password as string | undefined;
-    const name = body.name as string | undefined;
     const acepta = body.acepta === true;
-    const email = (body.email as string | undefined)?.trim().toLowerCase();
 
-    if (!email || !password) {
+    // Solo texto: un objeto o arreglo en estos campos llegaba tal cual a Prisma (500) o al hash.
+    if (typeof body.email !== "string" || typeof body.password !== "string" || !body.email.trim() || !body.password) {
       return NextResponse.json({ error: "Email y contraseña son requeridos" }, { status: 400 });
+    }
+        const password = body.password;
+
+    // El correo es el identifier del código de verificación y comparte tabla con los tokens "pwreset:…" de la
+    // recuperación: sin formato estricto (sin ":" ni espacios) alguien podía sembrar un código de 6 dígitos en ese
+    // espacio de nombres y usarlo en reset-password.
+    const email = normalizarCorreo(body.email);
+    if (!email) {
+      return NextResponse.json({ error: "Ingresa un correo electrónico válido" }, { status: 400 });
     }
 
     if (password.length < 8) {
       return NextResponse.json({ error: "La contraseña debe tener al menos 8 caracteres" }, { status: 400 });
+    }
+    // Tope antes de bcrypt: una contraseña enorme gasta CPU y bcrypt solo usa los primeros 72 bytes.
+    if (password.length > MAX_PASSWORD) {
+      return NextResponse.json({ error: `La contraseña no puede pasar de ${MAX_PASSWORD} caracteres` }, { status: 400 });
+    }
+
+    // Nombre opcional, pero si viene debe ser texto corto (antes se guardaba entero, hasta el límite del cuerpo).
+    let name = "";
+    if (body.name !== undefined && body.name !== null && body.name !== "") {
+      const nombreValido = textoAcotado(body.name, "El nombre", LIMITES.nombre);
+      if (!nombreValido.ok) {
+        return NextResponse.json({ error: nombreValido.error }, { status: 400 });
+      }
+      name = nombreValido.valor;
     }
 
     const { rateLimit, clientIp } = await import("@/lib/rate-limit");

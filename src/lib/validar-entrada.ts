@@ -86,3 +86,34 @@ export function colorHex(valor: unknown, etiqueta: string): Validado<string> {
 export function cuerpoComoObjeto(crudo: unknown): Record<string, unknown> | null {
   return crudo && typeof crudo === "object" && !Array.isArray(crudo) ? (crudo as Record<string, unknown>) : null;
 }
+
+/** Largo máximo de un correo (RFC 5321). */
+export const MAX_CORREO = 254;
+
+/** Prefijo del identifier de VerificationToken para los enlaces de recuperación. Los códigos de verificación usan el correo a secas. */
+export const PREFIJO_RESET = "pwreset:";
+
+// Sin espacios (ni unicode), sin caracteres de control, sin ":" ni "@" extra: así un correo nunca puede imitar un identifier
+// con prefijo ("pwreset:…") y los dos tipos de token (código de verificación y enlace de recuperación) no se confunden.
+const CORREO_VALIDO = /^[^\s@:\u0000-\u001f\u007f]+@[^\s@:\u0000-\u001f\u007f]+\.[^\s@:\u0000-\u001f\u007f]+$/;
+
+/**
+ * Correo recortado y en minúsculas, o null si no es texto o no cumple el formato estricto. Es la ÚNICA puerta por la que un
+ * correo llega a un identifier de VerificationToken (register, verify, resend-code, forgot-password, reset-password).
+ */
+export function normalizarCorreo(valor: unknown): string | null {
+  if (typeof valor !== "string") return null;
+  const correo = valor.trim().toLowerCase();
+  if (correo.length === 0 || correo.length > MAX_CORREO || !CORREO_VALIDO.test(correo)) return null;
+  return correo;
+}
+
+/** true si `valor` es un correo aceptable (ver `normalizarCorreo`). */
+export function esCorreoValido(valor: unknown): boolean {
+  return normalizarCorreo(valor) !== null;
+}
+
+/** Identifier del token de recuperación de un correo ya normalizado. */
+export function identificadorReset(correo: string): string {
+  return `${PREFIJO_RESET}${correo}`;
+}

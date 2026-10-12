@@ -2,8 +2,9 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { auth, fake, cupo, iaActual } = vi.hoisted(() => ({
+const { auth, fake, cupo, iaActual, ritmo } = vi.hoisted(() => ({
   auth: vi.fn(),
+  ritmo: vi.fn(),
   fake: { db: null as unknown },
   cupo: vi.fn(),
   iaActual: { actual: null as unknown },
@@ -15,6 +16,8 @@ vi.mock("@/lib/feature-flags", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/feature-flags")>();
   return { ...real, puedeVerReuniones: (u: Parameters<typeof real.puedeVerReuniones>[0]) => real.reunionesVisibles("admins", u) };
 });
+// El freno por minuto cuenta en la base (en estas pruebas falsa): se simula; su propio comportamiento se prueba en `route.test.ts`.
+vi.mock("@/lib/rate-limit", () => ({ rateLimit: (...a: unknown[]) => ritmo(...a) }));
 vi.mock("@/lib/db", () => ({ get db() { return fake.db; } }));
 vi.mock("@/lib/ensure-meetings-schema", () => ({ ensureMeetingsSchema: async () => {} }));
 vi.mock("@/lib/meetings/cupo-preguntas", async (original) => ({ ...(await original<typeof import("@/lib/meetings/cupo-preguntas")>()), comprobarCupoDePreguntas: (...a: unknown[]) => cupo(...a) }));
@@ -67,6 +70,8 @@ beforeEach(() => {
   iaActual.actual = ia;
   auth.mockReset();
   cupo.mockReset();
+  ritmo.mockReset();
+  ritmo.mockResolvedValue({ allowed: true });
   cupo.mockResolvedValue({ permitido: true, ilimitado: false, porcentajeRestante: 97, mensaje: null });
   vi.stubEnv("DEMO_MODE", "false");
   vi.stubEnv("ANTHROPIC_API_KEY", "clave-de-prueba");
@@ -89,6 +94,16 @@ describe("POST /api/meetings/[id]/preguntar", () => {
     expect(textoDe(es)).toMatch(/cámaras/i);
     expect(textoDe(es)).toMatch(/\[\[t=\d{2}:\d{2}:\d{2}\]\]/);
     expect(es.some((e) => e.evento === "error")).toBe(false);
+  });
+
+  it("si la persona se pasa del ritmo por minuto: 429 con Retry-After, sin llamar a la IA (el freno es por persona)", async () => {
+    await sembrarReunion();
+    ritmo.mockResolvedValue({ allowed: false, retryAfterSec: 12 });
+    const r = await preguntar(pedir({ pregunta: "¿Qué se dijo?" }), ctx());
+    expect(r.status).toBe(429);
+    expect(r.headers.get("retry-after")).toBe("12");
+    expect(ritmo).toHaveBeenCalledWith("preguntar:u1", expect.objectContaining({ max: 6, failClosed: true }));
+    expect(ia.textos).toHaveLength(0);
   });
 
   it("le manda a la IA el sistema de «Preguntar», la pregunta y el historial (ya normalizado)", async () => {

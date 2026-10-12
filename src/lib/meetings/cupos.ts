@@ -3,8 +3,8 @@
  * prueba gratis, y sin tope para las cuentas beta y mientras dure la fase de pruebas abierta (`OPEN_TESTING`).
  *
  * Se comprueba en `armar_audio`, cuando ya se sabe cuánto dura la reunión: si no alcanza, la reunión pasa a «sin_cupo» (el
- * audio se conserva) con un mensaje que dice cuánto dura y cuánto queda. Lo ya consumido se saca de las propias reuniones
- * (su duración), no de un contador aparte: así reintentar o reprocesar nunca cuenta dos veces.
+ * audio se conserva) con un mensaje que dice cuánto dura y cuánto queda. Lo ya consumido se saca del registro de consumo
+ * del audio (por el mes en que se consumió) y, solo de respaldo, de la duración de la reunión: reintentar o reprocesar nunca cuenta dos veces.
  */
 import { db } from "@/lib/db";
 import { TIPOS } from "@/lib/consumo/funciones";
@@ -64,17 +64,29 @@ async function limiteDeHorasMs(userId: string, prueba: boolean): Promise<number>
 }
 
 /**
- * Las horas que ya consumió: las de sus reuniones con audio y duración, de este mes (o de toda la prueba), sin las que esperan
- * cupo, MÁS las de reuniones que ya transcribió y luego borró. `excluirReunionId` es la que se está evaluando: su propia duración
- * no cuenta como consumida.
+ * Las horas que ya consumió, por el MES EN QUE SE CONSUMIÓ EL AUDIO (o en toda la prueba), no por el mes en que se creó la
+ * reunión: antes una reunión creada el mes pasado y procesada este mes nunca se cobraba, y los borradores acumulados no tenían
+ * tope. La fuente es el registro de consumo `reunion_audio` (tokens = segundos, con el id de la reunión): se suma todo lo de la
+ * ventana, también lo de reuniones que luego se borraron, porque la transcripción ya se pagó (si borrar devolviera las horas se
+ * podía subir, procesar, borrar y repetir sin fin dentro de un mismo cupo). `excluirReunionId` es la que se está evaluando: su
+ * propia duración no cuenta como consumida.
  *
- * Lo borrado cuenta porque la transcripción ya se pagó: si borrar devolviera las horas, se podía subir, procesar, borrar y repetir
- * sin fin dentro de un mismo cupo. Queda en el registro de consumo (`reunion_audio`, con los segundos y el id de la reunión), que
- * no se borra con la reunión.
+ * Solo como respaldo —una reunión viva con audio y duración que todavía no tiene registro de consumo, creada en la ventana y que
+ * no espera cupo— se usa su duración. Una reunión con registro se cuenta solo por el registro: nunca dos veces.
  */
 async function consumidoMs(userId: string, prueba: boolean, ahora: Date, excluirReunionId?: string): Promise<number> {
   const inicio = prueba ? null : inicioDeMes(ahora);
-  const suma = await db.meeting.aggregate({
+
+  const registros: Array<{ refId: string | null; tokens: number | null }> = await db.usageRecord.findMany({
+    where: { userId, type: TIPOS.reunionAudio, ...(inicio ? { date: { gte: inicio } } : {}) },
+    select: { refId: true, tokens: true },
+  });
+  const consideradas = registros.filter((r) => !(excluirReunionId && r.refId === excluirReunionId));
+  const registradoMs = consideradas.reduce((s, r) => s + (r.tokens ?? 0) * 1000, 0);
+  // Las reuniones que ya tienen registro (la evaluada incluida) no se vuelven a contar por su duración.
+  const conRegistro = new Set(registros.map((r) => r.refId).filter((id): id is string => !!id));
+
+  const vivas: Array<{ id: string; durationMs: number | null }> = await db.meeting.findMany({
     where: {
       userId,
       durationMs: { gt: 0 },
@@ -83,22 +95,10 @@ async function consumidoMs(userId: string, prueba: boolean, ahora: Date, excluir
       ...(excluirReunionId ? { id: { not: excluirReunionId } } : {}),
       ...(inicio ? { createdAt: { gte: inicio } } : {}),
     },
-    _sum: { durationMs: true },
+    select: { id: true, durationMs: true },
   });
-  const vivasMs = suma._sum.durationMs ?? 0;
-
-  const registros = await db.usageRecord.findMany({
-    where: { userId, type: TIPOS.reunionAudio, ...(inicio ? { date: { gte: inicio } } : {}) },
-    select: { refId: true, tokens: true },
-  });
-  const ids = registros.map((r: { refId: string | null }) => r.refId).filter((id: string | null): id is string => !!id && id !== excluirReunionId);
-  if (ids.length === 0) return vivasMs;
-  const existentes = await db.meeting.findMany({ where: { userId, id: { in: ids } }, select: { id: true } });
-  const siguenVivas = new Set(existentes.map((m: { id: string }) => m.id));
-  const borradasMs = registros
-    .filter((r: { refId: string | null }) => !!r.refId && r.refId !== excluirReunionId && !siguenVivas.has(r.refId))
-    .reduce((s: number, r: { tokens: number | null }) => s + (r.tokens ?? 0) * 1000, 0);
-  return vivasMs + borradasMs;
+  const respaldoMs = vivas.filter((m) => !conRegistro.has(m.id)).reduce((s, m) => s + (m.durationMs ?? 0), 0);
+  return registradoMs + respaldoMs;
 }
 
 /** Las horas de reuniones tal como se le muestran a la persona: lo usado, el tope y lo que queda. */

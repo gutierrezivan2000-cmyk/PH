@@ -39,7 +39,8 @@ const gastar = async (usd: number, haceHoras: number, extra: Record<string, unkn
 const sinUso = async (r: Response) => ({ status: r.status, cuerpo: (await r.json()) as { error?: string } });
 /** El chat pasó la compuerta del uso y llegó hasta la IA, donde las pruebas lo detienen. */
 const llegaALaIA = async (r: Response) => {
-  expect(await sinUso(r)).toEqual({ status: 502, cuerpo: { error: "Error del servicio de IA: sin red en las pruebas" } });
+  // El mensaje es genérico: el detalle interno del fallo («sin red en las pruebas») no se le muestra a la persona.
+  expect(await sinUso(r)).toEqual({ status: 502, cuerpo: { error: "Error del servicio de IA. Intenta de nuevo." } });
 };
 
 beforeEach(async () => {
@@ -74,6 +75,12 @@ describe("el chat se mide por el uso que le queda a la cuenta (porcentaje, en d�
   it("con poco gastado (US$0,05), todavía queda uso: el chat pasa la compuerta (se detiene después, en la IA)", async () => {
     await gastar(0.05, 1);
     await llegaALaIA(await escribir());
+  });
+
+  it("cuando la IA falla al iniciar, el error no filtra el detalle interno", async () => {
+    const r = await sinUso(await escribir());
+    expect(r.status).toBe(502);
+    expect(JSON.stringify(r.cuerpo)).not.toContain("sin red en las pruebas");
   });
 
   it("la semana también se agota: US$0,35 en los últimos 6 días (tope de la semana: 0,30), sin agotar el mes", async () => {

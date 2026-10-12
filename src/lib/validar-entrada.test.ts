@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LIMITES, colorHex, cuerpoComoObjeto, textoAcotado, urlHttps } from "./validar-entrada";
+import { LIMITES, colorHex, cuerpoComoObjeto, esCorreoValido, identificadorReset, normalizarCorreo, textoAcotado, urlHttps } from "./validar-entrada";
 
 describe("textoAcotado", () => {
   it("recorta y devuelve el texto", () => {
@@ -87,5 +87,35 @@ describe("cuerpoComoObjeto", () => {
   it("solo un objeto simple pasa", () => {
     expect(cuerpoComoObjeto({ a: 1 })).toEqual({ a: 1 });
     for (const v of [null, undefined, [], [1], "x", 5, true]) expect(cuerpoComoObjeto(v)).toBeNull();
+  });
+});
+
+describe("normalizarCorreo / esCorreoValido", () => {
+  it("recorta y pasa a minúsculas", () => {
+    expect(normalizarCorreo("  Ana@X.CO ")).toBe("ana@x.co");
+    expect(esCorreoValido("ana@x.co")).toBe(true);
+  });
+  it("rechaza lo que no es texto", () => {
+    for (const v of [undefined, null, 5, {}, [], ["a@b.co"]]) expect(normalizarCorreo(v)).toBeNull();
+  });
+  it("rechaza ':' (no puede imitar el prefijo pwreset:) y cualquier espacio, también unicode", () => {
+    for (const v of ["pwreset:ana@x.co", "ana@x.co:1", "a na@x.co", "ana@x.co\u00a0z", "ana\u2003@x.co", "an\na@x.co", "a\u0000@x.co"]) {
+      expect(normalizarCorreo(v)).toBeNull();
+    }
+  });
+  it("rechaza formatos sin arroba, sin dominio o con arrobas de más", () => {
+    for (const v of ["", "   ", "ana", "ana@x", "@x.co", "a@@x.co", "a@b@x.co"]) expect(normalizarCorreo(v)).toBeNull();
+  });
+  it("tope de 254 caracteres", () => {
+    const largo = (n: number) => "a".repeat(n - "@x.co".length) + "@x.co";
+    expect(normalizarCorreo(largo(254))).toBe(largo(254));
+    expect(normalizarCorreo(largo(255))).toBeNull();
+  });
+  it("acepta unicode sin espacios (correos internacionales)", () => {
+    expect(normalizarCorreo("Ñandú@Ejemplo.CO")).toBe("ñandú@ejemplo.co");
+  });
+  it("el identifier de un correo válido nunca empieza por el prefijo de recuperación", () => {
+    expect(normalizarCorreo("ana@x.co")!.startsWith("pwreset:")).toBe(false);
+    expect(identificadorReset("ana@x.co")).toBe("pwreset:ana@x.co");
   });
 });

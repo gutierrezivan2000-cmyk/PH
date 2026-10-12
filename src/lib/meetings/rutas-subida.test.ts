@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { auth, fake, head, del, generarToken, empujar } = vi.hoisted(() => ({
+const { auth, fake, head, del, generarToken, empujar, leerBlob } = vi.hoisted(() => ({
+  leerBlob: vi.fn(),
   auth: vi.fn(),
   fake: { db: null as unknown },
   head: vi.fn(),
@@ -9,6 +10,8 @@ const { auth, fake, head, del, generarToken, empujar } = vi.hoisted(() => ({
   generarToken: vi.fn(),
   empujar: vi.fn(),
 }));
+// Los primeros bytes del archivo subido se leen del almacén: aquí se simulan (por omisión, un mp3 válido que empieza con «ID3»).
+vi.mock("@/lib/meetings/almacen-blob", () => ({ almacenBlob: () => ({ leer: (...a: unknown[]) => leerBlob(...a) }) }));
 vi.mock("@/lib/meetings/empujon", () => ({ empujar: (...a: unknown[]) => empujar(...a) }));
 vi.mock("@/lib/auth", () => ({ auth: (...a: unknown[]) => auth(...a) }));
 vi.mock("@/lib/db", () => ({ get db() { return fake.db; } }));
@@ -35,6 +38,10 @@ const json = async (r: Response) => ({ status: r.status, cuerpo: await r.json() 
 const sesion = (id = "u1") => auth.mockResolvedValue({ user: { id, email: `${id}@x.com`, role: "admin" } });
 const nuevaReunion = (extra: Record<string, unknown> = {}) =>
   db.meeting.create({ data: { id: ID, userId: "u1", propertyId: "c1", type: "consejo", title: "R", status: "borrador", errorMessage: null, ...extra } });
+const flujoDe = (bytes: Uint8Array) =>
+  new ReadableStream<Uint8Array>({ start(c) { c.enqueue(bytes); c.close(); } });
+const CABECERA_MP3 = Uint8Array.from([0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // «ID3»
+const lecturaDe = (bytes: Uint8Array) => ({ flujo: flujoDe(bytes), desde: 0, hasta: bytes.length - 1, total: 5000 });
 const pathnameDe = (n: string) => `meetings/${ID}/fuentes/${n}-consejo.m4a`;
 const cuerpoFuente = (n = "aaaaaaa1", extra: Record<string, unknown> = {}) => ({
   url: `${URL_BLOB}/${pathnameDe(n)}`, pathname: pathnameDe(n), nombre: "consejo.m4a", tamano: 5000, tipo: "audio/mp4", ...extra,
@@ -46,6 +53,7 @@ beforeEach(() => {
   auth.mockReset();
   empujar.mockReset();
   head.mockReset();
+  leerBlob.mockReset().mockImplementation(async () => lecturaDe(CABECERA_MP3));
   del.mockReset();
   generarToken.mockReset();
   generarToken.mockResolvedValue("token-de-cliente");
@@ -183,6 +191,28 @@ describe("POST sources (registrar un archivo ya subido)", () => {
     expect((await registrarFuente(pedir(cuerpoFuente()), ctx({ id: ID }))).status).toBe(200);
     // Pero uno NUEVO ya no entra.
     expect((await registrarFuente(pedir(cuerpoFuente("aaaaaaa2")), ctx({ id: ID }))).status).toBe(409);
+  });
+
+  it("lee solo los primeros bytes del archivo y, si no son de audio o video (un texto disfrazado), lo rechaza (400) sin registrar nada", async () => {
+    await nuevaReunion();
+    head.mockResolvedValue({ size: 5000 });
+    leerBlob.mockImplementation(async () => lecturaDe(new TextEncoder().encode("#EXTM3U\n#EXT-X-VERSION:3\nhttp://interno/")));
+    const r = await json(await registrarFuente(pedir(cuerpoFuente()), ctx({ id: ID })));
+    expect(r.status).toBe(400);
+    expect(r.cuerpo.error).toMatch(/no parece un audio o video/);
+    expect(leerBlob).toHaveBeenCalledWith(`${URL_BLOB}/${pathnameDe("aaaaaaa1")}`, { rango: { desde: 0, hasta: 4095 } });
+    expect(db.meetingSource.filas.length).toBe(0);
+    expect(db.meeting.filas[0].status).toBe("borrador");
+  });
+
+  it("si no se pueden leer los primeros bytes del almacenamiento: 400, y nada se registra", async () => {
+    await nuevaReunion();
+    head.mockResolvedValue({ size: 5000 });
+    leerBlob.mockRejectedValue(new Error("fallo de red"));
+    const r = await json(await registrarFuente(pedir(cuerpoFuente()), ctx({ id: ID })));
+    expect(r.status).toBe(400);
+    expect(r.cuerpo.error).toMatch(/Vuelve a subirlo/);
+    expect(db.meetingSource.filas.length).toBe(0);
   });
 
   it("si el archivo no existe en el almacenamiento: 400, y nada se registra", async () => {

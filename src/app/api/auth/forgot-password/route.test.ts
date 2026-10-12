@@ -263,3 +263,15 @@ describe("POST /api/auth/forgot-password — límite con failClosed y esquema", 
     expect(esquema.ensureAdminSchema).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/auth/forgot-password — formato de correo", () => {
+  it("un correo con ':' o espacios no crea token ni envía nada (no se puede plantar 'pwreset:')", async () => {
+    for (const email of ["pwreset:ana@x.co", "ana@x.co:1", "a na@x.co", 5, { a: 1 }]) {
+      const r = await POST(peticion({ email }));
+      expect(r.status).toBe(400);
+    }
+    expect(db.verificationToken.create).not.toHaveBeenCalled();
+    expect(db.user.findUnique).not.toHaveBeenCalled();
+    expect(correo.sendPasswordResetEmail).not.toHaveBeenCalled();
+  });
+});

@@ -112,3 +112,15 @@ describe("POST /api/auth/resend-code — comportamiento que no cambió", () => {
     expect(correo.sendVerificationEmail).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/auth/resend-code — formato de correo", () => {
+  it("un correo con ':' o espacios no crea ningún token (no se puede plantar 'pwreset:')", async () => {
+    for (const email of ["pwreset:ana@x.co", "ana@x.co:1", "a na@x.co", 5, { a: 1 }]) {
+      const r = await POST(peticion({ email }));
+      expect(r.status).toBe(400);
+    }
+    expect(db.verificationToken.create).not.toHaveBeenCalled();
+    expect(db.user.findUnique).not.toHaveBeenCalled();
+    expect(limite.rateLimit).not.toHaveBeenCalled();
+  });
+});

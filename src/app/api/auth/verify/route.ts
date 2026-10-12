@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { normalizarCorreo } from "@/lib/validar-entrada";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const email = (body.email as string | undefined)?.trim().toLowerCase();
-    const code = body.code as string | undefined;
-    const password = body.password as string | undefined;
+    // Mismo formato que register: el correo es el identifier del código y no puede imitar el prefijo "pwreset:".
+    const email = normalizarCorreo(body?.email);
+    const code = typeof body?.code === "string" ? body.code : undefined;
+    const password = typeof body?.password === "string" ? body.password : undefined;
 
     if (!email || !code) {
       return NextResponse.json({ error: "Email y código son requeridos" }, { status: 400 });

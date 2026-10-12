@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
 import { normalizePlanId } from "@/lib/plan";
 
@@ -45,13 +46,27 @@ export async function getEmailQuota(userId: string, isBeta: boolean): Promise<nu
   }
 }
 
+/**
+ * Correos ya enviados (o reservados) este mes. Si la lectura falla devuelve un valor
+ * enorme: la cuota se trata como agotada (fail CLOSED). Antes devolvía 0 y una caída
+ * de la base dejaba enviar sin límite.
+ */
 export async function getEmailsSentThisMonth(userId: string): Promise<number> {
   try {
     const rec = await db.rateLimit.findUnique({ where: { key: quotaKey(userId) } });
     return rec?.count ?? 0;
-  } catch {
-    return 0;
+  } catch (e) {
+    console.error("[email-quota] no se pudo leer el contador; se trata la cuota como agotada:", e);
+    return Number.MAX_SAFE_INTEGER;
   }
+}
+
+function mensajeDeCuota(count: number, used: number, quota: number): string {
+  return `Este envío (${count}) supera tu cuota mensual de correos (${used}/${quota} usados). ${
+    quota < EMAIL_QUOTAS.elite
+      ? "Sube de plan en Suscripción para ampliar la cuota."
+      : "La cuota se reinicia el primer día del mes."
+  }`;
 }
 
 export async function checkEmailQuota(
@@ -64,18 +79,59 @@ export async function checkEmailQuota(
     getEmailsSentThisMonth(userId),
   ]);
   if (used + count > quota) {
-    return {
-      allowed: false,
-      used,
-      quota,
-      reason: `Este envío (${count}) supera tu cuota mensual de correos (${used}/${quota} usados). ${
-        quota < EMAIL_QUOTAS.elite
-          ? "Sube de plan en Suscripción para ampliar la cuota."
-          : "La cuota se reinicia el primer día del mes."
-      }`,
-    };
+    return { allowed: false, used, quota, reason: mensajeDeCuota(count, Math.min(used, quota), quota) };
   }
   return { allowed: true, used, quota };
+}
+
+/**
+ * Reserva `count` correos del mes de forma ATÓMICA (una sola sentencia): suma al contador
+ * solo si el total sigue dentro de la cuota. Dos envíos simultáneos no pueden pasarse de la
+ * cuota, porque se serializan sobre la fila. Reservar ANTES de enviar y devolver con
+ * `liberarEmails` lo que no se pudo enviar. Si la base falla, deniega (fail closed).
+ */
+export async function reservarEmails(
+  userId: string,
+  count: number,
+  quota: number
+): Promise<{ allowed: boolean; used: number; quota: number; reason?: string; unavailable?: boolean }> {
+  if (count <= 0) return { allowed: true, used: 0, quota };
+  // El INSERT inicial no pasa por el WHERE del conflicto: se descarta aquí lo que ya excede la cuota.
+  if (count > quota) {
+    return { allowed: false, used: 0, quota, reason: mensajeDeCuota(count, 0, quota) };
+  }
+  const key = quotaKey(userId);
+  try {
+    const rows = await db.$queryRaw<Array<{ count: number }>>`
+      INSERT INTO "RateLimit" ("id", "key", "count", "windowStart")
+      VALUES (${randomUUID()}, ${key}, ${count}::int, (NOW() AT TIME ZONE 'UTC'))
+      ON CONFLICT ("key") DO UPDATE SET
+        "count" = "RateLimit"."count" + ${count}::int,
+        "windowStart" = (NOW() AT TIME ZONE 'UTC')
+      WHERE "RateLimit"."count" + ${count}::int <= ${quota}::int
+      RETURNING "count"
+    `;
+    if (rows[0]) return { allowed: true, used: Number(rows[0].count), quota };
+    const used = await getEmailsSentThisMonth(userId);
+    return { allowed: false, used, quota, reason: mensajeDeCuota(count, Math.min(used, quota), quota) };
+  } catch (e) {
+    console.error("[email-quota] no se pudo reservar la cuota; se deniega:", e);
+    return { allowed: false, used: quota, quota, unavailable: true, reason: "Servicio temporalmente no disponible. Intenta de nuevo en unos segundos." };
+  }
+}
+
+/** Devuelve a la cuota los correos reservados que al final no se enviaron (mejor esfuerzo). */
+export async function liberarEmails(userId: string, count: number): Promise<void> {
+  if (count <= 0) return;
+  try {
+    await db.$executeRaw`
+      UPDATE "RateLimit"
+      SET "count" = GREATEST("count" - ${count}::int, 0)
+      WHERE "key" = ${quotaKey(userId)}
+    `;
+  } catch (e) {
+    console.error("[email-quota] no se pudo liberar la reserva:", e);
+  }
 }
 
 /** Increment the monthly counter after a successful send (best-effort). */
@@ -86,7 +142,7 @@ export async function recordEmailsSent(userId: string, count: number): Promise<v
     await db.rateLimit.upsert({
       where: { key },
       create: { key, count, windowStart: new Date() },
-      update: { count: { increment: count } },
+      update: { count: { increment: count }, windowStart: new Date() },
     });
   } catch (e) {
     console.error("[email-quota] record failed:", e);

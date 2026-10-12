@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { exigirModulo } from "@/lib/modulos-acceso";
 import { registrarEvento } from "@/lib/agentes/eventos";
+import { rateLimit } from "@/lib/rate-limit";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
       getEmailsSentThisMonth(session.user.id),
     ]);
 
-    return NextResponse.json({ announcements, quota: { used, limit } });
+    return NextResponse.json({ announcements, quota: { used: Math.min(used, limit), limit } });
   } catch (error) {
     console.error("[announcements GET]", error);
     return NextResponse.json({ error: "Error al cargar comunicados" }, { status: 500 });
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
     const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
     await ensureAdminSchema();
     const { checkSubscriptionAccess } = await import("@/lib/usage");
-    const { checkEmailQuota, recordEmailsSent } = await import("@/lib/email-quota");
+    const { getEmailQuota, reservarEmails, liberarEmails } = await import("@/lib/email-quota");
     const { sendAnnouncementEmails, textToEmailHtml } = await import("@/lib/email");
 
     // Active plan / trial / beta required to send.
@@ -131,9 +132,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const quota = await checkEmailQuota(session.user.id, recipients.length, isBeta);
-    if (!quota.allowed) {
-      return NextResponse.json({ error: quota.reason, code: "email_quota" }, { status: 403 });
+    // Freno de ráfagas: la cuota se lee antes de enviar y se descuenta después,
+    // así que peticiones paralelas la leerían todas en 0. Limitar el ritmo por
+    // usuario (atómico, y deniega si la base falla) acota ese margen.
+    const ritmo = await rateLimit(`announce:${session.user.id}`, {
+      max: 3,
+      windowMs: 60_000,
+      failClosed: true,
+    });
+    if (!ritmo.allowed) {
+      return NextResponse.json(
+        {
+          error: ritmo.unavailable
+            ? "Servicio temporalmente no disponible. Intenta de nuevo en unos segundos."
+            : "Demasiados envíos seguidos. Espera un momento antes de enviar otro comunicado.",
+        },
+        {
+          status: ritmo.unavailable ? 503 : 429,
+          headers: { "Retry-After": String(ritmo.retryAfterSec ?? 30) },
+        }
+      );
+    }
+
+    // Reserva atómica ANTES de enviar: dos envíos simultáneos no pueden pasarse de la cuota.
+    const limiteMensual = await getEmailQuota(session.user.id, isBeta);
+    const reserva = await reservarEmails(session.user.id, recipients.length, limiteMensual);
+    if (!reserva.allowed) {
+      if (reserva.unavailable) {
+        return NextResponse.json({ error: reserva.reason }, { status: 503, headers: { "Retry-After": "30" } });
+      }
+      return NextResponse.json({ error: reserva.reason, code: "email_quota" }, { status: 403 });
     }
 
     const admin = await db.user.findUnique({
@@ -141,16 +169,27 @@ export async function POST(req: NextRequest) {
       select: { name: true, email: true, company: true, logoUrl: true, brandColor: true },
     });
 
-    const { sent, failed } = await sendAnnouncementEmails({
-      recipients,
-      subject: subject.trim(),
-      contentHtml: textToEmailHtml(content),
-      propertyName: property.name,
-      senderName: admin?.company || admin?.name || "Administración",
-      replyTo: admin?.email || undefined,
-      logoUrl: admin?.logoUrl,
-      brandColor: admin?.brandColor,
-    });
+    let resultado: { sent: number; failed: number };
+    try {
+      resultado = await sendAnnouncementEmails({
+        recipients,
+        subject: subject.trim(),
+        contentHtml: textToEmailHtml(content),
+        propertyName: property.name,
+        senderName: admin?.company || admin?.name || "Administración",
+        replyTo: admin?.email || undefined,
+        logoUrl: admin?.logoUrl,
+        brandColor: admin?.brandColor,
+      });
+    } catch (e) {
+      // No se envió nada de forma confiable: se devuelve toda la reserva.
+      await liberarEmails(session.user.id, recipients.length);
+      throw e;
+    }
+    const { sent, failed } = resultado;
+
+    // Se devuelve a la cuota lo reservado que no se pudo enviar.
+    await liberarEmails(session.user.id, recipients.length - sent);
 
     if (sent === 0) {
       return NextResponse.json(
@@ -159,7 +198,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await recordEmailsSent(session.user.id, sent);
     const announcement = await db.announcement.create({
       data: {
         userId: session.user.id,
