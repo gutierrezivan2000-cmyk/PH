@@ -100,7 +100,7 @@ function redactarActaDemo(c: ContextoDeActaDemo): Contenido {
     secciones: redactadas,
     asistentes: asistentesDeReunion(c.ficha, voces),
   });
-  const html = generatePdfHtml({ title: "Acta de reunión", propertyName: c.propiedad, period: fechaDelActa(c.fecha), content: armada.limpio, type: "acta" });
+  const html = generatePdfHtml({ title: "Acta de reunión", propertyName: c.propiedad, period: fechaDelActa(c.fecha), content: armada.limpio, type: "acta", textoYaEscapado: true });
   return { conMarcadores: armada.conMarcadores, limpio: armada.limpio, pendientes: armada.pendientes, html };
 }
 

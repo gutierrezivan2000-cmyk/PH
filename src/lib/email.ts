@@ -141,7 +141,7 @@ export async function sendPortalLinkEmails(params: {
   const accent =
     params.brandColor && /^#[0-9a-fA-F]{6}$/.test(params.brandColor) ? params.brandColor : "#7c3aed";
   const brandHeader = params.logoUrl
-    ? `<img src="${params.logoUrl}" alt="${escapeHtml(params.senderName)}" style="max-height:44px;max-width:180px;margin:0 auto;display:block;"/>`
+    ? `<img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.senderName)}" style="max-height:44px;max-width:180px;margin:0 auto;display:block;"/>`
     : `<h1 style="color:#fff;font-size:20px;margin:0;font-weight:800;">${escapeHtml(params.senderName)}</h1>`;
 
   let sent = 0;
@@ -278,7 +278,7 @@ export async function sendAnnouncementEmails(
     : "#7c3aed";
 
   const brandHeader = params.logoUrl
-    ? `<img src="${params.logoUrl}" alt="${escapeHtml(params.senderName)}" style="max-height:48px;max-width:200px;margin:0 auto;display:block;"/>`
+    ? `<img src="${escapeHtml(params.logoUrl)}" alt="${escapeHtml(params.senderName)}" style="max-height:48px;max-width:200px;margin:0 auto;display:block;"/>`
     : `<h1 style="color:#fff;font-size:22px;margin:0;font-weight:800;letter-spacing:-0.5px;">${escapeHtml(params.senderName)}</h1>`;
 
   const html = `

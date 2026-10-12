@@ -234,6 +234,7 @@ export const actaFinalTarea: Manejador = async ({ tarea, deps }) => {
     period: fechaDelActa(contexto.fecha),
     content: armada.limpio,
     type: "acta",
+    textoYaEscapado: true,
     companyName: marca?.company ?? null,
     logoUrl: marca?.logoUrl ?? null,
     brandColor: marca?.brandColor ?? null,

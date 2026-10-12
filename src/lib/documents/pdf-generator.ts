@@ -46,9 +46,13 @@ function parseMarkdownTable(tableBlock: string): string {
   return html;
 }
 
-export function markdownToSimpleHtml(markdown: string): string {
+export function markdownToSimpleHtml(markdown: string, opciones: { textoYaEscapado?: boolean } = {}): string {
+  // El texto se escapa ANTES de convertir el markdown: las marcas (**, #, -, |) no tienen
+  // nada que escapar, así que el HTML que escriba la IA o un tercero queda como texto.
+  // El acta ya escapa su propio texto (acta.ts): para ese caso se pasa `textoYaEscapado`.
+  const fuente = opciones.textoYaEscapado ? markdown : esc(markdown);
   // Split into blocks by double newline
-  const blocks = markdown.split(/\n\n+/);
+  const blocks = fuente.split(/\n\n+/);
   const htmlBlocks: string[] = [];
 
   for (let i = 0; i < blocks.length; i++) {
@@ -152,6 +156,12 @@ export interface PdfDocumentData {
   companyName?: string | null;
   logoUrl?: string | null;
   brandColor?: string | null;
+  /**
+   * `content` ya viene con sus `&`, `<` y `>` escapados (lo hace el acta de reuniones).
+   * Sin esta marca, el contenido se escapa aquí: informes y actas generados por la IA o
+   * redactados por terceros no pueden meter HTML ni scripts en el documento.
+   */
+  textoYaEscapado?: boolean;
 }
 
 // Accept only a safe hex color for the brand accent (defends the inlined CSS).
@@ -162,8 +172,8 @@ function safeHex(c?: string | null): string | null {
 
 /**
  * Escapa los campos de METADATOS (título, propiedad, periodo, empresa) antes de
- * interpolarlos. `content` NO pasa por aquí: es markdown que se convierte a
- * HTML a propósito.
+ * interpolarlos. `content` también se escapa (ver `markdownToSimpleHtml`), salvo
+ * que venga marcado como ya escapado.
  *
  * Hacía falta por dos vías: el nombre de la propiedad lo escribe el propio
  * administrador, y en el modo demo /api/demo/files toma ese nombre del query
@@ -184,7 +194,7 @@ export function generatePdfHtml(data: PdfDocumentData): string {
   const title = esc(data.title);
   const propertyName = esc(data.propertyName);
   const period = esc(data.period);
-  const contentHtml = markdownToSimpleHtml(content);
+  const contentHtml = markdownToSimpleHtml(content, { textoYaEscapado: data.textoYaEscapado });
 
   const brand = safeHex(data.brandColor);
   const accentColor = brand || (type === "informe" ? "#4338ca" : "#166534");
