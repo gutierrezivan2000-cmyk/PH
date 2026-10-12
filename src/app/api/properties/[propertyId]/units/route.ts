@@ -8,17 +8,22 @@ import { registrarEvento } from "@/lib/agentes/eventos";
 
 // Sin anclas: sirve para BUSCAR un correo dentro de una línea suelta
 // ("Apto 101, María, maria@x.com"). No vale para validar.
-const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+// Cuantificadores acotados + entrada truncada antes de comparar: sin ancla, el
+// motor reintenta desde cada posición y en una cadena larga sin "@" costaba
+// O(n²) (ReDoS).
+const EMAIL_RE = /[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9.-]{1,255}\.[a-zA-Z]{2,24}/;
+const MAX_LARGO_CORREO = 254;
+const MAX_LARGO_LINEA = 500;
 // Anclada: la cadena entera tiene que ser un correo. Con la de arriba,
 // `test("María Pérez maria@x.com")` daba true y se guardaba la CELDA COMPLETA
 // como email; luego Resend rechazaba el lote entero de hasta 100 destinatarios
 // y ningún residente recibía su enlace.
-const EMAIL_EXACT_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const EMAIL_EXACT_RE = /^[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9.-]{1,255}\.[a-zA-Z]{2,24}$/;
 
 /** Devuelve un correo limpio a partir de una celda, o null si no hay ninguno. */
 function extractEmail(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
-  const v = raw.trim().toLowerCase();
+  const v = raw.trim().toLowerCase().slice(0, MAX_LARGO_CORREO);
   if (EMAIL_EXACT_RE.test(v)) return v.slice(0, 120);
   // La celda trae texto alrededor ("María Pérez maria@x.com"): quédate solo
   // con la primera dirección, nunca con la cadena entera.
@@ -153,7 +158,7 @@ export async function POST(
 
     const lines = String(body.lines || "")
       .split(/\r?\n/)
-      .map((l) => l.trim())
+      .map((l) => l.trim().slice(0, MAX_LARGO_LINEA))
       .filter(Boolean)
       .slice(0, MAX_UNITS_PER_PROPERTY);
 
@@ -301,7 +306,8 @@ export async function PATCH(
     }
     if (email !== undefined) {
       const e = email ? String(email).trim().toLowerCase() : null;
-      if (e && !EMAIL_EXACT_RE.test(e)) {
+      // Largo antes del regex: no se evalúa sobre cadenas enormes.
+      if (e && (e.length > MAX_LARGO_CORREO || !EMAIL_EXACT_RE.test(e))) {
         return NextResponse.json({ error: "Correo inválido." }, { status: 400 });
       }
       data.email = e;

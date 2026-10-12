@@ -9,12 +9,15 @@ const { db, elite } = vi.hoisted(() => ({
     property: { findMany: vi.fn() },
     propertyMonthlyData: { findMany: vi.fn() },
     generation: { findMany: vi.fn(), count: vi.fn(), createMany: vi.fn() },
-    generationBatch: { create: vi.fn() },
+    generationBatch: { create: vi.fn(), findMany: vi.fn() },
+    $executeRaw: vi.fn(),
+    $transaction: vi.fn(),
   },
   elite: { actual: null as null | { userId: string; email: string; name: string | null; plan: "elite" | "beta" | "demo" } },
 }));
 vi.mock("@/lib/elite-auth", () => ({ requireElite: async () => elite.actual }));
 vi.mock("@/lib/db", () => ({ db }));
+vi.mock("@/lib/rate-limit", () => ({ rateLimit: async () => ({ allowed: true }) }));
 
 import { POST } from "./route";
 
@@ -48,13 +51,16 @@ function preparar(insumos: Record<string, unknown[]>) {
 beforeEach(() => {
   vi.stubEnv("DEMO_MODE", "false");
   elite.actual = { userId: U1, email: "admin@ph.co", name: "Admin", plan: "beta" };
-  for (const m of [db.property.findMany, db.propertyMonthlyData.findMany, db.generation.findMany, db.generation.count, db.generation.createMany, db.generationBatch.create]) {
+  for (const m of [db.property.findMany, db.propertyMonthlyData.findMany, db.generation.findMany, db.generation.count, db.generation.createMany, db.generationBatch.create, db.generationBatch.findMany, db.$executeRaw, db.$transaction]) {
     m.mockReset();
   }
   db.generation.findMany.mockResolvedValue([]);
   db.generation.count.mockResolvedValue(0);
   db.generation.createMany.mockResolvedValue({ count: 1 });
   db.generationBatch.create.mockResolvedValue({ id: "lote1" });
+  db.generationBatch.findMany.mockResolvedValue([]);
+  db.$executeRaw.mockResolvedValue(0);
+  db.$transaction.mockImplementation(async (fn: (t: typeof db) => Promise<unknown>) => fn(db));
 });
 
 describe("POST /api/empresa/batch: dueño de los insumos preparados", () => {

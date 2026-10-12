@@ -93,16 +93,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: limitCheck.reason, code: "property_limit" }, { status: 403 });
     }
 
-    const property = await db.property.create({
-      data: {
-        userId: dbUserId,
-        name,
-        address,
-        city,
-        units: units ? parseInt(units) : null,
-      },
+    // El chequeo de arriba no es atómico: varias peticiones en paralelo pasarían todas antes de que alguna creara. Se serializa por
+    // usuario (bloqueo de su fila) y se vuelve a contar dentro de la transacción antes de crear.
+    const topeFinal = limitCheck.limit;
+    const resultado = await db.$transaction(async (tx) => {
+      if (topeFinal < 999) {
+        await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${dbUserId} FOR UPDATE`;
+        const actuales = await tx.property.count({ where: { userId: dbUserId } });
+        if (actuales >= topeFinal) return { excedido: true as const, limite: topeFinal };
+      }
+      const creada = await tx.property.create({
+        data: {
+          userId: dbUserId,
+          name,
+          address,
+          city,
+          units: units ? parseInt(units) : null,
+        },
+      });
+      return { excedido: false as const, creada };
     });
-    return NextResponse.json(property, { status: 201 });
+    if (resultado.excedido) {
+      return NextResponse.json(
+        {
+          error: `Tu plan permite hasta ${resultado.limite} propiedades. Sube de plan en Suscripción para agregar más.`,
+          code: "property_limit",
+        },
+        { status: 403 },
+      );
+    }
+    return NextResponse.json(resultado.creada, { status: 201 });
   } catch (error) {
     console.error("[PROPERTIES POST]", error);
     return NextResponse.json({ error: "Error al guardar la propiedad" }, { status: 500 });

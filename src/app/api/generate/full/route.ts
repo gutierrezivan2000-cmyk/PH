@@ -28,6 +28,9 @@ const IS_DEMO = process.env.DEMO_MODE === "true";
 /** Máximo de audio (estimado por tamaño, 1 MB ≈ 1 minuto) que entra en UNA generación de documentos: 5 horas. */
 const MAX_MINUTOS_DE_AUDIO_POR_GENERACION = 300;
 
+/** Generaciones de documentos que una cuenta puede tener en curso a la vez. */
+const MAX_GENERACIONES_EN_CURSO = 2;
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -381,6 +384,18 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     console.error("[generate/full] file-limit check failed:", e);
   }
 
+  // Freno a las ráfagas: la generación llama a IA de pago. Va antes de cualquier trabajo pesado.
+  try {
+    const { rateLimit } = await import("@/lib/rate-limit");
+    const rl = await rateLimit(`generate:${dbUserId}`, { max: 3, windowMs: 60_000 });
+    if (!rl.allowed) {
+      await discardBlobs();
+      return NextResponse.json({ error: "Estás generando muy seguido. Espera un minuto e intenta de nuevo." }, { status: 429 });
+    }
+  } catch (e) {
+    console.error("[generate/full] rate limit failed:", e);
+  }
+
   // Audio: el cupo mensual de minutos se comparte con el chat. Se estima por tamaño (1 MB ≈ 1 minuto), como en el chat.
   try {
     const { esAudio: esAudioArchivo } = await import("@/lib/upload-limits");
@@ -406,42 +421,75 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     console.error("[generate/full] audio quota check failed:", e);
   }
 
-  // Step 4: Check usage limits
-  try {
-    const { checkUsageLimits } = await import("@/lib/usage");
-    const usageCheck = await checkUsageLimits(dbUserId);
-    if (!usageCheck.allowed) {
-      await discardBlobs();
-      return NextResponse.json({
-        error: usageCheck.reason,
-        dailyUsed: usageCheck.dailyUsed,
-        monthlyUsed: usageCheck.monthlyUsed,
-      }, { status: 429 });
-    }
-  } catch (e) {
-    console.error("[generate/full] Usage check failed:", e);
-  }
-
-  // Step 5: Find property
+  // Step 4: Find property (antes de reservar cupo: una propiedad ajena no debe consumir nada)
   const property = await db.property.findFirst({ where: { id: propertyId, userId: dbUserId } });
   if (!property) {
     await discardBlobs();
     return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
   }
 
-  // Step 6: Create generation record with "processing" status
-  const generation = await db.generation.create({
-    data: {
-      userId: dbUserId,
-      propertyId,
-      type,
-      status: "processing",
-      month,
-      year,
-      inputFiles: blobFiles.map((f) => ({ name: f.name, type: f.type, size: f.size, url: f.url })),
-      inputText: additionalText,
-    },
-  });
+  // Step 5: Comprobar el cupo y crear la generación como UNA sola operación por usuario. Antes se contaba y luego se creaba sin
+  // ningún candado, así que una ráfaga de peticiones en paralelo leía todas el mismo conteo y superaba el tope diario/mensual/de
+  // prueba. Aquí se toma un candado de asesoría de Postgres por usuario (se libera al terminar la transacción): la siguiente
+  // petición solo cuenta cuando la fila de la anterior ya está confirmada.
+  type Reserva =
+    | { ok: true; generationId: string }
+    | { ok: false; status: number; body: Record<string, unknown> };
+  let reserva: Reserva;
+  try {
+    const { checkUsageLimits } = await import("@/lib/usage");
+    reserva = await db.$transaction(
+      async (tx): Promise<Reserva> => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`generate:${dbUserId}`}))`;
+
+        const usageCheck = await checkUsageLimits(dbUserId);
+        if (!usageCheck.allowed) {
+          return {
+            ok: false,
+            status: 429,
+            body: { error: usageCheck.reason, dailyUsed: usageCheck.dailyUsed, monthlyUsed: usageCheck.monthlyUsed },
+          };
+        }
+
+        // Tope de generaciones en curso a la vez (los lotes y las reuniones tienen su propio flujo).
+        const enCurso = await tx.generation.count({
+          where: { userId: dbUserId, status: "processing", batchId: null, meetingId: null },
+        });
+        if (enCurso >= MAX_GENERACIONES_EN_CURSO) {
+          return {
+            ok: false,
+            status: 429,
+            body: { error: "Ya tienes generaciones en curso. Espera a que terminen para pedir otra." },
+          };
+        }
+
+        const creada = await tx.generation.create({
+          data: {
+            userId: dbUserId,
+            propertyId,
+            type,
+            status: "processing",
+            month,
+            year,
+            inputFiles: blobFiles.map((f) => ({ name: f.name, type: f.type, size: f.size, url: f.url })),
+            inputText: additionalText,
+          },
+        });
+        return { ok: true, generationId: creada.id };
+      },
+      { timeout: 20_000, maxWait: 15_000 }
+    );
+  } catch (e) {
+    // Sin poder reservar el cupo no se genera nada (antes un fallo aquí dejaba pasar sin límite).
+    console.error("[generate/full] Usage reservation failed:", e);
+    await discardBlobs();
+    return NextResponse.json({ error: "No pudimos verificar tu cupo. Intenta de nuevo en un momento." }, { status: 503 });
+  }
+  if (!reserva.ok) {
+    await discardBlobs();
+    return NextResponse.json(reserva.body, { status: reserva.status });
+  }
+  const generation = { id: reserva.generationId };
 
   // ═══ RESPOND IMMEDIATELY — the heavy AI work runs in the background via
   // the shared runGeneration worker (also used by the enterprise batch cron).

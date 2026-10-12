@@ -23,9 +23,11 @@ const { elite, filas, creadas } = vi.hoisted(() => {
 
 vi.mock("@/lib/elite-auth", () => ({ requireElite: async () => elite.current }));
 // La verificación de dueño de los archivos tiene su propia prueba; aquí no es lo que se mide.
+vi.mock("@/lib/rate-limit", () => ({ rateLimit: async () => ({ allowed: true }) }));
 vi.mock("@/lib/blob-owner", () => ({ primerBlobAjeno: () => null }));
 
 const contar = vi.hoisted(() => vi.fn());
+const dbRef = vi.hoisted(() => ({ current: null as unknown }));
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -53,10 +55,13 @@ vi.mock("@/lib/db", () => ({
         return { count: data.length };
       },
     },
-    generationBatch: { create: async () => ({ id: "lote1" }) },
+    generationBatch: { create: async () => ({ id: "lote1" }), findMany: async () => [] },
+    $executeRaw: async () => 0,
+    $transaction: async (fn: (t: unknown) => Promise<unknown>) => fn(dbRef.current),
   },
 }));
 
+import { db } from "@/lib/db";
 import { PLANS } from "@/lib/epayco";
 import { POST } from "./route";
 
@@ -67,6 +72,7 @@ const gastadas = (cuantas: number, creada: string): Fila[] =>
   Array.from({ length: cuantas }, () => ({ userId: "u1", status: "completed", createdAt: new Date(creada) }));
 
 beforeEach(() => {
+  dbRef.current = db;
   vi.useFakeTimers();
   filas.current = [];
   creadas.current = [];

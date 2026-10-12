@@ -199,9 +199,11 @@ export async function POST(
     if (message.length > MAX_CARACTERES_DE_MENSAJE) {
       return NextResponse.json({ error: `Tu mensaje es muy largo (máximo ${MAX_CARACTERES_DE_MENSAJE.toLocaleString("es-CO")} caracteres): adjúntalo como archivo.` }, { status: 400 });
     }
-    // Sin repetidos (la misma URL pegaría su texto varias veces) y con el mismo tope que la interfaz.
+    // Sin repetidos (la misma URL pegaría su texto varias veces) y con el mismo tope que la interfaz. El tamaño lo declara el
+    // navegador y decide el tope de 10 MB y la estimación de minutos de audio: si no es un número finito y no negativo, el
+    // adjunto se descarta (un texto o NaN desactivaría las comprobaciones).
     const reqAttachments = Array.isArray(adjuntosCrudos)
-      ? [...new Map(adjuntosCrudos.filter((a) => a && typeof a.url === "string").map((a) => [a.url, a])).values()].slice(0, MAX_ADJUNTOS)
+      ? [...new Map(adjuntosCrudos.filter((a) => a && typeof a.url === "string" && typeof a.size === "number" && Number.isFinite(a.size) && a.size >= 0).map((a) => [a.url, a])).values()].slice(0, MAX_ADJUNTOS)
       : undefined;
 
     // Los adjuntos los manda el navegador; el servidor los descarga con su credencial y se los entrega a la IA. Solo valen los
@@ -967,7 +969,7 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
             await registrarUsoDelMensaje();
             try {
               controller.enqueue(
-                encoder.encode(`event: error\ndata: ${JSON.stringify({ error: `Error del servicio de IA: ${errMsg}` })}\n\n`)
+                encoder.encode(`event: error\ndata: ${JSON.stringify({ error: "Error del servicio de IA. Intenta de nuevo." })}\n\n`)
               );
             } catch { /* controller may already be errored */ }
             try { controller.close(); } catch { /* ignore */ }
@@ -986,7 +988,7 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error("[api/agents/chat] Anthropic init error:", errMsg, err);
       return NextResponse.json(
-        { error: `Error del servicio de IA: ${errMsg}` },
+        { error: "Error del servicio de IA. Intenta de nuevo." },
         { status: 502 }
       );
     }
@@ -994,7 +996,7 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
     const errMsg = error instanceof Error ? error.message : String(error);
     console.error(`[api/agents/chat] Error at step '${step}':`, errMsg, error);
     return NextResponse.json(
-      { error: `Error interno en paso '${step}': ${errMsg}` },
+      { error: "Error interno. Intenta de nuevo.", paso: step },
       { status: 500 }
     );
   }

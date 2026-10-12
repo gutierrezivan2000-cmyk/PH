@@ -93,6 +93,36 @@ describe("POST /api/agents/[agentId]/chat: la lectura de adjuntos recibe al due�
     expect(parseAttachments).not.toHaveBeenCalled();
   });
 
+  it("descarta los adjuntos cuyo tamaño declarado no es un número finito y no negativo", async () => {
+    const bueno = adjunto("acta.pdf");
+    await enviar([
+      bueno,
+      { ...adjunto("a.mp3"), size: "5" },
+      { ...adjunto("b.mp3"), size: null },
+      { ...adjunto("c.mp3"), size: -1 },
+      { ...adjunto("d.mp3"), size: Number.POSITIVE_INFINITY },
+      { ...adjunto("e.mp3"), size: undefined },
+    ]);
+    expect(parseAttachments).toHaveBeenCalledTimes(1);
+    expect(parseAttachments.mock.calls[0][0]).toEqual([bueno]);
+  });
+
+  it("no devuelve al cliente el mensaje interno de un fallo de la IA (502 genérico)", async () => {
+    const r = await enviar([]);
+    expect(r.status).toBe(502);
+    const cuerpo = JSON.stringify(await r.json());
+    expect(cuerpo).not.toContain("sin IA en las pruebas");
+  });
+
+  it("no devuelve al cliente el mensaje interno de un fallo de la base (500 genérico)", async () => {
+    db.agentMessage.create.mockReset().mockRejectedValue(new Error("Can't reach database server at `db.interno`:5432"));
+    const r = await enviar([]);
+    expect(r.status).toBe(500);
+    const cuerpo = JSON.stringify(await r.json());
+    expect(cuerpo).not.toContain("db.interno");
+    expect(cuerpo).not.toContain("5432");
+  });
+
   it("sin adjuntos no se llama a parseAttachments", async () => {
     await enviar([]);
     await enviar(undefined);

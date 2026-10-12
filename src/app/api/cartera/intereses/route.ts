@@ -69,80 +69,91 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
     }
 
-    const [units, charges, existing, paymentSums] = await Promise.all([
-      db.unit.findMany({ where: { propertyId }, select: { id: true } }),
-      db.charge.findMany({
-        where: { propertyId },
-        select: { unitId: true, type: true, amount: true, paidAmount: true, dueDate: true },
-      }),
-      db.charge.findMany({
-        where: { propertyId, type: "interes", month: m, year: y },
-        select: { unitId: true },
-      }),
-      db.unitPayment.groupBy({
-        by: ["unitId"],
-        where: { propertyId },
-        _sum: { amount: true },
-      }),
-    ]);
-    const paidByUnit = new Map(paymentSums.map((p) => [p.unitId, p._sum.amount || 0]));
-    const alreadyLiquidated = new Set(existing.map((c) => c.unitId));
+    // Serializa las liquidaciones del mismo (propiedad, mes, año): sin el candado,
+    // dos peticiones simultáneas (doble clic, reintento) leen `existing` vacío y
+    // ambas insertan, duplicando el interés de mora (tope legal Art. 30 Ley 675).
+    const { toCreate, alreadyLiquidated } = await db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${propertyId}:interes:${y}:${m}`}))`;
 
-    const chargesByUnit = new Map<string, typeof charges>();
-    for (const c of charges) {
-      const list = chargesByUnit.get(c.unitId) || [];
-      list.push(c);
-      chargesByUnit.set(c.unitId, list);
-    }
+      const [units, charges, existing, paymentSums] = await Promise.all([
+        tx.unit.findMany({ where: { propertyId }, select: { id: true } }),
+        tx.charge.findMany({
+          where: { propertyId },
+          select: { unitId: true, type: true, amount: true, paidAmount: true, dueDate: true },
+        }),
+        tx.charge.findMany({
+          where: { propertyId, type: "interes", month: m, year: y },
+          select: { unitId: true },
+        }),
+        tx.unitPayment.groupBy({
+          by: ["unitId"],
+          where: { propertyId },
+          _sum: { amount: true },
+        }),
+      ]);
+      const paidByUnit = new Map(paymentSums.map((p) => [p.unitId, p._sum.amount || 0]));
+      const alreadyLiquidated = new Set(existing.map((c) => c.unitId));
 
-    const now = new Date();
-    // Cut-off = end of the month being liquidated (or now, if it's the current
-    // month). Using "today" for a past month would charge this month's balance
-    // for every back-month, multiplying the interest far beyond the legal cap.
-    const monthEnd = new Date(y, m, 0, 23, 59, 59);
-    const cutoff = monthEnd.getTime() > now.getTime() ? now : monthEnd;
-    const concept = `Intereses de mora ${MONTH_NAMES[m - 1]} ${y} (${pct}% mensual)`;
-    const toCreate: {
-      userId: string;
-      propertyId: string;
-      unitId: string;
-      concept: string;
-      type: string;
-      amount: number;
-      month: number;
-      year: number;
-      dueDate: Date;
-    }[] = [];
+      const chargesByUnit = new Map<string, typeof charges>();
+      for (const c of charges) {
+        const list = chargesByUnit.get(c.unitId) || [];
+        list.push(c);
+        chargesByUnit.set(c.unitId, list);
+      }
 
-    for (const u of units) {
-      if (alreadyLiquidated.has(u.id)) continue;
-      const all = chargesByUnit.get(u.id) || [];
-      // Overdue base excludes "interes" charges — never interest on interest…
-      const base = all.filter((c) => c.type !== "interes");
-      const rawOverdue = computeUnitSummary(base, 0, cutoff).overdueAmount;
-      // …and never more than what the unit actually owes overall at the cut-off
-      // (a unit that prepaid has credit that FIFO hasn't imputed yet).
-      const paidTotal = paidByUnit.get(u.id) || 0;
-      const trueBalance = computeUnitSummary(all, paidTotal, cutoff).balance;
-      const effectiveBase = Math.max(0, Math.min(rawOverdue, trueBalance));
+      const now = new Date();
+      // Cut-off = end of the month being liquidated (or now, if it's the current
+      // month). Using "today" for a past month would charge this month's balance
+      // for every back-month, multiplying the interest far beyond the legal cap.
+      const monthEnd = new Date(y, m, 0, 23, 59, 59);
+      const cutoff = monthEnd.getTime() > now.getTime() ? now : monthEnd;
+      const concept = `Intereses de mora ${MONTH_NAMES[m - 1]} ${y} (${pct}% mensual)`;
+      const toCreate: {
+        userId: string;
+        propertyId: string;
+        unitId: string;
+        concept: string;
+        type: string;
+        amount: number;
+        month: number;
+        year: number;
+        dueDate: Date;
+      }[] = [];
 
-      const interest = interesMora(effectiveBase, pct);
-      if (interest < 100) continue; // ignore negligible amounts (< COP $100)
-      toCreate.push({
-        userId,
-        propertyId,
-        unitId: u.id,
-        concept,
-        type: "interes",
-        amount: interest,
-        month: m,
-        year: y,
-        dueDate: cutoff,
-      });
-    }
+      for (const u of units) {
+        if (alreadyLiquidated.has(u.id)) continue;
+        const all = chargesByUnit.get(u.id) || [];
+        // Overdue base excludes "interes" charges — never interest on interest…
+        const base = all.filter((c) => c.type !== "interes");
+        const rawOverdue = computeUnitSummary(base, 0, cutoff).overdueAmount;
+        // …and never more than what the unit actually owes overall at the cut-off
+        // (a unit that prepaid has credit that FIFO hasn't imputed yet).
+        const paidTotal = paidByUnit.get(u.id) || 0;
+        const trueBalance = computeUnitSummary(all, paidTotal, cutoff).balance;
+        const effectiveBase = Math.max(0, Math.min(rawOverdue, trueBalance));
+
+        const interest = interesMora(effectiveBase, pct);
+        if (interest < 100) continue; // ignore negligible amounts (< COP $100)
+        toCreate.push({
+          userId,
+          propertyId,
+          unitId: u.id,
+          concept,
+          type: "interes",
+          amount: interest,
+          month: m,
+          year: y,
+          dueDate: cutoff,
+        });
+      }
+
+      if (toCreate.length > 0) {
+        await tx.charge.createMany({ data: toCreate });
+      }
+      return { toCreate, alreadyLiquidated };
+    });
 
     if (toCreate.length > 0) {
-      await db.charge.createMany({ data: toCreate });
       await registrarEvento({
         userId,
         propertyId,

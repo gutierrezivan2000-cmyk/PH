@@ -87,9 +87,10 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (e) {
-    // Non-fatal: confirmation has a signed-amount fallback if the order is
-    // missing, so a DB blip here doesn't strand the payment.
-    console.error("[CHECKOUT] pending order create failed:", e);
+    // Sin pedido pendiente la confirmación no puede acreditar nada (ya no hay
+    // respaldo por monto firmado): NO se abre el cobro, para no cobrar sin suscripción.
+    console.error("[CHECKOUT] pending order create failed; no se abre el pago:", e);
+    return NextResponse.json({ error: "No pudimos iniciar el pago. Intenta de nuevo." }, { status: 503 });
   }
 
   return NextResponse.json({

@@ -22,6 +22,23 @@ const MAX_INPUT_CHARS = 300_000;
 const CHUNK_TIMEOUT_MS = 45_000;
 const SOFT_DEADLINE_MS = 180_000;
 
+// Mensajes que ai-client lanza a propósito y que son seguros de mostrar. No
+// existe una clase de error tipada, así que se reconocen por su inicio exacto
+// (nunca por una regex suelta: "ia" aparece dentro de "credentials").
+const MENSAJES_IA_SEGUROS = [
+  "La IA no pudo atender esta solicitud.",
+  "La respuesta de la IA se cortó",
+  "El servicio de IA no tiene creditos disponibles.",
+  "La clave de API de IA no es valida.",
+  "El servicio de IA esta temporalmente saturado.",
+  "El modelo de IA configurado no esta disponible.",
+];
+function mensajeIASeguro(e: unknown, generico: string): string {
+  return e instanceof Error && MENSAJES_IA_SEGUROS.some((m) => e.message.startsWith(m))
+    ? e.message
+    : generico;
+}
+
 interface ExtractedUnit {
   label: string;
   residentName?: string | null;
@@ -46,6 +63,16 @@ export async function POST(
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   const { propertyId } = await params;
+
+  // La importación consume IA de pago: sin prueba ni plan activo no se usa.
+  const { checkSubscriptionAccess } = await import("@/lib/usage");
+  const access = await checkSubscriptionAccess(session.user.id);
+  if (!access.allowed) {
+    return NextResponse.json(
+      { error: access.reason ?? "Tu suscripción no está activa" },
+      { status: 403 }
+    );
+  }
 
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");
@@ -178,9 +205,8 @@ Reglas:
       // Solo aquí se puede culpar al archivo; si el fallo fue del modelo, se
       // dice tal cual en vez de mandar al usuario a revisar un archivo sano.
       if (lastError) {
-        const m = lastError instanceof Error ? lastError.message : "";
         return NextResponse.json(
-          { error: /IA|API|saturado|creditos|timeout|abort/i.test(m) ? m : "El servicio de IA no pudo leer el archivo. Intenta de nuevo." },
+          { error: mensajeIASeguro(lastError, "El servicio de IA no pudo leer el archivo. Intenta de nuevo.") },
           { status: 503 }
         );
       }
@@ -256,10 +282,7 @@ Reglas:
     return NextResponse.json({ units, truncated: incomplete, note });
   } catch (error) {
     console.error("[units import]", error);
-    const msg =
-      error instanceof Error && /IA|API|saturado|creditos/i.test(error.message)
-        ? error.message
-        : "No se pudo procesar el archivo. Intenta de nuevo.";
+    const msg = mensajeIASeguro(error, "No se pudo procesar el archivo. Intenta de nuevo.");
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

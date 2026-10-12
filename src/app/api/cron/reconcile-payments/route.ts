@@ -17,7 +17,32 @@ import { applyPaymentFifoTx, type Allocation } from "@/lib/cartera";
 
 const STALE_MINUTES = 20;
 const MAX_AGE_HOURS = 72; // beyond this ePayco won't have a live reference
-const PER_RUN = 25;
+const PAGE_SIZE = 25;
+// Presupuesto de tiempo (maxDuration es 120s): se deja margen para cerrar la
+// respuesta. Se recorre TODA la cola con cursor hasta agotarlo, de modo que las
+// órdenes abandonadas del frente de la cola no impidan revisar las nuevas.
+const TIME_BUDGET_MS = 90_000;
+const VERIFY_TIMEOUT_MS = 8_000; // una consulta lenta no puede consumir todo el presupuesto
+const CONCURRENCY = 5;
+
+type Verificacion = Awaited<ReturnType<typeof verifyTransaction>>;
+
+// Consulta a ePayco con tope de tiempo; si vence se trata como "sin respuesta".
+async function verificarConTope(ref: string): Promise<Verificacion> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      verifyTransaction(ref),
+      new Promise<Verificacion>((resolve) => {
+        timer = setTimeout(() => resolve({ success: false, status: "timeout", data: null }), VERIFY_TIMEOUT_MS);
+      }),
+    ]);
+  } catch {
+    return { success: false, status: "error", data: null };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -40,17 +65,14 @@ export async function GET(req: NextRequest) {
   let expired = 0;
 
   try {
-    const stale = await db.unitPaymentOrder.findMany({
-      where: { status: "pending", createdAt: { lt: staleBefore, gt: tooOld } },
-      orderBy: { createdAt: "asc" },
-      take: PER_RUN,
-    });
+    type Order = Awaited<ReturnType<typeof db.unitPaymentOrder.findMany>>[number];
+    const deadline = now + TIME_BUDGET_MS;
+    const where = { status: "pending", createdAt: { lt: staleBefore, gt: tooOld } };
 
-    for (const order of stale) {
-      checked++;
+    async function procesar(order: Order) {
       // ePayco's validation endpoint also accepts the merchant invoice.
-      const v = await verifyTransaction(order.ref);
-      if (!v.success || !v.data) continue;
+      const v = await verificarConTope(order.ref);
+      if (!v.success || !v.data) return;
 
       const cod = String(v.data.x_cod_response ?? "");
       const isTest = String(v.data.x_test_request ?? "").toUpperCase() === "TRUE";
@@ -65,14 +87,14 @@ export async function GET(req: NextRequest) {
             .update({ where: { id: order.id }, data: { status: "rejected", epaycoRef: epRef } })
             .catch(() => {});
         }
-        continue; // "3" pending → check again next run
+        return; // "3" pending → check again next run
       }
 
       if (isTest || order.test) {
         await db.unitPaymentOrder
           .update({ where: { id: order.id }, data: { status: "test", epaycoRef: epRef, completedAt: new Date() } })
           .catch(() => {});
-        continue;
+        return;
       }
       if (!amountOk || !invoiceOk) {
         await db.unitPaymentOrder
@@ -81,7 +103,7 @@ export async function GET(req: NextRequest) {
             data: { status: "needs_review", failReason: !amountOk ? "amount_mismatch" : "invoice_mismatch" },
           })
           .catch(() => {});
-        continue;
+        return;
       }
 
       // Approved and consistent → reconcile exactly like the callback would.
@@ -122,6 +144,27 @@ export async function GET(req: NextRequest) {
           .update({ where: { id: order.id }, data: { status: "needs_review", failReason: "reconcile_error" } })
           .catch(() => {});
       }
+    }
+
+    // Más nuevas primero (un pago con callback perdido es lo más probable en las
+    // recientes) y paginación por cursor sobre toda la cola hasta agotar el tiempo.
+    let cursor: string | undefined;
+    outer: while (Date.now() < deadline) {
+      const page: Order[] = await db.unitPaymentOrder.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: PAGE_SIZE,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      if (page.length === 0) break;
+      cursor = page[page.length - 1].id;
+      for (let i = 0; i < page.length; i += CONCURRENCY) {
+        if (Date.now() >= deadline) break outer;
+        const lote = page.slice(i, i + CONCURRENCY);
+        checked += lote.length;
+        await Promise.all(lote.map((o) => procesar(o)));
+      }
+      if (page.length < PAGE_SIZE) break;
     }
 
     // Orders older than the window that never confirmed: close them so they

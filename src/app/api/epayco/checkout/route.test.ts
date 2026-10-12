@@ -137,6 +137,28 @@ describe("POST /api/epayco/checkout — lo demás sigue igual", () => {
   });
 });
 
+describe("POST /api/epayco/checkout — pedido pendiente", () => {
+  const MENSAJE = "No pudimos iniciar el pago. Intenta de nuevo.";
+
+  it("si falla la creación del pedido responde 503 y no entrega checkoutConfig", async () => {
+    db.pendingOrder.create.mockRejectedValue(new Error("db caída"));
+    const POST = await cargarRuta();
+    const r = await POST(peticion({ plan: "pro" }));
+    expect(r.status).toBe(503);
+    const cuerpo = await r.json();
+    expect(cuerpo).toEqual({ error: MENSAJE });
+    expect(cuerpo.checkoutConfig).toBeUndefined();
+  });
+
+  it("si ensureAdminSchema falla tampoco abre el cobro", async () => {
+    esquema.ensureAdminSchema.mockRejectedValue(new Error("esquema"));
+    const POST = await cargarRuta();
+    const r = await POST(peticion({ plan: "pro" }));
+    expect(r.status).toBe(503);
+    expect(db.pendingOrder.create).not.toHaveBeenCalled();
+  });
+});
+
 describe("POST /api/epayco/checkout — modo demo", () => {
   beforeEach(() => vi.stubEnv("DEMO_MODE", "true"));
 

@@ -4,8 +4,8 @@ import type { NextRequest } from "next/server";
 const db = vi.hoisted(() => ({ $executeRawUnsafe: vi.fn() }));
 vi.mock("@/lib/db", () => ({ db }));
 
-const peticion = (secreto?: string) =>
-  new Request("http://localhost/api/admin/migrate", { method: "POST", headers: secreto ? { "x-admin-secret": secreto } : {} }) as unknown as NextRequest;
+const peticion = (secreto?: string, method = "POST") =>
+  new Request("http://localhost/api/admin/migrate", { method, headers: secreto ? { "x-admin-secret": secreto } : {} }) as unknown as NextRequest;
 
 async function cargar() {
   vi.resetModules();
@@ -77,9 +77,25 @@ describe("POST /api/admin/migrate", () => {
 });
 
 describe("GET /api/admin/migrate", () => {
-  it("lista los nombres de todas las sentencias sin ejecutar ninguna", async () => {
+  it("sin el secreto correcto responde 401 y no revela las sentencias", async () => {
+    const { ruta } = await cargar();
+    for (const secreto of [undefined, "otro"]) {
+      const res = await ruta.GET(peticion(secreto, "GET"));
+      expect(res.status).toBe(401);
+      expect(JSON.stringify(await res.json())).not.toContain("CREATE TABLE");
+    }
+    expect(db.$executeRawUnsafe).not.toHaveBeenCalled();
+  });
+
+  it("si el servidor no tiene ADMIN_MIGRATE_SECRET responde 500", async () => {
+    vi.stubEnv("ADMIN_MIGRATE_SECRET", "");
+    const { ruta } = await cargar();
+    expect((await ruta.GET(peticion("lo-que-sea", "GET"))).status).toBe(500);
+  });
+
+  it("con el secreto lista los nombres de todas las sentencias sin ejecutar ninguna", async () => {
     const { ruta, familias } = await cargar();
-    const cuerpo = (await (await ruta.GET()).json()) as { statements: string[] };
+    const cuerpo = (await (await ruta.GET(peticion("secreto-de-prueba", "GET"))).json()) as { statements: string[] };
     expect(cuerpo.statements).toHaveLength(familias.admin.length + familias.agentes.length + familias.reuniones.length + familias.operacion.length);
     expect(cuerpo.statements[0]).toMatch(/^admin 1: CREATE TABLE IF NOT EXISTS "User"/);
     expect(cuerpo.statements.some((n) => n.startsWith("reuniones "))).toBe(true);

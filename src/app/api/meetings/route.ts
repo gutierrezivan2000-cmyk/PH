@@ -14,6 +14,13 @@ import { validarNuevaReunion } from "@/lib/meetings/validar";
 /** La lista no pagina: 200 reuniones son años de consejos de una copropiedad. */
 const MAX_LISTA = 200;
 
+/**
+ * Tope de borradores sin procesar por persona. La cuota mensual de horas se cobra por la fecha de
+ * creación de la reunión; sin este tope se podrían acumular borradores en un mes y procesarlos en
+ * otro sin que cuenten. Es holgado para el uso real (se procesa cada reunión tras crearla).
+ */
+const MAX_BORRADORES = 30;
+
 /** GET /api/meetings?propertyId= → { items: ReunionResumen[] } (la más reciente primero). */
 export async function GET(req: NextRequest) {
   const acceso = await exigirVisible();
@@ -67,6 +74,13 @@ export async function POST(req: NextRequest) {
     await ensureMeetingsSchema();
     const propiedad = await propiedadDelUsuario(propertyId, ctx.userId);
     if (!propiedad) return NextResponse.json({ error: "Copropiedad no encontrada" }, { status: 404 });
+    const borradores = await db.meeting.count({ where: { userId: ctx.userId, status: "borrador", audioUrl: null } });
+    if (borradores >= MAX_BORRADORES) {
+      return NextResponse.json(
+        { error: `Tienes ${MAX_BORRADORES} reuniones sin procesar. Procesa o elimina alguna para crear otra.` },
+        { status: 429 },
+      );
+    }
     const fila = await db.meeting.create({
       data: { userId: ctx.userId, propertyId, type, title, date },
       select: SELECCION_RESUMEN,

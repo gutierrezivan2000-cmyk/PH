@@ -12,6 +12,7 @@ import { leerPedido } from "@/lib/meetings/preguntar-pedido";
 import { responderPregunta } from "@/lib/meetings/preguntar-servidor";
 import { crearFlujoSSE } from "@/lib/meetings/sse";
 import { registrarConsumo } from "@/lib/consumo/registrar";
+import { rateLimit } from "@/lib/rate-limit";
 
 type Contexto = { params: Promise<{ id: string }> };
 
@@ -25,6 +26,23 @@ const ENCABEZADOS_SSE = {
 
 /** El código HTTP de cada motivo por el que no se puede preguntar. */
 const CODIGOS = { no_existe: 404, no_lista: 409, sin_transcripcion: 409 } as const;
+
+/** Preguntas que una persona puede iniciar por minuto: el cupo diario solo se descuenta cuando termina la respuesta, así que esto frena la ráfaga. */
+const MAX_PREGUNTAS_POR_MINUTO = 6;
+/** Respuestas en curso a la vez por persona (por instancia): cada una manda la transcripción completa a la IA. */
+const MAX_RESPUESTAS_SIMULTANEAS = 2;
+const respuestasEnCurso = new Map<string, number>();
+const tomarPuesto = (userId: string): boolean => {
+  const n = respuestasEnCurso.get(userId) ?? 0;
+  if (n >= MAX_RESPUESTAS_SIMULTANEAS) return false;
+  respuestasEnCurso.set(userId, n + 1);
+  return true;
+};
+const soltarPuesto = (userId: string): void => {
+  const n = (respuestasEnCurso.get(userId) ?? 1) - 1;
+  if (n <= 0) respuestasEnCurso.delete(userId);
+  else respuestasEnCurso.set(userId, n);
+};
 
 /** Lo que se le dice a la persona cuando la IA falla a mitad de la respuesta (nunca detalles internos). */
 const mensajeDelFallo = (e: unknown): string => (e instanceof ErrorIA ? e.message : "No pudimos terminar la respuesta. Inténtalo de nuevo.");
@@ -71,6 +89,16 @@ export async function POST(req: NextRequest, { params }: Contexto) {
       return NextResponse.json({ error: "Esta reunión no tiene transcripción: no hay a qué preguntarle." }, { status: 409 });
     }
 
+    // El consumo se registra al terminar la respuesta (puede tardar ~2 min): sin este freno, una ráfaga de peticiones vería el cupo
+    // intacto y mandaría la transcripción completa a la IA tantas veces como quiera.
+    const ritmo = await rateLimit(`preguntar:${ctx.userId}`, { max: MAX_PREGUNTAS_POR_MINUTO, windowMs: 60_000, failClosed: true });
+    if (!ritmo.allowed) {
+      return NextResponse.json(
+        { error: "Estás preguntando muy rápido. Espera un momento e inténtalo de nuevo." },
+        { status: 429, headers: { "Retry-After": String(ritmo.retryAfterSec ?? 30) } },
+      );
+    }
+
     const cupo = await comprobarCupoDePreguntas(ctx.userId);
     if (!cupo.permitido) return NextResponse.json({ error: cupo.mensaje ?? "Llegaste al límite de mensajes de tu plan." }, { status: 429 });
 
@@ -80,38 +108,48 @@ export async function POST(req: NextRequest, { params }: Contexto) {
     }
     const ia = crearClienteIA();
 
+    if (!tomarPuesto(ctx.userId)) {
+      return NextResponse.json({ error: "Ya tienes respuestas en curso. Espera a que terminen para preguntar de nuevo." }, { status: 429 });
+    }
+    let puestoLiberado = false;
+    const liberar = () => { if (!puestoLiberado) { puestoLiberado = true; soltarPuesto(ctx.userId); } };
+
     const flujo = crearFlujoSSE(async (enviar, senal) => {
-      enviar("inicio", {});
-      let r;
-      let llegoTexto = false;
       try {
-        r = await responderPregunta({
-          meetingId: id, userId: ctx.userId, pedido: pedido.valor, ia, senal,
-          alTexto: (texto) => { llegoTexto = true; enviar("delta", { texto }); },
-        });
-      } catch (e) {
-        // Una pregunta que la persona detuvo (Detener) o que falló con la respuesta ya empezada igual leyó la transcripción: se
-        // registra lo estimado de entrada para que cuente en el uso. Si la API rechazó la llamada al instante, no se cobró nada.
-        const entrada = (e as { entradaEstimada?: number } | null)?.entradaEstimada;
-        if (typeof entrada === "number" && entrada > 0 && (senal?.aborted || llegoTexto)) {
-          await registrarConsumo({
-            tipo: TIPO_DE_USO_PREGUNTA, proveedor: "anthropic", modelo: modeloDeReuniones(),
-            tokens: { entrada, salida: 0, cacheLectura: 0, cacheEscritura: 0 }, userId: ctx.userId, ref: { tipo: "reunion", id },
+        enviar("inicio", {});
+        let r;
+        let llegoTexto = false;
+        try {
+          r = await responderPregunta({
+            meetingId: id, userId: ctx.userId, pedido: pedido.valor, ia, senal,
+            alTexto: (texto) => { llegoTexto = true; enviar("delta", { texto }); },
           });
+        } catch (e) {
+          // Una pregunta que la persona detuvo (Detener) o que falló con la respuesta ya empezada igual leyó la transcripción: se
+          // registra lo estimado de entrada para que cuente en el uso. Si la API rechazó la llamada al instante, no se cobró nada.
+          const entrada = (e as { entradaEstimada?: number } | null)?.entradaEstimada;
+          if (typeof entrada === "number" && entrada > 0 && (senal?.aborted || llegoTexto)) {
+            await registrarConsumo({
+              tipo: TIPO_DE_USO_PREGUNTA, proveedor: "anthropic", modelo: modeloDeReuniones(),
+              tokens: { entrada, salida: 0, cacheLectura: 0, cacheEscritura: 0 }, userId: ctx.userId, ref: { tipo: "reunion", id },
+            });
+          }
+          throw e;
         }
-        throw e;
+        if (!r.ok) {
+          enviar("error", { mensaje: r.error });
+          return;
+        }
+        // Cada pregunta queda registrada (su costo y sus tokens, y cuenta para el cupo). Un fallo aquí no tumba la respuesta.
+        const { uso } = r.respuesta;
+        await registrarConsumo({
+          tipo: TIPO_DE_USO_PREGUNTA, proveedor: "anthropic", modelo: r.respuesta.modelo, tokens: uso, costoUsd: uso.costoUsd,
+          tokensDelRegistro: tokensDeUso(uso), userId: ctx.userId, ref: { tipo: "reunion", id },
+        });
+        enviar("done", { cortada: r.respuesta.cortada, modelo: r.respuesta.modelo });
+      } finally {
+        liberar();
       }
-      if (!r.ok) {
-        enviar("error", { mensaje: r.error });
-        return;
-      }
-      // Cada pregunta queda registrada (su costo y sus tokens, y cuenta para el cupo). Un fallo aquí no tumba la respuesta.
-      const { uso } = r.respuesta;
-      await registrarConsumo({
-        tipo: TIPO_DE_USO_PREGUNTA, proveedor: "anthropic", modelo: r.respuesta.modelo, tokens: uso, costoUsd: uso.costoUsd,
-        tokensDelRegistro: tokensDeUso(uso), userId: ctx.userId, ref: { tipo: "reunion", id },
-      });
-      enviar("done", { cortada: r.respuesta.cortada, modelo: r.respuesta.modelo });
     }, mensajeDelFallo);
     return new Response(flujo, { headers: ENCABEZADOS_SSE });
   } catch (error) {

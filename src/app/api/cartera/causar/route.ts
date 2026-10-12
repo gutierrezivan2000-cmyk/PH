@@ -49,37 +49,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
     }
 
-    const [units, existing] = await Promise.all([
-      db.unit.findMany({
-        where: { propertyId },
-        select: { id: true, monthlyFee: true },
-      }),
-      db.charge.findMany({
-        where: { propertyId, type: "admin", month: m, year: y },
-        select: { unitId: true },
-      }),
-    ]);
-    const alreadyCharged = new Set(existing.map((c) => c.unitId));
-
     const dueDate = new Date(y, m - 1, day, 12);
     const concept = `Administración ${MONTH_NAMES[m - 1]} ${y}`;
 
-    const toCreate = units
-      .filter((u) => (u.monthlyFee || 0) > 0 && !alreadyCharged.has(u.id))
-      .map((u) => ({
-        userId,
-        propertyId,
-        unitId: u.id,
-        concept,
-        type: "admin",
-        amount: u.monthlyFee!,
-        month: m,
-        year: y,
-        dueDate,
-      }));
+    // Se serializa la corrida por propiedad: el bloqueo de fila sobre Property hace que una segunda
+    // petición simultánea (doble clic, reintento) espere, lea los cargos ya confirmados y no duplique.
+    const { units, alreadyCharged, toCreate } = await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Property" WHERE id = ${propertyId} FOR UPDATE`;
+
+      const [units, existing] = await Promise.all([
+        tx.unit.findMany({
+          where: { propertyId },
+          select: { id: true, monthlyFee: true },
+        }),
+        tx.charge.findMany({
+          where: { propertyId, type: "admin", month: m, year: y },
+          select: { unitId: true },
+        }),
+      ]);
+      const alreadyCharged = new Set(existing.map((c) => c.unitId));
+
+      const toCreate = units
+        .filter((u) => (u.monthlyFee || 0) > 0 && !alreadyCharged.has(u.id))
+        .map((u) => ({
+          userId,
+          propertyId,
+          unitId: u.id,
+          concept,
+          type: "admin",
+          amount: u.monthlyFee!,
+          month: m,
+          year: y,
+          dueDate,
+        }));
+
+      if (toCreate.length > 0) await tx.charge.createMany({ data: toCreate });
+      return { units, alreadyCharged, toCreate };
+    });
 
     if (toCreate.length > 0) {
-      await db.charge.createMany({ data: toCreate });
       await registrarEvento({
         userId,
         propertyId,

@@ -1,24 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { db, del, runGeneration, despues, sesion, limites } = vi.hoisted(() => ({
-  db: {
+const { db, del, runGeneration, despues, sesion, limites, uso, rl } = vi.hoisted(() => {
+  const d = {
     user: { findUnique: vi.fn(), create: vi.fn() },
     property: { findFirst: vi.fn() },
-    generation: { create: vi.fn() },
+    generation: { create: vi.fn(), count: vi.fn() },
     propertyDocument: { findMany: vi.fn() },
-  },
-  del: vi.fn(),
-  runGeneration: vi.fn(),
-  despues: vi.fn(),
-  sesion: { actual: null as { user?: { id?: string; email?: string } } | null },
-  limites: { maxFiles: 5 },
-}));
+    $executeRaw: vi.fn(),
+    $transaction: vi.fn(),
+  };
+  return {
+    db: d,
+    del: vi.fn(),
+    runGeneration: vi.fn(),
+    despues: vi.fn(),
+    sesion: { actual: null as { user?: { id?: string; email?: string } } | null },
+    limites: { maxFiles: 5 },
+    uso: { check: vi.fn() },
+    rl: vi.fn(),
+  };
+});
+vi.mock("@/lib/rate-limit", () => ({ rateLimit: (...a: unknown[]) => rl(...a) }));
 vi.mock("@/lib/auth", () => ({ auth: async () => sesion.actual }));
 vi.mock("@/lib/db", () => ({ db }));
 vi.mock("@vercel/blob", () => ({ del: (...a: unknown[]) => del(...a) }));
 vi.mock("@/lib/usage", () => ({
   getGenerationFileLimits: async () => ({ maxFiles: limites.maxFiles }),
-  checkUsageLimits: async () => ({ allowed: true }),
+  checkUsageLimits: (...a: unknown[]) => uso.check(...a),
 }));
 vi.mock("@/lib/uso-chat-servidor", () => ({ cupoDeAudioMensual: async () => ({ bloqueado: false }) }));
 vi.mock("@/lib/generation/run", async (original) => ({
@@ -52,7 +60,12 @@ beforeEach(() => {
   vi.spyOn(console, "log").mockImplementation(() => {});
   sesion.actual = { user: { id: U1, email: "admin@ph.co" } };
   limites.maxFiles = 5;
-  for (const m of [db.user.findUnique, db.user.create, db.property.findFirst, db.generation.create, db.propertyDocument.findMany, del, runGeneration, despues]) m.mockReset();
+  for (const m of [db.user.findUnique, db.user.create, db.property.findFirst, db.generation.create, db.generation.count, db.propertyDocument.findMany, db.$executeRaw, db.$transaction, uso.check, rl, del, runGeneration, despues]) m.mockReset();
+  db.$transaction.mockImplementation(async (fn: (tx: typeof db) => unknown) => fn(db));
+  db.$executeRaw.mockResolvedValue(1);
+  db.generation.count.mockResolvedValue(0);
+  uso.check.mockResolvedValue({ allowed: true, dailyUsed: 0, monthlyUsed: 0 });
+  rl.mockResolvedValue({ allowed: true });
   db.user.findUnique.mockResolvedValue({ id: U1 });
   db.property.findFirst.mockResolvedValue({ id: "prop1", name: "Conjunto Los Pinos" });
   db.generation.create.mockResolvedValue({ id: "gen1" });
@@ -145,6 +158,92 @@ describe("POST /api/generate/full: dueño de los archivos", () => {
     const r = await generar([propio("a")]);
     expect(r.status).toBe(401);
     expect(runGeneration).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/generate/full: cupo atómico y ráfagas", () => {
+  it("toma el candado por usuario ANTES de contar y crea la generación en la misma transacción", async () => {
+    const orden: string[] = [];
+    db.$executeRaw.mockImplementation(async () => void orden.push("candado"));
+    uso.check.mockImplementation(async () => (orden.push("conteo"), { allowed: true }));
+    db.generation.create.mockImplementation(async () => (orden.push("crear"), { id: "gen1" }));
+    const r = await generar([]);
+    expect(r.status).toBe(200);
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(orden).toEqual(["candado", "conteo", "crear"]);
+  });
+
+  it("sobre el tope diario responde 429 y no crea la generación ni lanza el trabajo", async () => {
+    uso.check.mockResolvedValue({ allowed: false, reason: "Límite diario", dailyUsed: 3, monthlyUsed: 3 });
+    const r = await generar([propio("a")]);
+    expect(r.status).toBe(429);
+    expect(await r.json()).toMatchObject({ error: "Límite diario", dailyUsed: 3 });
+    expect(db.generation.create).not.toHaveBeenCalled();
+    expect(runGeneration).not.toHaveBeenCalled();
+    expect(del).toHaveBeenCalledWith([propio("a").url]);
+  });
+
+  it("una ráfaga en paralelo con un cupo de 2 deja pasar solo 2 (las peticiones se serializan por usuario)", async () => {
+    // Calienta los imports dinámicos de la ruta: con 10 peticiones simultáneas en frío vitest puede resolver el módulo real.
+    await generar([]);
+    runGeneration.mockClear();
+    db.generation.create.mockClear();
+    let cola: Promise<unknown> = Promise.resolve();
+    db.$transaction.mockImplementation((fn: (tx: typeof db) => Promise<unknown>) => {
+      const turno = cola.then(() => fn(db));
+      cola = turno.catch(() => {});
+      return turno;
+    });
+    let filas = 0;
+    uso.check.mockImplementation(async () => {
+      await new Promise((res) => setTimeout(res, 15));
+      return filas < 2 ? { allowed: true } : { allowed: false, reason: "tope", dailyUsed: filas, monthlyUsed: filas };
+    });
+    db.generation.create.mockImplementation(async () => ({ id: `gen${++filas}` }));
+    // Se escalonan unos milisegundos (vitest resuelve mal los imports dinámicos de módulos mockeados lanzados exactamente a la vez),
+    // pero la verificación de cupo tarda más que el escalón, así que las peticiones siguen solapadas.
+    const rs = await Promise.all(
+      Array.from({ length: 10 }, async (_, i) => {
+        await new Promise((res) => setTimeout(res, i * 3));
+        return generar([]);
+      })
+    );
+    expect(rs.filter((r) => r.status === 200)).toHaveLength(2);
+    expect(rs.filter((r) => r.status === 429)).toHaveLength(8);
+    expect(db.generation.create).toHaveBeenCalledTimes(2);
+    expect(runGeneration).toHaveBeenCalledTimes(2);
+  });
+
+  it("con 2 generaciones ya en curso rechaza una tercera (429)", async () => {
+    db.generation.count.mockResolvedValue(2);
+    const r = await generar([]);
+    expect(r.status).toBe(429);
+    expect(db.generation.create).not.toHaveBeenCalled();
+    expect(runGeneration).not.toHaveBeenCalled();
+  });
+
+  it("aplica rateLimit por usuario y responde 429 si se excede, sin tocar el cupo", async () => {
+    rl.mockResolvedValue({ allowed: false });
+    const r = await generar([propio("a")]);
+    expect(rl).toHaveBeenCalledWith(`generate:${U1}`, { max: 3, windowMs: 60_000 });
+    expect(r.status).toBe(429);
+    expect(db.$transaction).not.toHaveBeenCalled();
+    expect(runGeneration).not.toHaveBeenCalled();
+    expect(del).toHaveBeenCalledWith([propio("a").url]);
+  });
+
+  it("si la reserva falla (base caída) no genera: 503 en vez de dejar pasar sin límite", async () => {
+    db.$transaction.mockRejectedValue(new Error("db caída"));
+    const r = await generar([]);
+    expect(r.status).toBe(503);
+    expect(runGeneration).not.toHaveBeenCalled();
+  });
+
+  it("una propiedad ajena (404) no consume cupo", async () => {
+    db.property.findFirst.mockResolvedValue(null);
+    const r = await generar([]);
+    expect(r.status).toBe(404);
+    expect(db.$transaction).not.toHaveBeenCalled();
   });
 });
 

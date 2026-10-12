@@ -76,6 +76,16 @@ export async function POST(
       return NextResponse.json({ error: "Propiedad no encontrada" }, { status: 404 });
     }
 
+    // La importación consume IA de pago: sin prueba ni plan activo no se usa.
+    const { checkSubscriptionAccess } = await import("@/lib/usage");
+    const access = await checkSubscriptionAccess(session.user.id);
+    if (!access.allowed) {
+      return NextResponse.json(
+        { error: "Tu prueba o plan no está activo. Activa tu suscripción para usar la importación con IA." },
+        { status: 403 }
+      );
+    }
+
     const { rateLimit } = await import("@/lib/rate-limit");
     const rl = await rateLimit(`assets-import:${session.user.id}`, { max: 10, windowMs: 60 * 60 * 1000 });
     const rlDia = await rateLimit(`assets-import-dia:${session.user.id}`, { max: 30, windowMs: 24 * 60 * 60 * 1000 });

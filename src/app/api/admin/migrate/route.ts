@@ -23,12 +23,10 @@ const STATEMENTS: { name: string; sql: string }[] = (
   sentencias.map((sql, i) => ({ name: `${familia} ${i + 1}: ${sql.replace(/\s+/g, " ").trim().slice(0, 80)}`, sql }))
 );
 
-export async function POST(req: NextRequest) {
-  // Solo por header: un secreto en la URL queda en logs, historial y cabeceras Referer.
+// Autenticación compartida por GET y POST: solo por header (un secreto en la URL queda en logs, historial y Referer).
+// Exige un secreto DEDICADO: nunca caer en AUTH_SECRET (es la llave de firma del JWT y este endpoint corre DDL crudo).
+function autorizar(req: NextRequest): NextResponse | null {
   const providedSecret = req.headers.get("x-admin-secret");
-
-  // Require a DEDICATED secret. Never fall back to AUTH_SECRET — that's the
-  // JWT signing key, and this endpoint runs raw DDL ($executeRawUnsafe).
   const expectedSecret = process.env.ADMIN_MIGRATE_SECRET;
 
   if (!expectedSecret) {
@@ -41,6 +39,12 @@ export async function POST(req: NextRequest) {
   if (!secretoCoincide(providedSecret, expectedSecret)) {
     return NextResponse.json({ error: "Secret invalido o faltante" }, { status: 401 });
   }
+  return null;
+}
+
+export async function POST(req: NextRequest) {
+  const denegado = autorizar(req);
+  if (denegado) return denegado;
 
   const results: { name: string; status: "ok" | "failed"; error?: string }[] = [];
 
@@ -60,7 +64,10 @@ export async function POST(req: NextRequest) {
   });
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // El listado revela nombres de tablas y columnas: mismo control que POST.
+  const denegado = autorizar(req);
+  if (denegado) return denegado;
   return NextResponse.json({
     info: "Usa POST con el header x-admin-secret para ejecutar migraciones.",
     statements: STATEMENTS.map((s) => s.name),
