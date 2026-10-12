@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { upload as blobUpload } from "@vercel/blob/client";
+import { rutaDeSubidaActual } from "@/lib/blob-owner-client";
 import { Header } from "@/components/dashboard/Header";
 import { iniciales } from "@/components/dashboard/Sidebar";
 import { abrirSoporte, useSoporteDisponible } from "@/components/dashboard/soporte";
@@ -297,8 +298,8 @@ export default function ConfiguracionPage() {
   const handleLogoUpload = async (file: File) => {
     setUploadingLogo(true);
     try {
-      const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-      const result = await blobUpload(`branding/logo-${Date.now()}-${safeName}`, file, {
+      // El servidor solo autoriza rutas `subidas/<tu id>/…`.
+      const result = await blobUpload(await rutaDeSubidaActual(file.name, "branding", session?.user?.id), file, {
         access: "public",
         handleUploadUrl: "/api/upload/token",
         contentType: file.type || "image/png",

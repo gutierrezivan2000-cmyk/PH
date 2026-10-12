@@ -6,8 +6,33 @@ import { parseMarkdownToSlides } from "@/lib/documents/slide-parser";
 import { STRATEGOS_SYSTEM_PROMPT, buildStrategosPrompt } from "@/lib/ai/strategos";
 import { GRAMMATEUS_SYSTEM_PROMPT, buildGrammatusPrompt } from "@/lib/ai/grammateus";
 import { registrarEvento } from "@/lib/agentes/eventos";
+import { blobAutorizado, primerBlobAjeno } from "@/lib/blob-owner";
+import { borrarBlobsPropios } from "@/lib/blob-owner-server";
 
 export type BlobFileRef = { url: string; name: string; type: string; size: number };
+
+/**
+ * Un archivo que no es de quien lo manda. Se distingue del resto de fallos de
+ * lectura porque no se degrada a «no se pudo procesar» y se sigue con los
+ * demás: una referencia ajena significa que alguien se saltó la validación, y
+ * lo prudente es no generar nada.
+ */
+export class BlobAjenoError extends Error {
+  constructor(nombre: unknown) {
+    const n = typeof nombre === "string" && nombre ? ` "${nombre.slice(0, 80)}"` : "";
+    super(
+      `El archivo${n} no pertenece a tu cuenta, así que no se generó el documento. ` +
+        `Quítalo de la lista y vuelve a subirlo desde esta aplicación.`
+    );
+    this.name = "BlobAjenoError";
+  }
+}
+
+/** Quién puede usar un blob: el usuario (o sus ids) y, para insumos mensuales de antes, la copropiedad ya verificada. */
+export interface DuenoDeBlob {
+  userId: string | readonly string[];
+  propertyId?: string;
+}
 
 // Cap the consolidated file content fed to Sonnet. ~150k chars ≈ 40k tokens —
 // covers any legitimate month of documents and bounds worst-case cost.
@@ -18,10 +43,22 @@ const MAX_CONTENT_CHARS = 150_000;
 export { isAllowedBlobUrl } from "@/lib/blob-url";
 import { isAllowedBlobUrl } from "@/lib/blob-url";
 
-/** Fetch a private blob URL and turn it into a File for the parsers. */
-export async function blobRefToFile(ref: BlobFileRef): Promise<File> {
+/**
+ * Fetch a private blob URL and turn it into a File for the parsers.
+ *
+ * Con `dueno` se comprueba además que el blob sea de ese usuario (ruta
+ * `subidas/<id>/…`, ver lib/blob-owner) y, si no, lanza BlobAjenoError ANTES de
+ * pedir nada al almacenamiento. Sin `dueno` solo se valida el host: es para el
+ * llamador que ya comprobó la pertenencia de la lista completa (ver
+ * parse-attachment). Todo lo que se lee a partir de una URL que mandó el
+ * navegador debe pasar `dueno`.
+ */
+export async function blobRefToFile(ref: BlobFileRef, dueno?: DuenoDeBlob): Promise<File> {
   if (!isAllowedBlobUrl(ref.url)) {
     throw new Error(`Origen de archivo no permitido para "${ref.name}"`);
+  }
+  if (dueno && !blobAutorizado(ref.url, dueno.userId, { propertyId: dueno.propertyId })) {
+    throw new BlobAjenoError(ref.name);
   }
   const { get } = await import("@vercel/blob");
   const result = await get(ref.url, { access: "private" }).catch(() => null);
@@ -53,6 +90,27 @@ export interface RunGenerationParams {
    * where the files live in per-property monthly staging and may be reused.
    */
   cleanupInputs?: boolean;
+  /**
+   * Otros ids con los que el usuario pudo subir los archivos. La sesión y la
+   * base de datos pueden traer ids distintos para la misma persona (sesión
+   * vieja que se resuelve por correo): el token de subida usó el de la sesión.
+   */
+  idsDeSubida?: string[];
+}
+
+/**
+ * ¿De quién se aceptan los insumos de esta generación? Casi siempre basta el id
+ * del usuario. Solo si algún insumo no lleva su prefijo (insumos mensuales
+ * guardados antes de que el dueño fuera parte de la ruta) se consulta la
+ * copropiedad de ESTA generación: la ruta `monthly/<propertyId>/` la prueba.
+ */
+async function duenoDeLosInsumos(p: RunGenerationParams): Promise<DuenoDeBlob> {
+  const ids = [...new Set([p.userId, ...(p.idsDeSubida ?? [])])];
+  if (p.blobFiles.every((r) => blobAutorizado(r?.url, ids))) return { userId: ids };
+  const g = await db.generation
+    .findUnique({ where: { id: p.generationId }, select: { userId: true, propertyId: true } })
+    .catch(() => null);
+  return { userId: ids, propertyId: g && g.userId === p.userId ? g.propertyId : undefined };
 }
 
 /**
@@ -81,11 +139,17 @@ async function ejecutarGeneracion(p: RunGenerationParams): Promise<void> {
   try {
     await updateProgress(5, "processing");
 
+    // Antes de leer nada: todos los insumos deben ser de esta persona. Una referencia ajena aborta la generación
+    // completa (no se degrada a «no se pudo procesar»): significa que alguien se saltó la validación de la ruta.
+    const dueno = await duenoDeLosInsumos(p);
+    const ajeno = primerBlobAjeno(p.blobFiles, dueno.userId, { propertyId: dueno.propertyId });
+    if (ajeno) throw new BlobAjenoError(ajeno.name);
+
     // Fetch each blob from storage and parse it.
     const fileContents: { name: string; text: string }[] = [];
     for (const ref of p.blobFiles) {
       try {
-        const file = await blobRefToFile(ref);
+        const file = await blobRefToFile(ref, dueno);
         if (file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".csv")) {
           fileContents.push({ name: file.name, text: await file.text() });
         } else {
@@ -268,13 +332,14 @@ async function ejecutarGeneracion(p: RunGenerationParams): Promise<void> {
 
     // Free the raw input blobs — their parsed content is already in the output
     // document, and they're never shown again. Bounds Blob storage growth.
+    // Solo los que son de este usuario y no están registrados como documento de la copropiedad
+    // (si el administrador reutilizó el reglamento como insumo, el documento no puede quedarse sin archivo).
     if (p.cleanupInputs && p.blobFiles.length > 0) {
-      try {
-        const { del } = await import("@vercel/blob");
-        await del(p.blobFiles.map((f) => f.url));
-      } catch (e) {
-        console.error("[runGeneration] input blob cleanup failed:", e);
-      }
+      await borrarBlobsPropios(
+        p.blobFiles.map((f) => f?.url),
+        dueno.userId,
+        { propertyId: dueno.propertyId, etiqueta: "runGeneration" }
+      );
     }
 
     console.log(`[runGeneration] completed ${p.generationId} (${totalTokens} tokens, $${costUsd.toFixed(4)})`);

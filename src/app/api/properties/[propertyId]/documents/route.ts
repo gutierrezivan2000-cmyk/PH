@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { registrarEvento } from "@/lib/agentes/eventos";
+import { MENSAJE_BLOB_AJENO, blobPerteneceA } from "@/lib/blob-owner";
 
 export async function GET(
   _req: NextRequest,
@@ -84,6 +85,13 @@ export async function POST(
         { error: "El archivo debe subirse desde esta aplicación." },
         { status: 400 }
       );
+    }
+
+    // Registrar un documento es adueñarse de su archivo: el portal de residentes y el asistente del reglamento lo leen después
+    // con la credencial del servidor. Solo se acepta un blob que subió esta misma persona (ruta `subidas/<su id>/…`); si no,
+    // bastaba conocer la URL de un archivo ajeno para colgarlo de la propia copropiedad.
+    if (!blobPerteneceA(url, session.user.id)) {
+      return NextResponse.json({ error: MENSAJE_BLOB_AJENO }, { status: 403 });
     }
 
     const doc = await db.propertyDocument.create({

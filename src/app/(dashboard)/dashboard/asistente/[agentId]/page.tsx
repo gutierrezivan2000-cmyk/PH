@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { upload } from "@vercel/blob/client";
+import { idDeUsuarioActual, rutaDeSubidaActual } from "@/lib/blob-owner-client";
 import { Header } from "@/components/dashboard/Header";
 import { AudioRecorder } from "@/components/dashboard/AudioRecorder";
 import { RespuestaMarkdown } from "@/components/agents/RespuestaMarkdown";
@@ -703,11 +704,12 @@ export default function AgentPage() {
 
     try {
       const uploaded: { name: string; url: string; type: string; size: number }[] = [];
+      // El servidor solo autoriza rutas `subidas/<tu id>/…`: se usa el id de la sesión ya cargada, o se pide si aún no llegó.
+      const usuarioId = attachments.length > 0 ? await idDeUsuarioActual(session?.user?.id) : "";
       for (let i = 0; i < attachments.length; i++) {
         const att = attachments[i];
         setUploadStatus(`Subiendo ${i + 1} de ${attachments.length}…`);
-        const safeName = att.file.name.replace(/[^\w.\-]+/g, "_");
-        const result = await upload(`agent-files/${Date.now()}-${safeName}`, att.file, {
+        const result = await upload(await rutaDeSubidaActual(att.file.name, "agent-files", usuarioId), att.file, {
           access: "private",
           handleUploadUrl: "/api/upload/token",
           contentType: att.file.type || "application/octet-stream",

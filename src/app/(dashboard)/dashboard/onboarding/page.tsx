@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { upload as blobUpload } from "@vercel/blob/client";
+import { rutaDeSubidaActual } from "@/lib/blob-owner-client";
 import {
   AGENTES,
   Aviso,
@@ -196,8 +197,8 @@ export default function OnboardingPage() {
           for (const doc of docsToUpload) {
             if (!doc.file) continue;
             try {
-              const safeName = doc.file.name.replace(/[^\w.\-]+/g, "_");
-              const result = await blobUpload(`property-docs/${propertyId}/${Date.now()}-${safeName}`, doc.file, {
+              // El servidor solo autoriza rutas `subidas/<tu id>/…`.
+              const result = await blobUpload(await rutaDeSubidaActual(doc.file.name, `property-docs/${propertyId}`, session?.user?.id), doc.file, {
                 access: "private",
                 handleUploadUrl: "/api/upload/token",
                 contentType: doc.file.type || "application/octet-stream",

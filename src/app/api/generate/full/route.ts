@@ -20,6 +20,8 @@ import { parseMarkdownToSlides } from "@/lib/documents/slide-parser";
 import { STRATEGOS_SYSTEM_PROMPT, buildStrategosPrompt } from "@/lib/ai/strategos";
 import { GRAMMATEUS_SYSTEM_PROMPT, buildGrammatusPrompt } from "@/lib/ai/grammateus";
 import { blobRefToFile, runGeneration, type BlobFileRef } from "@/lib/generation/run";
+import { MENSAJE_BLOB_AJENO, primerBlobAjeno } from "@/lib/blob-owner";
+import { borrarBlobsPropios } from "@/lib/blob-owner-server";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (IS_DEMO) {
-      return handleDemo(req);
+      return handleDemo(req, session.user.id);
     }
 
     const user = session.user!;
@@ -52,7 +54,7 @@ export async function POST(req: NextRequest) {
 }
 
 // ── DEMO MODE ────────────────────────────────────────────────────────────────
-async function handleDemo(req: NextRequest) {
+async function handleDemo(req: NextRequest, sessionUserId: string) {
   const body = await req.json();
   const propertyId = body.propertyId as string;
   const month = parseInt(String(body.month));
@@ -66,10 +68,14 @@ async function handleDemo(req: NextRequest) {
   } = toDocFlags(normalizeDocSelection(body));
   const additionalText = (body.additionalText as string | undefined) ?? null;
   const blobFiles: BlobFileRef[] = Array.isArray(body.blobFiles) ? body.blobFiles : [];
+  // Los archivos solo pueden ser de quien hace la petición: ni se leen ni se cuentan los ajenos.
+  if (primerBlobAjeno(blobFiles, sessionUserId)) {
+    return NextResponse.json({ error: MENSAJE_BLOB_AJENO }, { status: 403 });
+  }
   const files: File[] = [];
   for (const ref of blobFiles) {
     try {
-      files.push(await blobRefToFile(ref));
+      files.push(await blobRefToFile(ref, { userId: sessionUserId }));
     } catch (e) {
       console.error("[generate/full] Demo blob fetch failed:", e);
     }
@@ -321,6 +327,9 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
   }
 
+  // Ids con los que se pudo subir un archivo: el token de subida usa el de la sesión; el resto de la ruta, el de la base de datos.
+  const idsPropios = [...new Set([session.user.id, dbUserId])];
+
   // Enforce per-plan file caps (trial: 5 files/10 MB; paid: 20 files/25 MB).
   // The count is authoritative; the declared size is a best-effort early reject
   // on top of the hard 25 MB cap enforced by the upload token.
@@ -329,22 +338,17 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
   // solo corre al terminar bien una generación.
   const discardBlobs = async () => {
     if (blobFiles.length === 0) return;
-    try {
-      // Las URLs las manda el cliente: solo se borran las que son de verdad blobs de la plataforma y que no están registradas como
-      // documento de una copropiedad (si no, bastaría pegar la URL de un documento ajeno para borrarlo).
-      const { isAllowedBlobUrl } = await import("@/lib/blob-url");
-      const candidatas = blobFiles.map((f) => f.url).filter((u) => isAllowedBlobUrl(u));
-      if (candidatas.length === 0) return;
-      const registradas = await db.propertyDocument.findMany({ where: { url: { in: candidatas } }, select: { url: true } });
-      const ajenas = new Set(registradas.map((d: { url: string }) => d.url));
-      const aBorrar = candidatas.filter((u) => !ajenas.has(u));
-      if (aBorrar.length === 0) return;
-      const { del } = await import("@vercel/blob");
-      await del(aBorrar);
-    } catch (e) {
-      console.error("[generate/full] no se pudieron borrar los archivos rechazados:", e);
-    }
+    // Las URLs las manda el cliente: solo se borran las que son de esta persona (ruta `subidas/<su id>/…`) y que no están
+    // registradas como documento de una copropiedad (si no, bastaría pegar la URL de un archivo ajeno para borrarlo).
+    await borrarBlobsPropios(blobFiles.map((f) => f?.url), idsPropios, { etiqueta: "generate/full" });
   };
+
+  // Todo archivo debe ser de quien hace la petición. Se comprueba antes que cualquier límite y antes de leer nada: sin esto, quien
+  // conociera la URL de un archivo ajeno podía dárselo a la IA como insumo. Los propios que venían en la misma petición se descartan.
+  if (primerBlobAjeno(blobFiles, idsPropios)) {
+    await discardBlobs();
+    return NextResponse.json({ error: MENSAJE_BLOB_AJENO }, { status: 403 });
+  }
 
   try {
     const { getGenerationFileLimits } = await import("@/lib/usage");
@@ -454,6 +458,7 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
       includeActa,
       includePptx,
       cleanupInputs: true,
+      idsDeSubida: idsPropios,
     })
   );
 

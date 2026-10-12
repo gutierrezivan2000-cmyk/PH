@@ -3,17 +3,11 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireElite } from "@/lib/elite-auth";
 import { db } from "@/lib/db";
+import { isAllowedBlobUrl } from "@/lib/blob-url";
+import { MENSAJE_BLOB_AJENO, blobAutorizado } from "@/lib/blob-owner";
+import { borrarBlobsPropios } from "@/lib/blob-owner-server";
 
 type FileRef = { name: string; url: string; type: string; size: number };
-
-function isAllowedBlobUrl(raw: string): boolean {
-  try {
-    const u = new URL(raw);
-    return u.protocol === "https:" && u.hostname.endsWith(".blob.vercel-storage.com");
-  } catch {
-    return false;
-  }
-}
 
 function parseMonthYear(req: NextRequest): { month: number; year: number } | null {
   const month = parseInt(req.nextUrl.searchParams.get("month") || "", 10);
@@ -80,6 +74,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!f || typeof f.url !== "string" || !isAllowedBlobUrl(f.url)) {
       return NextResponse.json({ error: "Archivo con origen no permitido." }, { status: 400 });
     }
+    // Los insumos del mes los lee después el trabajador de lotes y se pasan a la IA: deben ser de esta persona
+    // (`subidas/<su id>/…`). La pantalla reenvía en cada guardado TODA la lista, incluidos los archivos que ya estaban
+    // guardados antes de que el dueño fuera parte de la ruta (`monthly/<esta copropiedad>/…`): esos se reconocen por la
+    // copropiedad, que ya se comprobó que es suya arriba. Archivos NUEVOS con esa ruta no se pueden crear (el token no la emite).
+    if (!blobAutorizado(f.url, elite.userId, { propertyId: id })) {
+      return NextResponse.json({ error: MENSAJE_BLOB_AJENO }, { status: 403 });
+    }
     files.push({
       name: String(f.name || "archivo"),
       url: f.url,
@@ -100,8 +101,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const newUrls = new Set(files.map((f) => f.url));
     const removed = oldUrls.filter((u) => !newUrls.has(u));
     if (removed.length > 0) {
-      const { del } = await import("@vercel/blob");
-      await del(removed);
+      // Solo se borra lo que es de esta persona y no es documento de una copropiedad: la lista guardada
+      // también salió de una petición del navegador, y no hay que fiarse de ella para borrar.
+      await borrarBlobsPropios(removed, elite.userId, { propertyId: id, etiqueta: "monthly PUT" });
     }
   } catch (e) {
     console.error("[monthly PUT] blob cleanup failed:", e);

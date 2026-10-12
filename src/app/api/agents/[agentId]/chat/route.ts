@@ -26,6 +26,7 @@ import { HERRAMIENTAS_OPERACION, ejecutarOperacion, esHerramientaDeOperacion } f
 import { modulosDeLaCuenta } from "@/lib/modulos-acceso";
 import { parseAttachments, seTranscribe, type ParsedAttachment } from "@/lib/parse-attachment";
 import { rateLimit } from "@/lib/rate-limit";
+import { MENSAJE_BLOB_AJENO, primerBlobAjeno } from "@/lib/blob-owner";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -202,6 +203,13 @@ export async function POST(
     const reqAttachments = Array.isArray(adjuntosCrudos)
       ? [...new Map(adjuntosCrudos.filter((a) => a && typeof a.url === "string").map((a) => [a.url, a])).values()].slice(0, MAX_ADJUNTOS)
       : undefined;
+
+    // Los adjuntos los manda el navegador; el servidor los descarga con su credencial y se los entrega a la IA. Solo valen los
+    // que subió esta misma persona (ruta `subidas/<su id>/…`): antes bastaba conocer la URL de un archivo ajeno. Se comprueba
+    // antes de cualquier límite o lectura, y se rechaza la petición entera en vez de ignorar el adjunto en silencio.
+    if (reqAttachments && primerBlobAjeno(reqAttachments, session.user.id)) {
+      return NextResponse.json({ error: MENSAJE_BLOB_AJENO }, { status: 403 });
+    }
 
     step = "check-api-key";
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -552,7 +560,7 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
               imageProblems.push(`${img.name}: pesa más de ${MAX_IMAGE_MB_LABEL} y no se pudo enviar`);
               return;
             }
-            const file = await blobRefToFile({ url: img.url, name: img.name, type: img.type, size: img.size });
+            const file = await blobRefToFile({ url: img.url, name: img.name, type: img.type, size: img.size }, { userId });
             const buf = Buffer.from(await file.arrayBuffer());
             if (buf.byteLength > MAX_IMAGE_BYTES) {
               imageProblems.push(`${img.name}: pesa más de ${MAX_IMAGE_MB_LABEL} y no se pudo enviar`);

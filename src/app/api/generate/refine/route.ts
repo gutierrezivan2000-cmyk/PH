@@ -13,6 +13,7 @@ import { tokensDeAnthropic } from "@/lib/consumo/uso";
 import { configDeFuncion, esErrorDeEsfuerzo, parametroDeEsfuerzo } from "@/lib/ia/modelos";
 import { generatePdfHtml } from "@/lib/documents/pdf-generator";
 import { rateLimit } from "@/lib/rate-limit";
+import { MENSAJE_BLOB_AJENO, primerBlobAjeno } from "@/lib/blob-owner";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -89,6 +90,12 @@ export async function POST(req: NextRequest) {
 
     if (blobFiles.length > 10) {
       return NextResponse.json({ error: "Máximo 10 archivos por corrección." }, { status: 400 });
+    }
+
+    // Los adjuntos los manda el navegador y se leen con la credencial del servidor y se pasan a la IA: solo valen los que
+    // subió esta misma persona (ruta `subidas/<su id>/…`). Antes bastaba conocer la URL de un archivo ajeno.
+    if (primerBlobAjeno(blobFiles, session.user.id)) {
+      return NextResponse.json({ error: MENSAJE_BLOB_AJENO }, { status: 403 });
     }
 
     if (!IS_DEMO) {

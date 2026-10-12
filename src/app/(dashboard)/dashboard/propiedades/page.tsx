@@ -31,6 +31,7 @@ import {
   type ColumnaTabla,
 } from "@/components/kit";
 import { upload as blobUpload } from "@vercel/blob/client";
+import { rutaDeSubidaActual } from "@/lib/blob-owner-client";
 
 interface PropertyDocument {
   id: string;
@@ -229,8 +230,8 @@ export default function PropiedadesPage() {
   const handleDocUpload = async (propertyId: string, type: string, file: File) => {
     setUploadingDoc(`${propertyId}-${type}`);
     try {
-      const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-      const result = await blobUpload(`property-docs/${propertyId}/${Date.now()}-${safeName}`, file, {
+      // El servidor solo autoriza rutas `subidas/<tu id>/…`.
+      const result = await blobUpload(await rutaDeSubidaActual(file.name, `property-docs/${propertyId}`), file, {
         access: "private",
         handleUploadUrl: "/api/upload/token",
         contentType: file.type || "application/octet-stream",

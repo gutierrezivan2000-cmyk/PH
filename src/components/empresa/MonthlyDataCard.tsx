@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { upload as blobUpload } from "@vercel/blob/client";
+import { idDeUsuarioActual, rutaDeSubidaActual } from "@/lib/blob-owner-client";
 import {
   limiteBytesPara,
   mensajeDeTamano,
@@ -104,10 +105,11 @@ export function MonthlyDataCard({ propertyId }: { propertyId: string }) {
         return;
       }
 
+      // El servidor solo autoriza rutas `subidas/<tu id>/…`: el id se resuelve una vez, no por archivo.
+      const usuarioId = await idDeUsuarioActual();
       for (const file of seleccionados) {
-        const safeName = file.name.replace(/[^\w.\-]+/g, "_");
         const result = await blobUpload(
-          `monthly/${propertyId}/${year}-${month}/${Date.now()}-${safeName}`,
+          await rutaDeSubidaActual(file.name, `monthly/${propertyId}/${year}-${month}`, usuarioId),
           file,
           {
             access: "private",

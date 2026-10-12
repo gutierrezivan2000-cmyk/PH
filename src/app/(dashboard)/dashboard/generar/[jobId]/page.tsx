@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { Header } from "@/components/dashboard/Header";
 import { refrescarIndice } from "@/components/dashboard/datosIndice";
 import { upload } from "@vercel/blob/client";
+import { idDeUsuarioActual, rutaDeSubidaActual } from "@/lib/blob-owner-client";
 import {
   AreaTexto,
   Aviso,
@@ -603,11 +604,12 @@ function CorrectionPanel({ generationId, hasInforme, hasActa, onRefreshed }: { g
     try {
       // Upload files if any
       const blobFiles: { url: string; name: string; type: string; size: number }[] = [];
+      // El servidor solo autoriza rutas `subidas/<tu id>/…`: el id se resuelve una vez, no por archivo.
+      const usuarioId = files.length > 0 ? await idDeUsuarioActual() : "";
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         setUploadStatus(`Subiendo ${i + 1}/${files.length}: ${file.name}`);
-        const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-        const result = await upload(`corrections/${Date.now()}-${safeName}`, file, {
+        const result = await upload(await rutaDeSubidaActual(file.name, "corrections", usuarioId), file, {
           access: "private",
           handleUploadUrl: "/api/upload/token",
           contentType: file.type || "application/octet-stream",

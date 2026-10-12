@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useVerReuniones } from "@/components/reuniones/useVerReuniones";
 import { upload } from "@vercel/blob/client";
+import { idDeUsuarioActual, rutaDeSubidaActual } from "@/lib/blob-owner-client";
 import {
   limiteMbPara,
   mensajeDeTamano,
@@ -388,13 +389,14 @@ export default function GenerarPage() {
 
     try {
       const blobFiles: { url: string; name: string; type: string; size: number }[] = [];
+      // La ruta de subida lleva el id de quien sube (el servidor solo autoriza `subidas/<tu id>/…`): se resuelve una vez, no por archivo.
+      const usuarioId = files.length > 0 ? await idDeUsuarioActual() : "";
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const mb = (file.size / 1024 / 1024).toFixed(0);
         setUploadStatus(`Subiendo ${i + 1} de ${files.length}: ${file.name} (${mb} MB)`);
         setSubida({ i, pct: 0 });
-        const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-        const result = await upload(`uploads/${Date.now()}-${safeName}`, file, {
+        const result = await upload(await rutaDeSubidaActual(file.name, "uploads", usuarioId), file, {
           access: "private",
           handleUploadUrl: "/api/upload/token",
           contentType: tipoDeArchivo(file),
