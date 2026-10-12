@@ -160,11 +160,18 @@ export default async function VerificarPage({
                   </p>
                 </div>
               </div>
-              <p className="text-[13px] leading-relaxed" style={{ color: "var(--ink-2)" }}>
-                No existe ningún certificado con este código. El documento que lo cita
-                <strong> no debe considerarse auténtico</strong>. Verifique que la URL o el
-                código QR correspondan exactamente al documento recibido.
-              </p>
+              {limitado ? (
+                <p className="text-[13px] leading-relaxed" style={{ color: "var(--ink-2)" }}>
+                  No pudimos consultar el documento en este momento. <strong>Esto no significa que sea falso</strong>:
+                  vuelva a intentarlo en unos minutos.
+                </p>
+              ) : (
+                <p className="text-[13px] leading-relaxed" style={{ color: "var(--ink-2)" }}>
+                  No existe ningún certificado con este código. El documento que lo cita
+                  <strong> no debe considerarse auténtico</strong>. Verifique que la URL o el
+                  código QR correspondan exactamente al documento recibido.
+                </p>
+              )}
             </>
           ) : (
             <>

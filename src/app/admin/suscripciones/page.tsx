@@ -241,6 +241,8 @@ async function SuscripcionesContent({ sp }: { sp: SearchParams }) {
                       <td className="px-4 py-3">
                         {s.planId === "elite" ? (
                           <Badge variant="warn">Elite</Badge>
+                        ) : s.planId === "business" ? (
+                          <Badge variant="accent">Business</Badge>
                         ) : s.planId === "pro" ? (
                           <Badge variant="accent">Pro</Badge>
                         ) : (

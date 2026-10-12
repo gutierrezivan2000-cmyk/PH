@@ -9,6 +9,7 @@ const limite = vi.hoisted(() => ({ rateLimit: vi.fn(), clientIp: vi.fn() }));
 const correo = vi.hoisted(() => ({ sendVerificationEmail: vi.fn() }));
 vi.mock("@/lib/db", () => ({ db }));
 vi.mock("@/lib/rate-limit", () => limite);
+vi.mock("@/lib/ensure-admin-schema", () => ({ ensureAdminSchema: vi.fn(async () => {}) }));
 vi.mock("@/lib/email", () => correo);
 
 import { POST } from "./route";

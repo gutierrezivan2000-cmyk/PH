@@ -9,6 +9,7 @@ import { PortalPqrs } from "./PortalPqrs";
 import { PortalAssistant } from "./PortalAssistant";
 import { PortalPay } from "./PortalPay";
 import { moduloAbiertoParaPropietario } from "@/lib/modulos-acceso";
+import { blobEsDeLaCopropiedad } from "@/lib/documento-propiedad";
 
 const DOC_LABELS: Record<string, string> = {
   reglamento_interno: "Reglamento interno",
@@ -184,7 +185,8 @@ export default async function ResidentPortalPage({
     ]);
     admin = dbAdmin;
     announcements = dbAnnouncements;
-    documents = dbDocuments;
+    // Solo se listan los documentos que el portal sabe servir: el enlace de uno cuyo archivo no es de esta copropiedad daría 404.
+    documents = dbDocuments.filter((d) => blobEsDeLaCopropiedad(d.url, dbUnit.propertyId, dbUnit.property.userId));
 
     const paymentsTotal = dbUnit.payments.reduce((s, p) => s + p.amount, 0);
     summary = computeUnitSummary(dbUnit.charges, paymentsTotal, new Date());

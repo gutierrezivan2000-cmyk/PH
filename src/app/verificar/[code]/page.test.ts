@@ -67,6 +67,9 @@ describe("/verificar/[code] — límite por IP con failClosed", () => {
     limite.rateLimit.mockResolvedValue({ allowed: false, retryAfterSec: 300 });
     const html = await pagina();
     expect(html).toContain(LIMITADO);
+    // No se dice que el certificado sea falso: simplemente no se pudo consultar.
+    expect(html).toContain("Esto no significa que sea falso");
+    expect(html).not.toContain("no debe considerarse");
     expect(db.certificate.findUnique).not.toHaveBeenCalled();
   });
 

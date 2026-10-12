@@ -55,9 +55,14 @@ export async function GET(
     const STUCK_MS = 15 * 60 * 1000;
     // Un acta de una reunión corre por la cola (varias tareas, con reintentos): se mide por actividad, no por creación.
     const { STUCK_REUNION_MS } = await import("@/lib/usage");
+    // Una fila de lote en cola (pending) espera su turno: el cron la va drenando y un lote de 50 tarda ~25 min, así que NO se
+    // cancela por antigüedad. Una en proceso se mide por actividad, como en failStuckGenerations.
+    const ahora = Date.now();
     const colgada = generation.meetingId
-      ? Date.now() - new Date(generation.updatedAt).getTime() > STUCK_REUNION_MS
-      : Date.now() - new Date(generation.createdAt).getTime() > STUCK_MS;
+      ? ahora - new Date(generation.updatedAt).getTime() > STUCK_REUNION_MS
+      : generation.batchId
+        ? generation.status === "processing" && ahora - new Date(generation.updatedAt).getTime() > STUCK_MS
+        : ahora - new Date(generation.createdAt).getTime() > STUCK_MS;
     if ((generation.status === "processing" || generation.status === "pending") && colgada) {
       try {
         // Guard on status in the WHERE so a result written in the meantime is

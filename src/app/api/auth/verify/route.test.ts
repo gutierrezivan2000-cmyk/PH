@@ -9,6 +9,7 @@ const db = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/db", () => ({ db }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn(async () => ({ allowed: true })) }));
+vi.mock("@/lib/ensure-admin-schema", () => ({ ensureAdminSchema: vi.fn(async () => {}) }));
 
 import { rateLimit } from "@/lib/rate-limit";
 import { POST } from "./route";
