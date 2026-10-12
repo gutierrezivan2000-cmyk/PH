@@ -4,9 +4,11 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 /**
  * ensureMeetingsSchema() es un espejo escrito a mano de los modelos de Reuniones
- * en prisma/schema.prisma. Si alguien cambia uno y olvida el otro, un entorno
- * donde `prisma db push` falló quedaría con tablas distintas a las que espera el
- * cliente. Esta prueba lee el esquema real y exige que ambos coincidan.
+ * en prisma/schema.prisma. El build ya no empuja el esquema (`prisma db push` fallaba
+ * en cada despliegue), así que estas tablas existen SOLO por este SQL: si alguien
+ * cambia uno y olvida el otro, la base quedaría con tablas distintas a las que espera
+ * el cliente. Esta prueba lee el esquema real y exige que ambos coincidan
+ * (src/lib/schema-drift.test.ts hace lo mismo para todos los modelos).
  */
 
 const MODELOS = [
@@ -147,6 +149,16 @@ describe("ensureMeetingsSchema ↔ prisma/schema.prisma", () => {
     expect(todas).toContain(`ALTER TABLE "Generation" ADD COLUMN IF NOT EXISTS "meetingId" TEXT`);
     expect(todas).toContain(`CREATE INDEX IF NOT EXISTS "Generation_meetingId_idx" ON "Generation"("meetingId")`);
     expect(todas.some((s) => s.includes(`ALTER TABLE "Generation" ADD CONSTRAINT`))).toBe(false);
+  });
+
+  it("Meeting.silences está en el CREATE TABLE y también en un ALTER posterior (bases que crearon Meeting con la versión de M0)", () => {
+    // `silences` se agregó al CREATE TABLE un día después de publicar la tabla: sin el ALTER, esas bases se quedaban sin la
+    // columna y toda consulta a Meeting moría con «column silences does not exist».
+    const todas = sentencias.map(normaliza);
+    const iCreate = todas.findIndex((s) => s.startsWith('CREATE TABLE IF NOT EXISTS "Meeting" ('));
+    const iAlter = todas.indexOf('ALTER TABLE "Meeting" ADD COLUMN IF NOT EXISTS "silences" JSONB');
+    expect(todas[iCreate]).toContain('"silences" JSONB');
+    expect(iAlter).toBeGreaterThan(iCreate);
   });
 
   it("las relaciones inversas están en User y en Property", () => {

@@ -2,8 +2,10 @@ import { db } from "@/lib/db";
 
 /**
  * Tablas de la memoria operativa de los agentes (PropertyEvent, PropertyMemory, AgentAction, AgentChatFocus), como SQL
- * idempotente (mismo patrón que ensure-meetings-schema.ts: si el `prisma db push` del build falla, se crean al vuelo).
- * DEBE seguir idéntico a los modelos de prisma/schema.prisma. Solo cambios ADITIVOS.
+ * idempotente (mismo patrón que ensure-meetings-schema.ts). El `build` ya NO corre `prisma db push` (en Prisma 7 fallaba en cada
+ * despliegue y el `|| echo` lo tapaba): estas tablas existen solo porque esta función las crea al vuelo.
+ * DEBE seguir idéntico a los modelos de prisma/schema.prisma (lo comprueba src/lib/schema-drift.test.ts). Solo cambios ADITIVOS;
+ * una columna nueva en una tabla ya publicada va en el CREATE TABLE Y en un ALTER ... ADD COLUMN IF NOT EXISTS.
  */
 const STATEMENTS: string[] = [
   `CREATE TABLE IF NOT EXISTS "PropertyEvent" (
@@ -58,6 +60,9 @@ const STATEMENTS: string[] = [
   )`,
   `CREATE INDEX IF NOT EXISTS "AgentChatFocus_userId_idx" ON "AgentChatFocus"("userId")`,
 ];
+
+/** Las sentencias, expuestas para la prueba que las compara con el esquema de Prisma y para POST /api/admin/migrate. */
+export const SENTENCIAS_OPERACION = STATEMENTS;
 
 let listo: Promise<void> | null = null;
 

@@ -33,8 +33,12 @@ validez de votaciones) y **pruebas**.
    cron ni aislamiento entre clientes.
 3. **La unidad tiene un solo contacto.** No distingue propietario de arrendatario ni guarda consentimiento;
    Asambleas, Comunicados y Cartera lo necesitan.
-4. **El esquema se aplica con `prisma db push --accept-data-loss`** en cada build, más una copia a mano en
-   `ensure-admin-schema.ts`. Con tablas de dinero y votos, eso es un riesgo: hay que pasar a migraciones.
+4. **El esquema NO se aplica en el build.** El `prisma db push --accept-data-loss` fallaba en cada despliegue (Prisma 7
+   quitó `--skip-generate`) y el `|| echo` lo tapaba, así que ya se quitó: el build es `prisma generate && next build`.
+   Hoy una tabla o columna existe en producción solo si la crea SQL escrito a mano que corre al vuelo
+   (`ensureAdminSchema`, `ensureAgentTables`, `ensureMeetingsSchema`, `ensureOperacionSchema`) o si alguien ejecuta
+   `POST /api/admin/migrate` (que corre las cuatro). `src/lib/schema-drift.test.ts` falla si el esquema declara algo
+   sin su SQL. Con tablas de dinero y votos, eso es un riesgo: hay que pasar a migraciones.
 5. **El correo no está listo para envíos masivos por cliente** (dominio compartido, sin webhooks de rebote).
 6. **Los enlaces del portal** no caducan, se pueden indexar y en dos rutas se arman con el encabezado `Host`.
 7. **No hay compra de add-ons:** Metra, Hermes, Logistes y Nomethes solo se activan a mano.
@@ -63,8 +67,9 @@ Cada módulo pasa por tres puertas, con una bandera por módulo en vez de un sí
 ### Fase 0 — Cimientos (1 a 2 semanas, antes de todo)
 
 1. **Bandera en el servidor** para los seis módulos (urgente: hoy las APIs están abiertas).
-2. **Migraciones reales** (`prisma migrate`) en lugar de `db push --accept-data-loss`, empezando por un
-   *baseline* del esquema actual.
+2. **Migraciones reales** (`prisma migrate`) en lugar del SQL a mano de los `ensure*` (el `db push` del build ya se
+   quitó porque nunca funcionó), empezando por un *baseline* del esquema actual. Mientras tanto, todo cambio al
+   esquema lleva su SQL en el `ensure*` que corresponde y `schema-drift.test.ts` lo exige.
 3. **Contactos por unidad:** propietario / arrendatario / representante, varios correos y teléfonos,
    consentimiento con fecha y versión.
 4. **Días hábiles con festivos de Colombia** (los usan PQRS, Asambleas y Cartera).

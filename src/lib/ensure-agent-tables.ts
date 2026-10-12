@@ -1,18 +1,15 @@
 import { db } from "@/lib/db";
 
+/**
+ * Tablas de los agentes (chats, mensajes y memoria) como SQL idempotente.
+ *
+ * El `build` ya NO corre `prisma db push` (en Prisma 7 fallaba en cada despliegue y el `|| echo` lo tapaba): estas tablas existen
+ * solo porque esta función las crea. DEBE seguir idéntico a los modelos de prisma/schema.prisma (lo comprueba
+ * src/lib/schema-drift.test.ts). Solo cambios ADITIVOS; una columna nueva va en el CREATE TABLE Y en un ALTER ... ADD COLUMN IF NOT
+ * EXISTS. Las claves foráneas apuntan a User, que crea ensureAdminSchema. PropertyDocument ya NO se crea aquí sino en
+ * ensureAdminSchema: la leen rutas que nada tienen que ver con los agentes (subida de archivos, portal, documentos).
+ */
 const STATEMENTS: string[] = [
-  `CREATE TABLE IF NOT EXISTS "PropertyDocument" (
-    "id" TEXT NOT NULL,
-    "propertyId" TEXT NOT NULL,
-    "type" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "url" TEXT NOT NULL,
-    "size" INTEGER NOT NULL DEFAULT 0,
-    "mimeType" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "PropertyDocument_pkey" PRIMARY KEY ("id")
-  )`,
-  `CREATE INDEX IF NOT EXISTS "PropertyDocument_propertyId_idx" ON "PropertyDocument"("propertyId")`,
   `CREATE TABLE IF NOT EXISTS "AgentChat" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -44,10 +41,6 @@ const STATEMENTS: string[] = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "AgentMemory_userId_agentId_key" ON "AgentMemory"("userId", "agentId")`,
   `DO $$ BEGIN
-    ALTER TABLE "PropertyDocument" ADD CONSTRAINT "PropertyDocument_propertyId_fkey"
-      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
-  `DO $$ BEGIN
     ALTER TABLE "AgentChat" ADD CONSTRAINT "AgentChat_userId_fkey"
       FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
@@ -60,6 +53,9 @@ const STATEMENTS: string[] = [
       FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 ];
+
+/** Las sentencias, expuestas para la prueba que las compara con el esquema de Prisma y para POST /api/admin/migrate. */
+export const SENTENCIAS_AGENTES = STATEMENTS;
 
 let ensured = false;
 

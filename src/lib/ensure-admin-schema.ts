@@ -1,16 +1,231 @@
 import { db } from "@/lib/db";
 
 /**
- * Idempotent DDL that brings the database up to date with the admin/tickets
- * schema additions (User.role, Subscription add-on fields, Ticket,
- * TicketMessage, AdminAuditLog).
+ * SQL idempotente que deja la base al día con el esquema de Prisma: las tablas base (User, Property, Generation…), el panel de
+ * administración, los tickets, el cobro, el modo empresa y todos los módulos de la administración (cartera, PQRS, asambleas…).
  *
- * This mirrors the existing ensureAgentTables() pattern: Neon + Vercel
- * build-time `prisma db push` is unreliable, so we self-heal at runtime using
- * the runtime connection. All statements use IF NOT EXISTS / duplicate_object
- * guards, so running this repeatedly is safe.
+ * Es el MECANISMO REAL de migración de este proyecto, junto con ensureAgentTables, ensureMeetingsSchema, ensureOperacionSchema y
+ * POST /api/admin/migrate. El `build` ya NO corre `prisma db push` (en Prisma 7 fallaba en cada despliegue y el `|| echo` lo
+ * tapaba, así que el esquema nunca se aplicó por ahí): una tabla o columna existe en producción solo si alguna de estas
+ * sentencias la crea. Por eso `src/lib/schema-drift.test.ts` exige que TODO lo que declara prisma/schema.prisma tenga aquí su SQL.
+ *
+ * Reglas: solo cambios ADITIVOS (nada de DROP ni de cambiar tipos) y todas con IF NOT EXISTS o un guard de duplicate_object,
+ * así que repetirlas es seguro. Una columna nueva va en el CREATE TABLE (bases nuevas) Y en un ALTER ... ADD COLUMN IF NOT
+ * EXISTS (bases que ya tenían la tabla): solo con el CREATE, las bases existentes se quedaban sin ella.
  */
 const STATEMENTS: string[] = [
+  // ── Tablas base ───────────────────────────────────────────────────────────
+  // Ningún camino en runtime las creaba: existían en producción solo porque alguien corrió `prisma db push` a mano, y una base
+  // vacía (entorno nuevo, vista previa) fallaba en cada sentencia de abajo con «relation "User" does not exist». Son el espejo
+  // exacto del SQL que genera Prisma (`prisma migrate diff --from-empty`); en una base que ya las tiene no hacen nada.
+  `CREATE TABLE IF NOT EXISTS "User" (
+    "id" TEXT NOT NULL,
+    "name" TEXT,
+    "email" TEXT NOT NULL,
+    "emailVerified" TIMESTAMP(3),
+    "image" TEXT,
+    "passwordHash" TEXT,
+    "passwordChangedAt" TIMESTAMP(3),
+    "lastLoginAt" TIMESTAMP(3),
+    "termsAcceptedAt" TIMESTAMP(3),
+    "termsVersion" TEXT,
+    "cargo" TEXT,
+    "phone" TEXT,
+    "company" TEXT,
+    "city" TEXT,
+    "onboarded" BOOLEAN NOT NULL DEFAULT false,
+    "logoUrl" TEXT,
+    "brandColor" TEXT,
+    "epaycoPublicKey" TEXT,
+    "epaycoPCustId" TEXT,
+    "epaycoPKey" TEXT,
+    "epaycoTest" BOOLEAN NOT NULL DEFAULT true,
+    "role" TEXT NOT NULL DEFAULT 'user',
+    "banned" BOOLEAN NOT NULL DEFAULT false,
+    "bannedAt" TIMESTAMP(3),
+    "banReason" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+  )`,
+  // Los únicos de las tablas base van en un DO/EXCEPTION (como PendingOrder_epaycoRef_key, más abajo): en una base heredada con
+  // filas repetidas el índice no se puede crear, y una sentencia que falla siempre impediría memoizar el auto-reparado.
+  `DO $$ BEGIN
+    CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email");
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'User_email_key no se pudo crear: %', SQLERRM;
+  END $$`,
+  `CREATE TABLE IF NOT EXISTS "Account" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "provider" TEXT NOT NULL,
+    "providerAccountId" TEXT NOT NULL,
+    "refresh_token" TEXT,
+    "access_token" TEXT,
+    "expires_at" INTEGER,
+    "token_type" TEXT,
+    "scope" TEXT,
+    "id_token" TEXT,
+    "session_state" TEXT,
+    CONSTRAINT "Account_pkey" PRIMARY KEY ("id")
+  )`,
+  `DO $$ BEGIN
+    CREATE UNIQUE INDEX IF NOT EXISTS "Account_provider_providerAccountId_key" ON "Account"("provider", "providerAccountId");
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Account_provider_providerAccountId_key no se pudo crear: %', SQLERRM;
+  END $$`,
+  `DO $$ BEGIN
+    ALTER TABLE "Account" ADD CONSTRAINT "Account_userId_fkey"
+      FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `CREATE TABLE IF NOT EXISTS "Session" (
+    "id" TEXT NOT NULL,
+    "sessionToken" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "expires" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
+  )`,
+  `DO $$ BEGIN
+    CREATE UNIQUE INDEX IF NOT EXISTS "Session_sessionToken_key" ON "Session"("sessionToken");
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Session_sessionToken_key no se pudo crear: %', SQLERRM;
+  END $$`,
+  `DO $$ BEGIN
+    ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey"
+      FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // VerificationToken no tiene clave primaria en el esquema (solo los dos únicos).
+  `CREATE TABLE IF NOT EXISTS "VerificationToken" (
+    "identifier" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "expires" TIMESTAMP(3) NOT NULL
+  )`,
+  `DO $$ BEGIN
+    CREATE UNIQUE INDEX IF NOT EXISTS "VerificationToken_token_key" ON "VerificationToken"("token");
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'VerificationToken_token_key no se pudo crear: %', SQLERRM;
+  END $$`,
+  `DO $$ BEGIN
+    CREATE UNIQUE INDEX IF NOT EXISTS "VerificationToken_identifier_token_key" ON "VerificationToken"("identifier", "token");
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'VerificationToken_identifier_token_key no se pudo crear: %', SQLERRM;
+  END $$`,
+  // addonAgents va NOT NULL (Prisma lo deja nulo): igual que el ALTER de más abajo, para que una base nueva y una reparada queden iguales.
+  `CREATE TABLE IF NOT EXISTS "Subscription" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "epaycoCustomerId" TEXT,
+    "epaycoSubscriptionId" TEXT,
+    "epaycoRef" TEXT,
+    "planId" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'inactive',
+    "currentPeriodStart" TIMESTAMP(3),
+    "currentPeriodEnd" TIMESTAMP(3),
+    "addonAgents" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    "adminNotes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "Subscription_pkey" PRIMARY KEY ("id")
+  )`,
+  `DO $$ BEGIN
+    CREATE UNIQUE INDEX IF NOT EXISTS "Subscription_userId_key" ON "Subscription"("userId");
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Subscription_userId_key no se pudo crear: %', SQLERRM;
+  END $$`,
+  `DO $$ BEGIN
+    CREATE UNIQUE INDEX IF NOT EXISTS "Subscription_epaycoCustomerId_key" ON "Subscription"("epaycoCustomerId");
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Subscription_epaycoCustomerId_key no se pudo crear: %', SQLERRM;
+  END $$`,
+  `DO $$ BEGIN
+    CREATE UNIQUE INDEX IF NOT EXISTS "Subscription_epaycoSubscriptionId_key" ON "Subscription"("epaycoSubscriptionId");
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Subscription_epaycoSubscriptionId_key no se pudo crear: %', SQLERRM;
+  END $$`,
+  `DO $$ BEGIN
+    ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_userId_fkey"
+      FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `CREATE TABLE IF NOT EXISTS "Property" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "address" TEXT,
+    "city" TEXT,
+    "units" INTEGER,
+    "features" JSONB,
+    "whatsapp" TEXT,
+    "groupLabel" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "Property_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "Property_userId_idx" ON "Property"("userId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "Property" ADD CONSTRAINT "Property_userId_fkey"
+      FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // Generation.updatedAt lleva DEFAULT (Prisma no): es el mismo del ALTER de más abajo, para que las filas que insertan otros
+  // caminos sin ese campo y las bases reparadas se comporten igual.
+  `CREATE TABLE IF NOT EXISTS "Generation" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "progress" INTEGER NOT NULL DEFAULT 0,
+    "month" INTEGER NOT NULL,
+    "year" INTEGER NOT NULL,
+    "batchId" TEXT,
+    "meetingId" TEXT,
+    "inputFiles" JSONB NOT NULL,
+    "inputText" TEXT,
+    "outputFiles" JSONB,
+    "tokensUsed" INTEGER NOT NULL DEFAULT 0,
+    "costUsd" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "errorMessage" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completedAt" TIMESTAMP(3),
+    CONSTRAINT "Generation_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "Generation_userId_createdAt_idx" ON "Generation"("userId", "createdAt")`,
+  `DO $$ BEGIN
+    ALTER TABLE "Generation" ADD CONSTRAINT "Generation_userId_fkey"
+      FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `DO $$ BEGIN
+    ALTER TABLE "Generation" ADD CONSTRAINT "Generation_propertyId_fkey"
+      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `CREATE TABLE IF NOT EXISTS "UsageRecord" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "tokens" INTEGER NOT NULL,
+    "costUsd" DOUBLE PRECISION NOT NULL,
+    "type" TEXT NOT NULL,
+    "provider" TEXT,
+    "model" TEXT,
+    "inputTokens" INTEGER NOT NULL DEFAULT 0,
+    "outputTokens" INTEGER NOT NULL DEFAULT 0,
+    "cacheReadTokens" INTEGER NOT NULL DEFAULT 0,
+    "cacheWriteTokens" INTEGER NOT NULL DEFAULT 0,
+    "audioSeconds" INTEGER NOT NULL DEFAULT 0,
+    "refType" TEXT,
+    "refId" TEXT,
+    CONSTRAINT "UsageRecord_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "UsageRecord_userId_date_idx" ON "UsageRecord"("userId", "date")`,
+  `DO $$ BEGIN
+    ALTER TABLE "UsageRecord" ADD CONSTRAINT "UsageRecord_userId_fkey"
+      FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // Columnas de las tablas base que se agregaron al esquema DESPUÉS del primer `db push` (15-abr-2026) y que ningún ALTER cubría:
+  // una base empujada entonces no las tiene. Son las únicas de las tablas base sin ALTER cuya fecha lo justifica.
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "passwordHash" TEXT`,
+  `ALTER TABLE "Generation" ADD COLUMN IF NOT EXISTS "progress" INTEGER NOT NULL DEFAULT 0`,
   // Consumo de IA por función (src/lib/consumo): el detalle de cada registro de uso.
   `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "provider" TEXT`,
   `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "model" TEXT`,
@@ -143,6 +358,10 @@ const STATEMENTS: string[] = [
   // Marca de actividad para el watchdog de lotes (ver process-batch). DEFAULT
   // now() para que las filas existentes no aparezcan como colgadas.
   `ALTER TABLE "Generation" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+  // «meetingId» la agregó Reuniones (también la crea ensureMeetingsSchema), pero Prisma la pide en TODA consulta a Generation
+  // (informes, historial, lotes): una base donde Reuniones nunca corrió se quedaba sin ella y fallaba la generación entera.
+  `ALTER TABLE "Generation" ADD COLUMN IF NOT EXISTS "meetingId" TEXT`,
+  `CREATE INDEX IF NOT EXISTS "Generation_meetingId_idx" ON "Generation"("meetingId")`,
   `CREATE INDEX IF NOT EXISTS "Generation_status_updatedAt_idx" ON "Generation"("status", "updatedAt")`,
   `CREATE INDEX IF NOT EXISTS "Generation_batchId_idx" ON "Generation"("batchId")`,
   `CREATE TABLE IF NOT EXISTS "GenerationBatch" (
@@ -261,7 +480,27 @@ const STATEMENTS: string[] = [
     ALTER TABLE "PqrsMessage" ADD CONSTRAINT "PqrsMessage_pqrsId_fkey"
       FOREIGN KEY ("pqrsId") REFERENCES "Pqrs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
-  // F3.2b: cached extracted text of property documents (asistente del reglamento).
+  // Documentos de la copropiedad (manual de convivencia, reglamento). Antes los creaba ensureAgentTables, pero los leen rutas ajenas
+  // a los agentes (la autorización de las subidas, el portal del residente, la generación): en una base nueva todas morían con
+  // «relation does not exist» hasta que alguien abría el chat de un agente. Ahora van con las tablas base.
+  `CREATE TABLE IF NOT EXISTS "PropertyDocument" (
+    "id" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "size" INTEGER NOT NULL DEFAULT 0,
+    "mimeType" TEXT,
+    "extractedText" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "PropertyDocument_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "PropertyDocument_propertyId_idx" ON "PropertyDocument"("propertyId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "PropertyDocument" ADD CONSTRAINT "PropertyDocument_propertyId_fkey"
+      FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // F3.2b: cached extracted text of property documents (asistente del reglamento). La columna llegó después de la tabla.
   `ALTER TABLE "PropertyDocument" ADD COLUMN IF NOT EXISTS "extractedText" TEXT`,
   // F3.3: admin's own ePayco credentials + resident payment orders.
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "epaycoPublicKey" TEXT`,
@@ -451,6 +690,9 @@ const STATEMENTS: string[] = [
       FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 ];
+
+/** Las sentencias, expuestas para la prueba que las compara con el esquema de Prisma y para POST /api/admin/migrate. */
+export const SENTENCIAS_ADMIN = STATEMENTS;
 
 let ensured = false;
 

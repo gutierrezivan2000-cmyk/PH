@@ -3,15 +3,19 @@ import { db } from "@/lib/db";
 /**
  * Tablas de «Reuniones» como SQL idempotente.
  *
- * El `build` corre `prisma db push`, pero si falla (la base no responde en ese
- * momento) el despliegue sigue y la primera consulta moriría con «relation does
- * not exist». Esto las crea al vuelo, igual que ensure-agent-tables.ts.
+ * El `build` ya NO corre `prisma db push` (en Prisma 7 fallaba en cada despliegue
+ * y el `|| echo` lo tapaba): estas tablas existen solo porque esta función las
+ * crea al vuelo, igual que ensure-agent-tables.ts. Sin ella, la primera consulta
+ * moriría con «relation does not exist».
  *
  * DEBE seguir idéntico a los modelos Meeting* y PropertyPerson de
  * prisma/schema.prisma (mismos nombres, tipos, índices y claves foráneas). Los
  * tipos de Prisma → Postgres: String TEXT · Int INTEGER · Float DOUBLE PRECISION ·
  * Boolean BOOLEAN · DateTime TIMESTAMP(3) · Json JSONB. Solo cambios ADITIVOS:
- * las vistas previas pueden compartir la base de producción.
+ * las vistas previas pueden compartir la base de producción. Una columna nueva
+ * en una tabla ya publicada va en el CREATE TABLE Y en un ALTER ... ADD COLUMN IF
+ * NOT EXISTS (las bases que ya tienen la tabla no se enteran del CREATE).
+ * src/lib/schema-drift.test.ts vigila ambas cosas.
  */
 const STATEMENTS: string[] = [
   /* ── Meeting ─────────────────────────────────────────────────────── */
@@ -44,6 +48,9 @@ const STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS "Meeting_userId_date_idx" ON "Meeting"("userId", "date")`,
   `CREATE INDEX IF NOT EXISTS "Meeting_propertyId_date_idx" ON "Meeting"("propertyId", "date")`,
   `CREATE INDEX IF NOT EXISTS "Meeting_status_updatedAt_idx" ON "Meeting"("status", "updatedAt")`,
+  // «silences» se agregó al CREATE TABLE un día después de publicar la tabla (M1): una base que creó Meeting con la versión de M0
+  // no la tiene, y el CREATE IF NOT EXISTS de arriba no se la agrega.
+  `ALTER TABLE "Meeting" ADD COLUMN IF NOT EXISTS "silences" JSONB`,
 
   /* ── MeetingSource ───────────────────────────────────────────────── */
   `CREATE TABLE IF NOT EXISTS "MeetingSource" (
