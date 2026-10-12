@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { secretoCoincide } from "@/lib/secreto";
+import { isEncrypted } from "@/lib/secret-box";
 import crypto from "crypto";
 
 // Lazy-init: only create client when actually called
@@ -187,6 +188,10 @@ export function validateConfirmationSignature(params: {
  * Signature validation with explicit merchant credentials — used for resident
  * administration payments, which settle into the ADMIN's own ePayco account,
  * so we must validate with THEIR P_CUST_ID / P_KEY (not SOPH.IA's env keys).
+ *
+ * `pKey` va EN CLARO: la columna User.epaycoPKey se guarda cifrada, así que quien llama la descifra antes
+ * (leerPKey en @/lib/epayco-llaves). Si llegara el valor cifrado se rechaza: calcular el SHA-256 sobre el texto cifrado
+ * nunca coincidiría y dejaría un pago real sin acreditar con un «firma inválida» engañoso.
  */
 export function validateSignatureWith(
   custId: string,
@@ -200,6 +205,10 @@ export function validateSignatureWith(
   }
 ): boolean {
   if (!custId || !pKey) return false;
+  if (isEncrypted(pKey)) {
+    console.error("[epayco] validateSignatureWith recibió una P_KEY cifrada: hay que descifrarla antes de validar");
+    return false;
+  }
   const expected = crypto
     .createHash("sha256")
     .update(

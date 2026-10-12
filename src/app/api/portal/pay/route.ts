@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { computeUnitSummary } from "@/lib/cartera";
+import { leerPKey } from "@/lib/epayco-llaves";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 const TOKEN_RE = /^[A-Za-z0-9_-]{16,48}$/;
@@ -74,6 +75,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "La administración aún no ha habilitado el pago en línea.", code: "not_configured" },
         { status: 400 }
+      );
+    }
+
+    // La P_KEY está cifrada en la base de datos. Si ya no se puede leer (cambió la clave de cifrado), no se abre el cobro:
+    // el dinero se movería y la confirmación no se podría validar, y el pago quedaría sin acreditar. Aquí solo se comprueba
+    // que se pueda leer: el checkout no necesita la llave y la llave en claro nunca sale de este servidor.
+    if (leerPKey(merchant.epaycoPKey, "portal pay").estado !== "ok") {
+      return NextResponse.json(
+        { error: "El pago en línea no está disponible en este momento. Comunícate con la administración.", code: "not_available" },
+        { status: 503 }
       );
     }
 

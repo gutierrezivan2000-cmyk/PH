@@ -147,7 +147,12 @@ export default function ResidentesPage() {
   const [payConfigured, setPayConfigured] = useState(false);
   const [payPublicKey, setPayPublicKey] = useState("");
   const [payCustId, setPayCustId] = useState("");
+  // La P_KEY nunca vuelve del servidor (ni completa ni sus últimos dígitos): este campo solo guarda lo que el administrador
+  // escribe para reemplazarla. Si hay una guardada, el servidor solo avisa con estos dos indicadores.
   const [payKey, setPayKey] = useState("");
+  const [payKeyGuardada, setPayKeyGuardada] = useState(false);
+  // La llave guardada ya no se puede leer (cambió la clave de cifrado del servidor): hay que volver a ingresarla.
+  const [payKeyIlegible, setPayKeyIlegible] = useState(false);
   const [payTest, setPayTest] = useState(true);
   const [paySaving, setPaySaving] = useState(false);
   // Solo presentación: mientras no llega (o si falla) /api/pagos/config no se afirma «Sin configurar».
@@ -175,7 +180,8 @@ export default function ResidentesPage() {
           setPayConfigured(!!d.configured);
           setPayPublicKey(d.publicKey || "");
           setPayCustId(d.pCustId || "");
-          setPayKey(d.pKeyMasked || "");
+          setPayKeyGuardada(!!d.pKeyConfigured);
+          setPayKeyIlegible(!!d.pKeyIlegible);
           setPayTest(d.test !== false);
           setPayConsulta("lista");
         } else {
@@ -200,10 +206,18 @@ export default function ResidentesPage() {
             ? "Pago en línea configurado. Se activará en el portal cuando Cartera esté disponible."
             : "Pago en línea configurado. Los residentes con saldo ya pueden pagar desde su portal.",
         });
-        setPayConfigured(!!(payPublicKey && payCustId && (payKey && !payKey.includes("•") || payConfigured)));
+        const llaveNueva = !!payKey.trim();
+        setPayConfigured(!!(payPublicKey && payCustId && (llaveNueva || (payKeyGuardada && !payKeyIlegible))));
+        if (llaveNueva) {
+          // Se vacía el campo: la llave recién guardada tampoco se queda en pantalla.
+          setPayKey("");
+          setPayKeyGuardada(true);
+          setPayKeyIlegible(false);
+        }
         setShowPay(false);
       } else {
-        setMsg({ ok: false, text: "No se pudo guardar la configuración de pago." });
+        const d = await res.json().catch(() => null);
+        setMsg({ ok: false, text: d?.error || "No se pudo guardar la configuración de pago." });
       }
     } finally {
       setPaySaving(false);
@@ -932,6 +946,8 @@ export default function ResidentesPage() {
                               <Estado tipo="ok">Configurado</Estado>
                             ) : payConsulta === "error" ? (
                               <Estado tipo="falta">Sin dato</Estado>
+                            ) : payKeyIlegible ? (
+                              <Estado tipo="falta">Falta la P_KEY</Estado>
                             ) : (
                               <Estado tipo="sin">Sin configurar</Estado>
                             )}
@@ -945,7 +961,9 @@ export default function ResidentesPage() {
                                   : "Los residentes con saldo pueden pagar desde su portal."
                                 : payConsulta === "error"
                                   ? "No pudimos consultar la configuración de pago."
-                                  : "Conéctalo para recibir pagos en línea."}
+                                  : payKeyIlegible
+                                    ? "La P_KEY guardada ya no se puede leer: vuelve a ingresarla para reactivar el pago en línea."
+                                    : "Conéctalo para recibir pagos en línea."}
                             </p>
                           </>
                         )}
@@ -964,9 +982,22 @@ export default function ResidentesPage() {
                           {[
                             { id: "res-pk", label: "Public Key", val: payPublicKey, set: setPayPublicKey, ph: "pub_test_..." },
                             { id: "res-cust", label: "P_CUST_ID_CLIENTE", val: payCustId, set: setPayCustId, ph: "123456" },
-                            { id: "res-pkey", label: "P_KEY", val: payKey, set: setPayKey, ph: "••••" },
+                            // La P_KEY guardada no se muestra (ni parcialmente): el campo queda vacío y solo sirve para reemplazarla.
+                            {
+                              id: "res-pkey",
+                              label: "P_KEY",
+                              val: payKey,
+                              set: setPayKey,
+                              ph: payKeyIlegible ? "Pega tu P_KEY" : payKeyGuardada ? "Configurada" : "Pega tu P_KEY",
+                              ayuda: payKeyGuardada && !payKeyIlegible
+                                ? "Configurada. Déjalo vacío para conservarla o escribe una nueva para reemplazarla."
+                                : undefined,
+                              error: payKeyIlegible
+                                ? "La P_KEY guardada ya no se puede leer. Vuelve a ingresarla para reactivar el pago en línea."
+                                : undefined,
+                            },
                           ].map((f) => (
-                            <Campo key={f.id} id={f.id} etiqueta={f.label}>
+                            <Campo key={f.id} id={f.id} etiqueta={f.label} ayuda={f.ayuda} error={f.error}>
                               <Entrada
                                 id={f.id}
                                 value={f.val}

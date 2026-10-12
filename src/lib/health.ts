@@ -4,6 +4,7 @@
 // looking like "no hay datos todavía".
 
 import { modeloDeFuncion } from "@/lib/ia/modelos";
+import { encryptionStatus } from "@/lib/secret-box";
 
 export type HealthStatus = "ok" | "warn" | "fail";
 
@@ -123,6 +124,32 @@ export async function runHealthChecks(opts: {
       ? { name: "payments", status: "ok", detail: "ePayco configurado" }
       : { name: "payments", status: "warn", detail: `ePayco incompleto — faltan: ${missingEpayco.join(", ")}. Los pagos de suscripción fallarán` }
   );
+
+  // ── Cifrado de secretos en reposo (llaves ePayco de los administradores) ──
+  // Sin configurar nada funciona: la clave se deriva de AUTH_SECRET. Con ENCRYPTION_KEY queda independiente de ella.
+  // Nunca se imprime ninguna clave: solo de dónde sale.
+  const cifrado = encryptionStatus();
+  if (cifrado.invalidEncryptionKey) {
+    checks.push({
+      name: "encryption",
+      status: "warn",
+      detail: "ENCRYPTION_KEY no es válida (32 bytes en base64/hex o 32+ caracteres) — no se pueden guardar ni leer las llaves de pago de los administradores",
+    });
+  } else if (cifrado.source === "k") {
+    checks.push({ name: "encryption", status: "ok", detail: "Llaves de pago cifradas con ENCRYPTION_KEY" });
+  } else if (cifrado.source === "a") {
+    checks.push({
+      name: "encryption",
+      status: "ok",
+      detail: "Llaves de pago cifradas con una clave derivada de AUTH_SECRET — define ENCRYPTION_KEY para que cambiar AUTH_SECRET no deje ilegibles las llaves guardadas",
+    });
+  } else {
+    checks.push({
+      name: "encryption",
+      status: "warn",
+      detail: "Sin ENCRYPTION_KEY ni AUTH_SECRET — no se pueden guardar las llaves de pago de los administradores",
+    });
+  }
 
   // ── Cron (warn — batch Élite se deshabilita en silencio sin CRON_SECRET) ──
   checks.push(

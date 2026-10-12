@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { validateSignatureWith, verifyTransaction } from "@/lib/epayco";
+import { leerPKeyYMigrar } from "@/lib/epayco-llaves";
 import { applyPaymentFifoTx, fmtCOP, type Allocation } from "@/lib/cartera";
 import { registrarEvento } from "@/lib/agentes/eventos";
 
@@ -61,7 +62,23 @@ export async function POST(req: NextRequest) {
       console.error("[unit-confirmation] admin ePayco keys missing", { ref: x_ref_payco });
       return NextResponse.json({ error: "Merchant not configured" }, { status: 400 });
     }
-    const sigOk = validateSignatureWith(admin.epaycoPCustId, admin.epaycoPKey, {
+    // La P_KEY está cifrada en la base de datos: se descifra aquí, justo antes de calcular la firma (y, si seguía en claro,
+    // se deja cifrada de paso). Nada de esto se registra ni se devuelve.
+    const llave = await leerPKeyYMigrar(order.userId, admin.epaycoPKey, "unit-confirmation");
+    if (llave.estado !== "ok") {
+      console.error("[unit-confirmation] admin ePayco P_KEY unreadable", { ref: x_ref_payco, estado: llave.estado });
+      if (llave.estado === "ausente") return NextResponse.json({ error: "Merchant not configured" }, { status: 400 });
+      // No es una firma falsa: el administrador debe volver a ingresar su llave. Se marca para revisión (solo si sigue
+      // pendiente) y se responde 503 para que ePayco reintente cuando ya la haya corregido: el cobro aprobado se acredita entonces.
+      await db.unitPaymentOrder
+        .updateMany({
+          where: { id: order.id, status: "pending" },
+          data: { status: "needs_review", failReason: "key_unreadable" },
+        })
+        .catch(() => {});
+      return NextResponse.json({ error: "Merchant key unreadable" }, { status: 503 });
+    }
+    const sigOk = validateSignatureWith(admin.epaycoPCustId, llave.pKey, {
       x_ref_payco,
       x_transaction_id,
       x_amount,

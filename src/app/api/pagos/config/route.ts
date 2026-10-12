@@ -2,17 +2,19 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireCartera } from "@/lib/cartera-server";
+import { leerPKeyYMigrar } from "@/lib/epayco-llaves";
+import { encryptSecret, SecretBoxError } from "@/lib/secret-box";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
-function mask(v: string | null | undefined): string {
-  if (!v) return "";
-  return v.length <= 4 ? "••••" : `••••${v.slice(-4)}`;
-}
-
-/** Read the admin's ePayco config (secrets masked). */
+/**
+ * Read the admin's ePayco config. La P_KEY NUNCA sale de aquí, ni completa ni en fragmentos (antes se devolvían los últimos 4
+ * caracteres): solo se informa si hay una guardada (`pKeyConfigured`) y si ya no se puede leer (`pKeyIlegible`).
+ */
 export async function GET() {
-  if (IS_DEMO) return NextResponse.json({ configured: false, publicKey: "", pCustId: "", pKeyMasked: "", test: true });
+  if (IS_DEMO) {
+    return NextResponse.json({ configured: false, publicKey: "", pCustId: "", pKeyConfigured: false, pKeyIlegible: false, test: true });
+  }
 
   const r = await requireCartera();
   if ("error" in r) return r.error;
@@ -24,12 +26,16 @@ export async function GET() {
       where: { id: userId },
       select: { epaycoPublicKey: true, epaycoPCustId: true, epaycoPKey: true, epaycoTest: true },
     });
-    const configured = !!(u?.epaycoPublicKey && u?.epaycoPCustId && u?.epaycoPKey);
+    // Descifra para saber si la llave sirve; si seguía en claro (guardada antes del cifrado) la deja cifrada de paso.
+    const llave = await leerPKeyYMigrar(userId, u?.epaycoPKey, "pagos config GET");
+    const pKeyConfigured = llave.estado === "ok";
+    const configured = !!(u?.epaycoPublicKey && u?.epaycoPCustId) && pKeyConfigured;
     return NextResponse.json({
       configured,
       publicKey: u?.epaycoPublicKey || "", // public key is not secret
       pCustId: u?.epaycoPCustId || "",
-      pKeyMasked: mask(u?.epaycoPKey),
+      pKeyConfigured,
+      pKeyIlegible: llave.estado === "ilegible",
       test: u?.epaycoTest ?? true,
     });
   } catch (e) {
@@ -38,7 +44,7 @@ export async function GET() {
   }
 }
 
-/** Save the admin's ePayco config. An empty pKey keeps the stored one. */
+/** Save the admin's ePayco config. An empty pKey keeps the stored one. La P_KEY se guarda siempre cifrada. */
 export async function POST(req: NextRequest) {
   if (IS_DEMO) return NextResponse.json({ ok: true, demo: true });
 
@@ -63,11 +69,20 @@ export async function POST(req: NextRequest) {
     };
     // Only overwrite the secret when a real new value (not the mask) is sent.
     if (typeof pKey === "string" && pKey.trim() && !pKey.includes("•")) {
-      data.epaycoPKey = pKey.trim().slice(0, 200);
+      // Si no hay con qué cifrar esto lanza ANTES de escribir: nunca se guarda en claro ni se guarda la configuración a medias.
+      data.epaycoPKey = encryptSecret(pKey.trim().slice(0, 200));
     }
     await db.user.update({ where: { id: userId }, data });
     return NextResponse.json({ ok: true });
   } catch (e) {
+    if (e instanceof SecretBoxError) {
+      // El mensaje del error nunca lleva la llave; en el log solo va el motivo.
+      console.error("[pagos config POST] no se pudo cifrar la P_KEY", { motivo: e.code });
+      return NextResponse.json(
+        { error: "No pudimos guardar la llave de forma segura: la clave de cifrado del servidor no está configurada o no es válida. Avisa a soporte." },
+        { status: 500 }
+      );
+    }
     console.error("[pagos config POST]", e);
     return NextResponse.json({ error: "Error al guardar" }, { status: 500 });
   }

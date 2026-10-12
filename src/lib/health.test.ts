@@ -6,6 +6,7 @@ const NOW = new Date(2026, 6, 22);
 // Env vars health.ts reads. We snapshot and restore around each test.
 const KEYS = [
   "AUTH_SECRET",
+  "ENCRYPTION_KEY",
   "DATABASE_URL",
   "ANTHROPIC_API_KEY",
   "ANTHROPIC_MODEL",
@@ -24,6 +25,7 @@ let snapshot: Record<string, string | undefined>;
 
 function setAll() {
   process.env.AUTH_SECRET = "x";
+  delete process.env.ENCRYPTION_KEY;
   process.env.DATABASE_URL = "postgres://x";
   process.env.ANTHROPIC_API_KEY = "sk-x";
   process.env.RESEND_API_KEY = "re_x";
@@ -101,6 +103,42 @@ describe("runHealthChecks (shallow)", () => {
     const r = await runHealthChecks({ deep: false, now: NOW });
     expect(byName(r, "payments").status).toBe("warn");
     expect(byName(r, "payments").detail).toContain("EPAYCO_P_KEY");
+  });
+
+  it("cifrado de llaves: sin configurar nada usa AUTH_SECRET y está ok (recomienda ENCRYPTION_KEY)", async () => {
+    setAll();
+    const r = await runHealthChecks({ deep: false, now: NOW });
+    expect(byName(r, "encryption").status).toBe("ok");
+    expect(byName(r, "encryption").detail).toContain("AUTH_SECRET");
+    expect(byName(r, "encryption").detail).toContain("ENCRYPTION_KEY");
+  });
+
+  it("cifrado de llaves: con ENCRYPTION_KEY válida está ok y nunca imprime la clave", async () => {
+    setAll();
+    const clave = "k".repeat(40);
+    process.env.ENCRYPTION_KEY = clave;
+    const r = await runHealthChecks({ deep: false, now: NOW });
+    expect(byName(r, "encryption").status).toBe("ok");
+    expect(byName(r, "encryption").detail).toContain("ENCRYPTION_KEY");
+    expect(JSON.stringify(r)).not.toContain(clave);
+  });
+
+  it("cifrado de llaves: ENCRYPTION_KEY inválida → warn (no crítico) y no se imprime", async () => {
+    setAll();
+    process.env.ENCRYPTION_KEY = "muy-corta";
+    const r = await runHealthChecks({ deep: false, now: NOW });
+    expect(byName(r, "encryption").status).toBe("warn");
+    expect(byName(r, "encryption").critical).toBeUndefined();
+    expect(r.criticalFail).toBe(false);
+    expect(JSON.stringify(r)).not.toContain("muy-corta");
+  });
+
+  it("cifrado de llaves: sin ENCRYPTION_KEY ni AUTH_SECRET → warn (auth ya marca el fallo crítico)", async () => {
+    setAll();
+    delete process.env.AUTH_SECRET;
+    const r = await runHealthChecks({ deep: false, now: NOW });
+    expect(byName(r, "encryption").status).toBe("warn");
+    expect(byName(r, "encryption").critical).toBeUndefined();
   });
 
   it("reports the effective model id and defaults to claude-haiku-5-5", async () => {
