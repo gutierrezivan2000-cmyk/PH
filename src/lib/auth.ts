@@ -5,6 +5,13 @@ import { DEMO_USER } from "@/lib/demo-store";
 import { revokedByPasswordChange } from "@/lib/session-revocation";
 import { esAdminDeEntorno } from "@/lib/admin-emails";
 import { datosDeAceptacion } from "@/lib/legal/aceptacion";
+import {
+  SESION_MAX_AGE_SEG,
+  SESION_UPDATE_AGE_SEG,
+  avisoCookieDomain,
+  cookiesDeSesion,
+  vencidoPorInactividad,
+} from "@/lib/session-config";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -98,37 +105,33 @@ const productionProviders = [
 
 const providers = IS_DEMO ? demoProviders : productionProviders;
 
-// Shared cookie config — lets the session work across www and admin subdomains.
-// Set COOKIE_DOMAIN to ".sophia.app" (with leading dot) in Vercel to enable.
+// Cookie compartida entre subdominios (www y admin). Solo si se define COOKIE_DOMAIN (con punto inicial, p. ej. ".sophia.app").
+// OJO: con dominio, la cookie de sesión viaja a TODOS los subdominios. Lo recomendado es dejarla sin definir (cookie solo del
+// host); ver docs/ADMIN_SETUP.md.
 const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
 const useSecureCookies = process.env.NODE_ENV === "production";
-const sessionCookieName = useSecureCookies
-  ? "__Secure-authjs.session-token"
-  : "authjs.session-token";
+
+// Aviso en el log (una vez por proceso) si en producción hay dominio compartido. No cambia el comportamiento.
+const avisoDominio = avisoCookieDomain(cookieDomain, process.env.NODE_ENV);
+const globalAviso = globalThis as { __cookieDomainAvisado?: boolean };
+if (avisoDominio && !globalAviso.__cookieDomainAvisado) {
+  globalAviso.__cookieDomainAvisado = true;
+  console.warn(avisoDominio);
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret,
 
-  session: { strategy: "jwt" },
+  // Sesión de 7 días deslizante (ver session-config.ts). El token y la cookie comparten el mismo plazo.
+  session: { strategy: "jwt", maxAge: SESION_MAX_AGE_SEG, updateAge: SESION_UPDATE_AGE_SEG },
+
+  jwt: { maxAge: SESION_MAX_AGE_SEG },
 
   providers,
 
   trustHost: true,
 
-  cookies: cookieDomain
-    ? {
-        sessionToken: {
-          name: sessionCookieName,
-          options: {
-            httpOnly: true,
-            sameSite: "lax",
-            path: "/",
-            secure: useSecureCookies,
-            domain: cookieDomain,
-          },
-        },
-      }
-    : undefined,
+  cookies: cookiesDeSesion({ cookieDomain, seguras: useSecureCookies }),
 
   pages: {
     signIn: "/login",
@@ -157,6 +160,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true;
     },
     async jwt({ token, user, account }) {
+      // Tope de inactividad para los tokens emitidos con el plazo antiguo de 30 días (ver session-config.ts): si esta sesión lleva
+      // más de 7 días sin usarse se cierra. Solo al releer una sesión existente; al iniciar sesión el token es nuevo y no trae `iat`.
+      if (!user && !account && vencidoPorInactividad(token.iat, Date.now())) return null;
       if (user) {
         token.id = user.id;
         token.name = user.name;

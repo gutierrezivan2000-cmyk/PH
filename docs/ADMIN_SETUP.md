@@ -102,6 +102,21 @@ COOKIE_DOMAIN = .sophiagrouph.com   (debe empezar por punto)
 Es *build-time* → requiere redeploy. Si no lo defines, el admin usa su propio
 login en su subdominio (perfectamente válido y algo más seguro).
 
+> **Recomendación: déjala SIN definir.** Con `COOKIE_DOMAIN` la cookie de sesión
+> se envía a **todos** los subdominios de ese dominio (`blog.`, `staging.`,
+> cualquier subdominio que apunte a un servicio de terceros o que se abandone
+> sin borrar su DNS, etc.), no solo a la app y al admin. Quien controle uno de
+> ellos recibe la sesión de cada usuario (y la de los administradores) en cada
+> petición. Sin la variable, la cookie queda ligada solo al host que la emitió
+> (`__Secure-authjs.session-token`, `HttpOnly`, `SameSite=Lax`, `Secure`) y cada
+> subdominio inicia sesión por su cuenta. Úsala solo si de verdad necesitas un
+> único login entre subdominios **y** controlas todos los subdominios del
+> dominio. En producción, si está definida, el servidor escribe una advertencia
+> en el log al arrancar (no cambia el comportamiento).
+>
+> La sesión dura **7 días desde la última visita** (se renueva sola mientras se
+> usa la aplicación). Quien no entra en una semana vuelve a iniciar sesión.
+
 ## Resumen rápido
 
 | Variable | Para qué | ¿Redeploy? |
