@@ -1,5 +1,6 @@
 /**
- * Perfil del usuario: lista blanca de campos (nada de asignación masiva), tipos, largos, URL https y qué se devuelve.
+ * Perfil del usuario: lista blanca de campos (nada de asignación masiva), tipos, largos, URL https, de quién es el logo
+ * y qué se devuelve.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextRequest } from "next/server";
@@ -20,7 +21,20 @@ import { GET, PUT } from "./route";
 const put = (body: unknown) => ({ json: async () => body }) as unknown as NextRequest;
 const putRoto = () => ({ json: async () => { throw new SyntaxError("Unexpected token"); } }) as unknown as NextRequest;
 const guardado = () => db.user.update.mock.calls[0][0].data as Record<string, unknown>;
-const BLOB = "https://abc123.public.blob.vercel-storage.com/subidas/u1/branding/logo-x1y2z3.png";
+const HOST = "https://abc123.public.blob.vercel-storage.com";
+const BLOB = `${HOST}/subidas/u1/branding/logo-x1y2z3.png`;
+const BLOB_AJENO = `${HOST}/subidas/u2/branding/logo-x1y2z3.png`;
+const MENSAJE_LOGO_AJENO = /subiste desde esta aplicaci/;
+
+/** URL de un blob propio con exactamente `largo` caracteres (segmentos de ~200: la ruta limita cada uno a 255). */
+function blobPropioDeLargo(largo: number): string {
+  const base = `${HOST}/subidas/u1/`;
+  const largoRestante = largo - base.length;
+  const k = Math.ceil((largoRestante + 1) / 201);
+  const letras = largoRestante - (k - 1);
+  const partes = Array.from({ length: k }, (_, i) => "a".repeat(Math.floor(letras / k) + (i < letras % k ? 1 : 0)));
+  return base + partes.join("/");
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -191,9 +205,12 @@ describe("PUT /api/profile — logo y color de marca", () => {
   it("rechaza un logo que no es texto o que pasa de 2048 caracteres", async () => {
     expect((await PUT(put({ logoUrl: { href: BLOB } }))).status).toBe(400);
     expect((await PUT(put({ logoUrl: 5 }))).status).toBe(400);
-    expect((await PUT(put({ logoUrl: `https://a.example/${"a".repeat(2048)}` }))).status).toBe(400);
+    expect((await PUT(put({ logoUrl: blobPropioDeLargo(2049) }))).status).toBe(400);
     expect(db.user.update).not.toHaveBeenCalled();
-    expect((await PUT(put({ logoUrl: `https://a.example/${"a".repeat(2048 - 18)}` }))).status).toBe(200);
+    const justo = blobPropioDeLargo(2048);
+    expect(justo).toHaveLength(2048);
+    expect((await PUT(put({ logoUrl: justo }))).status).toBe(200);
+    expect(guardado()).toEqual({ logoUrl: justo });
   });
 
   it("reenviar el mismo logo que ya estaba guardado no se vuelve a exigir (guardar el resto del perfil no falla)", async () => {
@@ -213,6 +230,139 @@ describe("PUT /api/profile — logo y color de marca", () => {
     const r = await PUT(put({ brandColor: color }));
     expect(r.status).toBe(400);
     expect(db.user.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("PUT /api/profile — de quién es el logo", () => {
+  it("un logo nuevo que subió esta misma persona (subidas/<su id>/…) se guarda", async () => {
+    for (const url of [BLOB, `${HOST}/subidas/u1/logo-x1y2z3.png`, `${HOST}/subidas/u1/branding/Logo.final-9fA.PNG`]) {
+      db.user.update.mockClear();
+      expect((await PUT(put({ logoUrl: url }))).status, url).toBe(200);
+      expect(guardado()).toEqual({ logoUrl: url });
+    }
+  });
+
+  it("un logo que subió OTRA persona se rechaza con 400 en español y no se guarda", async () => {
+    const r = await PUT(put({ name: "Ana", logoUrl: BLOB_AJENO }));
+    expect(r.status).toBe(400);
+    expect((await r.json()).error).toMatch(MENSAJE_LOGO_AJENO);
+    expect(db.user.update).not.toHaveBeenCalled(); // ni siquiera el nombre: la petición entera falla
+  });
+
+  it("un https de cualquier otro servidor (aunque sea una URL válida) se rechaza", async () => {
+    for (const url of [
+      "https://servidor-del-atacante.example/logo.png",
+      "https://servidor-del-atacante.example/subidas/u1/branding/logo.png", // la ruta correcta, pero en un host que no es el almacenamiento
+      "https://abc123.public.blob.vercel-storage.com.servidor-del-atacante.example/subidas/u1/logo.png",
+      "https://blob.vercel-storage.com/subidas/u1/logo.png", // sin subdominio de tienda
+    ]) {
+      const r = await PUT(put({ logoUrl: url }));
+      expect(r.status, url).toBe(400);
+      expect((await r.json()).error, url).toMatch(MENSAJE_LOGO_AJENO);
+    }
+    expect(db.user.update).not.toHaveBeenCalled();
+  });
+
+  it("un blob del almacenamiento sin el dueño en la ruta (rutas de antes, carpetas de otros usos) no sirve como logo NUEVO", async () => {
+    for (const url of [
+      `${HOST}/branding/u1/logo-123.png`,
+      `${HOST}/branding/logo-123.png`,
+      `${HOST}/logo-123.png`,
+      `${HOST}/uploads/1700000-logo.png`,
+      `${HOST}/property-docs/prop1/1700000-logo.png`,
+      `${HOST}/subidas/u1`, // la carpeta, sin archivo
+      `${HOST}/subidas/u1/`,
+      `${HOST}/subidas/`,
+    ]) {
+      expect((await PUT(put({ logoUrl: url }))).status, url).toBe(400);
+    }
+    expect(db.user.update).not.toHaveBeenCalled();
+  });
+
+  it("los trucos de ruta hacia la carpeta de otra persona se rechazan", async () => {
+    for (const url of [
+      `${HOST}/subidas/u1/../u2/logo.png`,
+      `${HOST}/subidas/u1/%2e%2e/u2/logo.png`,
+      `${HOST}/subidas/u1/%252e%252e/u2/logo.png`,
+      `${HOST}/subidas/u1%2F..%2Fu2/logo.png`,
+      `${HOST}/subidas/u2/logo.png?x=/subidas/u1/a.png`,
+      `${HOST}/subidas/u2/logo.png#/subidas/u1/a.png`,
+      `${HOST}//subidas/u1/logo.png`,
+      `${HOST}/subidas/U1/logo.png`, // el almacenamiento distingue mayúsculas: U1 no es u1
+      `${HOST}/subidas/u10/logo.png`, // prefijo del id, no el id
+      `${HOST}/subidas/u1x/logo.png`,
+      `${HOST}/x/subidas/u1/logo.png`, // el prefijo debe ir primero
+    ]) {
+      const r = await PUT(put({ logoUrl: url }));
+      expect(r.status, url).toBe(400);
+    }
+    expect(db.user.update).not.toHaveBeenCalled();
+  });
+
+  it("vacío quita el logo aunque hubiera uno guardado, sin exigir nada", async () => {
+    db.user.findUnique.mockResolvedValue({ id: "u1", logoUrl: BLOB_AJENO });
+    expect((await PUT(put({ logoUrl: "" }))).status).toBe(200);
+    expect(guardado()).toEqual({ logoUrl: null });
+    db.user.update.mockClear();
+    expect((await PUT(put({ logoUrl: "   " }))).status).toBe(200);
+    expect(guardado()).toEqual({ logoUrl: null });
+  });
+
+  it("el logo ya guardado de antes (rutas «branding/…») sigue pasando al reenviarlo: guardar el resto del perfil no falla", async () => {
+    for (const antiguo of [`${HOST}/branding/u1/logo-123.png`, `${HOST}/branding/logo-123.png`, "https://cdn.example/logo-viejo.png"]) {
+      db.user.update.mockClear();
+      db.user.findUnique.mockResolvedValue({ id: "u1", logoUrl: antiguo });
+      const r = await PUT(put({ name: "Ana", logoUrl: antiguo, brandColor: "#123456" }));
+      expect(r.status, antiguo).toBe(200);
+      expect(guardado(), antiguo).toEqual({ name: "Ana", brandColor: "#123456" }); // el logo no se reescribe
+    }
+  });
+
+  it("el logo de antes solo pasa si es IDÉNTICO al guardado: cambiarlo por otro de la misma carpeta vieja se rechaza", async () => {
+    const antiguo = `${HOST}/branding/u1/logo-123.png`;
+    db.user.findUnique.mockResolvedValue({ id: "u1", logoUrl: antiguo });
+    expect((await PUT(put({ logoUrl: `${HOST}/branding/u1/logo-124.png` }))).status).toBe(400);
+    expect((await PUT(put({ logoUrl: `${antiguo}?v=2` }))).status).toBe(400);
+    expect((await PUT(put({ logoUrl: antiguo.replace("u1", "u2") }))).status).toBe(400);
+    expect(db.user.update).not.toHaveBeenCalled();
+  });
+
+  it("con un logo de antes guardado se puede pasar a uno nuevo propio", async () => {
+    db.user.findUnique.mockResolvedValue({ id: "u1", logoUrl: `${HOST}/branding/u1/logo-123.png` });
+    expect((await PUT(put({ logoUrl: BLOB }))).status).toBe(200);
+    expect(guardado()).toEqual({ logoUrl: BLOB });
+  });
+
+  it("reenviar el logo guardado con espacios alrededor tampoco falla (se recorta antes de comparar)", async () => {
+    db.user.findUnique.mockResolvedValue({ id: "u1", logoUrl: BLOB_AJENO });
+    expect((await PUT(put({ logoUrl: ` ${BLOB_AJENO} ` }))).status).toBe(200);
+  });
+
+  it("si el campo no viene, el logo no se comprueba ni se toca", async () => {
+    db.user.findUnique.mockResolvedValue({ id: "u1", logoUrl: BLOB_AJENO });
+    expect((await PUT(put({ city: "Cali" }))).status).toBe(200);
+    expect(guardado()).toEqual({ city: "Cali" });
+  });
+
+  it("si la fila de la cuenta trae un id distinto al de la sesión (sesión vieja resuelta por correo), valen los dos", async () => {
+    db.user.findUnique.mockResolvedValue({ id: "u1-fila", logoUrl: null });
+    const delaFila = `${HOST}/subidas/u1-fila/branding/logo-1.png`;
+    expect((await PUT(put({ logoUrl: delaFila }))).status).toBe(200);
+    expect(guardado()).toEqual({ logoUrl: delaFila });
+    db.user.update.mockClear();
+    expect((await PUT(put({ logoUrl: BLOB }))).status).toBe(200); // el de la sesión, con el que sube el token
+    db.user.update.mockClear();
+    expect((await PUT(put({ logoUrl: BLOB_AJENO }))).status).toBe(400);
+    expect(db.user.update).not.toHaveBeenCalled();
+  });
+
+  it("una cuenta que aún no tiene fila acepta un logo con el id de la sesión y rechaza el de otro", async () => {
+    db.user.findUnique.mockResolvedValue(null);
+    db.user.create.mockResolvedValue({ id: "u1", logoUrl: null });
+    expect((await PUT(put({ logoUrl: BLOB_AJENO }))).status).toBe(400);
+    expect(db.user.create).not.toHaveBeenCalled(); // se valida antes de crear la fila
+    expect((await PUT(put({ logoUrl: BLOB }))).status).toBe(200);
+    expect(guardado()).toEqual({ logoUrl: BLOB });
   });
 });
 

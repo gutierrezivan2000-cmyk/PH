@@ -1,4 +1,7 @@
 import { parseFile, detectFileType } from "@/lib/parsers";
+import { blobAutorizado } from "@/lib/blob-owner";
+// Solo el tipo: run.ts arrastra la base de datos y la IA, y este módulo la carga bajo demanda (ver más abajo).
+import type { DuenoDeBlob } from "@/lib/generation/run";
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_EXTRACTED_CHARS = 20000; // limit to keep prompt size reasonable
@@ -38,10 +41,29 @@ export interface ParsedAttachment {
  * Downloads an attachment from a URL (Vercel Blob) and parses its content.
  * Images are returned with their URL for direct multimodal consumption.
  * Documents, spreadsheets, PDFs, audio, and text are extracted to text.
+ *
+ * `dueno` es quien envía el adjunto (ver DuenoDeBlob en generation/run). Con él, el archivo se lee SOLO si es suyo
+ * (ruta `subidas/<su id>/…`): así la comprobación no depende de que quien llama ya hubiera validado la lista. Un adjunto
+ * ajeno no se descarga y tampoco se devuelve como imagen (su URL no llega al consumidor); queda un marcador de texto y se
+ * sigue con los demás. Sin `dueno` solo rige la lista blanca de hosts de `blobRefToFile`: es para el llamador que ya
+ * comprobó la pertenencia. Todo adjunto que venga del navegador debe pasarlo.
  */
 export async function parseAttachment(
-  att: AttachmentInput
+  att: AttachmentInput,
+  dueno?: DuenoDeBlob
 ): Promise<ParsedAttachment> {
+  // Antes de cualquier otra decisión (incluida la de «es una imagen»: esa rama devuelve la URL tal cual).
+  if (dueno && !blobAutorizado(att.url, dueno.userId, { propertyId: dueno.propertyId })) {
+    console.warn(`[parseAttachment] adjunto que no es de quien lo envía: se omite ("${String(att.name).slice(0, 80)}")`);
+    return {
+      name: att.name,
+      type: att.type,
+      isImage: false,
+      url: att.url,
+      text: `[Archivo ${att.name}: no pertenece a tu cuenta, así que no se leyó. Vuelve a subirlo desde esta pantalla.]`,
+    };
+  }
+
   const fileType = detectFileType(att.name, att.type);
 
   if (fileType === "image") {
@@ -65,12 +87,15 @@ export async function parseAttachment(
     // "[no se pudo descargar]" — es decir, ningún adjunto del asistente se
     // llegaba a leer nunca. blobRefToFile ya hace el `get` autenticado.
     const { blobRefToFile } = await import("@/lib/generation/run");
-    const file = await blobRefToFile({
-      url: att.url,
-      name: att.name,
-      type: att.type,
-      size: att.size,
-    });
+    const file = await blobRefToFile(
+      {
+        url: att.url,
+        name: att.name,
+        type: att.type,
+        size: att.size,
+      },
+      dueno
+    );
     const { text } = await parseFile(file);
     const truncated =
       text.length > MAX_EXTRACTED_CHARS
@@ -98,7 +123,9 @@ export async function parseAttachment(
 }
 
 export async function parseAttachments(
-  attachments: AttachmentInput[]
+  attachments: AttachmentInput[],
+  dueno?: DuenoDeBlob
 ): Promise<ParsedAttachment[]> {
-  return Promise.all(attachments.map(parseAttachment));
+  // Función flecha y no `.map(parseAttachment)`: map pasaría el índice como segundo argumento, que ahora es el dueño.
+  return Promise.all(attachments.map((att) => parseAttachment(att, dueno)));
 }

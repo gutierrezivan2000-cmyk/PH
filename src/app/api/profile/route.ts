@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { LIMITES, colorHex, cuerpoComoObjeto, textoAcotado, urlHttps } from "@/lib/validar-entrada";
+import { blobAutorizado } from "@/lib/blob-owner";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
@@ -34,11 +35,13 @@ type DatosDelPerfil = {
  * Arma lo que se guarda a partir del cuerpo: solo los campos de la lista blanca, de tipo texto, recortados y con su
  * largo máximo. Un campo ausente no se toca; "" borra (logo y color pasan a null).
  * `logoActual` es el logo ya guardado: reenviar el mismo valor no se vuelve a exigir, para que guardar el resto del
- * perfil no falle por un logo anterior a estas reglas.
+ * perfil no falle por un logo anterior a estas reglas (la pantalla reenvía el guardado en cada cambio del perfil).
+ * `idsDelUsuario` son los ids con los que esta cuenta pudo subir archivos: un logo NUEVO solo vale si es de uno de ellos.
  */
 function validarPerfil(
   cuerpo: Record<string, unknown>,
   logoActual: string | null | undefined,
+  idsDelUsuario: readonly string[],
 ): { ok: true; datos: DatosDelPerfil } | { ok: false; error: string } {
   const datos: DatosDelPerfil = {};
 
@@ -72,6 +75,16 @@ function validarPerfil(
     if (!sinCambio) {
       const v = urlHttps(cuerpo.logoUrl, "El logo");
       if (!v.ok) return v;
+      // El logo se muestra en el portal de residentes, los correos y los documentos, y se guarda tal cual lo manda el
+      // navegador. Un https cualquiera dejaba apuntar esas pantallas a un servidor ajeno (rastreo de quien abre el
+      // correo) o a un archivo de otra cuenta. Un logo nuevo solo vale si lo subió esta misma persona (ruta
+      // `subidas/<su id>/…`); "" lo quita y el ya guardado se reenvía sin exigirlo de nuevo (rama de arriba).
+      if (v.valor !== "" && v.valor !== logoActual && !blobAutorizado(v.valor, idsDelUsuario)) {
+        return {
+          ok: false,
+          error: "El logo debe ser una imagen que subiste desde esta aplicación. Súbela de nuevo desde Configuración.",
+        };
+      }
       datos.logoUrl = v.valor || null;
     }
   }
@@ -171,7 +184,9 @@ export async function PUT(req: NextRequest) {
     // Find or create user by email
     let user = await db.user.findUnique({ where: { email: session.user.email! }, select: { id: true, logoUrl: true } });
 
-    const v = validarPerfil(cuerpo, user?.logoUrl);
+    // El token de subida usa el id de la sesión; el de la fila solo difiere en sesiones viejas que se resuelven por correo.
+    const idsDelUsuario = [...new Set([session.user.id, user?.id].filter((id): id is string => typeof id === "string" && id !== ""))];
+    const v = validarPerfil(cuerpo, user?.logoUrl, idsDelUsuario);
     if (!v.ok) {
       return NextResponse.json({ error: v.error }, { status: 400 });
     }

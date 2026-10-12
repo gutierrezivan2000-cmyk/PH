@@ -3,7 +3,13 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireElite } from "@/lib/elite-auth";
 import { db } from "@/lib/db";
-import { PLANS } from "@/lib/epayco";
+import { cupoMensualRestante } from "@/lib/generation/cupo-lote";
+import { primerBlobAjeno } from "@/lib/blob-owner";
+
+/** Respuesta cuando los insumos preparados de alguna propiedad incluyen un archivo que no es de quien lanza el lote. */
+const MENSAJE_INSUMO_AJENO =
+  "Los insumos preparados para una de las propiedades incluyen un archivo que no pertenece a tu cuenta, así que no se creó el lote. " +
+  "Quítalo y vuelve a subirlo desde la pantalla de la propiedad e inténtalo de nuevo.";
 
 type FileRef = { name: string; url: string; type: string; size: number };
 
@@ -158,18 +164,11 @@ export async function POST(req: NextRequest) {
       .map((a) => a.propertyId)
   );
 
-  // Monthly cap for real Elite (beta/demo = unlimited).
+  // Tope mensual del Élite real (beta/demo no tienen). Es la MISMA regla que usa el reintento del lote (lib/generation/cupo-lote.ts):
+  // el mes se mide en hora de Bogotá, no en la del servidor (UTC en Vercel, donde el mes cambiaba a las 7 p. m. del último día).
   let remaining = Infinity;
   if (elite.plan === "elite") {
-    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const used = await db.generation.count({
-      where: {
-        userId: elite.userId,
-        createdAt: { gte: startOfMonth },
-        status: { in: ["completed", "processing", "pending"] },
-      },
-    });
-    remaining = Math.max(0, PLANS.elite.limits.generationsPerMonth - used);
+    remaining = await cupoMensualRestante(elite.userId);
   }
 
   // Build the work list.
@@ -194,6 +193,16 @@ export async function POST(req: NextRequest) {
       skippedExisting,
       skippedCap,
     }, { status: 400 });
+  }
+
+  // Los insumos preparados se encolan tal cual y el trabajador (cron) los lee con la credencial del servidor y se los entrega a
+  // la IA: deben ser de quien lanza el lote (`subidas/<su id>/…`) o, para lo guardado antes, de la carpeta mensual de ESA
+  // propiedad (ya verificada como suya arriba). Se comprueba antes de crear nada: ni lote ni filas pendientes si alguno no lo es.
+  // El PUT que los prepara ya lo exige; esto cubre filas de antes de esa regla o escritas por otro camino.
+  for (const c of capped) {
+    if (primerBlobAjeno(c.files, elite.userId, { propertyId: c.propertyId })) {
+      return NextResponse.json({ error: MENSAJE_INSUMO_AJENO }, { status: 403 });
+    }
   }
 
   const batch = await db.generationBatch.create({

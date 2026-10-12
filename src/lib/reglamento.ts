@@ -2,6 +2,8 @@
 // so the AI can answer residents' questions from it. Text is extracted from
 // the stored documents once and cached on PropertyDocument.extractedText.
 
+import { blobEsDeLaCopropiedad } from "@/lib/documento-propiedad";
+
 const MAX_TOTAL_CHARS = 45000; // keep the prompt within budget
 
 // Leer un documento por primera vez gasta IA (fotos, PDF escaneado) y lo paga la administración desde una pregunta de un residente
@@ -19,9 +21,15 @@ const MAX_BYTES_DE_DOCUMENTO = 15 * 1024 * 1024;
 const MARCADOR_DE_FALLO = /^\[[^\]]*—\s*(error al analizar|no se pudo|error al procesar|analisis visual no disponible|formato no soportado)/i;
 export const esLecturaFallida = (texto: string): boolean => MARCADOR_DE_FALLO.test(texto.trim());
 
+/** La copropiedad a la que pertenece el documento y quien la administra: de ahí sale la prueba de que el archivo es suyo. */
+interface DuenoDelDocumento {
+  propertyId: string;
+  userId: string | null | undefined;
+}
+
 /** Fetch a (possibly private) blob into a Buffer. Tries a plain fetch, then
  *  a token-authenticated one. Returns null if unreachable. */
-async function fetchBlob(url: string): Promise<Buffer | null> {
+async function fetchBlob(url: string, dueno: DuenoDelDocumento): Promise<Buffer | null> {
   // NUNCA mandar la credencial del almacenamiento a un host ajeno. El segundo
   // intento lleva `Authorization: Bearer <BLOB_READ_WRITE_TOKEN>`, y esta `url`
   // sale de PropertyDocument, que hasta ahora aceptaba cualquier cadena del
@@ -31,6 +39,10 @@ async function fetchBlob(url: string): Promise<Buffer | null> {
   // trampa: recibía `Bearer vercel_blob_rw_...`.
   const { isAllowedBlobUrl } = await import("@/lib/blob-url");
   if (!isAllowedBlobUrl(url)) return null;
+  // Y tampoco con la credencial del servidor un archivo que no es de esta copropiedad: bastaba que una fila apuntara al blob de
+  // otra cuenta para que el asistente del portal (público) lo leyera y se lo contara a un residente. Es la misma comprobación
+  // con la que getReglamentoText descarta el documento antes de llegar aquí; se repite por si otro llamador usa esta función.
+  if (!blobEsDeLaCopropiedad(url, dueno.propertyId, dueno.userId)) return null;
 
   const attempts: RequestInit[] = [{}];
   const token = process.env.BLOB_READ_WRITE_TOKEN;
@@ -55,16 +67,33 @@ export async function getReglamentoText(propertyId: string): Promise<string> {
   const docs = await db.propertyDocument.findMany({
     where: { propertyId, type: { in: ["reglamento_interno", "manual_convivencia", "otro"] } },
     orderBy: { createdAt: "asc" },
-    select: { id: true, name: true, url: true, mimeType: true, size: true, extractedText: true },
+    select: {
+      id: true,
+      name: true,
+      url: true,
+      mimeType: true,
+      size: true,
+      extractedText: true,
+      property: { select: { userId: true } },
+    },
   });
   if (docs.length === 0) return "";
+
+  // Solo se usan los documentos cuyo archivo es de esta copropiedad (ver documento-propiedad). Los demás se tratan como si no
+  // existieran —tampoco su texto ya guardado, que salió de ese archivo— y se avisa en el registro; nunca se tumba la respuesta.
+  // Se descartan ANTES de recortar la lista para que no le quiten el lugar a los documentos buenos.
+  const propios = docs.filter((doc) => {
+    if (blobEsDeLaCopropiedad(doc.url, propertyId, doc.property?.userId)) return true;
+    console.warn(`[reglamento] documento omitido: su archivo no pertenece a la copropiedad (documento ${doc.id}, copropiedad ${propertyId})`);
+    return false;
+  });
 
   const parts: string[] = [];
   let total = 0;
   let lecturasNuevas = 0;
   const { detectFileType } = await import("@/lib/parsers");
 
-  for (const doc of docs.slice(0, MAX_DOCUMENTOS)) {
+  for (const doc of propios.slice(0, MAX_DOCUMENTOS)) {
     if (total >= MAX_TOTAL_CHARS) break;
 
     // Un texto guardado que en realidad es un marcador de fallo (de antes de este arreglo) se vuelve a leer.
@@ -74,7 +103,7 @@ export async function getReglamentoText(propertyId: string): Promise<string> {
       if (detectFileType(doc.name, doc.mimeType || "") === "audio" || doc.size > MAX_BYTES_DE_DOCUMENTO) continue;
       if (lecturasNuevas >= MAX_LECTURAS_NUEVAS_POR_LLAMADA) continue;
       lecturasNuevas++;
-      const buf = await fetchBlob(doc.url);
+      const buf = await fetchBlob(doc.url, { propertyId, userId: doc.property?.userId });
       if (!buf) continue;
       try {
         const { parseFile } = await import("@/lib/parsers");

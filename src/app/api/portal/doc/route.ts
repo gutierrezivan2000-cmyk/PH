@@ -40,10 +40,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Como el resto del portal: el esquema se autorrepara ANTES de la primera consulta (una columna que falte en una base
+    // desactualizada tumbaba esta ruta con un 500 mientras las demás pantallas del portal sí funcionaban).
+    const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+    await ensureAdminSchema();
     const { db } = await import("@/lib/db");
     const unit = await db.unit.findFirst({
       where: { portalToken: token },
-      select: { propertyId: true },
+      select: { propertyId: true, property: { select: { userId: true } } },
     });
     if (!unit) {
       return NextResponse.json({ error: "Enlace no válido" }, { status: 404 });
@@ -60,6 +64,15 @@ export async function GET(req: NextRequest) {
 
     const { isAllowedBlobUrl } = await import("@/lib/blob-url");
     if (!isAllowedBlobUrl(doc.url)) {
+      return NextResponse.json({ error: "Documento no disponible" }, { status: 404 });
+    }
+
+    // El archivo se lee con la credencial del servidor y se le entrega a una persona sin sesión: debe ser del administrador de
+    // esta copropiedad (`subidas/<su id>/…`) o, para lo guardado antes, de la carpeta de esta copropiedad. Una fila que apunte
+    // al blob de otra cuenta se trata como un documento inexistente (misma respuesta que un host no permitido).
+    const { blobEsDeLaCopropiedad } = await import("@/lib/documento-propiedad");
+    if (!blobEsDeLaCopropiedad(doc.url, unit.propertyId, unit.property?.userId)) {
+      console.warn(`[portal/doc] documento omitido: su archivo no pertenece a la copropiedad (documento ${id}, copropiedad ${unit.propertyId})`);
       return NextResponse.json({ error: "Documento no disponible" }, { status: 404 });
     }
 

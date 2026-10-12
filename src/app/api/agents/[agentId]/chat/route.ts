@@ -525,7 +525,8 @@ por vencer), avísalo con tacto aunque no te lo hayan preguntado.
         // audios se registran como «transcription», que es lo que cuentan los cupos de minutos.
         parsedCurrent = await conConsumo(
           { userId, ref: chatId ? { tipo: "chat", id: chatId } : undefined, tipos: { audio: TIPOS.audioEnAgente, imagen: TIPOS.agenteLectura } },
-          () => parseAttachments(reqAttachments),
+          // Con el dueño, la lectura vuelve a comprobar que cada adjunto es de esta persona (la validación de arriba ya lo hizo).
+          () => parseAttachments(reqAttachments, { userId }),
         );
       } catch (err) {
         console.error("[api/agents/chat] parseAttachments failed:", err);
