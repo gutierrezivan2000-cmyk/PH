@@ -1,9 +1,10 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminOr401, logAdminAction } from "@/lib/admin-auth";
+import { requireAdminOr401, logAdminAction, isEnvAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { codigoDeUsuario, filtroDeBusqueda } from "@/lib/admin/identidad";
+import { MENSAJE_AUTOCONCESION, autoconcesionBloqueada, marcaDeCambioPropio } from "@/lib/admin/autoconcesion";
 import { calcMrr } from "@/lib/plan";
 
 const ADDON_AGENTS = ["metra", "nomethes", "hermes", "logistes"] as const;
@@ -92,9 +93,10 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { userId, agent, enabled } = body;
+  // Lista blanca: solo userId, agent y enabled; el resto del cuerpo se ignora.
+  const { userId, agent, enabled } = body ?? ({} as typeof body);
 
-  if (!userId || !agent || typeof enabled !== "boolean") {
+  if (typeof userId !== "string" || !userId || typeof agent !== "string" || !agent || typeof enabled !== "boolean") {
     return NextResponse.json({ error: "Missing fields: userId, agent, enabled" }, { status: 400 });
   }
 
@@ -103,6 +105,11 @@ export async function PATCH(req: NextRequest) {
       { error: `Invalid agent. Must be one of: ${ADDON_AGENTS.join(", ")}` },
       { status: 400 }
     );
+  }
+
+  // Un administrador no se activa add-ons a sí mismo (no pasaría por ningún cobro); los propietarios sí, para probarlos.
+  if (autoconcesionBloqueada(admin.userId, userId, isEnvAdmin(admin.email))) {
+    return NextResponse.json({ error: MENSAJE_AUTOCONCESION }, { status: 403 });
   }
 
   // Confirm target user exists
@@ -150,7 +157,7 @@ export async function PATCH(req: NextRequest) {
     action: "addon.toggle",
     targetType: "subscription",
     targetId: subscription.id,
-    metadata: { userId, agent, enabled },
+    metadata: { userId, agent, enabled, ...marcaDeCambioPropio(admin.userId, userId) },
     ipAddress: ip,
   });
 

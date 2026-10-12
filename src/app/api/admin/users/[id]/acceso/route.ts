@@ -1,9 +1,10 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminOr401, logAdminAction } from "@/lib/admin-auth";
+import { requireAdminOr401, logAdminAction, isEnvAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { finDeAcceso, validarAcceso } from "@/lib/admin/acceso";
+import { MENSAJE_AUTOCONCESION, autoconcesionBloqueada, marcaDeCambioPropio } from "@/lib/admin/autoconcesion";
 
 /**
  * Da acceso a un plan por un número de días (crea la suscripción si no existe o la reactiva).
@@ -15,9 +16,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { admin } = r;
   const { id } = await params;
 
-  // Un administrador no se da planes a sí mismo: el cambio no lo vería nadie más y no pasaría por ningún cobro.
-  if (id === admin.userId) {
-    return NextResponse.json({ error: "No puedes cambiar tu propio plan desde aquí." }, { status: 403 });
+  // Un administrador no se da planes a sí mismo (no pasaría por ningún cobro ni lo vería nadie más); los propietarios sí
+  // pueden, para probar los planes en su cuenta, y queda marcado en la auditoría.
+  if (autoconcesionBloqueada(admin.userId, id, isEnvAdmin(admin.email))) {
+    return NextResponse.json({ error: MENSAJE_AUTOCONCESION }, { status: 403 });
   }
 
   const v = validarAcceso(await req.json().catch(() => ({})));
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     action: "user.grant_access",
     targetType: "user",
     targetId: id,
-    metadata: { planId, dias, from: antes ? { planId: antes.planId, status: antes.status } : null },
+    metadata: { planId, dias, from: antes ? { planId: antes.planId, status: antes.status } : null, ...marcaDeCambioPropio(admin.userId, id) },
   });
 
   return NextResponse.json({ subscription: sub });

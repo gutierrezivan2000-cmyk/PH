@@ -26,11 +26,21 @@ export async function GET(
 
   const ticket = await db.ticket.findUnique({
     where: { id },
-    include: {
-      user: { select: { id: true, name: true, email: true, image: true } },
+    // Solo lo que la pantalla del ticket muestra. `userId` se pide únicamente para comprobar el dueño y no se devuelve;
+    // tampoco el administrador asignado (assignedTo) ni quién escribió cada mensaje (authorId, ids de administradores).
+    select: {
+      id: true,
+      userId: true,
+      subject: true,
+      status: true,
+      category: true,
+      priority: true,
+      createdAt: true,
+      updatedAt: true,
       messages: {
         where: { internal: false }, // Never expose internal notes to users
         orderBy: { createdAt: "asc" },
+        select: { id: true, fromAdmin: true, content: true, attachments: true, createdAt: true },
       },
       _count: { select: { messages: { where: { internal: false } } } },
     },
@@ -45,5 +55,7 @@ export async function GET(
     return NextResponse.json({ error: "No tienes acceso a este ticket" }, { status: 403 });
   }
 
-  return NextResponse.json({ ticket });
+  const publico: Record<string, unknown> = { ...ticket };
+  delete publico.userId;
+  return NextResponse.json({ ticket: publico });
 }

@@ -2,7 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { admin, log, db } = vi.hoisted(() => ({
-  admin: { current: { userId: "adm", email: "otro-admin@x.com" } as { userId: string; email: string } },
+  // `current: null` simula a alguien que no es administrador (requireAdminOr401 responde 403).
+  admin: { current: { userId: "adm", email: "otro-admin@x.com" } as { userId: string; email: string } | null },
   log: vi.fn(),
   db: {
     user: { findUnique: vi.fn(), update: vi.fn() },
@@ -12,7 +13,10 @@ const { admin, log, db } = vi.hoisted(() => ({
 vi.mock("@/lib/admin-auth", async () => {
   const real = await vi.importActual<typeof import("@/lib/admin-emails")>("@/lib/admin-emails");
   return {
-    requireAdminOr401: async () => ({ admin: { ...admin.current, name: null, role: "admin" } }),
+    requireAdminOr401: async () =>
+      admin.current
+        ? { admin: { ...admin.current, name: null, role: "admin" } }
+        : { error: Response.json({ error: "Acceso denegado. Solo administradores." }, { status: 403 }) },
     logAdminAction: (...a: unknown[]) => log(...a),
     isEnvAdmin: real.esAdminDeEntorno,
   };
@@ -80,6 +84,49 @@ describe("dar acceso", () => {
     expect((await darAcceso(req({ planId: "pro", dias: 9999 }), ctx())).status).toBe(400);
     db.user.findUnique.mockResolvedValue(null);
     expect((await darAcceso(req({ planId: "pro", dias: 30 }), ctx("nadie"))).status).toBe(404);
+    expect(db.subscription.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("dar acceso: nadie se da planes a sí mismo, salvo los propietarios", () => {
+  const OWNER = "gutierrezivan2000@gmail.com";
+  beforeEach(() => {
+    db.subscription.findUnique.mockResolvedValue(null);
+    db.subscription.upsert.mockImplementation(async ({ create }: { create: Record<string, unknown> }) => ({ id: "s1", ...create }));
+    db.user.findUnique.mockResolvedValue({ id: "adm" });
+  });
+
+  it("un admin común sobre su propia cuenta: 403 y no toca nada", async () => {
+    const r = await darAcceso(req({ planId: "elite", dias: 30 }), ctx("adm"));
+    expect(r.status).toBe(403);
+    expect(db.subscription.upsert).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
+  });
+  it("un admin común sobre la cuenta de otra persona: funciona y queda auditado sin marca de cambio propio", async () => {
+    db.user.findUnique.mockResolvedValue({ id: "u1xyz123" });
+    const r = await darAcceso(req({ planId: "pro", dias: 7 }), ctx("u1xyz123"));
+    expect(r.status).toBe(200);
+    expect(db.subscription.upsert).toHaveBeenCalledTimes(1);
+    const meta = log.mock.calls[0][0].metadata;
+    expect(meta).not.toHaveProperty("propio");
+  });
+  it("un propietario sobre su propia cuenta: funciona y la auditoría lo marca como cambio propio", async () => {
+    admin.current = { userId: "adm", email: OWNER };
+    const r = await darAcceso(req({ planId: "elite", dias: 30 }), ctx("adm"));
+    expect(r.status).toBe(200);
+    expect(db.subscription.upsert.mock.calls[0][0].where).toEqual({ userId: "adm" });
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ action: "user.grant_access", targetId: "adm", metadata: expect.objectContaining({ planId: "elite", propio: true }) }));
+  });
+  it("un propietario por ADMIN_EMAILS también cuenta como propietario", async () => {
+    vi.stubEnv("ADMIN_EMAILS", "socia@x.com");
+    admin.current = { userId: "adm", email: "Socia@X.com" };
+    expect((await darAcceso(req({ planId: "pro", dias: 30 }), ctx("adm"))).status).toBe(200);
+  });
+  it("quien no es administrador: 403 sin consultar la base", async () => {
+    admin.current = null;
+    const r = await darAcceso(req({ planId: "pro", dias: 30 }), ctx("u1xyz123"));
+    expect(r.status).toBe(403);
+    expect(db.user.findUnique).not.toHaveBeenCalled();
     expect(db.subscription.upsert).not.toHaveBeenCalled();
   });
 });

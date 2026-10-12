@@ -1,9 +1,13 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminOr401, logAdminAction } from "@/lib/admin-auth";
+import { requireAdminOr401, logAdminAction, isEnvAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { CAMPOS_DE_IDENTIDAD, CAMPOS_DE_NOMBRE, codigoDeUsuario } from "@/lib/admin/identidad";
+import { MENSAJE_AUTOCONCESION, autoconcesionBloqueada, marcaDeCambioPropio } from "@/lib/admin/autoconcesion";
+
+/** Largo máximo de la nota interna de una suscripción. */
+const MAX_NOTA_ADMIN = 2000;
 
 export async function GET(
   _req: NextRequest,
@@ -62,18 +66,27 @@ export async function PATCH(
     );
   }
 
-  const body = await req.json().catch(() => ({}));
+  // Un administrador no se cambia su propia suscripción (plan, estado ni add-ons); los propietarios sí, para probar planes.
+  if (autoconcesionBloqueada(admin.userId, existing.userId, isEnvAdmin(admin.email))) {
+    return NextResponse.json({ error: MENSAJE_AUTOCONCESION }, { status: 403 });
+  }
+  const propio = marcaDeCambioPropio(admin.userId, existing.userId);
+
+  const crudo = await req.json().catch(() => null);
+  const body = crudo && typeof crudo === "object" && !Array.isArray(crudo) ? crudo : {};
+  // Lista blanca: solo estos cuatro campos llegan a la base; cualquier otro del cuerpo se ignora.
   const {
     status,
-    addonAgents,
+    addonAgents: addonsPedidos,
     adminNotes,
     planId,
   } = body as {
     status?: string;
     addonAgents?: string[];
-    adminNotes?: string;
+    adminNotes?: unknown;
     planId?: string;
   };
+  let addonAgents: string[] | undefined;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: Record<string, any> = {};
@@ -89,25 +102,33 @@ export async function PATCH(
     updateData.status = status;
   }
 
-  if (addonAgents !== undefined) {
-    if (!Array.isArray(addonAgents)) {
+  if (addonsPedidos !== undefined) {
+    if (!Array.isArray(addonsPedidos)) {
       return NextResponse.json(
         { error: "addonAgents debe ser un arreglo." },
         { status: 400 }
       );
     }
     const validAddons = ["metra", "nomethes", "hermes", "logistes"];
-    const invalid = addonAgents.filter((a) => !validAddons.includes(a));
+    const invalid = addonsPedidos.filter((a) => !validAddons.includes(a));
     if (invalid.length > 0) {
       return NextResponse.json(
-        { error: `Add-ons inválidos: ${invalid.join(", ")}` },
+        { error: `Add-ons inválidos: ${invalid.map(String).join(", ")}` },
         { status: 400 }
       );
     }
+    // Sin repetidos: un add-on duplicado se contaría dos veces en el MRR.
+    addonAgents = [...new Set(addonsPedidos)];
     updateData.addonAgents = addonAgents;
   }
 
   if (adminNotes !== undefined) {
+    if (adminNotes !== null && typeof adminNotes !== "string") {
+      return NextResponse.json({ error: "adminNotes debe ser texto." }, { status: 400 });
+    }
+    if (typeof adminNotes === "string" && adminNotes.length > MAX_NOTA_ADMIN) {
+      return NextResponse.json({ error: `La nota no puede pasar de ${MAX_NOTA_ADMIN} caracteres.` }, { status: 400 });
+    }
     updateData.adminNotes = adminNotes;
   }
 
@@ -168,7 +189,7 @@ export async function PATCH(
         action: "subscription.epayco_cancel",
         targetType: "subscription",
         targetId: id,
-        metadata: { ...epaycoCancel },
+        metadata: { ...epaycoCancel, ...propio },
       })
     );
   }
@@ -180,7 +201,7 @@ export async function PATCH(
         action: "subscription.status_change",
         targetType: "subscription",
         targetId: id,
-        metadata: { from: existing.status, to: status },
+        metadata: { from: existing.status, to: status, ...propio },
       })
     );
   }
@@ -197,7 +218,7 @@ export async function PATCH(
           action: "subscription.addons_change",
           targetType: "subscription",
           targetId: id,
-          metadata: { before, after, added, removed },
+          metadata: { before, after, added, removed, ...propio },
         })
       );
     }
@@ -210,7 +231,7 @@ export async function PATCH(
         action: "subscription.notes_update",
         targetType: "subscription",
         targetId: id,
-        metadata: { hasNote: !!adminNotes },
+        metadata: { hasNote: !!adminNotes, ...propio },
       })
     );
   }
@@ -222,7 +243,7 @@ export async function PATCH(
         action: "subscription.plan_change",
         targetType: "subscription",
         targetId: id,
-        metadata: { from: existing.planId, to: planId },
+        metadata: { from: existing.planId, to: planId, ...propio },
       })
     );
   }

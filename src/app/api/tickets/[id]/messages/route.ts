@@ -4,6 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ensureAdminSchema } from "@/lib/ensure-admin-schema";
+import { rateLimit } from "@/lib/rate-limit";
+import { LIMITES, cuerpoComoObjeto, textoAcotado } from "@/lib/validar-entrada";
+
+/** Respuestas por persona y hora: una conversación normal queda lejos; frena el goteo que reabre tickets sin parar. */
+const MAX_RESPUESTAS_POR_HORA = 30;
 
 export async function POST(
   req: NextRequest,
@@ -17,10 +22,26 @@ export async function POST(
     return NextResponse.json({ error: "El demo es de solo lectura. Crea tu cuenta para guardar cambios." }, { status: 403 });
   }
 
+  // Lista blanca: solo `content`. Autor, "fromAdmin", "internal" y el estado los pone el servidor.
+  const cuerpo = cuerpoComoObjeto(await req.json().catch(() => null));
+  if (!cuerpo) {
+    return NextResponse.json({ error: "Solicitud inválida." }, { status: 400 });
+  }
+  const mensaje = textoAcotado(cuerpo.content, "El mensaje", LIMITES.mensajeTicket, { obligatorio: true, variasLineas: true });
+  if (!mensaje.ok) {
+    return NextResponse.json({ error: mensaje.error }, { status: 400 });
+  }
+
+  // Después de validar, para que un mensaje mal armado no gaste el cupo; antes de tocar la base de tickets.
+  const ritmo = await rateLimit(`ticket-msg:${session.user.id}`, { max: MAX_RESPUESTAS_POR_HORA, windowMs: 3_600_000 });
+  if (!ritmo.allowed) {
+    return NextResponse.json({ error: "Has enviado muchos mensajes seguidos. Espera un rato e inténtalo de nuevo." }, { status: 429 });
+  }
+
   await ensureAdminSchema();
   const { id } = await params;
 
-  const ticket = await db.ticket.findUnique({ where: { id } });
+  const ticket = await db.ticket.findUnique({ where: { id }, select: { id: true, userId: true, status: true } });
   if (!ticket) {
     return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
   }
@@ -37,22 +58,17 @@ export async function POST(
     );
   }
 
-  const body = await req.json().catch(() => ({}));
-  const { content } = body as { content?: string };
-
-  if (!content || !content.trim()) {
-    return NextResponse.json({ error: "El contenido no puede estar vacío" }, { status: 400 });
-  }
-
   const [message] = await db.$transaction([
     db.ticketMessage.create({
       data: {
         ticketId: id,
         fromAdmin: false,
         authorId: session.user.id,
-        content: content.trim(),
+        content: mensaje.valor,
         internal: false,
       },
+      // Solo lo que la pantalla necesita del mensaje recién creado.
+      select: { id: true, fromAdmin: true, content: true, createdAt: true },
     }),
     // User replied → set status back to "open" (needs admin attention)
     db.ticket.update({ where: { id }, data: { status: "open", updatedAt: new Date() } }),
