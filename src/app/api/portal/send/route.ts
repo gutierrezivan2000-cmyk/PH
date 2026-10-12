@@ -3,19 +3,12 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireCartera } from "@/lib/cartera-server";
 import { randomBytes } from "node:crypto";
+import { urlBase } from "@/lib/app-url";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
 function newToken(): string {
   return randomBytes(15).toString("base64url");
-}
-
-function portalOrigin(req: NextRequest): string {
-  const configured = process.env.NEXT_PUBLIC_APP_URL;
-  if (configured && /^https?:\/\//.test(configured)) return configured.replace(/\/$/, "");
-  const host = req.headers.get("host") || "";
-  const proto = req.headers.get("x-forwarded-proto") || "https";
-  return `${proto}://${host}`;
 }
 
 /**
@@ -34,6 +27,19 @@ export async function POST(req: NextRequest) {
   const { propertyId, unitId } = body as { propertyId?: string; unitId?: string };
   if (!propertyId) {
     return NextResponse.json({ error: "propertyId requerido" }, { status: 400 });
+  }
+
+  // Los enlaces salen con la dirección configurada, no con la cabecera Host (en el panel de administración puede ser otro
+  // subdominio). Se resuelve ANTES de generar tokens o gastar cupo: sin dirección en producción no se manda nada.
+  let origin: string;
+  try {
+    origin = urlBase();
+  } catch (e) {
+    console.error("[portal send] no hay dirección pública configurada; no se envían los enlaces:", e);
+    return NextResponse.json(
+      { error: "No se pueden enviar los enlaces en este momento: falta configurar la dirección pública de la aplicación. Avisa a soporte." },
+      { status: 500 }
+    );
   }
 
   try {
@@ -75,7 +81,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const origin = portalOrigin(req);
     const admin = await db.user.findUnique({
       where: { id: userId },
       select: { name: true, email: true, company: true, logoUrl: true, brandColor: true },

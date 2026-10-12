@@ -2,8 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { PLANS } from "@/lib/epayco";
 import { normalizePlanId, hasActiveAccess, type CanonicalPlan } from "@/lib/plan";
+import { urlBase } from "@/lib/app-url";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
+
+const ERROR_SIN_DIRECCION = "El pago en línea no está disponible en este momento. Intenta de nuevo más tarde.";
+
+/**
+ * Dirección pública para los retornos y la confirmación del pago, o null si en producción no hay ninguna configurada. Se evalúa
+ * en cada petición (nunca al cargar el módulo). Sin dirección NO se abre el cobro: con la confirmación apuntando a localhost,
+ * ePayco cobraría y el pago nunca se acreditaría.
+ */
+function direccionPublica(): string | null {
+  try {
+    return urlBase();
+  } catch (e) {
+    console.error("[CHECKOUT] no hay dirección pública configurada; no se abre el pago:", e);
+    return null;
+  }
+}
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -13,7 +30,8 @@ export async function POST(req: NextRequest) {
 
   // In demo mode: simulate a successful subscription
   if (IS_DEMO) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const appUrl = direccionPublica();
+    if (!appUrl) return NextResponse.json({ error: ERROR_SIN_DIRECCION }, { status: 500 });
     return NextResponse.json({ url: `${appUrl}/dashboard?success=true&demo=1` });
   }
 
@@ -46,7 +64,8 @@ export async function POST(req: NextRequest) {
     console.error("[CHECKOUT] DB check failed, proceeding:", e);
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = direccionPublica();
+  if (!appUrl) return NextResponse.json({ error: ERROR_SIN_DIRECCION }, { status: 500 });
   const plan = PLANS[planType];
   const invoice = `ph-${session.user.id}-${Date.now()}`;
 

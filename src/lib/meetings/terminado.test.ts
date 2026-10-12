@@ -104,6 +104,28 @@ describe("al pasar a «lista»", () => {
     expect(db.usageRecord.filas).toHaveLength(2);
   });
 
+  it("sin NEXT_PUBLIC_APP_URL el enlace del correo sale con el dominio de producción de Vercel", async () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+    vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "soph.vercel.app");
+    await reunionTerminada();
+    await alPasarALista(ID);
+    expect(correo.mock.calls[0][0]).toMatchObject({ url: "https://soph.vercel.app/dashboard/reuniones/m1" });
+  });
+
+  it("en producción sin ninguna dirección pública NO se manda un correo con enlace a localhost, y lo demás se hace igual", async () => {
+    const consola = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+    vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "");
+    vi.stubEnv("VERCEL_URL", "");
+    await reunionTerminada();
+    await expect(alPasarALista(ID)).resolves.toBeUndefined();
+    expect(correo).not.toHaveBeenCalled();
+    expect(db.usageRecord.filas).toHaveLength(2); // el costo sí quedó registrado
+    expect(consola.mock.calls.map((c) => c.map(String).join(" ")).join("\n")).toContain("no se pudo enviar el correo");
+    consola.mockRestore();
+  });
+
   it("si un paso falla, los demás se hacen igual y nada se lanza", async () => {
     const consola = vi.spyOn(console, "error").mockImplementation(() => {});
     await reunionTerminada();

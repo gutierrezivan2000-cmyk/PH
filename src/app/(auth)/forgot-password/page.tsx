@@ -1,33 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { Mail, ArrowLeft, Loader2, CheckCircle2, KeyRound } from "lucide-react";
+import { CaptchaTurnstile, type ManejadorCaptcha } from "@/components/auth/CaptchaTurnstile";
+import { siteKeyTurnstile } from "@/lib/turnstile-cliente";
+
+// Cloudflare Turnstile: solo si hay llave pública. Sin ella la pantalla se comporta como siempre.
+const SITE_KEY_CAPTCHA = siteKeyTurnstile();
+const CAPTCHA_ACTIVO = SITE_KEY_CAPTCHA !== "";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captcha = useRef<ManejadorCaptcha>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (CAPTCHA_ACTIVO && !captchaToken) {
+      setError("Completa la verificación de seguridad para continuar.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(CAPTCHA_ACTIVO ? { email, captchaToken } : { email }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.error || "No pudimos procesar la solicitud. Intenta de nuevo.");
+        // El token de Turnstile sirve una sola vez: el intento ya lo gastó, hay que pedir otro.
+        captcha.current?.reiniciar();
       } else {
         setSent(true);
       }
     } catch {
       setError("Error de conexión. Intenta de nuevo.");
+      captcha.current?.reiniciar();
     } finally {
       setLoading(false);
     }
@@ -156,9 +171,13 @@ export default function ForgotPasswordPage() {
                 />
               </div>
 
+              {CAPTCHA_ACTIVO && (
+                <CaptchaTurnstile ref={captcha} siteKey={SITE_KEY_CAPTCHA} onToken={setCaptchaToken} />
+              )}
+
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (CAPTCHA_ACTIVO && !captchaToken)}
                 className="w-full flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                 style={{
                   background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",

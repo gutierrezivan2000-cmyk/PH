@@ -2,17 +2,10 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { urlBase } from "@/lib/app-url";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-
-function origin(req: NextRequest): string {
-  const configured = process.env.NEXT_PUBLIC_APP_URL;
-  if (configured && /^https?:\/\//.test(configured)) return configured.replace(/\/$/, "");
-  const host = req.headers.get("host") || "";
-  const proto = req.headers.get("x-forwarded-proto") || "https";
-  return `${proto}://${host}`;
-}
 
 /**
  * Self-service portal-link recovery. A resident who lost their link enters the
@@ -72,7 +65,10 @@ export async function POST(req: NextRequest) {
     });
     if (units.length === 0) return NextResponse.json(generic);
 
-    const base = origin(req);
+    // La dirección sale de la configuración, no de la cabecera Host de una petición pública (cualquiera puede mandarla a su
+    // gusto, y el enlace llega a un tercero). Si en producción no hay ninguna, urlBase() lanza: cae en el catch de abajo, no
+    // sale ningún correo y la respuesta sigue siendo la genérica.
+    const base = urlBase();
     const { sendPortalLinkEmails } = await import("@/lib/email");
     const { checkEmailQuota, recordEmailsSent } = await import("@/lib/email-quota");
     const { checkSubscriptionAccess } = await import("@/lib/usage");

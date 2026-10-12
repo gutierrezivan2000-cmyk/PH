@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useRef, useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Zap, ArrowRight, Mail, Lock, User, Eye, EyeOff, Loader2 } from "lucide-react";
 import { destinoSeguro } from "@/lib/destino-seguro";
+import { CaptchaTurnstile, type ManejadorCaptcha } from "@/components/auth/CaptchaTurnstile";
+import { siteKeyTurnstile } from "@/lib/turnstile-cliente";
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+// Cloudflare Turnstile en el registro: solo si hay llave pública. Sin ella la pantalla se comporta como siempre.
+const SITE_KEY_CAPTCHA = siteKeyTurnstile();
 
 export default function LoginPage() {
   return (
@@ -40,12 +44,20 @@ function LoginContent() {
   const [error, setError] = useState(
     errorParam === "CredentialsSignin" ? "Credenciales invalidas" : ""
   );
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captcha = useRef<ManejadorCaptcha>(null);
+  // Solo el registro lleva captcha (y solo si hay llave pública): el inicio de sesión no cambia.
+  const captchaActivo = SITE_KEY_CAPTCHA !== "" && mode === "register";
 
   const handleCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (mode === "register" && !acepta) {
       setError("Para crear tu cuenta debes aceptar los Términos y la Política de Privacidad.");
+      return;
+    }
+    if (captchaActivo && !captchaToken) {
+      setError("Completa la verificación de seguridad para continuar.");
       return;
     }
     setLoading(true);
@@ -55,11 +67,15 @@ function LoginContent() {
         const res = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, name, acepta }),
+          body: JSON.stringify(
+            captchaActivo ? { email, password, name, acepta, captchaToken } : { email, password, name, acepta }
+          ),
         });
         const data = await res.json();
         if (!res.ok) {
           setError(data.error || "Error al crear cuenta");
+          // El token de Turnstile sirve una sola vez: el intento ya lo gastó, hay que pedir otro.
+          captcha.current?.reiniciar();
           setLoading(false);
           return;
         }
@@ -87,6 +103,7 @@ function LoginContent() {
       }
     } catch {
       setError("Error de conexion. Intenta de nuevo.");
+      captcha.current?.reiniciar();
       setLoading(false);
     }
   };
@@ -507,6 +524,10 @@ function LoginContent() {
                   </label>
                 )}
 
+                {captchaActivo && (
+                  <CaptchaTurnstile ref={captcha} siteKey={SITE_KEY_CAPTCHA} onToken={setCaptchaToken} />
+                )}
+
                 {/* Forgot password link */}
                 {mode === "login" && (
                   <div className="flex justify-end">
@@ -523,7 +544,7 @@ function LoginContent() {
                 {/* Submit */}
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || (captchaActivo && !captchaToken)}
                   className="w-full flex items-center justify-center gap-2 rounded-xl px-6 py-3 transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   style={{
                     background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-lo) 100%)",

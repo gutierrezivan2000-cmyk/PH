@@ -3,6 +3,7 @@
  * uso y avisar por correo a quien la grabó. Cada paso es independiente y ninguno puede tumbar a los demás ni a la reunión.
  */
 import { db } from "@/lib/db";
+import { urlBase } from "@/lib/app-url";
 import { TIPOS } from "@/lib/consumo/funciones";
 import { registrarConsumo } from "@/lib/consumo/registrar";
 import { sendMeetingReadyEmail } from "@/lib/email";
@@ -47,9 +48,6 @@ export function sumarCostos(tareas: ReadonlyArray<{ kind: string; result: unknow
   }
   return total;
 }
-
-const urlBase = (): string =>
-  (process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")).replace(/\/$/, "");
 
 type EnviarCorreo = typeof sendMeetingReadyEmail;
 
@@ -124,6 +122,8 @@ export async function alPasarALista(
   try {
     const usuario = await db.user.findFirst({ where: { id: reunion.userId }, select: { email: true } });
     if (usuario?.email) {
+      // urlBase() lanza si en producción no hay dirección pública: cae en el catch de abajo y no sale el correo (mejor que
+      // uno cuyo botón lleve a localhost). La reunión ya quedó lista y registrada; solo falta el aviso.
       await enviarCorreo({
         to: usuario.email,
         title: reunion.title,

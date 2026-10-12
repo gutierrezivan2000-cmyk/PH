@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { TRIAL_DAYS, OPEN_TESTING } from "@/lib/plan";
 import { datosDeAceptacion } from "@/lib/legal/aceptacion";
+import { MENSAJE_CAPTCHA_FALLIDO, verificarCaptcha } from "@/lib/captcha";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,14 +20,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "La contraseña debe tener al menos 8 caracteres" }, { status: 400 });
     }
 
+    const { rateLimit, clientIp } = await import("@/lib/rate-limit");
+    const ip = clientIp(req);
+
+    // Captcha opcional (Turnstile, solo si hay TURNSTILE_SECRET_KEY): antes de tocar la base de datos, crear la cuenta o mandar
+    // el código por correo, y antes de los límites para que un intento sin captcha no gaste el cupo de quien sí es una persona.
+    const captcha = await verificarCaptcha(body.captchaToken, ip);
+    if (!captcha.ok) {
+      return NextResponse.json({ error: MENSAJE_CAPTCHA_FALLIDO }, { status: 400 });
+    }
+
     const { db } = await import("@/lib/db");
     const bcrypt = await import("bcryptjs");
     const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
     await ensureAdminSchema();
 
     // Rate limit to stop email bombing / trial-account farming.
-    const { rateLimit, clientIp } = await import("@/lib/rate-limit");
-    const ip = clientIp(req);
     const HOUR = 60 * 60 * 1000;
     const ipLimit = await rateLimit(`register:ip:${ip}`, { max: 8, windowMs: HOUR });
     if (!ipLimit.allowed) {
