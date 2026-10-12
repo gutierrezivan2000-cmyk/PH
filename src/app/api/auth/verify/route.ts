@@ -6,6 +6,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const email = (body.email as string | undefined)?.trim().toLowerCase();
     const code = body.code as string | undefined;
+    const password = body.password as string | undefined;
 
     if (!email || !code) {
       return NextResponse.json({ error: "Email y código son requeridos" }, { status: 400 });
@@ -18,6 +19,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Demasiados intentos. Espera unos minutos y solicita un código nuevo." },
         { status: 429 }
+      );
+    }
+
+    // La contraseña la fija QUIEN VERIFICA, no quien registró el correo. Si la
+    // fijara el registro, quien registrara primero el correo ajeno dejaría su
+    // propia contraseña en la cuenta de la víctima en cuanto ella verificara.
+    // Quien verifica es quien demuestra que controla el buzón.
+    if (!password || password.length < 8) {
+      return NextResponse.json(
+        { error: "Escribe la contraseña con la que vas a entrar (mínimo 8 caracteres)." },
+        { status: 400 }
       );
     }
 
@@ -37,18 +49,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Codigo invalido o expirado" }, { status: 400 });
     }
 
-    // Mark email as verified (updateMany: no throw if the user row is missing,
-    // and avoids leaking Prisma internals on mismatch)
-    const updated = await db.user.updateMany({
-      where: { email },
-      data: { emailVerified: new Date() },
-    });
-
-    if (updated.count === 0) {
+    const user = await db.user.findUnique({ where: { email }, select: { passwordHash: true } });
+    if (!user) {
       return NextResponse.json(
         { error: "No encontramos una cuenta con este correo. Regístrate de nuevo." },
         { status: 400 }
       );
+    }
+    // Una cuenta de Google no tiene contraseña de correo: no se le añade una desde aquí.
+    if (!user.passwordHash) {
+      return NextResponse.json(
+        { error: "Esta cuenta se creó con Google. Ingresa con el botón de Google." },
+        { status: 409 }
+      );
+    }
+
+    const bcrypt = await import("bcryptjs");
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    // updateMany con emailVerified null: si dos verificaciones llegan a la vez, solo una gana.
+    const updated = await db.user.updateMany({
+      where: { email, emailVerified: null },
+      data: { emailVerified: new Date(), passwordHash },
+    });
+
+    if (updated.count === 0) {
+      return NextResponse.json({ error: "Esta cuenta ya fue verificada. Inicia sesión." }, { status: 409 });
     }
 
     // Clean up token

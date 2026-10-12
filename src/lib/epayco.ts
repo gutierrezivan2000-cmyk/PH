@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { secretoCoincide } from "@/lib/secreto";
 import crypto from "crypto";
 
 // Lazy-init: only create client when actually called
@@ -179,7 +180,7 @@ export function validateConfirmationSignature(params: {
     .update(`${custId}^${pKey}^${x_ref_payco}^${x_transaction_id}^${x_amount}^${x_currency_code}`)
     .digest("hex");
 
-  return expected === x_signature;
+  return secretoCoincide(x_signature, expected);
 }
 
 /**
@@ -205,7 +206,7 @@ export function validateSignatureWith(
       `${custId}^${pKey}^${params.x_ref_payco}^${params.x_transaction_id}^${params.x_amount}^${params.x_currency_code}`
     )
     .digest("hex");
-  return expected === params.x_signature;
+  return secretoCoincide(params.x_signature, expected);
 }
 
 // ── Transaction verification via API ──────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { validateConfirmationSignature, verifyTransaction, PLANS } from "@/lib/epayco";
-import { normalizePlanId, planFromAmount, type CanonicalPlan } from "@/lib/plan";
+import { validateConfirmationSignature, verifyTransaction } from "@/lib/epayco";
+import { normalizePlanId, type CanonicalPlan } from "@/lib/plan";
 
 // ePayco sends a POST (or GET) to this endpoint after each transaction.
 // This is the server-to-server callback — NOT user-facing.
@@ -34,8 +34,6 @@ export async function POST(req: NextRequest) {
       x_signature,
       x_cod_response,
       x_id_invoice, // the invoice we set at checkout → PendingOrder.ref
-      x_extra1, // userId (UNSIGNED — legacy fallback only)
-      x_extra2, // plan idPlan (UNSIGNED — never trusted)
     } = params as Record<string, string>;
 
     if (!x_ref_payco || !x_transaction_id) {
@@ -68,6 +66,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Verification unavailable, retry" }, { status: 503 });
     }
     const codResponse = String(verification.data?.x_cod_response ?? x_cod_response);
+
+    // Una transacción de prueba no mueve dinero real: nunca activa un plan (unit-confirmation ya lo hacía así; aquí faltaba).
+    if (String(verification.data?.x_test_request ?? "").toUpperCase() === "TRUE") {
+      return NextResponse.json({ received: true, test: true });
+    }
 
     // 3) Resolve the order server-side. Ensure the table exists first.
     try {
@@ -121,32 +124,24 @@ export async function POST(req: NextRequest) {
     }
 
     // Resolve userId, plan, and the amount we EXPECTED to be charged.
-    let userId: string | undefined;
     let plan: CanonicalPlan;
     let expectedAmount: number | undefined;
 
     if (order) {
-      userId = order.userId;
       plan = normalizePlanId(order.planType) || "pro";
       expectedAmount = order.amount;
     } else {
-      // Legacy fallback (payment started before this table existed): resolve the
-      // plan from the SIGNED amount — never from the unsigned x_extra2 — so a
-      // tampered callback still can't claim a higher plan than what was paid.
-      // We also set expectedAmount here so the amount check below still runs.
-      userId = x_extra1;
-      plan = planFromAmount(x_amount) || "pro";
-      expectedAmount = PLANS[plan].amount;
-      console.warn("[ePayco confirmation] no PendingOrder for invoice, using signed-amount fallback", {
+      // Sin orden pendiente NO se activa nada. Antes había una rama de respaldo que tomaba el userId de x_extra1, y ese campo no
+      // lo cubre la firma: quien pagara una transacción real con una factura inventada podía cambiar el plan de OTRA cuenta (incluso
+      // bajarla de Élite a Pro). Si una transacción aprobada llega sin orden, queda para conciliar a mano.
+      console.error("[ePayco confirmation] aprobada sin orden pendiente: no se activa nada; revisar a mano", {
         x_ref_payco,
         x_id_invoice,
       });
+      return NextResponse.json({ received: true, sinOrden: true });
     }
 
-    if (!userId) {
-      console.error("[ePayco confirmation] Could not resolve userId", { x_ref_payco });
-      return NextResponse.json({ received: true });
-    }
+    const userId = order.userId;
 
     // 4) The charged amount AND currency must match what we asked ePayco to
     // charge — never accept 99900 units of some other currency as a COP plan.

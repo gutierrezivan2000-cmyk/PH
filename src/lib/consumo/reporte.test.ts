@@ -133,4 +133,21 @@ describe("aCsv", () => {
     const csv = aCsv(["Cliente", "Costo"], [["Ana, la jefa", 0.123456789], ['Dice "hola"', 3]]);
     expect(csv).toBe('﻿Cliente,Costo\n"Ana, la jefa",0.123457\n"Dice ""hola""",3\n');
   });
+
+  it("neutraliza celdas que Excel ejecutaría como fórmula (inyección CSV)", () => {
+    const csv = aCsv(["Nombre"], [["=HYPERLINK(\"http://x\")"], ["+1+1"], ["-2"], ["@SUM(A1)"], ["\tcmd"], ["normal"]]);
+    const lineas = csv.replace("﻿", "").trimEnd().split("\n");
+    expect(lineas.slice(1)).toEqual([
+      `"'=HYPERLINK(""http://x"")"`,
+      "'+1+1",
+      "'-2",
+      "'@SUM(A1)",
+      "'\tcmd",
+      "normal",
+    ]);
+  });
+
+  it("no toca los números, aunque sean negativos", () => {
+    expect(aCsv(["n"], [[-3.5]])).toBe("﻿n\n-3.500000\n");
+  });
 });

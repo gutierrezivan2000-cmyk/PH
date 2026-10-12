@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+import { secretoCoincide } from "@/lib/secreto";
 import { NextRequest, NextResponse } from "next/server";
 import { runHealthChecks } from "@/lib/health";
 
@@ -10,9 +11,7 @@ import { runHealthChecks } from "@/lib/health";
  * Without ?deep it only inspects config presence — cheap and safe to poll.
  */
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get("x-admin-secret");
-  const expected = process.env.ADMIN_MIGRATE_SECRET;
-  if (!expected || secret !== expected) {
+  if (!secretoCoincide(req.headers.get("x-admin-secret"), process.env.ADMIN_MIGRATE_SECRET)) {
     const { requireAdmin } = await import("@/lib/admin-auth");
     const admin = await requireAdmin();
     if (!admin) {

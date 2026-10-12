@@ -2,6 +2,15 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 
+const MIME_EN_LINEA = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "text/plain",
+]);
+
 /**
  * Sirve al residente un documento de su copropiedad (reglamento, manual…).
  *
@@ -63,14 +72,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
     }
 
-    // `inline` para que el residente lo vea en el navegador; el nombre se
-    // sanea porque va en una cabecera.
+    // Solo tipos que el navegador muestra sin riesgo se sirven en línea. Cualquier otro
+    // (HTML, SVG, scripts…) se fuerza a descarga: así un archivo subido por el administrador
+    // no se ejecuta en el origen de la aplicación. El nombre se sanea porque va en una cabecera.
+    const enLinea = doc.mimeType ? MIME_EN_LINEA.has(doc.mimeType) : false;
+    const tipo = enLinea && doc.mimeType ? doc.mimeType : "application/octet-stream";
     const nombre = (doc.name || "documento").replace(/[^\w.\- ]+/g, "_").slice(0, 80);
     return new NextResponse(cuerpo as ReadableStream, {
       status: 200,
       headers: {
-        "Content-Type": doc.mimeType || "application/octet-stream",
-        "Content-Disposition": `inline; filename="${nombre}"`,
+        "Content-Type": tipo,
+        "Content-Disposition": `${enLinea ? "inline" : "attachment"}; filename="${nombre}"`,
+        "Content-Security-Policy": "default-src 'none'; sandbox",
+        "X-Content-Type-Options": "nosniff",
         "Cache-Control": "private, max-age=600",
       },
     });

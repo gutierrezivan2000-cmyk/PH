@@ -15,6 +15,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { admin } = r;
   const { id } = await params;
 
+  // Un administrador no se da planes a sí mismo: el cambio no lo vería nadie más y no pasaría por ningún cobro.
+  if (id === admin.userId) {
+    return NextResponse.json({ error: "No puedes cambiar tu propio plan desde aquí." }, { status: 403 });
+  }
+
   const v = validarAcceso(await req.json().catch(() => ({})));
   if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 });
   const { planId, dias } = v.acceso;

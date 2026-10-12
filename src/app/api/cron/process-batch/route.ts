@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+import { secretoCoincide } from "@/lib/secreto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { runGeneration, type BlobFileRef } from "@/lib/generation/run";
@@ -17,7 +18,7 @@ const PER_RUN = Math.max(1, parseInt(process.env.BATCH_PER_RUN || "2", 10));
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   const authz = req.headers.get("authorization");
-  if (!secret || authz !== `Bearer ${secret}`) {
+  if (!secret || !secretoCoincide(authz, `Bearer ${secret}`)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

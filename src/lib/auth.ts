@@ -8,6 +8,14 @@ import { datosDeAceptacion } from "@/lib/legal/aceptacion";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 
+// El modo demo deja entrar sin contraseña (el proveedor «demo» no comprueba nada). Una variable mal puesta en producción abría toda
+// la plataforma. Se niega en el despliegue de producción de Vercel, salvo que se confirme a propósito que es una demo pública sin datos.
+if (IS_DEMO && process.env.VERCEL_ENV === "production" && process.env.DEMO_PERMITIDO_EN_PRODUCCION !== "true") {
+  throw new Error(
+    "DEMO_MODE=true no puede estar activo en producción (VERCEL_ENV=production). Quita la variable, o define DEMO_PERMITIDO_EN_PRODUCCION=true si este despliegue es una demo pública sin datos reales."
+  );
+}
+
 const secret =
   process.env.AUTH_SECRET ||
   process.env.NEXTAUTH_SECRET ||

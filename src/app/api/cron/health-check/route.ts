@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+import { secretoCoincide } from "@/lib/secreto";
 import { NextRequest, NextResponse } from "next/server";
 import { runHealthChecks } from "@/lib/health";
 
@@ -17,7 +18,7 @@ import { runHealthChecks } from "@/lib/health";
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   const authz = req.headers.get("authorization");
-  if (!secret || authz !== `Bearer ${secret}`) {
+  if (!secret || !secretoCoincide(authz, `Bearer ${secret}`)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

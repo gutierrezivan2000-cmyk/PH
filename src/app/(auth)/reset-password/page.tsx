@@ -170,9 +170,9 @@ function ResetContent() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Nueva contraseña (mín. 6 caracteres)"
+                  placeholder="Nueva contraseña (mín. 8 caracteres)"
                   required
-                  minLength={6}
+                  minLength={8}
                   autoFocus
                   className="w-full pl-10 pr-11 py-3 rounded-xl text-sm transition-all duration-200 focus:outline-none"
                   style={inputStyle}
@@ -198,7 +198,7 @@ function ResetContent() {
                   onChange={(e) => setConfirm(e.target.value)}
                   placeholder="Confirma la contraseña"
                   required
-                  minLength={6}
+                  minLength={8}
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm transition-all duration-200 focus:outline-none"
                   style={inputStyle}
                 />

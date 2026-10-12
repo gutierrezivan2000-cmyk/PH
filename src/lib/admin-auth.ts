@@ -40,10 +40,11 @@ export async function requireAdmin(): Promise<AdminSession | null> {
   // Double-check the role from DB (don't trust JWT alone for sensitive ops)
   const user = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, email: true, name: true, role: true },
+    select: { id: true, email: true, name: true, role: true, banned: true },
   });
 
-  if (!user || user.role !== "admin") return null;
+  // Una cuenta baneada pierde el acceso de administrador aunque conserve el rol (la sesión se revoca al banear, esto cubre lo que quede).
+  if (!user || user.role !== "admin" || user.banned) return null;
 
   return {
     userId: user.id,

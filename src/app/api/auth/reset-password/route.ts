@@ -11,9 +11,9 @@ export async function POST(req: NextRequest) {
     if (!email || !token || !password) {
       return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
     }
-    if (password.length < 6) {
+    if (password.length < 8) {
       return NextResponse.json(
-        { error: "La contraseña debe tener al menos 6 caracteres" },
+        { error: "La contraseña debe tener al menos 8 caracteres" },
         { status: 400 }
       );
     }

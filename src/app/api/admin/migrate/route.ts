@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+import { secretoCoincide } from "@/lib/secreto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
@@ -207,8 +208,8 @@ const STATEMENTS: { name: string; sql: string }[] = [
 ];
 
 export async function POST(req: NextRequest) {
-  const providedSecret =
-    req.headers.get("x-admin-secret") || new URL(req.url).searchParams.get("secret");
+  // Solo por header: un secreto en la URL queda en logs, historial y cabeceras Referer.
+  const providedSecret = req.headers.get("x-admin-secret");
 
   // Require a DEDICATED secret. Never fall back to AUTH_SECRET — that's the
   // JWT signing key, and this endpoint runs raw DDL ($executeRawUnsafe).
@@ -221,7 +222,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!providedSecret || providedSecret !== expectedSecret) {
+  if (!secretoCoincide(providedSecret, expectedSecret)) {
     return NextResponse.json({ error: "Secret invalido o faltante" }, { status: 401 });
   }
 
@@ -245,7 +246,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   return NextResponse.json({
-    info: "Usa POST con header x-admin-secret o ?secret=... para ejecutar migraciones.",
+    info: "Usa POST con el header x-admin-secret para ejecutar migraciones.",
     statements: STATEMENTS.map((s) => s.name),
   });
 }

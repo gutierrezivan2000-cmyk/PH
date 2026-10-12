@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Zap, ArrowRight, Mail, Lock, User, Eye, EyeOff, Loader2 } from "lucide-react";
+import { destinoSeguro } from "@/lib/destino-seguro";
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
@@ -22,7 +23,7 @@ export default function LoginPage() {
 
 function LoginContent() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = destinoSeguro(searchParams.get("callbackUrl"));
   const errorParam = searchParams.get("error");
 
   // Landing CTAs link to /login?mode=register so "Empezar gratis" opens the
@@ -62,19 +63,9 @@ function LoginContent() {
           setLoading(false);
           return;
         }
-        // Keep the password OUT of the URL (history/logs). The verify page
-        // reads it from sessionStorage to auto-login after verification.
-        //
-        // Si la cuenta ya existía sin verificar, el servidor NO cambia la
-        // contraseña (plantarla era una vía de toma de cuenta), así que la
-        // recién tecleada no sirve para entrar: no se guarda y se avisa.
-        if (!data.passwordUnchanged) {
-          try {
-            sessionStorage.setItem("sophia-pending-pw", password);
-          } catch {
-            // sessionStorage unavailable → verify page falls back to /login
-          }
-        }
+        // La contraseña no viaja en la URL ni se guarda en el navegador: la
+        // pantalla de verificación vuelve a pedir la que usará para entrar y
+        // la fija al verificar el código.
         const params = new URLSearchParams({ email });
         if (data.emailSent === false) params.set("sent", "0");
         if (data.passwordUnchanged) params.set("pw", "previa");
@@ -469,9 +460,9 @@ function LoginContent() {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder={mode === "register" ? "Minimo 6 caracteres" : "Contrasena"}
+                    placeholder={mode === "register" ? "Minimo 8 caracteres" : "Contrasena"}
                     required
-                    minLength={6}
+                    minLength={mode === "register" ? 8 : 6}
                     className="w-full pl-10 pr-11 py-3 rounded-xl text-sm transition-all duration-200 focus:outline-none"
                     style={{
                       background: "var(--surface-3)",

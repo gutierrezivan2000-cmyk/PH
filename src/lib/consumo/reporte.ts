@@ -263,7 +263,10 @@ export function periodoPedido(desdeTexto: string | null | undefined, hastaTexto:
 }
 
 const celda = (v: string | number): string => {
-  const s = typeof v === "number" ? (Number.isInteger(v) ? String(v) : v.toFixed(6)) : v;
+  let s = typeof v === "number" ? (Number.isInteger(v) ? String(v) : v.toFixed(6)) : v;
+  // Excel y Calc ejecutan como fórmula una celda que empieza por = + - @ o tabulador/retorno (inyección CSV):
+  // se neutraliza con una comilla delante. Los números no se tocan.
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 

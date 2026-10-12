@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email y contraseña son requeridos" }, { status: 400 });
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: "La contraseña debe tener al menos 6 caracteres" }, { status: 400 });
+    if (password.length < 8) {
+      return NextResponse.json({ error: "La contraseña debe tener al menos 8 caracteres" }, { status: 400 });
     }
 
     const { db } = await import("@/lib/db");
@@ -65,15 +65,9 @@ export async function POST(req: NextRequest) {
         );
       }
       // Reregistro de una cuenta por credenciales sin verificar (p. ej. el
-      // correo de verificación nunca llegó): se manda un código nuevo, pero NO
-      // se tocan las credenciales.
-      //
-      // Antes se pisaban `passwordHash` y `name` sin probar que la cuenta fuera
-      // tuya. Eso permitía plantar una contraseña ajena: el atacante se
-      // registra sobre la cuenta sin verificar de la víctima, y en cuanto la
-      // víctima verifica con el código que le llega A SU buzón, la cuenta queda
-      // con la contraseña del atacante. Quien controla el correo sigue pudiendo
-      // verificar y entrar; quien no, ya no puede cambiar nada.
+      // correo de verificación nunca llegó): se manda un código nuevo y NO se
+      // toca nada aquí. La contraseña se fija al verificar (quien verifica es
+      // quien controla el buzón), así que la de este intento no se guarda.
       credencialesIntactas = true;
     } else {
       // Sin aceptación expresa de los términos y de la autorización de datos no se crea la cuenta.

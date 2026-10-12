@@ -22,10 +22,10 @@ function VerifyContent() {
   const router = useRouter();
   const email = searchParams.get("email") || "";
   const emailFailed = searchParams.get("sent") === "0";
-  // La cuenta ya existía sin verificar: el servidor no cambia la contraseña,
-  // así que la que se acabe de teclear en el registro no sirve para entrar.
-  const passwordPrevia = searchParams.get("pw") === "previa";
+  // La cuenta ya existía sin verificar: el código nuevo es el que vale, y la contraseña que se escriba aquí la reemplaza.
+  const cuentaPrevia = searchParams.get("pw") === "previa";
 
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -59,8 +59,8 @@ function VerifyContent() {
       inputRefs.current[index + 1]?.focus();
     }
 
-    // Auto-submit when all digits filled
-    if (newCode.every((d) => d !== "") && newCode.join("").length === 6) {
+    // Auto-submit when all digits filled and the password is ready
+    if (newCode.every((d) => d !== "") && newCode.join("").length === 6 && password.length >= 8) {
       handleVerify(newCode.join(""));
     }
   };
@@ -78,7 +78,8 @@ function VerifyContent() {
       const newCode = pasted.split("");
       setCode(newCode);
       inputRefs.current[5]?.focus();
-      handleVerify(pasted);
+      if (password.length >= 8) handleVerify(pasted);
+      else setError("Escribe primero la contraseña para entrar (mínimo 8 caracteres).");
     }
   };
 
@@ -90,7 +91,7 @@ function VerifyContent() {
       const res = await fetch("/api/auth/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code: codeStr }),
+        body: JSON.stringify({ email, code: codeStr, password }),
       });
       const data = await res.json();
 
@@ -102,31 +103,20 @@ function VerifyContent() {
         return;
       }
 
-      // Auto sign-in using the password stashed in sessionStorage during
-      // registration (kept out of the URL for security).
-      let pendingPw = "";
-      try {
-        pendingPw = sessionStorage.getItem("sophia-pending-pw") || "";
-        sessionStorage.removeItem("sophia-pending-pw");
-      } catch {
-        // sessionStorage unavailable — fall back to manual login
-      }
-
-      setWillAutoLogin(!!pendingPw);
+      // Entra con la contraseña que se acaba de fijar (no se guarda en el navegador).
+      setWillAutoLogin(true);
       setSuccess(true);
 
-      if (pendingPw) {
-        const result = await signIn("credentials", {
-          email,
-          password: pendingPw,
-          redirect: false,
-        });
-        if (result?.ok) {
-          window.location.href = "/dashboard";
-          return;
-        }
-        setWillAutoLogin(false);
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+      if (result?.ok) {
+        window.location.href = "/dashboard";
+        return;
       }
+      setWillAutoLogin(false);
 
       // Redirect to login after a short delay
       setTimeout(() => router.push("/login"), 2000);
@@ -201,12 +191,11 @@ function VerifyContent() {
                 </p>
               </div>
 
-              {passwordPrevia && (
+              {cuentaPrevia && (
                 <div className="mb-6 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-center">
                   <p className="text-sm text-amber-200">
                     Ya tenias una cuenta sin verificar con este correo. Te enviamos un codigo
-                    nuevo, pero tu contrasena sigue siendo la que elegiste la primera vez. Si no
-                    la recuerdas, usa &quot;Olvide mi contrasena&quot; despues de verificar.
+                    nuevo. La contrasena que escribas abajo sera la de tu cuenta.
                   </p>
                 </div>
               )}
@@ -226,6 +215,23 @@ function VerifyContent() {
                 </div>
               )}
 
+              {/* Contraseña para entrar: la fija quien verifica el código */}
+              <div className="mb-6">
+                <label htmlFor="verify-password" className="block text-xs text-white/50 mb-2">
+                  Contrasena para entrar (minimo 8 caracteres)
+                </label>
+                <input
+                  id="verify-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                  disabled={loading}
+                  minLength={8}
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white bg-white/[0.08] border border-white/20 focus:outline-none focus:border-violet-400/60 focus:bg-white/[0.12] transition-all duration-200 disabled:opacity-50"
+                />
+              </div>
+
               {/* Code inputs */}
               <div className="flex gap-2.5 justify-center mb-6" onPaste={handlePaste}>
                 {code.map((digit, i) => (
@@ -243,6 +249,15 @@ function VerifyContent() {
                   />
                 ))}
               </div>
+
+              <button
+                type="button"
+                onClick={() => handleVerify(code.join(""))}
+                disabled={loading || password.length < 8 || code.join("").length !== 6}
+                className="w-full mb-6 py-3 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 disabled:opacity-40 transition-colors"
+              >
+                Verificar y entrar
+              </button>
 
               {loading && (
                 <div className="flex items-center justify-center gap-2 mb-4">

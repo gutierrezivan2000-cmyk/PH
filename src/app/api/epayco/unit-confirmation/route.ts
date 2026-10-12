@@ -74,10 +74,11 @@ export async function POST(req: NextRequest) {
       // of leaving the order pending forever with no trace.
       console.error("[unit-confirmation] invalid signature", { ref: x_ref_payco });
       // Solo si sigue pendiente: una orden ya acreditada nunca pasa a revisión por un callback falso.
+      // No se escribe epaycoRef: es único y lo tomaría un callback sin firma, bloqueando después el pago real con esa referencia.
       await db.unitPaymentOrder
         .updateMany({
           where: { id: order.id, status: "pending" },
-          data: { status: "needs_review", failReason: "invalid_signature", epaycoRef: x_ref_payco },
+          data: { status: "needs_review", failReason: "invalid_signature" },
         })
         .catch(() => {});
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
@@ -103,8 +104,10 @@ export async function POST(req: NextRequest) {
         verifiedInvoice,
         orderRef: order.ref,
       });
+      // Solo una orden todavía pendiente: una ya acreditada (completed) no vuelve a revisión por una tupla ajena, porque entonces el
+      // siguiente callback la acreditaba otra vez.
       await db.unitPaymentOrder
-        .update({ where: { id: order.id }, data: { status: "needs_review", failReason: "invoice_mismatch" } })
+        .updateMany({ where: { id: order.id, status: "pending" }, data: { status: "needs_review", failReason: "invoice_mismatch" } })
         .catch(() => {});
       return NextResponse.json({ error: "Invoice mismatch" }, { status: 400 });
     }

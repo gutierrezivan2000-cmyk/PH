@@ -1,14 +1,13 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+import { secretoCoincide } from "@/lib/secreto";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   // Diagnostics expose env-var presence, DB info, and trigger a paid AI call —
   // admin-only. Accepts the dedicated migrate secret or an admin session.
-  const secret = req.headers.get("x-admin-secret");
-  const expected = process.env.ADMIN_MIGRATE_SECRET;
-  if (!expected || secret !== expected) {
+  if (!secretoCoincide(req.headers.get("x-admin-secret"), process.env.ADMIN_MIGRATE_SECRET)) {
     const { requireAdmin } = await import("@/lib/admin-auth");
     const admin = await requireAdmin();
     if (!admin) {
@@ -23,7 +22,8 @@ export async function GET(req: NextRequest) {
   const start = Date.now();
   results.AUTH_SECRET = process.env.AUTH_SECRET ? "SET" : "MISSING";
   results.AUTH_GOOGLE_ID = process.env.AUTH_GOOGLE_ID ? "SET" : "MISSING";
-  results.DATABASE_URL = process.env.DATABASE_URL ? "SET (" + process.env.DATABASE_URL?.substring(0, 20) + "...)" : "MISSING";
+  // Solo presencia: nunca un fragmento de la cadena de conexión.
+  results.DATABASE_URL = process.env.DATABASE_URL ? "SET" : "MISSING";
   results.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ? "SET" : "MISSING";
   results.BLOB_READ_WRITE_TOKEN = process.env.BLOB_READ_WRITE_TOKEN ? "SET" : "MISSING";
   results.DEMO_MODE = process.env.DEMO_MODE || "not set";
