@@ -28,11 +28,19 @@ const ctx = <T extends Record<string, string>>(p: T) => ({ params: Promise.resol
 const json = async (r: Response) => ({ status: r.status, cuerpo: await r.json() });
 const pedir = (cuerpo?: unknown) =>
   new NextRequest("http://localhost/api/x", { method: "POST", ...(cuerpo !== undefined ? { body: JSON.stringify(cuerpo), headers: { "content-type": "application/json" } } : {}) });
-const pedirParte = (o: { session?: number; seq?: number; durMs?: number; bytes?: number; tipo?: string } = {}) => {
-  const { session = 1, seq = 0, durMs = 30_000, bytes = 1000, tipo = "audio/webm;codecs=opus" } = o;
+// La parte 0 de una sesión lleva la cabecera del contenedor: EBML (webm) o `ftyp` (mp4 de Safari). Las demás son continuación.
+const CABECERA_WEBM = [0x1a, 0x45, 0xdf, 0xa3];
+const CABECERA_MP4 = [0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]; // «....ftypisom»
+const cuerpoDeParte = (bytes: number, seq: number, tipo: string, cabecera?: number[]) => {
+  const datos = new Uint8Array(bytes);
+  if (seq === 0) datos.set((cabecera ?? (tipo.startsWith("audio/mp4") ? CABECERA_MP4 : CABECERA_WEBM)).slice(0, bytes));
+  return datos;
+};
+const pedirParte = (o: { session?: number; seq?: number; durMs?: number; bytes?: number; tipo?: string; cabecera?: number[] } = {}) => {
+  const { session = 1, seq = 0, durMs = 30_000, bytes = 1000, tipo = "audio/webm;codecs=opus", cabecera } = o;
   return new NextRequest("http://localhost/api/x", {
     method: "POST",
-    body: new Uint8Array(bytes),
+    body: cuerpoDeParte(bytes, seq, tipo, cabecera),
     headers: { "content-type": tipo, "x-sesion": String(session), "x-secuencia": String(seq), "x-duracion-ms": String(durMs) },
   });
 };
@@ -165,6 +173,21 @@ describe("POST live (una parte de la grabadora)", () => {
     await registrarParte(pedirParte({ tipo: "audio/mp4" }), raiz);
     expect(put.mock.calls[0][0]).toBe(`meetings/${ID}/vivo/1/0.mp4`);
     expect(put.mock.calls[0][2].contentType).toBe("audio/mp4");
+  });
+
+  it("la parte 0 tiene que traer la cabecera de una grabación: una lista HLS u otro texto es 400 y no llega a Blob ni a la base", async () => {
+    await nuevaReunion();
+    const hls = [...new TextEncoder().encode("#EXTM3U\n#EXT-X-VERSION:3\nhttp://interno/")];
+    for (const cabecera of [hls, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]) {
+      const r = await json(await registrarParte(pedirParte({ cabecera }), raiz));
+      expect(r.status).toBe(400);
+      expect(r.cuerpo.error).toMatch(/no parece un audio válido/);
+    }
+    expect(put).not.toHaveBeenCalled();
+    expect(db.meetingLivePart.filas).toEqual([]);
+    expect(db.meeting.filas[0].status).toBe("borrador");
+    // Las partes siguientes son continuación sin cabecera: esas no se comprueban.
+    expect((await registrarParte(pedirParte({ seq: 1 }), raiz)).status).toBe(200);
   });
 
   it("desde «subiendo» o «error» pasa a «grabando» y limpia el error; en «grabando» no toca el estado", async () => {

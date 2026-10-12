@@ -5,13 +5,16 @@ import { join } from "node:path";
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { auth, fake, empujar, cupo, almacenes } = vi.hoisted(() => ({
+const { auth, fake, empujar, cupo, almacenes, ritmo, candados } = vi.hoisted(() => ({
   auth: vi.fn(),
   fake: { db: null as unknown },
   empujar: vi.fn(),
   cupo: vi.fn(),
   almacenes: { actual: null as unknown },
+  ritmo: vi.fn(),
+  candados: [] as unknown[][],
 }));
+vi.mock("@/lib/rate-limit", () => ({ rateLimit: (...a: unknown[]) => ritmo(...a) }));
 vi.mock("@/lib/auth", () => ({ auth: (...a: unknown[]) => auth(...a) }));
 // Estas pruebas cubren la compuerta de acceso: se hacen con el piloto «solo admins» para que la puerta se pruebe de verdad
 // (el valor publicado se prueba aparte, en `feature-flags.test.ts` y `acceso-publicado.test.ts`).
@@ -53,7 +56,18 @@ async function sembrarReunion(extra: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   db = crearDbFalsa();
+  // La ruta reserva el cupo dentro de una transacción con candado de asesoría: la base falsa corre la función con ella misma
+  // y deja constancia de las claves de candado que se tomaron.
+  candados.length = 0;
+  const conTransaccion = db as unknown as { $transaction: unknown; $executeRaw: unknown };
+  conTransaccion.$executeRaw = async (_texto: TemplateStringsArray, ...valores: unknown[]) => {
+    candados.push(valores);
+    return 1;
+  };
+  conTransaccion.$transaction = async (fn: (tx: unknown) => Promise<unknown>) => fn(db);
   fake.db = db;
+  ritmo.mockReset();
+  ritmo.mockResolvedValue({ allowed: true });
   raiz ??= mkdtempSync(join(tmpdir(), "rutas-acta-"));
   almacenes.actual = new AlmacenLocal(join(raiz, String(Math.random()).slice(2)));
   auth.mockReset();
@@ -82,6 +96,25 @@ describe("POST /api/meetings/[id]/acta", () => {
     expect(db.generation.filas).toHaveLength(1);
     expect(db.generation.filas[0]).toMatchObject({ id: r.cuerpo.acta.id, userId: "u1", type: "acta", meetingId: ID, status: "processing" });
     expect(db.meetingTask.filas.map((t) => t.kind)).toEqual(["acta_calentar"]);
+  });
+
+  it("freno por usuario: pasada la ráfaga, 429 con Retry-After, antes de tocar el cupo, el candado o la base", async () => {
+    await sembrarReunion();
+    ritmo.mockResolvedValue({ allowed: false, retryAfterSec: 42 });
+    const r = await json(await pedirActa(pedir("/m", "POST", {}), ctx()));
+    expect(r.status).toBe(429);
+    expect(r.cabeceras.get("retry-after")).toBe("42");
+    expect(ritmo).toHaveBeenCalledWith("acta:u1", expect.objectContaining({ max: 3, windowMs: 60_000 }));
+    expect(cupo).not.toHaveBeenCalled();
+    expect(candados).toHaveLength(0);
+    expect(db.generation.filas).toHaveLength(0);
+    expect(empujar).not.toHaveBeenCalled();
+  });
+
+  it("la reserva toma el candado de asesoría del usuario (la misma clave que generate/full) antes de contar", async () => {
+    await sembrarReunion();
+    expect((await pedirActa(pedir("/m", "POST", {}), ctx())).status).toBe(201);
+    expect(candados).toEqual([["generate:u1"]]);
   });
 
   it("sin cuerpo, con cuerpo vacío o ilegible también empieza el acta", async () => {

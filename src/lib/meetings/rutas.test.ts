@@ -44,11 +44,14 @@ const pedir = (ruta: string, metodo = "GET", cuerpo?: unknown) =>
     ...(cuerpo !== undefined ? { body: JSON.stringify(cuerpo), headers: { "content-type": "application/json" } } : {}),
   });
 /** Una parte de la grabadora: cuerpo binario y datos en cabeceras. */
-const pedirParte = (opciones: { session?: number | string; seq?: number | string; durMs?: number | string; bytes?: number; tipo?: string } = {}) => {
-  const { session = 1, seq = 0, durMs = 30_000, bytes = 1000, tipo = "audio/webm;codecs=opus" } = opciones;
+const pedirParte = (opciones: { session?: number | string; seq?: number | string; durMs?: number | string; bytes?: number; tipo?: string; cabecera?: number[] } = {}) => {
+  const { session = 1, seq = 0, durMs = 30_000, bytes = 1000, tipo = "audio/webm;codecs=opus", cabecera } = opciones;
+  // La parte 0 de una sesión lleva la cabecera del contenedor (EBML de webm o `ftyp` de mp4); las demás son continuación.
+  const datos = new Uint8Array(bytes);
+  if (Number(seq) === 0) datos.set((cabecera ?? (tipo.startsWith("audio/mp4") ? [0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d] : [0x1a, 0x45, 0xdf, 0xa3])).slice(0, bytes));
   return new NextRequest(`${URL_BASE}/meetings/x/live`, {
     method: "POST",
-    body: new Uint8Array(bytes),
+    body: datos,
     headers: { "content-type": tipo, "x-sesion": String(session), "x-secuencia": String(seq), "x-duracion-ms": String(durMs) },
   });
 };
@@ -294,6 +297,17 @@ describe("grabadora en vivo (demo): sesión → partes → marcas → cierre", (
     expect((await nuevaSesion(pedir("/x", "POST"), raiz)).status).toBe(409);
     expect(await cerrar()).toEqual({ status: 200, cuerpo: { status: "en_cola" } });
     expect((await detalle()).sources).toHaveLength(1);
+  });
+
+  it("la parte 0 que no trae la cabecera de una grabación (p. ej. una lista HLS) es 400 y no cuenta como audio, también en demo", async () => {
+    await consentir();
+    await nuevaSesion(pedir("/x", "POST"), raiz);
+    const hls = [...new TextEncoder().encode("#EXTM3U\n#EXT-X-VERSION:3\nhttp://interno/")];
+    const r = await json(await registrarParte(pedirParte({ cabecera: hls }), raiz));
+    expect(r.status).toBe(400);
+    expect(r.cuerpo.error).toMatch(/no parece un audio válido/);
+    expect((await detalle()).meeting.status).toBe("borrador");
+    expect((await registrarParte(pedirParte({ seq: 1 }), raiz)).status).toBe(200); // las demás partes no llevan cabecera
   });
 
   it("una segunda sesión empieza donde terminó la primera, aunque no se haya cerrado", async () => {
