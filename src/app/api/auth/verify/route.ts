@@ -13,8 +13,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Throttle guesses: the code is only 6 digits, so cap attempts per email.
+    // failClosed: sin contador no hay freno, así que si la base falla se deniega.
     const { rateLimit } = await import("@/lib/rate-limit");
-    const attempt = await rateLimit(`verify:${email}`, { max: 10, windowMs: 15 * 60 * 1000 });
+    const attempt = await rateLimit(`verify:${email}`, {
+      max: 10,
+      windowMs: 15 * 60 * 1000,
+      failClosed: true,
+    });
     if (!attempt.allowed) {
       return NextResponse.json(
         { error: "Demasiados intentos. Espera unos minutos y solicita un código nuevo." },

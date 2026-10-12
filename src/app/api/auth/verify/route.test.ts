@@ -10,6 +10,7 @@ const db = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({ db }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn(async () => ({ allowed: true })) }));
 
+import { rateLimit } from "@/lib/rate-limit";
 import { POST } from "./route";
 
 const CODIGO = "123456";
@@ -65,5 +66,37 @@ describe("POST /api/auth/verify — quien verifica fija la contraseña", () => {
     db.user.updateMany.mockResolvedValue({ count: 0 });
     const r = await POST(peticion({ email: "ana@x.co", code: CODIGO, password: "mi-clave-nueva" }));
     expect(r.status).toBe(409);
+  });
+});
+
+describe("POST /api/auth/verify — freno de intentos (el código es de 6 dígitos)", () => {
+  it("limita por correo normalizado y falla CERRADO si la base de contadores cae", async () => {
+    await POST(peticion({ email: " Ana@X.co ", code: CODIGO, password: "mi-clave-nueva" }));
+    expect(rateLimit).toHaveBeenCalledTimes(1);
+    expect(rateLimit).toHaveBeenCalledWith("verify:ana@x.co", {
+      max: 10,
+      windowMs: 15 * 60 * 1000,
+      failClosed: true,
+    });
+  });
+
+  it("pasado el límite responde 429 sin consultar el código", async () => {
+    vi.mocked(rateLimit).mockResolvedValueOnce({ allowed: false, retryAfterSec: 120 });
+    const r = await POST(peticion({ email: "ana@x.co", code: CODIGO, password: "mi-clave-nueva" }));
+    expect(r.status).toBe(429);
+    expect(db.verificationToken.findFirst).not.toHaveBeenCalled();
+    expect(db.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("con el contador caído (failClosed) tampoco deja adivinar códigos", async () => {
+    vi.mocked(rateLimit).mockResolvedValueOnce({ allowed: false, retryAfterSec: 30, unavailable: true });
+    const r = await POST(peticion({ email: "ana@x.co", code: CODIGO, password: "mi-clave-nueva" }));
+    expect(r.status).toBe(429);
+    expect(db.verificationToken.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("sin correo o sin código no gasta intentos", async () => {
+    await POST(peticion({ email: "ana@x.co" }));
+    expect(rateLimit).not.toHaveBeenCalled();
   });
 });

@@ -18,6 +18,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Esta entrada no tenía freno. El token es de 256 bits (no se adivina), pero
+    // sí se podía inundar la base con comprobaciones. Se limita por IP y no por
+    // correo: así nadie puede bloquear el restablecimiento de otra persona solo
+    // con conocer su correo. failClosed: si la base falla, se deniega.
+    const { rateLimit, clientIp } = await import("@/lib/rate-limit");
+    const attempt = await rateLimit(`reset:ip:${clientIp(req)}`, {
+      max: 20,
+      windowMs: 15 * 60 * 1000,
+      failClosed: true,
+    });
+    if (!attempt.allowed) {
+      return NextResponse.json(
+        { error: "Demasiados intentos. Espera unos minutos e inténtalo de nuevo." },
+        { status: 429 }
+      );
+    }
+
     const { db } = await import("@/lib/db");
     const identifier = `pwreset:${email}`;
     const hashed = crypto.createHash("sha256").update(token).digest("hex");

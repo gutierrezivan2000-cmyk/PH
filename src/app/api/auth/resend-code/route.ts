@@ -12,12 +12,13 @@ export async function POST(req: NextRequest) {
     // El único freno era un token reciente en base, que solo cuenta por correo
     // y solo tras haber enviado uno: no impedía barrer miles de direcciones ni
     // bombardear un buzón alternando correos. Se limita por IP y por correo,
-    // igual que en register.
+    // igual que en register. failClosed: este endpoint envía correos, así que
+    // sin contador (base caída) se deniega en vez de dejar enviar sin freno.
     const { rateLimit, clientIp } = await import("@/lib/rate-limit");
     const HOUR = 60 * 60 * 1000;
     const [ipRl, mailRl] = await Promise.all([
-      rateLimit(`resend:ip:${clientIp(req)}`, { max: 10, windowMs: HOUR }),
-      rateLimit(`resend:email:${email}`, { max: 5, windowMs: HOUR }),
+      rateLimit(`resend:ip:${clientIp(req)}`, { max: 10, windowMs: HOUR, failClosed: true }),
+      rateLimit(`resend:email:${email}`, { max: 5, windowMs: HOUR, failClosed: true }),
     ]);
     if (!ipRl.allowed || !mailRl.allowed) {
       return NextResponse.json(
