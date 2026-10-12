@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401, logAdminAction, isEnvAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { CAMPOS_DE_IDENTIDAD, codigoDeUsuario } from "@/lib/admin/identidad";
+import { cuerpoComoObjeto, textoAcotado } from "@/lib/validar-entrada";
+
+/** Largo máximo del motivo de un bloqueo. */
+const MAX_MOTIVO_BAN = 500;
 
 export async function GET(
   _req: NextRequest,
@@ -78,12 +82,25 @@ export async function PATCH(
 
   const { id } = await params;
 
-  const body = await req.json().catch(() => ({}));
-  const { role, banned, reason } = body as {
-    role?: string;
-    banned?: boolean;
-    reason?: string;
-  };
+  // Un cuerpo que no es un objeto (null, arreglo, texto, JSON roto) es un 400, no un 500 al desestructurarlo.
+  const body = cuerpoComoObjeto(await req.json().catch(() => null));
+  if (!body) {
+    return NextResponse.json({ error: "Solicitud inválida." }, { status: 400 });
+  }
+  const { role, banned } = body as { role?: unknown; banned?: unknown };
+  if (banned !== undefined && typeof banned !== "boolean") {
+    return NextResponse.json({ error: "El campo banned debe ser verdadero o falso." }, { status: 400 });
+  }
+  // El motivo es opcional: ausente o null = sin motivo; si viene, debe ser texto acotado (antes `reason?.trim()` rompía con un 500
+  // si no era texto y no tenía tope de largo).
+  let reason: string | null = null;
+  if (body.reason !== undefined && body.reason !== null) {
+    const motivo = textoAcotado(body.reason, "El motivo", MAX_MOTIVO_BAN, { variasLineas: true });
+    if (!motivo.ok) {
+      return NextResponse.json({ error: motivo.error }, { status: 400 });
+    }
+    reason = motivo.valor || null;
+  }
 
   const existing = await db.user.findUnique({
     where: { id },
@@ -122,7 +139,7 @@ export async function PATCH(
       data: {
         banned,
         bannedAt: banned ? new Date() : null,
-        banReason: banned ? (reason?.trim() || null) : null,
+        banReason: banned ? reason : null,
       },
       select: { id: true, role: true, banned: true, banReason: true },
     });
@@ -132,7 +149,7 @@ export async function PATCH(
       action: banned ? "user.ban" : "user.unban",
       targetType: "user",
       targetId: id,
-      metadata: banned ? { reason: reason?.trim() || null } : {},
+      metadata: banned ? { reason } : {},
     });
 
     return NextResponse.json({ user: updated });
@@ -154,7 +171,7 @@ export async function PATCH(
     );
   }
 
-  if (!role || !["admin", "user"].includes(role)) {
+  if (typeof role !== "string" || !["admin", "user"].includes(role)) {
     return NextResponse.json(
       { error: "Rol inválido. Debe ser 'admin' o 'user'." },
       { status: 400 }

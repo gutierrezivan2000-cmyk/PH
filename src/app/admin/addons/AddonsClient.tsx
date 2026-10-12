@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { PageHeader } from "@/components/admin/PageHeader";
-import { Search, ToggleLeft, Users } from "lucide-react";
-import { calcMrr } from "@/lib/plan";
+import { Search, Users } from "lucide-react";
+import { calcMrr, normalizePlanId } from "@/lib/plan";
+import { autoconcesionBloqueada } from "@/lib/admin/autoconcesion";
+import { NotaAutoconcesion } from "@/components/admin/NotaAutoconcesion";
 
 // ---- Types ----
 type AddonAgent = "metra" | "nomethes" | "hermes" | "logistes";
@@ -112,7 +114,8 @@ function PlanBadge({ planId, status }: { planId: string | null; status: string }
       </span>
     );
   }
-  const isElite = planId === "elite";
+  const plan = normalizePlanId(planId);
+  const isElite = plan === "elite";
   return (
     <span
       style={{
@@ -123,7 +126,7 @@ function PlanBadge({ planId, status }: { planId: string | null; status: string }
         borderRadius: 4,
       }}
     >
-      {isElite ? "Elite" : "Pro"}
+      {isElite ? "Elite" : plan === "business" ? "Business" : "Pro"}
     </span>
   );
 }
@@ -185,8 +188,62 @@ function UserAvatar({ codigo, name, email }: { codigo: string; name: string | nu
   );
 }
 
+// ---- Celdas de add-ons de una fila ----
+/**
+ * Los cuatro interruptores de una fila. Sobre la PROPIA cuenta de un administrador que no es propietario el servidor responde
+ * 403 a cualquier cambio (lib/admin/autoconcesion.ts): en vez de interruptores que fallan al pulsarlos, la fila lleva una nota.
+ * Las celdas son hijas directas de la rejilla de la fila (la nota ocupa las cuatro columnas).
+ */
+export function CeldasDeAddons({
+  user,
+  bloqueada,
+  toggling,
+  deshabilitar,
+  onToggle,
+}: {
+  user: Pick<UserRow, "id" | "addonAgents">;
+  bloqueada: boolean;
+  toggling: Record<string, boolean>;
+  deshabilitar: boolean;
+  onToggle: (userId: string, agent: AddonAgent, enabled: boolean) => void;
+}) {
+  if (bloqueada) {
+    return (
+      <div style={{ gridColumn: "span 4", padding: "0 8px", textAlign: "center" }}>
+        <NotaAutoconcesion breve />
+      </div>
+    );
+  }
+  return (
+    <>
+      {ADDONS.map((a) => {
+        const key = `${user.id}-${a.id}`;
+        const isOn = user.addonAgents.includes(a.id);
+        return (
+          <div key={a.id} style={{ display: "flex", justifyContent: "center" }}>
+            <ToggleSwitch
+              checked={isOn}
+              onChange={(v) => onToggle(user.id, a.id, v)}
+              color={a.color}
+              disabled={!!toggling[key] || deshabilitar}
+            />
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 // ---- Main content (client component, wrapped by AdminGate in page.tsx) ----
-export function AddonsContent() {
+export function AddonsContent({
+  adminId = null,
+  esPropietario = false,
+}: {
+  /** Quien mira la pantalla (para reconocer su propia fila). */
+  adminId?: string | null;
+  /** Si quien mira es propietario de la plataforma: los propietarios sí pueden cambiar sus propios add-ons. */
+  esPropietario?: boolean;
+}) {
   const [data, setData] = useState<ApiData | null>(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -422,23 +479,13 @@ export function AddonsContent() {
                 </div>
 
                 {/* Add-on toggles */}
-                {ADDONS.map((a) => {
-                  const key = `${user.id}-${a.id}`;
-                  const isOn = user.addonAgents.includes(a.id);
-                  return (
-                    <div
-                      key={a.id}
-                      style={{ display: "flex", justifyContent: "center" }}
-                    >
-                      <ToggleSwitch
-                        checked={isOn}
-                        onChange={(v) => handleToggle(user.id, a.id, v)}
-                        color={a.color}
-                        disabled={!!toggling[key] || pending}
-                      />
-                    </div>
-                  );
-                })}
+                <CeldasDeAddons
+                  user={user}
+                  bloqueada={autoconcesionBloqueada(adminId ?? "", user.id, esPropietario)}
+                  toggling={toggling}
+                  deshabilitar={pending}
+                  onToggle={handleToggle}
+                />
 
                 {/* Total */}
                 <p

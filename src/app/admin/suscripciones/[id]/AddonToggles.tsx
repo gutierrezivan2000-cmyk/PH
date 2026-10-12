@@ -2,6 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { NotaAutoconcesion } from "@/components/admin/NotaAutoconcesion";
+import { normalizePlanId, planBaseMrr } from "@/lib/plan";
+
+const NOMBRE_DE_PLAN = { pro: "Pro", business: "Business", elite: "Elite" } as const;
 
 const ADDONS = [
   { id: "metra", name: "Metra", description: "Análisis financiero" },
@@ -14,15 +18,23 @@ interface Props {
   subscriptionId: string;
   initialAddons: string[];
   planId: string | null | undefined;
+  /**
+   * Es la propia suscripción de un administrador que no es propietario: el servidor responde 403 a cualquier cambio, así que
+   * no se ofrecen los interruptores (solo se ve el estado) y se explica por qué.
+   */
+  soloLectura?: boolean;
 }
 
-export function AddonToggles({ subscriptionId, initialAddons, planId }: Props) {
+export function AddonToggles({ subscriptionId, initialAddons, planId, soloLectura = false }: Props) {
   const router = useRouter();
   const [addons, setAddons] = useState<string[]>(initialAddons);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const baseMrr = planId === "elite" ? 200 : planId === "pro" ? 20 : 0;
+  // Misma fuente que la lista de suscripciones y las métricas (calcMrr): antes aquí iban cifras fijas que no coincidían y el plan
+  // Business (que existe y se puede asignar) contaba como $0.
+  const plan = normalizePlanId(planId);
+  const baseMrr = planBaseMrr(planId);
   const totalMrr = baseMrr + addons.length * 5;
 
   async function toggle(addonId: string) {
@@ -51,6 +63,7 @@ export function AddonToggles({ subscriptionId, initialAddons, planId }: Props) {
 
   return (
     <div className="space-y-3">
+      {soloLectura && <NotaAutoconcesion />}
       {ADDONS.map((addon) => {
         const active = addons.includes(addon.id);
         return (
@@ -62,25 +75,35 @@ export function AddonToggles({ subscriptionId, initialAddons, planId }: Props) {
               <p className="text-[13px] font-medium text-foreground">{addon.name}</p>
               <p className="text-[11px] text-muted-foreground/60">{addon.description}</p>
             </div>
-            <button
-              onClick={() => toggle(addon.id)}
-              disabled={isPending}
-              aria-label={`Activar/desactivar ${addon.name}`}
-              className="relative inline-flex h-5 w-9 items-center rounded-full border transition-all duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/50"
-              style={{
-                background: active
-                  ? "var(--accent)"
-                  : "rgb(var(--veil-rgb) / 0.08)",
-                borderColor: active
-                  ? "rgb(var(--accent-rgb) / 0.6)"
-                  : "rgb(var(--veil-rgb) / 0.12)",
-              }}
-            >
+            {soloLectura ? (
               <span
-                className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform duration-200"
-                style={{ transform: active ? "translateX(18px)" : "translateX(2px)" }}
-              />
-            </button>
+                data-estado={active ? "activo" : "inactivo"}
+                className="text-[11px] text-muted-foreground/70"
+                style={{ fontFamily: "var(--font-mono)" }}
+              >
+                {active ? "Activo" : "Inactivo"}
+              </span>
+            ) : (
+              <button
+                onClick={() => toggle(addon.id)}
+                disabled={isPending}
+                aria-label={`Activar/desactivar ${addon.name}`}
+                className="relative inline-flex h-5 w-9 items-center rounded-full border transition-all duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/50"
+                style={{
+                  background: active
+                    ? "var(--accent)"
+                    : "rgb(var(--veil-rgb) / 0.08)",
+                  borderColor: active
+                    ? "rgb(var(--accent-rgb) / 0.6)"
+                    : "rgb(var(--veil-rgb) / 0.12)",
+                }}
+              >
+                <span
+                  className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform duration-200"
+                  style={{ transform: active ? "translateX(18px)" : "translateX(2px)" }}
+                />
+              </button>
+            )}
           </div>
         );
       })}
@@ -99,7 +122,7 @@ export function AddonToggles({ subscriptionId, initialAddons, planId }: Props) {
         <div className="space-y-1">
           <div className="flex justify-between text-[12px]">
             <span className="text-muted-foreground">
-              Plan {planId === "elite" ? "Elite" : planId === "pro" ? "Pro" : "—"}
+              Plan {plan ? NOMBRE_DE_PLAN[plan] : "—"}
             </span>
             <span
               className="font-medium"

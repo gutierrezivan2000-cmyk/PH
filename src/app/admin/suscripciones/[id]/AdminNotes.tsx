@@ -1,13 +1,19 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { NotaAutoconcesion } from "@/components/admin/NotaAutoconcesion";
 
 interface Props {
   subscriptionId: string;
   initialNotes: string | null | undefined;
+  /**
+   * Es la propia suscripción de un administrador que no es propietario: guardar la nota termina en 403, así que se muestra el
+   * texto sin campo editable ni botón y se explica por qué.
+   */
+  soloLectura?: boolean;
 }
 
-export function AdminNotes({ subscriptionId, initialNotes }: Props) {
+export function AdminNotes({ subscriptionId, initialNotes, soloLectura = false }: Props) {
   const [notes, setNotes] = useState(initialNotes || "");
   const [saved, setSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -31,6 +37,21 @@ export function AdminNotes({ subscriptionId, initialNotes }: Props) {
       // No router.refresh needed — notes don't affect server-rendered data
     });
     setTimeout(() => setSaved(false), 3000);
+  }
+
+  if (soloLectura) {
+    return (
+      <div className="space-y-3">
+        <NotaAutoconcesion />
+        <p
+          data-notas="solo-lectura"
+          className="whitespace-pre-wrap rounded-xl border border-border bg-background/60 px-4 py-3 text-foreground"
+          style={{ fontFamily: "var(--font-mono)", fontSize: "12px", lineHeight: "1.6" }}
+        >
+          {initialNotes || "Sin notas."}
+        </p>
+      </div>
+    );
   }
 
   return (

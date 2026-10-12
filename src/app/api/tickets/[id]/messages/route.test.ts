@@ -1,4 +1,7 @@
-/** Responder un ticket: solo el dueño, solo el texto, con largo acotado y con límite por hora. */
+/**
+ * Responder un ticket: solo el dueño, solo el texto, con largo acotado y con límite por hora.
+ * El ticket de otra persona y uno que no existe responden IGUAL (404): un 403 confirmaba que el id existe.
+ */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextRequest } from "next/server";
 
@@ -7,7 +10,7 @@ const { sesion, db, ritmo } = vi.hoisted(() => {
   return {
     sesion: { current: { user: { id: "u1", email: "ana@x.co" } } as null | { user: { id: string; email: string } } },
     db: {
-      ticket: { findUnique: vi.fn(), update: vi.fn() },
+      ticket: { findFirst: vi.fn(), update: vi.fn() },
       ticketMessage: { create: vi.fn() },
       $transaction: vi.fn(),
     },
@@ -26,12 +29,19 @@ const postRoto = () => ({ json: async () => { throw new SyntaxError("Unexpected 
 const ctx = (id = "t1") => ({ params: Promise.resolve({ id }) });
 const FECHA = new Date("2026-10-12T10:00:00Z");
 
+/** Una «base» con un solo ticket que filtra por el `where` como la real: si el dueño no coincide, no lo encuentra. */
+function conTicket(dueno: string, status: string) {
+  db.ticket.findFirst.mockImplementation(async ({ where }: { where: { id: string; userId: string } }) =>
+    where.id === "t1" && where.userId === dueno ? { id: "t1", status } : null,
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllEnvs();
   sesion.current = { user: { id: "u1", email: "ana@x.co" } };
   ritmo.mockResolvedValue({ allowed: true });
-  db.ticket.findUnique.mockResolvedValue({ id: "t1", userId: "u1", status: "pending" });
+  conTicket("u1", "pending");
   db.ticketMessage.create.mockImplementation(async () => ({ id: "m1", fromAdmin: false, content: "x", createdAt: FECHA }));
   db.ticket.update.mockImplementation(async () => ({}));
   db.$transaction.mockImplementation(async (ops: Promise<unknown>[]) => Promise.all(ops));
@@ -99,13 +109,21 @@ describe("POST /api/tickets/[id]/messages", () => {
     expect(ritmo).not.toHaveBeenCalled();
   });
 
-  it("el ticket de otra persona responde 403, uno inexistente 404 y uno cerrado 400; sin escribir nada", async () => {
-    db.ticket.findUnique.mockResolvedValue({ id: "t1", userId: "otro", status: "open" });
-    expect((await POST(post({ content: "hola" }), ctx())).status).toBe(403);
-    db.ticket.findUnique.mockResolvedValue(null);
-    expect((await POST(post({ content: "hola" }), ctx("nada"))).status).toBe(404);
+  it("la búsqueda lleva al dueño en el where (id + userId de la sesión)", async () => {
+    await POST(post({ content: "hola" }), ctx());
+    expect(db.ticket.findFirst.mock.calls[0][0].where).toEqual({ id: "t1", userId: "u1" });
+  });
+
+  it("el ticket de otra persona responde 404, idéntico a uno inexistente; uno cerrado o resuelto 400; sin escribir nada", async () => {
+    conTicket("otro", "open");
+    const ajeno = await POST(post({ content: "hola" }), ctx());
+    expect(ajeno.status).toBe(404);
+    const inexistente = await POST(post({ content: "hola" }), ctx("nada"));
+    expect(inexistente.status).toBe(404);
+    // Mismo código y mismo cuerpo: no hay forma de distinguir «existe pero no es tuyo» de «no existe».
+    expect(await ajeno.json()).toEqual(await inexistente.json());
     for (const status of ["resolved", "closed"]) {
-      db.ticket.findUnique.mockResolvedValue({ id: "t1", userId: "u1", status });
+      conTicket("u1", status);
       expect((await POST(post({ content: "hola" }), ctx())).status).toBe(400);
     }
     expect(db.ticketMessage.create).not.toHaveBeenCalled();

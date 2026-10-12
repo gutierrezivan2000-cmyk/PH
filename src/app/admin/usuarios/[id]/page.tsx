@@ -21,10 +21,8 @@ import { Persona, fechaLarga } from "@/components/admin/Persona";
 import { LEGAL_VERSION } from "@/lib/legal/empresa";
 import { informeDeConsumo } from "@/lib/consumo/reporte";
 import { asegurarColumnasDeConsumo } from "@/lib/consumo/registrar";
-import { AccesoButton } from "./AccesoButton";
-import { RoleButton } from "./RoleButton";
+import { AccionesDeUsuario } from "./AccionesDeUsuario";
 import { esAdminDeEntorno } from "@/lib/admin-emails";
-import { BanButton } from "./BanButton";
 
 async function loadConsumo(id: string, desde: Date) {
   try {
@@ -153,7 +151,6 @@ async function UsuarioDetail({ id }: { id: string }) {
   if (!user) notFound();
 
   const isGoogle = user.accounts.some((a) => a.provider === "google");
-  const isSelf = admin?.userId === user.id;
   const sub = user.subscription;
 
   const addonNames: Record<string, string> = {
@@ -170,17 +167,14 @@ async function UsuarioDetail({ id }: { id: string }) {
         title={user.name || user.email}
         description={`${user.email} · ${codigoDeUsuario(user.id)}`}
         action={
-          <div className="flex items-center gap-3 flex-wrap justify-end">
-            <AccesoButton userId={user.id} />
-            {esAdminDeEntorno(admin?.email) && (
-            <RoleButton
-              userId={user.id}
-              currentRole={user.role}
-              isSelf={isSelf}
-            />
-            )}
-            <BanButton userId={user.id} banned={user.banned} isSelf={isSelf} />
-          </div>
+          // «Dar acceso» sobre la propia cuenta termina en 403 salvo para propietarios: ahí se oculta y se explica (ver AccionesDeUsuario).
+          <AccionesDeUsuario
+            userId={user.id}
+            role={user.role}
+            banned={user.banned}
+            adminId={admin?.userId ?? null}
+            esPropietario={esAdminDeEntorno(admin?.email)}
+          />
         }
       />
 

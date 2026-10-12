@@ -128,3 +128,46 @@ describe("PATCH /api/admin/subscriptions/[id] — solo pasan los campos permitid
     expect((await PATCH(patch([1, 2]), ctx())).status).toBe(200);
   });
 });
+
+describe("PATCH /api/admin/subscriptions/[id] — plan", () => {
+  it("acepta cada plan que existe en PLANS, también Business (antes la lista solo traía pro y elite)", async () => {
+    for (const planId of ["pro", "business", "elite"]) {
+      db.subscription.update.mockClear();
+      const r = await PATCH(patch({ planId }), ctx());
+      expect(r.status).toBe(200);
+      expect(db.subscription.update).toHaveBeenCalledWith({ where: { id: "sub1" }, data: { planId } });
+    }
+  });
+
+  it("pasar de Pro a Business queda en la auditoría como cambio de plan", async () => {
+    await PATCH(patch({ planId: "business" }), ctx());
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ action: "subscription.plan_change", metadata: { from: "pro", to: "business" } }));
+  });
+
+  it("`null` quita el plan y queda auditado; el mismo plan de antes no genera auditoría", async () => {
+    const r = await PATCH(patch({ planId: null }), ctx());
+    expect(r.status).toBe(200);
+    expect(db.subscription.update).toHaveBeenCalledWith({ where: { id: "sub1" }, data: { planId: null } });
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ action: "subscription.plan_change", metadata: { from: "pro", to: null } }));
+    log.mockClear();
+    await PATCH(patch({ planId: "pro" }), ctx());
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("el texto vacío NO quita el plan: se rechaza, igual que cualquier valor que no sea un plan", async () => {
+    for (const planId of ["", " ", "platino", "Elite", 5, true, {}, ["pro"]]) {
+      const r = await PATCH(patch({ planId }), ctx());
+      expect(r.status).toBe(400);
+    }
+    expect(db.subscription.update).not.toHaveBeenCalled();
+  });
+
+  it("el mensaje de error dice lo mismo que hace la ruta: lista los planes y 'null', y no habla de 'vacío'", async () => {
+    const { error } = await (await PATCH(patch({ planId: "" }), ctx())).json();
+    expect(error).toContain("'pro'");
+    expect(error).toContain("'business'");
+    expect(error).toContain("'elite'");
+    expect(error).toContain("null");
+    expect(error).not.toMatch(/vac[ií]o/i);
+  });
+});

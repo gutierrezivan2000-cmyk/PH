@@ -4,6 +4,10 @@ import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-auth";
+import { esAdminDeEntorno } from "@/lib/admin-emails";
+import { autoconcesionBloqueada } from "@/lib/admin/autoconcesion";
+import { normalizePlanId, planBaseMrr } from "@/lib/plan";
 import { Persona } from "@/components/admin/Persona";
 import { CAMPOS_DE_IDENTIDAD, CAMPOS_DE_NOMBRE } from "@/lib/admin/identidad";
 import Link from "next/link";
@@ -128,12 +132,17 @@ export default async function SuscripcionDetailPage({
 }
 
 async function SuscripcionDetail({ id }: { id: string }) {
-  const { subscription: sub, auditLogs } = await loadSubscription(id);
+  const [{ subscription: sub, auditLogs }, admin] = await Promise.all([loadSubscription(id), requireAdmin()]);
 
   if (!sub) notFound();
 
+  // Sobre la PROPIA suscripción, un administrador que no es propietario no puede cambiar nada (el servidor responde 403): en vez
+  // de controles que fallan al pulsarlos, se muestra solo lectura con una nota. Misma regla que aplica la ruta.
+  const soloLectura = autoconcesionBloqueada(admin?.userId ?? "", sub.userId, esAdminDeEntorno(admin?.email));
+
+  const plan = normalizePlanId(sub.planId);
   const planLabel =
-    sub.planId === "elite" ? "Elite" : sub.planId === "pro" ? "Pro" : sub.planId || "Free";
+    plan === "elite" ? "Elite" : plan === "business" ? "Business" : plan === "pro" ? "Pro" : sub.planId || "Free";
 
   return (
     <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-7xl">
@@ -142,7 +151,7 @@ async function SuscripcionDetail({ id }: { id: string }) {
         title={`${planLabel} — ${sub.user.name || sub.user.email}`}
         description={sub.user.email}
         action={
-          <SubscriptionActions subscriptionId={sub.id} status={sub.status} />
+          <SubscriptionActions subscriptionId={sub.id} status={sub.status} soloLectura={soloLectura} />
         }
       />
 
@@ -190,10 +199,12 @@ async function SuscripcionDetail({ id }: { id: string }) {
                 <div>
                   <MonoLabel>Plan</MonoLabel>
                   <div className="mt-0.5">
-                    {sub.planId === "elite" ? (
-                      <Badge variant="warn">Elite — $200/mo</Badge>
-                    ) : sub.planId === "pro" ? (
-                      <Badge variant="accent">Pro — $20/mo</Badge>
+                    {plan === "elite" ? (
+                      <Badge variant="warn">Elite — ${planBaseMrr(plan)}/mo</Badge>
+                    ) : plan === "business" ? (
+                      <Badge variant="accent">Business — ${planBaseMrr(plan)}/mo</Badge>
+                    ) : plan === "pro" ? (
+                      <Badge variant="accent">Pro — ${planBaseMrr(plan)}/mo</Badge>
                     ) : (
                       <Badge variant="outline">{sub.planId || "Free"}</Badge>
                     )}
@@ -243,6 +254,7 @@ async function SuscripcionDetail({ id }: { id: string }) {
               subscriptionId={sub.id}
               initialAddons={sub.addonAgents || []}
               planId={sub.planId}
+              soloLectura={soloLectura}
             />
           </SectionCard>
         </div>
@@ -254,6 +266,7 @@ async function SuscripcionDetail({ id }: { id: string }) {
             <AdminNotes
               subscriptionId={sub.id}
               initialNotes={sub.adminNotes}
+              soloLectura={soloLectura}
             />
           </SectionCard>
 

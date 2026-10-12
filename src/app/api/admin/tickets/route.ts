@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401, logAdminAction } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { CAMPOS_DE_NOMBRE, codigoDeUsuario } from "@/lib/admin/identidad";
+import { LIMITES, cuerpoComoObjeto, textoAcotado } from "@/lib/validar-entrada";
+
+/** Los ids de usuario son cuid (25 caracteres); el tope evita consultar la base con textos desmesurados. */
+const MAX_ID_USUARIO = 64;
 
 export async function GET(req: NextRequest) {
   const r = await requireAdminOr401();
@@ -47,34 +51,31 @@ export async function POST(req: NextRequest) {
   if ("error" in r) return r.error;
   const { admin } = r;
 
-  const body = await req.json().catch(() => ({}));
-  const {
-    userId,
-    subject,
-    category = "general",
-    priority = "normal",
-    content,
-  } = body as {
-    userId?: string;
-    subject?: string;
-    category?: string;
-    priority?: string;
-    content?: string;
-  };
-
-  if (!userId || !subject || !content) {
-    return NextResponse.json(
-      { error: "Faltan campos requeridos: userId, subject, content" },
-      { status: 400 }
-    );
+  // Cada campo se valida por tipo y largo: antes un número o un objeto en `subject`/`content` llegaba tal cual a la base (500) y
+  // `content` se guardaba sin recortar.
+  const body = cuerpoComoObjeto(await req.json().catch(() => null));
+  if (!body) {
+    return NextResponse.json({ error: "Solicitud inválida." }, { status: 400 });
   }
+  const idUsuario = textoAcotado(body.userId, "El usuario", MAX_ID_USUARIO, { obligatorio: true });
+  if (!idUsuario.ok) return NextResponse.json({ error: idUsuario.error }, { status: 400 });
+  const asunto = textoAcotado(body.subject, "El asunto", LIMITES.asuntoTicket, { obligatorio: true });
+  if (!asunto.ok) return NextResponse.json({ error: asunto.error }, { status: 400 });
+  const mensaje = textoAcotado(body.content, "El mensaje", LIMITES.mensajeTicket, { obligatorio: true, variasLineas: true });
+  if (!mensaje.ok) return NextResponse.json({ error: mensaje.error }, { status: 400 });
+  const userId = idUsuario.valor;
+  const subject = asunto.valor;
+  const content = mensaje.valor;
 
   const validCategories = ["general", "billing", "technical", "feature", "bug"];
   const validPriorities = ["low", "normal", "high", "urgent"];
-  if (!validCategories.includes(category)) {
+  // Si no vienen, valen los valores por omisión; si vienen, deben ser texto de la lista (ni "" ni null ni números).
+  const category = body.category === undefined ? "general" : body.category;
+  const priority = body.priority === undefined ? "normal" : body.priority;
+  if (typeof category !== "string" || !validCategories.includes(category)) {
     return NextResponse.json({ error: "Categoría inválida." }, { status: 400 });
   }
-  if (!validPriorities.includes(priority)) {
+  if (typeof priority !== "string" || !validPriorities.includes(priority)) {
     return NextResponse.json({ error: "Prioridad inválida." }, { status: 400 });
   }
 
@@ -108,7 +109,8 @@ export async function POST(req: NextRequest) {
     action: "ticket.create",
     targetType: "ticket",
     targetId: ticket.id,
-    metadata: { userId, subject, category, priority },
+    // El asunto lo escribe el equipo y puede traer datos de la persona: la auditoría guarda solo su largo, no el texto.
+    metadata: { userId, category, priority, subjectLength: subject.length },
   });
 
   return NextResponse.json({ ticket }, { status: 201 });

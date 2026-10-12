@@ -130,3 +130,67 @@ describe("dar acceso: nadie se da planes a sí mismo, salvo los propietarios", (
     expect(db.subscription.upsert).not.toHaveBeenCalled();
   });
 });
+
+describe("bloquear: el cuerpo y el motivo se validan (antes `reason?.trim()` daba 500 si no era texto y no tenía tope de largo)", () => {
+  const crudo = (texto: string) => new Request("http://x/api", { method: "PATCH", body: texto }) as never;
+
+  it("el motivo se recorta, se guarda y queda en la auditoría", async () => {
+    const r = await PATCH(req({ banned: true, reason: "  spam masivo \n" }), ctx());
+    expect(r.status).toBe(200);
+    expect(db.user.update.mock.calls[0][0].data).toMatchObject({ banned: true, banReason: "spam masivo" });
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ action: "user.ban", metadata: { reason: "spam masivo" } }));
+  });
+
+  it("sin motivo (ausente, null, vacío o solo espacios) se bloquea igual, con motivo nulo", async () => {
+    for (const cuerpo of [{ banned: true }, { banned: true, reason: null }, { banned: true, reason: "" }, { banned: true, reason: "   " }]) {
+      db.user.update.mockClear();
+      const r = await PATCH(req(cuerpo), ctx());
+      expect(r.status).toBe(200);
+      expect(db.user.update.mock.calls[0][0].data.banReason).toBeNull();
+    }
+  });
+
+  it.each([{ a: 1 }, 5, ["x"], true])("un motivo que no es texto (%j) responde 400 y no toca nada", async (reason) => {
+    const r = await PATCH(req({ banned: true, reason }), ctx());
+    expect(r.status).toBe(400);
+    expect((await r.json()).error).toMatch(/motivo/i);
+    expect(db.user.update).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("el motivo admite 500 caracteres y rechaza uno más", async () => {
+    expect((await PATCH(req({ banned: true, reason: "a".repeat(500) }), ctx())).status).toBe(200);
+    db.user.update.mockClear();
+    const r = await PATCH(req({ banned: true, reason: "a".repeat(501) }), ctx());
+    expect(r.status).toBe(400);
+    expect((await r.json()).error).toContain("500");
+    expect(db.user.update).not.toHaveBeenCalled();
+  });
+
+  it("el motivo con el carácter NUL (que Postgres no guarda) se rechaza; los saltos de línea pasan", async () => {
+    expect((await PATCH(req({ banned: true, reason: "abuso\u0000" }), ctx())).status).toBe(400);
+    expect((await PATCH(req({ banned: true, reason: "línea 1\nlínea 2" }), ctx())).status).toBe(200);
+  });
+
+  it("`banned` debe ser verdadero o falso", async () => {
+    for (const banned of ["true", 1, {}, null]) {
+      const r = await PATCH(req({ banned }), ctx());
+      expect(r.status).toBe(400);
+    }
+    expect(db.user.update).not.toHaveBeenCalled();
+  });
+
+  it("un cuerpo que no es un objeto o un JSON roto responde 400, no 500", async () => {
+    for (const cuerpo of [null, [], "hola", 5]) expect((await PATCH(req(cuerpo), ctx())).status).toBe(400);
+    expect((await PATCH(crudo("{roto"), ctx())).status).toBe(400);
+    expect(db.user.update).not.toHaveBeenCalled();
+  });
+
+  it("desbloquear no guarda motivo", async () => {
+    db.user.findUnique.mockResolvedValue({ id: "u1xyz123", role: "user", email: "cliente@x.com", banned: true });
+    const r = await PATCH(req({ banned: false, reason: "ya no aplica" }), ctx());
+    expect(r.status).toBe(200);
+    expect(db.user.update.mock.calls[0][0].data).toMatchObject({ banned: false, banReason: null, bannedAt: null });
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ action: "user.unban", metadata: {} }));
+  });
+});

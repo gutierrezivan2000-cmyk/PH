@@ -4,13 +4,19 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { X, AlertTriangle } from "lucide-react";
+import { NotaAutoconcesion } from "@/components/admin/NotaAutoconcesion";
 
 interface Props {
   subscriptionId: string;
   status: string;
+  /**
+   * Es la propia suscripción de un administrador que no es propietario: cancelar o reactivar termina en 403, así que no se
+   * ofrecen los botones y se explica por qué.
+   */
+  soloLectura?: boolean;
 }
 
-export function SubscriptionActions({ subscriptionId, status }: Props) {
+export function SubscriptionActions({ subscriptionId, status, soloLectura = false }: Props) {
   const router = useRouter();
   const [showConfirm, setShowConfirm] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -48,6 +54,8 @@ export function SubscriptionActions({ subscriptionId, status }: Props) {
     }
     startTransition(() => router.refresh());
   }
+
+  if (soloLectura) return <NotaAutoconcesion className="max-w-xs sm:text-right" />;
 
   return (
     <>

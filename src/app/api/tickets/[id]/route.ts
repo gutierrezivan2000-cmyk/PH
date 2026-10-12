@@ -24,13 +24,14 @@ export async function GET(
   await ensureAdminSchema();
   const { id } = await params;
 
-  const ticket = await db.ticket.findUnique({
-    where: { id },
-    // Solo lo que la pantalla del ticket muestra. `userId` se pide únicamente para comprobar el dueño y no se devuelve;
-    // tampoco el administrador asignado (assignedTo) ni quién escribió cada mensaje (authorId, ids de administradores).
+  // La búsqueda lleva al dueño en el `where`: un ticket ajeno y uno que no existe se ven IGUAL (404). Antes el ajeno respondía
+  // 403 «No tienes acceso», lo que confirmaba que ese id existe y permitía recorrer ids para saber cuáles son reales.
+  const ticket = await db.ticket.findFirst({
+    where: { id, userId: session.user.id },
+    // Solo lo que la pantalla del ticket muestra. No se devuelve el dueño (ya es quien pregunta), ni el administrador
+    // asignado (assignedTo), ni quién escribió cada mensaje (authorId, ids de administradores).
     select: {
       id: true,
-      userId: true,
       subject: true,
       status: true,
       category: true,
@@ -50,12 +51,5 @@ export async function GET(
     return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
   }
 
-  // Ownership check — only the ticket owner can view it
-  if (ticket.userId !== session.user.id) {
-    return NextResponse.json({ error: "No tienes acceso a este ticket" }, { status: 403 });
-  }
-
-  const publico: Record<string, unknown> = { ...ticket };
-  delete publico.userId;
-  return NextResponse.json({ ticket: publico });
+  return NextResponse.json({ ticket });
 }

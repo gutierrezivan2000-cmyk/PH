@@ -41,14 +41,10 @@ export async function POST(
   await ensureAdminSchema();
   const { id } = await params;
 
-  const ticket = await db.ticket.findUnique({ where: { id }, select: { id: true, userId: true, status: true } });
+  // El dueño va en el `where`: un ticket ajeno y uno inexistente responden lo mismo (404), para no confirmar que el id existe.
+  const ticket = await db.ticket.findFirst({ where: { id, userId: session.user.id }, select: { id: true, status: true } });
   if (!ticket) {
     return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
-  }
-
-  // Ensure this ticket belongs to the user
-  if (ticket.userId !== session.user.id) {
-    return NextResponse.json({ error: "No tienes acceso a este ticket" }, { status: 403 });
   }
 
   if (ticket.status === "resolved" || ticket.status === "closed") {

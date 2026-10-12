@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401, logAdminAction } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { CAMPOS_DE_IDENTIDAD, codigoDeUsuario } from "@/lib/admin/identidad";
+import { cuerpoComoObjeto } from "@/lib/validar-entrada";
+
+/** Los ids de usuario son cuid (25 caracteres); el tope evita consultar la base con textos desmesurados. */
+const MAX_ID_USUARIO = 64;
 
 export async function GET(
   _req: NextRequest,
@@ -55,36 +59,44 @@ export async function PATCH(
 
   const { id } = await params;
 
-  const existing = await db.ticket.findUnique({ where: { id } });
-  if (!existing) {
-    return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
+  const body = cuerpoComoObjeto(await req.json().catch(() => null));
+  if (!body) {
+    return NextResponse.json({ error: "Solicitud inválida." }, { status: 400 });
   }
-
-  const body = await req.json().catch(() => ({}));
-  const {
-    status,
-    priority,
-    category,
-    assignedTo,
-  } = body as {
-    status?: string;
-    priority?: string;
-    category?: string;
-    assignedTo?: string | null;
-  };
+  const { status, priority, category, assignedTo } = body;
 
   const validStatuses = ["open", "pending", "resolved", "closed"];
   const validPriorities = ["low", "normal", "high", "urgent"];
   const validCategories = ["general", "billing", "technical", "feature", "bug"];
 
-  if (status && !validStatuses.includes(status)) {
+  // `!== undefined` y `typeof string`: antes `if (status && ...)` dejaba pasar los valores falsos ("" o 0), que luego se guardaban.
+  if (status !== undefined && (typeof status !== "string" || !validStatuses.includes(status))) {
     return NextResponse.json({ error: "Estado inválido" }, { status: 400 });
   }
-  if (priority && !validPriorities.includes(priority)) {
+  if (priority !== undefined && (typeof priority !== "string" || !validPriorities.includes(priority))) {
     return NextResponse.json({ error: "Prioridad inválida" }, { status: 400 });
   }
-  if (category && !validCategories.includes(category)) {
+  if (category !== undefined && (typeof category !== "string" || !validCategories.includes(category))) {
     return NextResponse.json({ error: "Categoría inválida" }, { status: 400 });
+  }
+  // El responsable es `null` (sin asignar) o el id de un administrador: asignar el ticket a un cliente o a un id inventado lo
+  // dejaba en manos de nadie y fuera de la vista «Mis tickets».
+  if (assignedTo !== undefined && assignedTo !== null) {
+    if (typeof assignedTo !== "string" || assignedTo.length === 0 || assignedTo.length > MAX_ID_USUARIO) {
+      return NextResponse.json({ error: "Responsable inválido" }, { status: 400 });
+    }
+  }
+
+  const existing = await db.ticket.findUnique({ where: { id } });
+  if (!existing) {
+    return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
+  }
+
+  if (typeof assignedTo === "string") {
+    const responsable = await db.user.findUnique({ where: { id: assignedTo }, select: { id: true, role: true } });
+    if (!responsable || responsable.role !== "admin") {
+      return NextResponse.json({ error: "El responsable debe ser un administrador." }, { status: 400 });
+    }
   }
 
   const data: Record<string, unknown> = {};

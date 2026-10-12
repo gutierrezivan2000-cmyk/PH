@@ -5,6 +5,10 @@ import { requireAdminOr401, logAdminAction, isEnvAdmin } from "@/lib/admin-auth"
 import { db } from "@/lib/db";
 import { CAMPOS_DE_IDENTIDAD, CAMPOS_DE_NOMBRE, codigoDeUsuario } from "@/lib/admin/identidad";
 import { MENSAJE_AUTOCONCESION, autoconcesionBloqueada, marcaDeCambioPropio } from "@/lib/admin/autoconcesion";
+import { PLANS } from "@/lib/epayco";
+
+/** Planes que se pueden asignar: los mismos que existen en PLANS (pro, business y elite), no una lista aparte que se desfase. */
+const PLANES_VALIDOS: string[] = Object.keys(PLANS);
 
 /** Largo máximo de la nota interna de una suscripción. */
 const MAX_NOTA_ADMIN = 2000;
@@ -84,7 +88,7 @@ export async function PATCH(
     status?: string;
     addonAgents?: string[];
     adminNotes?: unknown;
-    planId?: string;
+    planId?: unknown;
   };
   let addonAgents: string[] | undefined;
 
@@ -132,15 +136,18 @@ export async function PATCH(
     updateData.adminNotes = adminNotes;
   }
 
+  // `planId: null` quita el plan (queda sin plan asignado); el texto vacío NO vale como "quitar": así un formulario con el
+  // selector sin elegir no borra el plan por accidente. Antes la lista omitía "business", que existe y se ofrece al dar acceso.
+  let planNuevo: string | null | undefined;
   if (planId !== undefined) {
-    const validPlans = ["pro", "elite"];
-    if (planId !== null && !validPlans.includes(planId)) {
+    if (planId !== null && (typeof planId !== "string" || !PLANES_VALIDOS.includes(planId))) {
       return NextResponse.json(
-        { error: "Plan inválido. Debe ser 'pro', 'elite' o vacío." },
+        { error: `Plan inválido. Debe ser ${PLANES_VALIDOS.map((p) => `'${p}'`).join(", ")} o null para quitar el plan.` },
         { status: 400 }
       );
     }
-    updateData.planId = planId || null;
+    planNuevo = planId;
+    updateData.planId = planId;
   }
 
   // If we're canceling, try to stop ePayco recurring billing too. The onpage
@@ -236,14 +243,14 @@ export async function PATCH(
     );
   }
 
-  if (planId !== undefined && planId !== existing.planId) {
+  if (planNuevo !== undefined && planNuevo !== existing.planId) {
     logPromises.push(
       logAdminAction({
         adminId: admin.userId,
         action: "subscription.plan_change",
         targetType: "subscription",
         targetId: id,
-        metadata: { from: existing.planId, to: planId, ...propio },
+        metadata: { from: existing.planId, to: planNuevo, ...propio },
       })
     );
   }

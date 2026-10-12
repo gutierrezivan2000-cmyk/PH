@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401, logAdminAction } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { LIMITES, cuerpoComoObjeto, textoAcotado } from "@/lib/validar-entrada";
 
 export async function POST(
   req: NextRequest,
@@ -14,19 +15,25 @@ export async function POST(
 
   const { id } = await params;
 
+  // Se valida antes de tocar la base: `content` debe ser texto (antes `content.trim()` daba 500 con un número o un objeto), con
+  // tope de largo, e `internal` un booleano de verdad (antes cualquier valor "verdadero", como "no", marcaba la nota como interna).
+  const cuerpo = cuerpoComoObjeto(await req.json().catch(() => null));
+  if (!cuerpo) {
+    return NextResponse.json({ error: "Solicitud inválida." }, { status: 400 });
+  }
+  const mensaje = textoAcotado(cuerpo.content, "El contenido", LIMITES.mensajeTicket, { obligatorio: true, variasLineas: true });
+  if (!mensaje.ok) {
+    return NextResponse.json({ error: mensaje.error }, { status: 400 });
+  }
+  if (cuerpo.internal !== undefined && typeof cuerpo.internal !== "boolean") {
+    return NextResponse.json({ error: "El campo internal debe ser verdadero o falso." }, { status: 400 });
+  }
+  const internal = cuerpo.internal === true;
+  const content = mensaje.valor;
+
   const ticket = await db.ticket.findUnique({ where: { id } });
   if (!ticket) {
     return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
-  }
-
-  const body = await req.json().catch(() => ({}));
-  const { content, internal = false } = body as {
-    content?: string;
-    internal?: boolean;
-  };
-
-  if (!content || !content.trim()) {
-    return NextResponse.json({ error: "El contenido no puede estar vacío" }, { status: 400 });
   }
 
   // Create the message and potentially update ticket status
@@ -36,7 +43,7 @@ export async function POST(
         ticketId: id,
         fromAdmin: true,
         authorId: admin.userId,
-        content: content.trim(),
+        content,
         internal,
       },
     }),

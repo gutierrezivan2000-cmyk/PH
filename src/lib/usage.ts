@@ -57,13 +57,37 @@ const STUCK_MS = 15 * 60 * 1000;
  * fila), no por haberse creado hace más de 15 min.
  */
 export const STUCK_REUNION_MS = 3 * 60 * 60 * 1000;
-function activeGenerationWhere(userId: string, since: Date) {
+/**
+ * Una fila de un lote que sigue "pending" no está colgada: espera su turno en la cola del cron (un lote de 50 tarda ~25 min en
+ * drenar y uno grande, horas). Por eso failStuckGenerations no la reapa y sigue gastando cupo. Pasado este tiempo se da por
+ * abandonada (el cron no la tomó en un día) y deja de contar; no se marca como fallida porque, si el cron revive, aún puede
+ * recogerla y entonces contará como completada.
+ */
+export const LOTE_PENDIENTE_MAX_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Qué generaciones gastan cupo diario/mensual: las completadas y las que de verdad siguen en vuelo. "En vuelo" se mide con la
+ * MISMA regla con que failStuckGenerations decide que una fila está muerta (lo que ese vigilante reapa, aquí no cuenta), para que
+ * contar y reapar no se desvíen:
+ *  - Suelta (un solo documento, corre dentro de una función de 300 s): menos de 15 min desde que se creó.
+ *  - De un lote, ya reclamada por el cron (processing): menos de 15 min SIN ACTIVIDAD. No sirve la fecha de creación: las 50 filas
+ *    se crean a la vez y el cron las reclama de a pocas, así que una fila viva puede llevar 40 min "creada".
+ *  - De un lote, esperando turno (pending): cuenta hasta LOTE_PENDIENTE_MAX_MS.
+ *  - Acta de una reunión: menos de STUCK_REUNION_MS sin actividad.
+ * Es un superconjunto de la regla anterior (solo por creación): nada que antes contara deja de contar.
+ */
+function activeGenerationWhere(userId: string, since: Date, ahora: number = Date.now()) {
+  const enVuelo = { in: ["processing", "pending"] };
+  const sinActividadLimite = new Date(ahora - STUCK_MS);
   return {
     userId,
     createdAt: { gte: since },
     OR: [
       { status: "completed" },
-      { status: { in: ["processing", "pending"] }, createdAt: { gte: new Date(Date.now() - STUCK_MS) } },
+      { status: enVuelo, batchId: null, meetingId: null, createdAt: { gte: sinActividadLimite } },
+      { status: "processing", batchId: { not: null }, updatedAt: { gte: sinActividadLimite } },
+      { status: "pending", batchId: { not: null }, createdAt: { gte: new Date(ahora - LOTE_PENDIENTE_MAX_MS) } },
+      { status: enVuelo, meetingId: { not: null }, updatedAt: { gte: new Date(ahora - STUCK_REUNION_MS) } },
     ],
   };
 }
@@ -251,7 +275,10 @@ export async function failStuckGenerations(userId: string): Promise<void> {
           // Batch generations: "pending" ones are just waiting in the queue for
           // the cron (a 50-property batch can take a while) and must NOT be
           // reaped. Only reap ones the cron claimed ("processing") but died on.
-          { batchId: { not: null }, createdAt: { lt: limite }, status: "processing" },
+          // Se mide por ACTIVIDAD (updatedAt), igual que el reaper del cron: las filas de un lote se crean a la vez y el cron
+          // las reclama de a pocas, así que por fecha de creación se mataba una fila viva reclamada 20+ min después de crearse
+          // (y este vigilante corre cada vez que la misma persona pide el cupo de otra generación).
+          { batchId: { not: null }, updatedAt: { lt: limite }, status: "processing" },
           // Actas de reuniones: van por la cola, se miden por actividad (ver STUCK_REUNION_MS).
           { meetingId: { not: null }, updatedAt: { lt: new Date(ahora - STUCK_REUNION_MS) }, status: { in: ["processing", "pending"] } },
         ],

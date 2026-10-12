@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DOC_KIND_LABELS, docTypesFromSelection, type DocKind } from "@/lib/generation/doc-kind";
+import { avisoDeReintento, type AvisoDeReintento } from "@/lib/generation/reintento-lote";
 import {
   AccionesFila,
   Aviso,
@@ -63,6 +64,7 @@ export function BatchGenerator() {
   const [batchId, setBatchId] = useState<string | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [avisoReintento, setAvisoReintento] = useState<AvisoDeReintento | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load the readiness preview whenever the period changes.
@@ -147,12 +149,20 @@ export function BatchGenerator() {
   const retryFailed = async () => {
     if (!batchId) return;
     setRetrying(true);
+    setAvisoReintento(null);
     try {
-      await fetch(`/api/empresa/batch/${batchId}`, { method: "POST" });
+      const res = await fetch(`/api/empresa/batch/${batchId}`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      // 429 (tope mensual), 400 (fallidas de un mes anterior) y los reintentos parciales se explican; antes se ignoraba la respuesta.
+      setAvisoReintento(avisoDeReintento(res.ok, res.status, data));
       await poll(batchId);
-      if (!pollRef.current || progress?.done) {
+      // Solo hay que volver a mirar el avance si algo se reencoló.
+      const reencoladas = res.ok && data && typeof data.requeued === "number" ? data.requeued : 0;
+      if (reencoladas > 0 && (!pollRef.current || progress?.done)) {
         pollRef.current = setInterval(() => poll(batchId), 4000);
       }
+    } catch {
+      setAvisoReintento({ tipo: "error", titulo: "Error de conexión al reintentar las fallidas." });
     } finally {
       setRetrying(false);
     }
@@ -176,6 +186,16 @@ export function BatchGenerator() {
       <div className="emp-lote">
         <style href="k-empresa-lote" precedence="default">{CSS_LOTE}</style>
         <div className="emp-prog">
+          {avisoReintento && (
+            <Aviso
+              enLinea
+              tipo={avisoReintento.tipo}
+              titulo={avisoReintento.titulo}
+              texto={avisoReintento.texto}
+              alCerrar={() => setAvisoReintento(null)}
+              className="emp-lote-err"
+            />
+          )}
           <ProgresoGeneracion
             titulo={`Lote de ${MONTHS[month - 1].toLowerCase()} ${year}`}
             subtitulo={
@@ -193,7 +213,7 @@ export function BatchGenerator() {
                     Reintentar fallidas
                   </Boton>
                 )}
-                <Boton variante="secundario" onClick={() => { setBatchId(null); setProgress(null); }}>
+                <Boton variante="secundario" onClick={() => { setBatchId(null); setProgress(null); setAvisoReintento(null); }}>
                   Nuevo lote
                 </Boton>
                 <Boton href="/empresa/propiedades" flecha="avanza">Ver propiedades</Boton>
