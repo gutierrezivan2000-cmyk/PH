@@ -48,9 +48,12 @@ export default async function VerificarPage({
       // para no agotar nunca el límite.
       const ultimo = (h.get("x-forwarded-for") || "").split(",").map((x) => x.trim()).filter(Boolean).pop();
       const ip = ultimo || h.get("x-real-ip") || "desconocida";
-      limitado = !(await rateLimit(`verificar:${ip}`, { max: 60, windowMs: 10 * 60 * 1000 })).allowed;
+      // failClosed: si la base falla al contar, se deniega (misma pantalla de «Demasiadas consultas»): sin contador no hay freno,
+      // y consultar un certificado necesita la base de todos modos.
+      limitado = !(await rateLimit(`verificar:${ip}`, { max: 60, windowMs: 10 * 60 * 1000, failClosed: true })).allowed;
     } catch {
-      // Mejor esfuerzo: nunca se bloquea la verificación por una falla del contador.
+      // Mejor esfuerzo: si fallan los encabezados o la carga del limitador (no el conteo, que rateLimit ya resuelve solo), no se
+      // bloquea la verificación.
     }
   }
 

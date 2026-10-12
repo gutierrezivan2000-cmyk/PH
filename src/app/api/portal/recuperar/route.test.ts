@@ -4,6 +4,9 @@ import type { NextRequest } from "next/server";
 const db = vi.hoisted(() => ({
   unit: { findMany: vi.fn() },
   user: { findUnique: vi.fn() },
+  // Para el limitador real (rate-limit.ts), que cuenta con $queryRaw y limpia contadores viejos con deleteMany.
+  $queryRaw: vi.fn(),
+  rateLimit: { deleteMany: vi.fn() },
 }));
 const limite = vi.hoisted(() => ({ rateLimit: vi.fn(), clientIp: vi.fn() }));
 const correo = vi.hoisted(() => ({ sendPortalLinkEmails: vi.fn() }));
@@ -113,5 +116,51 @@ describe("POST /api/portal/recuperar — lo demás sigue igual", () => {
     const r = await POST(peticion({ email: "res@x.co" }));
     expect(await r.json()).toEqual(GENERICO);
     expect(correo.sendPortalLinkEmails).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/portal/recuperar — límites con failClosed", () => {
+  const HORA = 60 * 60 * 1000;
+
+  it("pide los dos contadores (correo e IP) con failClosed:true", async () => {
+    const POST = await cargarRuta();
+    const r = await POST(peticion({ email: "Res@X.co" }));
+    expect(await r.json()).toEqual(GENERICO);
+    expect(limite.rateLimit).toHaveBeenCalledTimes(2);
+    expect(limite.rateLimit).toHaveBeenCalledWith("recover:email:res@x.co", { max: 3, windowMs: HORA, failClosed: true });
+    expect(limite.rateLimit).toHaveBeenCalledWith("recover:ip:203.0.113.9", { max: 10, windowMs: HORA, failClosed: true });
+  });
+
+  it("si cualquiera de los dos no se pudo contar (unavailable) responde lo genérico y no consulta ni envía nada", async () => {
+    for (const clave of ["recover:email:", "recover:ip:"]) {
+      vi.clearAllMocks();
+      limite.clientIp.mockReturnValue("203.0.113.9");
+      limite.rateLimit.mockImplementation(async (k: string) =>
+        k.startsWith(clave) ? { allowed: false, retryAfterSec: 30, unavailable: true } : { allowed: true }
+      );
+      const POST = await cargarRuta();
+      const r = await POST(peticion({ email: "res@x.co" }));
+      expect(r.status).toBe(200);
+      expect(await r.json()).toEqual(GENERICO);
+      expect(esquema.ensureAdminSchema).not.toHaveBeenCalled();
+      expect(db.unit.findMany).not.toHaveBeenCalled();
+      expect(correo.sendPortalLinkEmails).not.toHaveBeenCalled();
+    }
+  });
+
+  it("si la base falla al contar, el limitador REAL deniega: respuesta genérica y ningún correo", async () => {
+    const real = await vi.importActual<typeof import("@/lib/rate-limit")>("@/lib/rate-limit");
+    limite.rateLimit.mockImplementation(real.rateLimit);
+    db.$queryRaw.mockRejectedValue(new Error("la base no responde"));
+
+    const POST = await cargarRuta();
+    const r = await POST(peticion({ email: "res@x.co" }));
+
+    expect(db.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual(GENERICO);
+    expect(db.unit.findMany).not.toHaveBeenCalled();
+    expect(correo.sendPortalLinkEmails).not.toHaveBeenCalled();
+    expect(cuota.recordEmailsSent).not.toHaveBeenCalled();
   });
 });

@@ -72,10 +72,13 @@ const productionProviders = [
         // verificación, recuperación y el portal sí lo tienen. Se comprueba
         // antes de la consulta y del bcrypt, así que un ataque tampoco cuesta
         // CPU. La ventana es por correo: no castiga a toda una oficina detrás
-        // de la misma IP.
+        // de la misma IP. Con failClosed, si la base falla al contar NO se deja
+        // pasar: sin contador no hay freno, y alguien que sature la base
+        // probaría contraseñas sin límite. Se responde igual que ante un
+        // límite alcanzado (null): quien entra bien también necesita la base.
         const { rateLimit } = await import("@/lib/rate-limit");
         const rlKey = `login:email:${email}`;
-        const rl = await rateLimit(rlKey, { max: 10, windowMs: 15 * 60 * 1000 });
+        const rl = await rateLimit(rlKey, { max: 10, windowMs: 15 * 60 * 1000, failClosed: true });
         if (!rl.allowed) return null;
 
         const user = await db.user.findUnique({ where: { email } });
@@ -286,10 +289,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           try {
             const { db } = await import("@/lib/db");
             // Este bloque lee `passwordChangedAt`, una columna que en runtime
-            // solo existe si corrió el DDL (el `prisma db push` del build puede
-            // fallar sin romper el despliegue). Sin esta llamada, la consulta
-            // lanzaba P2022, el catch se lo tragaba y con ella se perdían
-            // TAMBIÉN el corte de los baneados y el auto-sanado del id.
+            // solo existe si corrió el SQL de las funciones ensure*Schema (ver
+            // src/lib/ensure-admin-schema.ts): el build ya no corre `prisma db
+            // push`, así que el esquema sale de ese SQL. Sin esta llamada, la
+            // consulta lanzaba P2022, el catch se lo tragaba y con ella se
+            // perdían TAMBIÉN el corte de los baneados y el auto-sanado del id.
             const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
             await ensureAdminSchema();
             const byId = await db.user.findUnique({

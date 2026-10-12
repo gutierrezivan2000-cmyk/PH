@@ -5,6 +5,9 @@ const db = vi.hoisted(() => ({
   user: { findUnique: vi.fn(), create: vi.fn() },
   subscription: { create: vi.fn() },
   verificationToken: { deleteMany: vi.fn(), create: vi.fn() },
+  // Para el limitador real (rate-limit.ts), que cuenta con $queryRaw y limpia contadores viejos con deleteMany.
+  $queryRaw: vi.fn(),
+  rateLimit: { deleteMany: vi.fn() },
 }));
 const limite = vi.hoisted(() => ({ rateLimit: vi.fn(), clientIp: vi.fn() }));
 const correo = vi.hoisted(() => ({ sendVerificationEmail: vi.fn() }));
@@ -145,5 +148,42 @@ describe("POST /api/auth/register — captcha encendido", () => {
     const r = await POST(peticion({ captchaToken: "token-bueno" }));
     expect(r.status).toBe(400);
     expect(fetchFalso).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/auth/register — límites con failClosed", () => {
+  const HORA = 60 * 60 * 1000;
+
+  it("pide los dos contadores (IP y correo) con failClosed:true", async () => {
+    const r = await POST(peticion(cuerpoValido));
+    expect(r.status).toBe(200);
+    expect(limite.rateLimit).toHaveBeenCalledTimes(2);
+    expect(limite.rateLimit).toHaveBeenCalledWith("register:ip:203.0.113.9", { max: 8, windowMs: HORA, failClosed: true });
+    expect(limite.rateLimit).toHaveBeenCalledWith("register:email:ana@x.co", { max: 3, windowMs: HORA, failClosed: true });
+  });
+
+  it("si el límite no se pudo contar (unavailable) responde 429 sin crear cuenta ni mandar código", async () => {
+    limite.rateLimit.mockResolvedValue({ allowed: false, retryAfterSec: 30, unavailable: true });
+    const r = await POST(peticion(cuerpoValido));
+    expect(r.status).toBe(429);
+    expect(await r.json()).toEqual({ error: "Demasiados registros desde esta red. Intenta más tarde." });
+    expect(db.user.create).not.toHaveBeenCalled();
+    expect(db.verificationToken.create).not.toHaveBeenCalled();
+    expect(correo.sendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  it("si la base falla al contar, el limitador REAL deniega: 429, sin cuenta, sin código y sin correo", async () => {
+    const real = await vi.importActual<typeof import("@/lib/rate-limit")>("@/lib/rate-limit");
+    limite.rateLimit.mockImplementation(real.rateLimit);
+    db.$queryRaw.mockRejectedValue(new Error("la base no responde"));
+
+    const r = await POST(peticion(cuerpoValido));
+
+    expect(db.$queryRaw).toHaveBeenCalled();
+    expect(r.status).toBe(429);
+    expect(db.user.findUnique).not.toHaveBeenCalled();
+    expect(db.user.create).not.toHaveBeenCalled();
+    expect(db.verificationToken.create).not.toHaveBeenCalled();
+    expect(correo.sendVerificationEmail).not.toHaveBeenCalled();
   });
 });

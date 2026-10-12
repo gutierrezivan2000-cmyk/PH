@@ -51,6 +51,32 @@ describe("baseUrlPublica", () => {
     expect(baseUrlPublica(undefined, { host: "mi.app", proto: "https" })).toBe("https://mi.app");
     expect(baseUrlPublica("no es una url", { host: "mi.app", proto: "http" })).toBe("http://mi.app");
   });
+
+  it("con Host en la petición lo conserva aunque el entorno tenga el dominio de Vercel", () => {
+    expect(baseUrlPublica(undefined, { host: "mi.app", proto: "https" }, { VERCEL_PROJECT_PRODUCTION_URL: "ph.vercel.app" })).toBe("https://mi.app");
+  });
+
+  it("sin dirección configurada y sin Host usa la dirección pública de la aplicación (urlBase), no localhost", () => {
+    const entorno = { VERCEL_PROJECT_PRODUCTION_URL: "ph.vercel.app", NODE_ENV: "production" };
+    expect(baseUrlPublica(undefined, {}, entorno)).toBe("https://ph.vercel.app");
+    expect(baseUrlPublica("", { host: null, proto: "http" }, entorno)).toBe("https://ph.vercel.app");
+    expect(baseUrlPublica(undefined, { host: "  " }, entorno)).toBe("https://ph.vercel.app");
+  });
+
+  it("en producción sin dirección configurada ni Host NO inventa localhost: el error sube", () => {
+    expect(() => baseUrlPublica(undefined, { host: null }, { NODE_ENV: "production" })).toThrow(/NEXT_PUBLIC_APP_URL/);
+    expect(() => baseUrlPublica(undefined, {}, { VERCEL_ENV: "production" })).toThrow(/NEXT_PUBLIC_APP_URL/);
+  });
+
+  it("en desarrollo sin nada sí cae en localhost (como urlBase)", () => {
+    expect(baseUrlPublica(undefined, {}, {})).toBe("http://localhost:3000");
+  });
+
+  it("la dirección configurada manda sobre el Host y sobre el entorno", () => {
+    expect(
+      baseUrlPublica("https://app.ejemplo.com", { host: "malo.com" }, { VERCEL_PROJECT_PRODUCTION_URL: "otro.vercel.app", NODE_ENV: "production" })
+    ).toBe("https://app.ejemplo.com");
+  });
 });
 
 describe("estaVencido", () => {

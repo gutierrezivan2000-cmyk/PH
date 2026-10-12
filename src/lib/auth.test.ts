@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Se captura la configuración que auth.ts le pasa a NextAuth para comprobar plazos, cookies y el callback `jwt` sin levantar Auth.js.
 type ConfigCapturada = {
+  providers: Array<{ id?: string; authorize?: (credentials: Record<string, unknown>) => Promise<Record<string, unknown> | null> }>;
   session: Record<string, unknown>;
   jwt: { maxAge: number; decode: (p: { token: string; secret: string; salt: string }) => Promise<unknown> };
   cookies?: { sessionToken: Record<string, unknown> };
@@ -19,9 +20,15 @@ vi.mock("next-auth/providers/credentials", () => ({ default: (o: object) => o })
 
 const db = vi.hoisted(() => ({
   user: { findUnique: vi.fn(), update: vi.fn() },
+  // Para el limitador real (rate-limit.ts): el conteo usa $queryRaw y el borrado de contadores viejos, deleteMany.
+  $queryRaw: vi.fn(),
+  rateLimit: { delete: vi.fn(), deleteMany: vi.fn() },
 }));
 vi.mock("@/lib/db", () => ({ db }));
 vi.mock("@/lib/ensure-admin-schema", () => ({ ensureAdminSchema: vi.fn().mockResolvedValue(undefined) }));
+// El limitador se reemplaza por un espía que, según la prueba, delega o no en el real (ver «límite de intentos del login»).
+const limite = vi.hoisted(() => ({ rateLimit: vi.fn() }));
+vi.mock("@/lib/rate-limit", () => ({ rateLimit: (...args: unknown[]) => limite.rateLimit(...args) }));
 
 const DIA = 24 * 60 * 60 * 1000;
 const T0 = new Date("2026-03-01T12:00:00Z").getTime();
@@ -182,5 +189,85 @@ describe("auth.ts — el callback jwt conserva la revocación (baneo y cambio de
     expect(token).toMatchObject({ id: "demo-user-001", role: "user" });
     expect(db.user.findUnique).not.toHaveBeenCalled();
     expect(db.user.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("auth.ts — límite de intentos del login (failClosed)", () => {
+  const credenciales = { email: " Ana@X.co ", password: "una-clave-larga" };
+  const ventana = 15 * 60 * 1000;
+
+  async function autorizador() {
+    const config = await cargarAuth();
+    const proveedor = config.providers.find((p) => p.id === "credentials");
+    if (!proveedor?.authorize) throw new Error("no se encontró el proveedor de credenciales");
+    return proveedor.authorize;
+  }
+
+  /** Usuario sano, con la contraseña de `credenciales` (costo 4: aquí solo importa que la comparación sea real). */
+  async function usuarioSano(extra: Record<string, unknown> = {}) {
+    const { hashSync } = await import("bcryptjs");
+    return {
+      id: "u1",
+      name: "Ana",
+      email: "ana@x.co",
+      image: null,
+      passwordHash: hashSync(credenciales.password, 4),
+      emailVerified: new Date("2026-01-01T00:00:00Z"),
+      banned: false,
+      ...extra,
+    };
+  }
+
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    limite.rateLimit.mockReset();
+    limite.rateLimit.mockResolvedValue({ allowed: true });
+    db.user.findUnique.mockReset();
+    db.$queryRaw.mockReset();
+    db.rateLimit.delete.mockReset();
+    db.rateLimit.delete.mockResolvedValue({});
+  });
+
+  it("pide el contador por correo (normalizado) con failClosed:true, 10 intentos cada 15 minutos", async () => {
+    const authorize = await autorizador();
+    db.user.findUnique.mockResolvedValue(await usuarioSano());
+    await authorize(credenciales);
+    expect(limite.rateLimit).toHaveBeenCalledTimes(1);
+    expect(limite.rateLimit).toHaveBeenCalledWith("login:email:ana@x.co", { max: 10, windowMs: ventana, failClosed: true });
+  });
+
+  it("con el límite alcanzado responde null sin consultar al usuario", async () => {
+    const authorize = await autorizador();
+    limite.rateLimit.mockResolvedValue({ allowed: false, retryAfterSec: 120 });
+    await expect(authorize(credenciales)).resolves.toBeNull();
+    expect(db.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("si la base falla al contar, el limitador REAL deniega: responde null y no prueba la contraseña", async () => {
+    const real = await vi.importActual<typeof import("@/lib/rate-limit")>("@/lib/rate-limit");
+    limite.rateLimit.mockImplementation(real.rateLimit);
+    db.$queryRaw.mockRejectedValue(new Error("la base no responde"));
+    db.user.findUnique.mockResolvedValue(await usuarioSano());
+
+    const authorize = await autorizador();
+    await expect(authorize(credenciales)).resolves.toBeNull();
+
+    expect(db.$queryRaw).toHaveBeenCalled();
+    expect(db.user.findUnique).not.toHaveBeenCalled();
+    expect(db.rateLimit.delete).not.toHaveBeenCalled();
+  });
+
+  it("con el límite libre, entrar bien devuelve al usuario y borra el contador", async () => {
+    const authorize = await autorizador();
+    db.user.findUnique.mockResolvedValue(await usuarioSano());
+    await expect(authorize(credenciales)).resolves.toEqual({ id: "u1", name: "Ana", email: "ana@x.co", image: null });
+    expect(db.rateLimit.delete).toHaveBeenCalledWith({ where: { key: "login:email:ana@x.co" } });
+  });
+
+  it("con el límite libre, una contraseña equivocada sigue devolviendo null y no borra el contador", async () => {
+    const authorize = await autorizador();
+    db.user.findUnique.mockResolvedValue(await usuarioSano());
+    await expect(authorize({ ...credenciales, password: "otra-clave-distinta" })).resolves.toBeNull();
+    expect(db.rateLimit.delete).not.toHaveBeenCalled();
   });
 });

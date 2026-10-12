@@ -29,8 +29,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Anti-abuse: 3/h per email + 10/h per IP (keeps it from becoming a mailer).
-  const rl1 = await rateLimit(`recover:email:${email}`, { max: 3, windowMs: 60 * 60 * 1000 });
-  const rl2 = await rateLimit(`recover:ip:${clientIp(req)}`, { max: 10, windowMs: 60 * 60 * 1000 });
+  // failClosed: esta ruta pública manda correos; si la base falla al contar, no se manda nada (sin contador no hay freno) y la
+  // respuesta sigue siendo la genérica.
+  const rl1 = await rateLimit(`recover:email:${email}`, { max: 3, windowMs: 60 * 60 * 1000, failClosed: true });
+  const rl2 = await rateLimit(`recover:ip:${clientIp(req)}`, { max: 10, windowMs: 60 * 60 * 1000, failClosed: true });
   if (!rl1.allowed || !rl2.allowed) {
     return NextResponse.json(generic); // stay generic even when throttled
   }

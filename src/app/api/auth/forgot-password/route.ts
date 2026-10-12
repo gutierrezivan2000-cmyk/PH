@@ -46,15 +46,22 @@ export async function POST(req: NextRequest) {
     }
 
     // Rate limit per IP so this can't be used to spam reset emails.
+    // failClosed: si la base falla al contar, NO se manda nada (sin contador no hay freno al envío masivo de correos). La
+    // respuesta sigue siendo la neutral, igual que al alcanzar el límite.
     const ipLimit = await rateLimit(`forgot:ip:${ip}`, {
       max: 6,
       windowMs: 60 * 60 * 1000,
+      failClosed: true,
     });
     if (!ipLimit.allowed) {
       // Still 200-shaped to avoid leaking anything; just don't send more.
       return NextResponse.json({ success: true, message: MENSAJE_NEUTRO });
     }
 
+    // Igual que register: las columnas de User (passwordHash…) y la tabla VerificationToken existen en runtime solo si corrió el
+    // SQL de ensureAdminSchema; sin esta llamada, en una base sin migrar la consulta fallaba y la persona veía un error 500.
+    const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+    await ensureAdminSchema();
     const { db } = await import("@/lib/db");
     const user = await db.user.findUnique({ where: { email } });
 

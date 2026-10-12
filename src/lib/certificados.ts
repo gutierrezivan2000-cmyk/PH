@@ -1,3 +1,5 @@
+import { urlBase } from "@/lib/app-url";
+
 /**
  * Reglas de los certificados (puras, con pruebas). El paz y salvo afirma algo sobre dinero: no se emite si la cartera dice que la
  * unidad debe, y siempre queda registrado con qué se verificó y cuándo.
@@ -71,9 +73,25 @@ export function validarMotivoDeRevocacion(motivo: unknown): { ok: true; motivo: 
   return { ok: true, motivo: m.slice(0, 300) };
 }
 
-/** Dirección pública base: la configurada; solo si falta se toma de la petición (nunca para enlaces que se envían a terceros). */
-export function baseUrlPublica(env: string | undefined, cabeceras: { host?: string | null; proto?: string | null }): string {
+/**
+ * Dirección pública base: la configurada; solo si falta se toma de la petición (nunca para enlaces que se envían a terceros).
+ *
+ * Orden: 1) la dirección configurada (`env`, NEXT_PUBLIC_APP_URL); 2) la cabecera Host de la petición, que en una petición real
+ * siempre existe; 3) solo si tampoco hay Host, la dirección pública de la aplicación (urlBase: dominio de producción de Vercel o,
+ * únicamente en desarrollo, localhost). Antes el último recurso era «localhost» también en producción, y el QR impreso en un
+ * certificado quedaba apuntando a una página muerta que ya no se puede corregir. En producción sin ninguna dirección, urlBase
+ * lanza y el error SUBE a propósito: es mejor que falle la impresión a que salga un QR a localhost.
+ *
+ * `entorno` solo existe para las pruebas (por omisión, process.env).
+ */
+export function baseUrlPublica(
+  env: string | undefined,
+  cabeceras: { host?: string | null; proto?: string | null },
+  entorno: Record<string, string | undefined> = process.env
+): string {
   const e = (env || "").trim().replace(/\/+$/, "");
   if (/^https?:\/\/[^\s]+$/.test(e)) return e;
-  return `${cabeceras.proto === "http" ? "http" : "https"}://${cabeceras.host || "localhost"}`;
+  const host = (cabeceras.host || "").trim();
+  if (host) return `${cabeceras.proto === "http" ? "http" : "https"}://${host}`;
+  return urlBase(entorno);
 }

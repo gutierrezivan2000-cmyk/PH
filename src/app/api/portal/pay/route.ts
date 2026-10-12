@@ -4,17 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { computeUnitSummary } from "@/lib/cartera";
 import { leerPKey } from "@/lib/epayco-llaves";
+import { urlBase } from "@/lib/app-url";
 
 const IS_DEMO = process.env.DEMO_MODE === "true";
 const TOKEN_RE = /^[A-Za-z0-9_-]{16,48}$/;
-
-function origin(req: NextRequest): string {
-  const configured = process.env.NEXT_PUBLIC_APP_URL;
-  if (configured && /^https?:\/\//.test(configured)) return configured.replace(/\/$/, "");
-  const host = req.headers.get("host") || "";
-  const proto = req.headers.get("x-forwarded-proto") || "https";
-  return `${proto}://${host}`;
-}
 
 /** Create a pending online-payment order for a unit and return ePayco checkout
  *  params (using the ADMIN's own merchant key, so funds settle to them). */
@@ -107,10 +100,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "El monto mínimo de pago es $1.000." }, { status: 400 });
     }
 
+    // La dirección de retorno y de confirmación sale de la configuración (urlBase), NO de la cabecera Host de una petición
+    // pública: cualquiera puede mandarla a su gusto y ePayco confirmaría el pago contra un servidor ajeno. Se resuelve ANTES de
+    // gastar cupo y de crear la orden: si en producción no hay ninguna, urlBase() lanza y no se abre un cobro cuya confirmación
+    // no llegaría (el dinero se movería y la orden quedaría pendiente para siempre).
+    let base: string;
+    try {
+      base = urlBase();
+    } catch (e) {
+      console.error("[portal pay] no hay dirección pública configurada; no se abre el cobro:", e instanceof Error ? e.message : "error desconocido");
+      return NextResponse.json(
+        { error: "El pago en línea no está disponible en este momento.", code: "not_available" },
+        { status: 503 }
+      );
+    }
+
     // Anti-abuse: a resident creating unlimited pending orders is the setup for
     // replay games and clutters reconciliation. 10 checkouts/hour per unit.
+    // failClosed: si la base falla al contar, no se abre el cobro (sin contador no hay freno a las órdenes pendientes).
     const { rateLimit } = await import("@/lib/rate-limit");
-    const rl = await rateLimit(`portal-pay:${unit.id}`, { max: 10, windowMs: 60 * 60 * 1000 });
+    const rl = await rateLimit(`portal-pay:${unit.id}`, { max: 10, windowMs: 60 * 60 * 1000, failClosed: true });
     if (!rl.allowed) {
       return NextResponse.json(
         { error: "Demasiados intentos de pago seguidos. Espera unos minutos e intenta de nuevo." },
@@ -132,7 +141,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const base = origin(req);
     return NextResponse.json({
       ref,
       publicKey: merchant.epaycoPublicKey,

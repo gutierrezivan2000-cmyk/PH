@@ -4,12 +4,17 @@ import type { NextRequest } from "next/server";
 const db = vi.hoisted(() => ({
   user: { findUnique: vi.fn() },
   verificationToken: { findFirst: vi.fn(), deleteMany: vi.fn(), create: vi.fn() },
+  // Para el limitador real (rate-limit.ts), que cuenta con $queryRaw y limpia contadores viejos con deleteMany.
+  $queryRaw: vi.fn(),
+  rateLimit: { deleteMany: vi.fn() },
 }));
 const limite = vi.hoisted(() => ({ rateLimit: vi.fn(), clientIp: vi.fn() }));
 const correo = vi.hoisted(() => ({ sendPasswordResetEmail: vi.fn() }));
+const esquema = vi.hoisted(() => ({ ensureAdminSchema: vi.fn() }));
 vi.mock("@/lib/db", () => ({ db }));
 vi.mock("@/lib/rate-limit", () => limite);
 vi.mock("@/lib/email", () => correo);
+vi.mock("@/lib/ensure-admin-schema", () => esquema);
 
 import { POST } from "./route";
 
@@ -37,6 +42,7 @@ beforeEach(() => {
 
   limite.clientIp.mockReturnValue("203.0.113.9");
   limite.rateLimit.mockResolvedValue({ allowed: true });
+  esquema.ensureAdminSchema.mockResolvedValue(undefined);
   db.user.findUnique.mockResolvedValue({ email: "ana@x.co", passwordHash: "$2a$12$hash" });
   db.verificationToken.findFirst.mockResolvedValue(null);
   db.verificationToken.deleteMany.mockResolvedValue({ count: 0 });
@@ -130,7 +136,7 @@ describe("POST /api/auth/forgot-password — captcha encendido", () => {
     fetchFalso.mockRejectedValue(new TypeError("fetch failed"));
     const r = await POST(peticion({ email: "ana@x.co", captchaToken: "token-cualquiera" }));
     expect(r.status).toBe(200);
-    expect(limite.rateLimit).toHaveBeenCalledWith("forgot:ip:203.0.113.9", { max: 6, windowMs: 60 * 60 * 1000 });
+    expect(limite.rateLimit).toHaveBeenCalledWith("forgot:ip:203.0.113.9", { max: 6, windowMs: 60 * 60 * 1000, failClosed: true });
     expect(correo.sendPasswordResetEmail).toHaveBeenCalledTimes(1);
   });
 
@@ -205,5 +211,55 @@ describe("POST /api/auth/forgot-password — dirección pública del enlace (url
     const r = await POST(peticion({ email: "ana@x.co" }));
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ success: true, message: NEUTRO });
+  });
+});
+
+describe("POST /api/auth/forgot-password — límite con failClosed y esquema", () => {
+  it("pide el contador por IP con failClosed:true (6 por hora)", async () => {
+    const r = await POST(peticion({ email: "ana@x.co" }));
+    expect(r.status).toBe(200);
+    expect(limite.rateLimit).toHaveBeenCalledTimes(1);
+    expect(limite.rateLimit).toHaveBeenCalledWith("forgot:ip:203.0.113.9", { max: 6, windowMs: 60 * 60 * 1000, failClosed: true });
+  });
+
+  it("si el límite no se pudo contar (unavailable) responde la frase neutral y no toca esquema, usuario, token ni correo", async () => {
+    limite.rateLimit.mockResolvedValue({ allowed: false, retryAfterSec: 30, unavailable: true });
+    const r = await POST(peticion({ email: "ana@x.co" }));
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ success: true, message: NEUTRO });
+    expect(esquema.ensureAdminSchema).not.toHaveBeenCalled();
+    expect(db.user.findUnique).not.toHaveBeenCalled();
+    expect(db.verificationToken.create).not.toHaveBeenCalled();
+    expect(correo.sendPasswordResetEmail).not.toHaveBeenCalled();
+  });
+
+  it("si la base falla al contar, el limitador REAL deniega: respuesta neutral y ningún correo", async () => {
+    const real = await vi.importActual<typeof import("@/lib/rate-limit")>("@/lib/rate-limit");
+    limite.rateLimit.mockImplementation(real.rateLimit);
+    db.$queryRaw.mockRejectedValue(new Error("la base no responde"));
+
+    const r = await POST(peticion({ email: "ana@x.co" }));
+
+    expect(db.$queryRaw).toHaveBeenCalled();
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ success: true, message: NEUTRO });
+    expect(db.user.findUnique).not.toHaveBeenCalled();
+    expect(db.verificationToken.create).not.toHaveBeenCalled();
+    expect(correo.sendPasswordResetEmail).not.toHaveBeenCalled();
+  });
+
+  it("antes de consultar User y VerificationToken asegura el esquema (como register)", async () => {
+    await POST(peticion({ email: "ana@x.co" }));
+    expect(esquema.ensureAdminSchema).toHaveBeenCalledTimes(1);
+    const orden = (m: { mock: { invocationCallOrder: number[] } }) => m.mock.invocationCallOrder[0];
+    expect(orden(esquema.ensureAdminSchema)).toBeLessThan(orden(db.user.findUnique));
+    expect(orden(esquema.ensureAdminSchema)).toBeLessThan(orden(db.verificationToken.findFirst));
+  });
+
+  it("sin correo o con el captcha rechazado no se asegura el esquema (no se toca la base)", async () => {
+    await POST(peticion({}));
+    vi.stubEnv("TURNSTILE_SECRET_KEY", SECRETO);
+    await POST(peticion({ email: "ana@x.co" }));
+    expect(esquema.ensureAdminSchema).not.toHaveBeenCalled();
   });
 });

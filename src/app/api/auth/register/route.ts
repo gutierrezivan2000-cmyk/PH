@@ -36,15 +36,17 @@ export async function POST(req: NextRequest) {
     await ensureAdminSchema();
 
     // Rate limit to stop email bombing / trial-account farming.
+    // failClosed: este endpoint manda correos con el código de verificación; si la base falla al contar, se deniega (429) en
+    // vez de dejar pasar: sin contador no hay freno al envío masivo ni a la creación de cuentas de prueba.
     const HOUR = 60 * 60 * 1000;
-    const ipLimit = await rateLimit(`register:ip:${ip}`, { max: 8, windowMs: HOUR });
+    const ipLimit = await rateLimit(`register:ip:${ip}`, { max: 8, windowMs: HOUR, failClosed: true });
     if (!ipLimit.allowed) {
       return NextResponse.json(
         { error: "Demasiados registros desde esta red. Intenta más tarde." },
         { status: 429 }
       );
     }
-    const emailLimit = await rateLimit(`register:email:${email}`, { max: 3, windowMs: HOUR });
+    const emailLimit = await rateLimit(`register:email:${email}`, { max: 3, windowMs: HOUR, failClosed: true });
     if (!emailLimit.allowed) {
       return NextResponse.json(
         { error: "Demasiados intentos con este correo. Espera un momento." },
