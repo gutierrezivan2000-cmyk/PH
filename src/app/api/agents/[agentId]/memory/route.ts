@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isValidAgentId } from "@/lib/agents";
+import { ensureAgentTables } from "@/lib/ensure-agent-tables";
 
 export async function GET(
   _req: NextRequest,
@@ -27,6 +28,8 @@ export async function GET(
     }
 
     try {
+      // AgentMemory solo existe si ensureAgentTables la creó (el build ya no empuja el esquema); memoizada, cuesta casi nada.
+      await ensureAgentTables();
       const memory = await db.agentMemory.findUnique({
         where: { userId_agentId: { userId: session.user.id, agentId } },
       });
@@ -70,6 +73,8 @@ export async function PUT(
 
     const trimmed = content.trim().slice(0, 10000);
 
+    // Sin esto, en una base donde nadie ha abierto aún un chat la tabla no existe y guardar la memoria respondía 500.
+    await ensureAgentTables();
     const memory = await db.agentMemory.upsert({
       where: { userId_agentId: { userId: session.user.id, agentId } },
       update: { content: trimmed },

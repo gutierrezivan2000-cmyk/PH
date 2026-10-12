@@ -14,6 +14,11 @@ export async function POST(req: NextRequest) {
     // bombardear un buzón alternando correos. Se limita por IP y por correo,
     // igual que en register. failClosed: este endpoint envía correos, así que
     // sin contador (base caída) se deniega en vez de dejar enviar sin freno.
+    // El limitador y las consultas de abajo usan RateLimit, VerificationToken y User, que existen solo si corrió el SQL de
+    // ensureAdminSchema (el build ya no empuja el esquema): sin esta llamada, en una base sin migrar el limitador fallaba
+    // (failClosed: 429 para todos). Memoizada: cuesta casi nada.
+    const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+    await ensureAdminSchema();
     const { rateLimit, clientIp } = await import("@/lib/rate-limit");
     const HOUR = 60 * 60 * 1000;
     const [ipRl, mailRl] = await Promise.all([

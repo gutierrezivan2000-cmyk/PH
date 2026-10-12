@@ -12,6 +12,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email y código son requeridos" }, { status: 400 });
     }
 
+    // El limitador y las consultas de abajo usan RateLimit, VerificationToken y User, que existen solo si corrió el SQL de
+    // ensureAdminSchema (el build ya no empuja el esquema). Sin esta llamada, en una base sin migrar el limitador fallaba
+    // (failClosed: 429 para todos) y nadie podía verificar su cuenta. Memoizada: cuesta casi nada.
+    const { ensureAdminSchema } = await import("@/lib/ensure-admin-schema");
+    await ensureAdminSchema();
+
     // Throttle guesses: the code is only 6 digits, so cap attempts per email.
     // failClosed: sin contador no hay freno, así que si la base falla se deniega.
     const { rateLimit } = await import("@/lib/rate-limit");

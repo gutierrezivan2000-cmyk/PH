@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { SENTENCIAS_COLUMNAS_CONSUMO } from "@/lib/consumo/esquema";
+import { crearCaminoRapido } from "@/lib/schema-catalogo";
 
 /**
  * SQL idempotente que deja la base al día con el esquema de Prisma: las tablas base (User, Property, Generation…), el panel de
@@ -12,6 +14,11 @@ import { db } from "@/lib/db";
  * Reglas: solo cambios ADITIVOS (nada de DROP ni de cambiar tipos) y todas con IF NOT EXISTS o un guard de duplicate_object,
  * así que repetirlas es seguro. Una columna nueva va en el CREATE TABLE (bases nuevas) Y en un ALTER ... ADD COLUMN IF NOT
  * EXISTS (bases que ya tenían la tabla): solo con el CREATE, las bases existentes se quedaban sin ella.
+ *
+ * Arranque barato: antes de correr nada, ensureAdminSchema hace UNA consulta al catálogo (ver src/lib/schema-catalogo.ts) que
+ * pregunta si ya existe todo lo que estas sentencias crearían; si existe, no ejecuta ninguna (cada ALTER/CREATE INDEX "IF NOT
+ * EXISTS" toma un bloqueo de la tabla aunque el objeto exista). Los objetos que se buscan se DERIVAN de estas mismas sentencias,
+ * así que agregar una sentencia aquí la incluye sola en la comprobación.
  */
 const STATEMENTS: string[] = [
   // ── Tablas base ───────────────────────────────────────────────────────────
@@ -226,16 +233,9 @@ const STATEMENTS: string[] = [
   // una base empujada entonces no las tiene. Son las únicas de las tablas base sin ALTER cuya fecha lo justifica.
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "passwordHash" TEXT`,
   `ALTER TABLE "Generation" ADD COLUMN IF NOT EXISTS "progress" INTEGER NOT NULL DEFAULT 0`,
-  // Consumo de IA por función (src/lib/consumo): el detalle de cada registro de uso.
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "provider" TEXT`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "model" TEXT`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "inputTokens" INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "outputTokens" INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "cacheReadTokens" INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "cacheWriteTokens" INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "audioSeconds" INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "refType" TEXT`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "refId" TEXT`,
+  // Consumo de IA por función (src/lib/consumo): el detalle de cada registro de uso. La lista vive en consumo/esquema.ts porque
+  // registrar.ts también la usa (asegurarColumnasDeConsumo): así hay una sola copia.
+  ...SENTENCIAS_COLUMNAS_CONSUMO,
   `CREATE INDEX IF NOT EXISTS "UsageRecord_type_date_idx" ON "UsageRecord"("type", "date")`,
   `CREATE INDEX IF NOT EXISTS "UsageRecord_refType_refId_idx" ON "UsageRecord"("refType", "refId")`,
   // Constancia de aceptación de los documentos legales (src/lib/legal).
@@ -694,13 +694,32 @@ const STATEMENTS: string[] = [
 /** Las sentencias, expuestas para la prueba que las compara con el esquema de Prisma y para POST /api/admin/migrate. */
 export const SENTENCIAS_ADMIN = STATEMENTS;
 
+/** Camino rápido: una consulta al catálogo que dice si ya existe todo lo de STATEMENTS (expuesto para las pruebas). */
+export const CAMINO_RAPIDO_ADMIN = crearCaminoRapido("ensureAdminSchema", STATEMENTS);
+
 let ensured = false;
+let enCurso: Promise<void> | null = null;
 
 export async function ensureAdminSchema(): Promise<void> {
   if (ensured) return;
   // Demo has no database — running 400+ DDL statements only to catch 400+
   // failures burned a second per call and flooded the log.
   if (process.env.DEMO_MODE === "true") {
+    ensured = true;
+    return;
+  }
+
+  // Las llamadas simultáneas de una instancia en frío comparten UNA ejecución: antes cada una corría las 160 sentencias a la vez
+  // (y varios CREATE TABLE concurrentes sobre la misma tabla pueden chocar entre sí).
+  enCurso ??= aplicar().finally(() => {
+    enCurso = null;
+  });
+  await enCurso;
+}
+
+async function aplicar(): Promise<void> {
+  // Base al día (lo normal): una sola consulta de solo lectura y ninguna sentencia de DDL.
+  if (await CAMINO_RAPIDO_ADMIN.alDia((sql) => db.$queryRawUnsafe(sql))) {
     ensured = true;
     return;
   }

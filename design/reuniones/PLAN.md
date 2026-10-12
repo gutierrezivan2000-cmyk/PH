@@ -55,8 +55,8 @@ Todo queda separado por copropiedad.
    - Estilos propios en `<style href="k-reuniones-…" precedence="default">` con prefijo `.re-`.
    - No agregues Tailwind ad hoc salvo utilidades mínimas.
 4. **Esquema: solo cambios aditivos** (tablas nuevas, columnas opcionales). Nunca renombres ni borres.
-   - El `build` ejecuta `prisma db push --accept-data-loss` contra la base de cada entorno, y las vistas
-     previas pueden compartir la base de producción.
+   - El esquema sale del SQL idempotente de los `ensure*Schema` (el `build` ya no corre `prisma db push`), y las
+     vistas previas pueden compartir la base de producción.
    - Mantén `ensureMeetingsSchema()` (SQL idempotente) sincronizado con `schema.prisma`.
 5. **Modo demo** (`DEMO_MODE=true`, que es el único entorno local) funciona **sin base de datos ni
    claves**. Cada ruta nueva tiene su rama demo **antes** de tocar `db`: hay un guardián que lanza error.
@@ -1026,7 +1026,7 @@ Cada hito termina con su verificación (regla 8), un commit y la actualización 
 | La subida por partes caduca a mitad | Detección y reinicio con mensaje; tamaño de parte de 16 MB |
 | iPhone pausa la grabación con la pantalla bloqueada | Bloqueo de pantalla (wake lock), aviso claro y reanudación; app nativa en la Fase 3 |
 | Etiquetas de hablante que se multiplican con tramos | Voces de referencia (≤4), conciliación por solape, sugerencias de la IA y fusión en la interfaz; AssemblyAI en el hito 10 |
-| `db push` compartido entre la vista previa y producción | Solo cambios aditivos más `ensureMeetingsSchema` |
+| Base compartida entre la vista previa y producción (el esquema sale del SQL de los `ensure*Schema`) | Solo cambios aditivos más `ensureMeetingsSchema` |
 | `ffmpeg` de 2018 con HTTPS y cabeceras | Prueba de integración; plan B: ruta proxy con token HMAC |
 | Costo | Cupos en horas, costo por reunión registrado, modelo cambiable por variable |
 | Caché en llamadas paralelas | Precalentar antes de las secciones; verificar `cache_read_input_tokens` |

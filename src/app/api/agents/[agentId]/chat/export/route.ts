@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AGENTS, isValidAgentId } from "@/lib/agents";
+import { ensureAgentTables } from "@/lib/ensure-agent-tables";
 import React from "react";
 import {
   Document,
@@ -162,6 +163,8 @@ export async function GET(
       );
     }
 
+    // AgentChat y AgentMessage solo existen si ensureAgentTables las creó (el build ya no empuja el esquema).
+    await ensureAgentTables();
     const chat = await db.agentChat.findFirst({
       where: { id: chatId, userId: session.user.id, agentId },
     });

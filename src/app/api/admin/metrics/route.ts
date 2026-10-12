@@ -3,6 +3,8 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOr401 } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { ensureAdminSchema } from "@/lib/ensure-admin-schema";
+import { ensureAgentTables } from "@/lib/ensure-agent-tables";
 import { codigoDeUsuario } from "@/lib/admin/identidad";
 import { calcMrr, normalizePlanId } from "@/lib/plan";
 
@@ -15,6 +17,12 @@ function monthKey(d: Date): string {
 export async function GET(req: NextRequest) {
   const r = await requireAdminOr401();
   if ("error" in r) return r.error;
+
+  // Usuarios, suscripciones, generaciones y tickets salen de ensureAdminSchema; los chats (AgentChat) de ensureAgentTables. El build
+  // ya no empuja el esquema, así que sin esto una base sin migrar tumbaba la ruta. Memoizadas: cuestan casi nada. En orden: las
+  // tablas de los agentes cuelgan de User.
+  await ensureAdminSchema();
+  await ensureAgentTables();
 
   // ---- date helpers ----
   const now = new Date();

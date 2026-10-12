@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { crearCaminoRapido } from "@/lib/schema-catalogo";
 
 /**
  * Tablas de los agentes (chats, mensajes y memoria) como SQL idempotente.
@@ -8,6 +9,9 @@ import { db } from "@/lib/db";
  * src/lib/schema-drift.test.ts). Solo cambios ADITIVOS; una columna nueva va en el CREATE TABLE Y en un ALTER ... ADD COLUMN IF NOT
  * EXISTS. Las claves foráneas apuntan a User, que crea ensureAdminSchema. PropertyDocument ya NO se crea aquí sino en
  * ensureAdminSchema: la leen rutas que nada tienen que ver con los agentes (subida de archivos, portal, documentos).
+ *
+ * Antes de correr nada hace UNA consulta al catálogo (src/lib/schema-catalogo.ts) con los objetos que estas sentencias crearían;
+ * si ya existen todos, no ejecuta DDL. Los objetos se derivan de estas mismas sentencias.
  */
 const STATEMENTS: string[] = [
   `CREATE TABLE IF NOT EXISTS "AgentChat" (
@@ -57,11 +61,29 @@ const STATEMENTS: string[] = [
 /** Las sentencias, expuestas para la prueba que las compara con el esquema de Prisma y para POST /api/admin/migrate. */
 export const SENTENCIAS_AGENTES = STATEMENTS;
 
+/** Camino rápido: una consulta al catálogo que dice si ya existe todo lo de STATEMENTS (expuesto para las pruebas). */
+export const CAMINO_RAPIDO_AGENTES = crearCaminoRapido("ensureAgentTables", STATEMENTS);
+
 let ensured = false;
+let enCurso: Promise<void> | null = null;
 
 export async function ensureAgentTables(): Promise<void> {
   if (ensured) return;
   if (process.env.DEMO_MODE === "true") {
+    ensured = true;
+    return;
+  }
+
+  // Las llamadas simultáneas de una instancia en frío comparten UNA ejecución.
+  enCurso ??= aplicar().finally(() => {
+    enCurso = null;
+  });
+  await enCurso;
+}
+
+async function aplicar(): Promise<void> {
+  // Base al día (lo normal): una sola consulta de solo lectura y ninguna sentencia de DDL.
+  if (await CAMINO_RAPIDO_AGENTES.alDia((sql) => db.$queryRawUnsafe(sql))) {
     ensured = true;
     return;
   }

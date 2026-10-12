@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { crearCaminoRapido } from "@/lib/schema-catalogo";
 
 /**
  * Tablas de «Reuniones» como SQL idempotente.
@@ -16,6 +17,9 @@ import { db } from "@/lib/db";
  * en una tabla ya publicada va en el CREATE TABLE Y en un ALTER ... ADD COLUMN IF
  * NOT EXISTS (las bases que ya tienen la tabla no se enteran del CREATE).
  * src/lib/schema-drift.test.ts vigila ambas cosas.
+ *
+ * Antes de correr nada hace UNA consulta al catálogo (src/lib/schema-catalogo.ts) con los objetos que estas sentencias crearían;
+ * si ya existen todos, no ejecuta DDL. Los objetos se derivan de estas mismas sentencias.
  */
 const STATEMENTS: string[] = [
   /* ── Meeting ─────────────────────────────────────────────────────── */
@@ -214,6 +218,9 @@ const STATEMENTS: string[] = [
 /** Las sentencias, expuestas para la prueba que las compara con el esquema de Prisma. */
 export const SENTENCIAS_REUNIONES = STATEMENTS;
 
+/** Camino rápido: una consulta al catálogo que dice si ya existe todo lo de STATEMENTS (expuesto para las pruebas). */
+export const CAMINO_RAPIDO_REUNIONES = crearCaminoRapido("ensureMeetingsSchema", STATEMENTS);
+
 let listo = false;
 let enCurso: Promise<void> | null = null;
 
@@ -230,6 +237,11 @@ export async function ensureMeetingsSchema(): Promise<void> {
   }
   if (!enCurso) {
     enCurso = (async () => {
+      // Base al día (lo normal): una sola consulta de solo lectura y ninguna sentencia de DDL.
+      if (await CAMINO_RAPIDO_REUNIONES.alDia((sql) => db.$queryRawUnsafe(sql))) {
+        listo = true;
+        return;
+      }
       let fallos = 0;
       for (const sql of STATEMENTS) {
         try {

@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { db } = vi.hoisted(() => ({ db: { $executeRawUnsafe: vi.fn(), $queryRawUnsafe: vi.fn() } }));
+vi.mock("@/lib/db", () => ({ db }));
 
 /**
  * ensureMeetingsSchema() es un espejo escrito a mano de los modelos de Reuniones
@@ -86,7 +89,6 @@ function predeterminadoSql(atributos: string): string | null {
 let sentencias: string[] = [];
 
 beforeAll(async () => {
-  vi.stubEnv("DEMO_MODE", "true"); // `db` crea su cliente al importarse; en demo es un sustituto inerte
   ({ SENTENCIAS_REUNIONES: sentencias } = await import("./ensure-meetings-schema"));
 });
 
@@ -183,5 +185,86 @@ describe("ensureMeetingsSchema ↔ prisma/schema.prisma", () => {
   it("solo agrega: ninguna sentencia borra ni renombra", () => {
     // `ON DELETE CASCADE` de las claves foráneas es esquema, no borrado de datos.
     for (const s of sentencias) expect(s).not.toMatch(/\b(DROP|RENAME|TRUNCATE)\b|\bDELETE\s+FROM\b/i);
+  });
+});
+
+describe("ensureMeetingsSchema: camino rápido y memoización", () => {
+  // El módulo guarda un indicador por proceso: cada prueba carga una copia fresca.
+  async function cargar() {
+    vi.resetModules();
+    return import("./ensure-meetings-schema");
+  }
+  /** Lo que responde la consulta de catálogo cuando falta algo (el camino rápido no se toma) o cuando no falta nada. */
+  const FALTA_ALGO = [{ clase: "columna", objeto: "Meeting.silences" }];
+  const TODO_EXISTE: unknown[] = [];
+
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    db.$executeRawUnsafe.mockReset();
+    db.$executeRawUnsafe.mockResolvedValue(0);
+    db.$queryRawUnsafe.mockReset();
+    db.$queryRawUnsafe.mockResolvedValue(FALTA_ALGO);
+  });
+
+  it("con las tablas ya creadas no ejecuta DDL: una sola consulta de catálogo, y se memoiza", async () => {
+    db.$queryRawUnsafe.mockResolvedValue(TODO_EXISTE);
+    const { ensureMeetingsSchema, CAMINO_RAPIDO_REUNIONES } = await cargar();
+    await ensureMeetingsSchema();
+    await ensureMeetingsSchema();
+    expect(db.$executeRawUnsafe).not.toHaveBeenCalled();
+    expect(db.$queryRawUnsafe).toHaveBeenCalledTimes(1);
+    // La consulta sale de las mismas sentencias del DDL (incluida la columna que comparte con ensureAdminSchema).
+    const sql = String(db.$queryRawUnsafe.mock.calls[0][0]);
+    expect(sql).toBe(CAMINO_RAPIDO_REUNIONES.consulta());
+    for (const objeto of ["('Meeting', 'silences')", "('MeetingTask', 'MeetingTask_meetingId_key_key')", "('MeetingLivePart', 'MeetingLivePart_meetingId_fkey')", "('Generation', 'meetingId')"]) {
+      expect(sql).toContain(objeto);
+    }
+    expect(CAMINO_RAPIDO_REUNIONES.esperados().noEntendidas).toEqual([]);
+  });
+
+  it("si falta un objeto, o la consulta falla, corre todo el SQL de arranque y luego memoiza", async () => {
+    const { ensureMeetingsSchema, SENTENCIAS_REUNIONES } = await cargar();
+    await ensureMeetingsSchema();
+    expect(db.$executeRawUnsafe).toHaveBeenCalledTimes(SENTENCIAS_REUNIONES.length);
+    await ensureMeetingsSchema();
+    expect(db.$executeRawUnsafe).toHaveBeenCalledTimes(SENTENCIAS_REUNIONES.length);
+
+    db.$executeRawUnsafe.mockClear();
+    db.$queryRawUnsafe.mockRejectedValue(new Error("sin permiso sobre pg_catalog"));
+    const otra = await cargar();
+    await otra.ensureMeetingsSchema();
+    expect(db.$executeRawUnsafe).toHaveBeenCalledTimes(SENTENCIAS_REUNIONES.length);
+  });
+
+  it("un fallo del DDL no se memoiza: la siguiente llamada vuelve a consultar el catálogo", async () => {
+    db.$executeRawUnsafe.mockImplementation(async (sql: string) => {
+      if (sql.includes('"MeetingTask_meetingId_fkey"')) throw new Error("conexión caída");
+      return 0;
+    });
+    const { ensureMeetingsSchema } = await cargar();
+    await ensureMeetingsSchema();
+    db.$queryRawUnsafe.mockResolvedValue(TODO_EXISTE);
+    await ensureMeetingsSchema();
+    expect(db.$queryRawUnsafe).toHaveBeenCalledTimes(2);
+    await ensureMeetingsSchema();
+    expect(db.$queryRawUnsafe).toHaveBeenCalledTimes(2);
+  });
+
+  it("llamadas simultáneas comparten una sola ejecución", async () => {
+    const { ensureMeetingsSchema, SENTENCIAS_REUNIONES } = await cargar();
+    await Promise.all([ensureMeetingsSchema(), ensureMeetingsSchema(), ensureMeetingsSchema()]);
+    expect(db.$queryRawUnsafe).toHaveBeenCalledTimes(1);
+    expect(db.$executeRawUnsafe).toHaveBeenCalledTimes(SENTENCIAS_REUNIONES.length);
+  });
+
+  it("en demo no consulta ni ejecuta nada", async () => {
+    vi.stubEnv("DEMO_MODE", "true");
+    const { ensureMeetingsSchema } = await cargar();
+    await ensureMeetingsSchema();
+    expect(db.$queryRawUnsafe).not.toHaveBeenCalled();
+    expect(db.$executeRawUnsafe).not.toHaveBeenCalled();
   });
 });

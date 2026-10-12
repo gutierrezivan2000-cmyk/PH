@@ -24,6 +24,34 @@ export type Visibles = Record<ComingSoonKey, boolean>;
 
 const DIA = 86_400_000;
 
+type Familia = "admin" | "reuniones" | "operacion";
+
+/** Cada familia de SQL de arranque se importa de forma diferida (como `db`), y UNA sola vez aunque varias lecturas lo pidan a la vez. */
+const CARGADORES: Record<Familia, () => Promise<() => Promise<void>>> = {
+  admin: async () => (await import("@/lib/ensure-admin-schema")).ensureAdminSchema,
+  reuniones: async () => (await import("@/lib/ensure-meetings-schema")).ensureMeetingsSchema,
+  operacion: async () => (await import("@/lib/ensure-operacion-schema")).ensureOperacionSchema,
+};
+const cargados = new Map<Familia, Promise<() => Promise<void>>>();
+
+/**
+ * Cada lectura necesita las tablas de su familia de SQL de arranque: el `build` ya no empuja el esquema, así que existen solo si el
+ * ensure*Schema correspondiente las creó. Llamadas memoizadas por proceso (cuestan una comparación); si fallan, quien llama decide
+ * (aquí `seguro` omite la sección, y el chat sigue).
+ *  - admin: Property, Unit, Charge, Budget, Pqrs, Assembly, Certificate, Announcement, ComplianceRecord, CommonAsset, Generation…
+ *  - reuniones: Meeting y PropertyPerson.
+ *  - operacion: PropertyMemory y PropertyEvent.
+ */
+export async function asegurarEsquema(familia: Familia): Promise<void> {
+  let ensure = cargados.get(familia);
+  if (!ensure) {
+    ensure = CARGADORES[familia]();
+    cargados.set(familia, ensure);
+    ensure.catch(() => cargados.delete(familia)); // si la importación falla, la próxima vez se reintenta
+  }
+  await (await ensure)();
+}
+
 async function seguro<T>(etiqueta: string, fn: () => Promise<T>): Promise<T | undefined> {
   try {
     return await fn();
@@ -131,6 +159,7 @@ export async function cargarVencimientos(userId: string, propertyId: string, fea
 
 export async function cargarDatosDePropiedad(userId: string, propertyId: string, visibles: Visibles, ahora: Date = new Date()): Promise<DatosDePropiedad | null> {
   const { db } = await import("@/lib/db");
+  await asegurarEsquema("admin");
   const p = await db.property.findFirst({ where: { id: propertyId, userId }, select: { id: true, name: true, address: true, city: true, units: true, features: true } });
   if (!p) return null;
   const caracteristicas = Object.entries(parseFeatures(p.features) as Record<string, unknown>)
@@ -157,17 +186,27 @@ export async function cargarDatosDePropiedad(userId: string, propertyId: string,
       ? seguro("comunicados", async () => (await db.announcement.findMany({ where: { propertyId, userId }, orderBy: { createdAt: "desc" }, take: 4, select: { subject: true, createdAt: true } })).map((c) => ({ asunto: c.subject, fecha: c.createdAt.toISOString() })))
       : undefined,
     seguro("vencimientos", () => cargarVencimientos(userId, propertyId, p.features, visibles, ahora)),
-    seguro("reuniones", async () =>
-      (await db.meeting.findMany({ where: { propertyId, userId }, orderBy: { date: "desc" }, take: 3, select: { title: true, date: true, status: true, digest: true } })).map((m) => {
+    seguro("reuniones", async () => {
+      await asegurarEsquema("reuniones");
+      return (await db.meeting.findMany({ where: { propertyId, userId }, orderBy: { date: "desc" }, take: 3, select: { title: true, date: true, status: true, digest: true } })).map((m) => {
         const f = (m.digest ?? null) as { resumen?: string; compromisos?: unknown[]; pendientes?: unknown[] } | null;
         return { titulo: m.title, fecha: m.date.toISOString(), estado: m.status, resumen: f?.resumen, compromisos: f?.compromisos?.length, pendientes: f?.pendientes?.length };
-      }),
-    ),
+      });
+    }),
     seguro("generaciones", async () => (await db.generation.findMany({ where: { propertyId, userId, status: "completed" }, orderBy: { createdAt: "desc" }, take: 5, select: { type: true, month: true, year: true } })).map((g) => ({ tipo: g.type, mes: g.month, anio: g.year }))),
     seguro("documentos", async () => (await db.propertyDocument.findMany({ where: { propertyId }, orderBy: { createdAt: "desc" }, take: 8, select: { type: true, name: true } })).map((d) => ({ tipo: d.type, nombre: d.name }))),
-    seguro("personas", async () => (await db.propertyPerson.findMany({ where: { propertyId, active: true }, take: 8, select: { name: true, role: true } })).map((x) => ({ nombre: x.name, rol: x.role }))),
-    seguro("memoria", async () => (await db.propertyMemory.findMany({ where: { propertyId, userId }, orderBy: { createdAt: "desc" }, take: 25, select: { kind: true, content: true, createdAt: true, authorAgent: true } })).map((m) => ({ tipo: m.kind, contenido: m.content, fecha: m.createdAt.toISOString(), autor: m.authorAgent }))),
-    seguro("eventos", async () => (await db.propertyEvent.findMany({ where: { propertyId, userId }, orderBy: { createdAt: "desc" }, take: 15, select: { module: true, summary: true, actor: true, createdAt: true } })).map((e) => ({ fecha: e.createdAt.toISOString(), modulo: e.module, resumen: e.summary, actor: e.actor }))),
+    seguro("personas", async () => {
+      await asegurarEsquema("reuniones");
+      return (await db.propertyPerson.findMany({ where: { propertyId, active: true }, take: 8, select: { name: true, role: true } })).map((x) => ({ nombre: x.name, rol: x.role }));
+    }),
+    seguro("memoria", async () => {
+      await asegurarEsquema("operacion");
+      return (await db.propertyMemory.findMany({ where: { propertyId, userId }, orderBy: { createdAt: "desc" }, take: 25, select: { kind: true, content: true, createdAt: true, authorAgent: true } })).map((m) => ({ tipo: m.kind, contenido: m.content, fecha: m.createdAt.toISOString(), autor: m.authorAgent }));
+    }),
+    seguro("eventos", async () => {
+      await asegurarEsquema("operacion");
+      return (await db.propertyEvent.findMany({ where: { propertyId, userId }, orderBy: { createdAt: "desc" }, take: 15, select: { module: true, summary: true, actor: true, createdAt: true } })).map((e) => ({ fecha: e.createdAt.toISOString(), modulo: e.module, resumen: e.summary, actor: e.actor }));
+    }),
   ]);
 
   return {
@@ -195,6 +234,7 @@ export async function cargarDatosDePropiedad(userId: string, propertyId: string,
  */
 export async function contextoOperativo(userId: string, visibles: Visibles, propertyIdPedida?: string | null, ahora: Date = new Date()): Promise<{ texto: string; propertyId: string | null; propiedades: { id: string; name: string }[] }> {
   const { db } = await import("@/lib/db");
+  await asegurarEsquema("admin");
   const propiedades = await db.property.findMany({ where: { userId }, orderBy: { createdAt: "asc" }, take: 30, select: { id: true, name: true, city: true, units: true } });
   if (propiedades.length === 0) return { texto: "La cuenta todavía no tiene copropiedades registradas.", propertyId: null, propiedades: [] };
   const enFoco = elegirPropiedadEnFoco(propiedades, propertyIdPedida);

@@ -11,7 +11,9 @@
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import { db } from "@/lib/db";
+import { crearCaminoRapido } from "@/lib/schema-catalogo";
 import { costoDeUso, type Proveedor } from "./calculo";
+import { SENTENCIAS_COLUMNAS_CONSUMO } from "./esquema";
 import type { Tokens } from "./precios";
 import { TOKENS_VACIOS, totalDeTokens } from "./uso";
 
@@ -98,29 +100,32 @@ export function filaDeConsumo(c: Consumo, contexto: Contexto | null): FilaDeCons
 }
 
 /**
- * Las columnas del detalle (las mismas que agrega `ensureAdminSchema`): el `prisma db push` del build puede fallar en silencio,
- * así que se agregan aquí la primera vez. Si falla, se vuelve a intentar a lo sumo una vez por minuto, no en cada registro.
+ * Las columnas del detalle de UsageRecord. Son LAS MISMAS que agrega `ensureAdminSchema` (vienen de ./esquema.ts, no se repiten a mano):
+ * el `build` ya no corre `prisma db push`, así que el esquema sale de ese SQL y aquí se aseguran la primera vez que se registra o se
+ * lee consumo. Primero una consulta al catálogo: si las nueve columnas ya existen no se ejecuta ningún ALTER (cada `ADD COLUMN IF NOT
+ * EXISTS` toma un bloqueo exclusivo de UsageRecord aunque la columna exista, y esa tabla recibe inserciones en todas las llamadas de
+ * IA). Si falla, se vuelve a intentar a lo sumo una vez por minuto, no en cada registro.
  */
-const COLUMNAS = [
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "provider" TEXT`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "model" TEXT`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "inputTokens" INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "outputTokens" INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "cacheReadTokens" INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "cacheWriteTokens" INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "audioSeconds" INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "refType" TEXT`,
-  `ALTER TABLE "UsageRecord" ADD COLUMN IF NOT EXISTS "refId" TEXT`,
-];
+const COLUMNAS = SENTENCIAS_COLUMNAS_CONSUMO;
+const CAMINO_RAPIDO_COLUMNAS = crearCaminoRapido("consumo", COLUMNAS);
 let columnasListas = false;
 let ultimoIntento = 0;
 
 export async function asegurarColumnasDeConsumo(): Promise<void> {
   if (columnasListas || Date.now() - ultimoIntento < 60_000) return;
   ultimoIntento = Date.now();
-  const ejecutar = (db as unknown as { $executeRawUnsafe?: (sql: string) => Promise<unknown> }).$executeRawUnsafe;
+  const crudo = db as unknown as {
+    $executeRawUnsafe?: (sql: string) => Promise<unknown>;
+    $queryRawUnsafe?: (sql: string) => Promise<unknown>;
+  };
+  const ejecutar = crudo.$executeRawUnsafe;
   if (typeof ejecutar !== "function") return;
   try {
+    const consultar = crudo.$queryRawUnsafe;
+    if (typeof consultar === "function" && (await CAMINO_RAPIDO_COLUMNAS.alDia((sql) => consultar.call(db, sql)))) {
+      columnasListas = true;
+      return;
+    }
     for (const sql of COLUMNAS) await ejecutar.call(db, sql);
     columnasListas = true;
   } catch (e) {

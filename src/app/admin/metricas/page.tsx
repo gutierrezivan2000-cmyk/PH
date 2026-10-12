@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import { AdminGate } from "@/components/admin/AdminGate";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { db } from "@/lib/db";
+import { ensureAdminSchema } from "@/lib/ensure-admin-schema";
+import { ensureAgentTables } from "@/lib/ensure-agent-tables";
 import { Persona } from "@/components/admin/Persona";
 
 import Link from "next/link";
@@ -28,6 +30,11 @@ const AGENT_COLORS: Record<string, string> = {
 
 // ---- Data loading ----
 async function loadMetrics() {
+  // Usuarios, suscripciones, generaciones y tickets salen de ensureAdminSchema; los chats (AgentChat) de ensureAgentTables. El build
+  // ya no empuja el esquema, así que sin esto una base sin migrar tumbaba la página. Memoizadas: cuestan casi nada. En orden:
+  // las tablas de los agentes cuelgan de User.
+  await ensureAdminSchema();
+  await ensureAgentTables();
   const now = new Date();
   const last30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const last60 = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { crearCaminoRapido } from "@/lib/schema-catalogo";
 
 /**
  * Tablas de la memoria operativa de los agentes (PropertyEvent, PropertyMemory, AgentAction, AgentChatFocus), como SQL
@@ -6,6 +7,9 @@ import { db } from "@/lib/db";
  * despliegue y el `|| echo` lo tapaba): estas tablas existen solo porque esta función las crea al vuelo.
  * DEBE seguir idéntico a los modelos de prisma/schema.prisma (lo comprueba src/lib/schema-drift.test.ts). Solo cambios ADITIVOS;
  * una columna nueva en una tabla ya publicada va en el CREATE TABLE Y en un ALTER ... ADD COLUMN IF NOT EXISTS.
+ *
+ * Antes de correr nada hace UNA consulta al catálogo (src/lib/schema-catalogo.ts) con los objetos que estas sentencias crearían;
+ * si ya existen todos, no ejecuta DDL. Los objetos se derivan de estas mismas sentencias.
  */
 const STATEMENTS: string[] = [
   `CREATE TABLE IF NOT EXISTS "PropertyEvent" (
@@ -64,6 +68,9 @@ const STATEMENTS: string[] = [
 /** Las sentencias, expuestas para la prueba que las compara con el esquema de Prisma y para POST /api/admin/migrate. */
 export const SENTENCIAS_OPERACION = STATEMENTS;
 
+/** Camino rápido: una consulta al catálogo que dice si ya existe todo lo de STATEMENTS (expuesto para las pruebas). */
+export const CAMINO_RAPIDO_OPERACION = crearCaminoRapido("ensureOperacionSchema", STATEMENTS);
+
 let listo: Promise<void> | null = null;
 
 /**
@@ -74,6 +81,8 @@ let listo: Promise<void> | null = null;
 export function ensureOperacionSchema(): Promise<void> {
   if (!listo) {
     listo = (async () => {
+      // Base al día (lo normal): una sola consulta de solo lectura y ninguna sentencia de DDL.
+      if (await CAMINO_RAPIDO_OPERACION.alDia((sql) => db.$queryRawUnsafe(sql))) return;
       const fallosDeTabla: unknown[] = [];
       for (const sql of STATEMENTS) {
         try {

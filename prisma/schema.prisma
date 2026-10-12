@@ -42,8 +42,9 @@ model User {
   brandColor    String?
 
   // F3.3: the admin's OWN ePayco merchant credentials, so resident payments go
-  // straight to their account (SOPH.IA never custodies funds). Secrets stored
-  // here; never returned to the client in full.
+  // straight to their account (SOPH.IA never custodies funds). epaycoPKey se guarda
+  // CIFRADA (formato enc:v1:..., ver src/lib/secret-box.ts) y nunca se devuelve al
+  // cliente, ni completa ni en fragmentos. La columna sigue siendo texto.
   epaycoPublicKey String?
   epaycoPCustId   String?
   epaycoPKey      String?
@@ -797,9 +798,10 @@ model AdminAuditLog {
 // ============================================
 // Reuniones: grabación, transcripción, ficha y acta
 // ============================================
-// Todo es ADITIVO (el build corre `prisma db push` contra la base de cada
-// entorno y las vistas previas pueden compartir la de producción). Cualquier
-// cambio aquí se replica en src/lib/ensure-meetings-schema.ts. Los tamaños en
+// Todo es ADITIVO (el esquema sale del SQL de ensure-meetings-schema.ts y de los
+// demás ensure*Schema, no de `prisma db push`: el build ya no lo corre, y las
+// vistas previas pueden compartir la base de producción). Cualquier cambio aquí
+// se replica en src/lib/ensure-meetings-schema.ts. Los tamaños en
 // bytes son Float: el Int de Prisma (32 bits) no llega a 2 GB y BigInt rompe
 // JSON.stringify.
 

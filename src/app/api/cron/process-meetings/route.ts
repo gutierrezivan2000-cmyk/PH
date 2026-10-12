@@ -3,6 +3,8 @@ export const maxDuration = 300;
 
 import { secretoCoincide } from "@/lib/secreto";
 import { NextRequest, NextResponse } from "next/server";
+import { ensureAdminSchema } from "@/lib/ensure-admin-schema";
+import { ensureMeetingsSchema } from "@/lib/ensure-meetings-schema";
 import { avanzarActasEnCurso } from "@/lib/meetings/acta-orquestador";
 import { vigilante } from "@/lib/meetings/cola";
 import { trabajar } from "@/lib/meetings/trabajador";
@@ -19,6 +21,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   try {
+    // Meeting, MeetingTask, MeetingSource y MeetingLivePart solo existen si ensureMeetingsSchema las creó (el build ya no empuja el
+    // esquema), y el trabajador también lee Generation, UsageRecord y Subscription (ensureAdminSchema). El cron corre en una
+    // instancia que puede estar fría y sin sesión que haya preparado nada, así que lo asegura aquí, antes de tocar la cola.
+    await ensureAdminSchema();
+    await ensureMeetingsSchema();
     const rescatadas = await vigilante();
     await avanzarActasEnCurso();
     const resumen = await trabajar({ presupuestoMs: 230_000 });

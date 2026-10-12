@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isValidAgentId } from "@/lib/agents";
+import { ensureAgentTables } from "@/lib/ensure-agent-tables";
 
 export async function GET(
   _req: NextRequest,
@@ -27,6 +28,8 @@ export async function GET(
     }
 
     try {
+      // AgentChat solo existe si ensureAgentTables la creó (el build ya no empuja el esquema); memoizada, cuesta casi nada.
+      await ensureAgentTables();
       const chats = await db.agentChat.findMany({
         where: { userId: session.user.id, agentId },
         orderBy: { updatedAt: "desc" },
@@ -77,6 +80,8 @@ export async function DELETE(
       return NextResponse.json({ error: "chatId requerido" }, { status: 400 });
     }
 
+    // Sin esto, en una base donde nadie ha abierto aún un chat la tabla no existe y borrar respondía 500.
+    await ensureAgentTables();
     await db.agentChat.deleteMany({
       where: { id: chatId, userId: session.user.id, agentId },
     });

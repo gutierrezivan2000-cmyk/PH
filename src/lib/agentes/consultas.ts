@@ -7,7 +7,7 @@ import { fmtCOP, computeUnitSummary } from "@/lib/cartera";
 import { computeBudgetExecution, sanitizeBudgetItems } from "@/lib/presupuesto";
 import type { ComingSoonKey } from "@/lib/feature-flags";
 import { construirBriefing, fechaCorta } from "./briefing";
-import { cargarCartera, cargarDatosDePropiedad, cargarVencimientos, type Visibles } from "./briefing-datos";
+import { asegurarEsquema, cargarCartera, cargarDatosDePropiedad, cargarVencimientos, type Visibles } from "./briefing-datos";
 
 export const SECCIONES = ["briefing", "morosos", "unidad", "presupuesto", "pqrs", "calendario", "reuniones", "reglamento", "actividad", "memoria", "comunicados", "asambleas", "certificados", "bitacora"] as const;
 export type Seccion = (typeof SECCIONES)[number];
@@ -53,6 +53,9 @@ export async function consultarOperacion(userId: string, visibles: Visibles, enF
   if (!propertyId) return "Indica la copropiedad (propertyId): hay varias y ninguna está en foco.";
 
   const { db } = await import("@/lib/db");
+  // Property y los módulos de la administración (cartera, PQRS, asambleas…) salen de ensureAdminSchema; las secciones de reuniones y
+  // de memoria operativa aseguran la suya abajo. El build ya no empuja el esquema: sin esto, una base sin migrar fallaba aquí.
+  await asegurarEsquema("admin");
   const propiedad = await db.property.findFirst({ where: { id: propertyId, userId }, select: { id: true, name: true, features: true } });
   if (!propiedad) return "Esa copropiedad no existe en esta cuenta.";
   const encabezado = `# ${propiedad.name} — ${seccion}`;
@@ -114,6 +117,7 @@ export async function consultarOperacion(userId: string, visibles: Visibles, enF
       return limitar([`${encabezado} (próximos ${dias} días)`, ...(v.length ? v.map((x) => `- ${fechaCorta(x.fecha)} · ${recortar(x.titulo, 90)} · ${x.categoria} · ${x.dias < 0 ? `vencido hace ${-x.dias} d` : `en ${x.dias} d`}`) : ["Nada por vencer."])].join("\n"));
     }
     case "reuniones": {
+      await asegurarEsquema("reuniones"); // Meeting solo existe si ensureMeetingsSchema la creó
       if (typeof entrada.reunionId === "string" && entrada.reunionId) {
         const m = await db.meeting.findFirst({ where: { id: entrada.reunionId, propertyId: propiedad.id, userId }, select: { title: true, date: true, status: true, digest: true } });
         if (!m) return "No encuentro esa reunión.";
@@ -132,11 +136,13 @@ export async function consultarOperacion(userId: string, visibles: Visibles, enF
       return limitar(`${encabezado}${consulta ? ` — «${recortar(consulta, 80)}»` : ""}\n${fragmentosRelevantes(texto, consulta)}`);
     }
     case "actividad": {
+      await asegurarEsquema("operacion"); // PropertyEvent solo existe si ensureOperacionSchema la creó
       const dias = Math.min(60, Math.max(1, Number(entrada.dias) || 14));
       const filas = await db.propertyEvent.findMany({ where: { propertyId: propiedad.id, userId, createdAt: { gte: new Date(ahora.getTime() - dias * 86_400_000) } }, orderBy: { createdAt: "desc" }, take: 40, select: { module: true, summary: true, actor: true, createdAt: true } });
       return limitar([`${encabezado} (últimos ${dias} días)`, ...(filas.length ? filas.map((e) => `- ${fechaCorta(e.createdAt.toISOString())} · ${e.module} · ${e.summary}${e.actor !== "usuario" ? ` (${e.actor})` : ""}`) : ["Sin actividad registrada."])].join("\n"));
     }
     case "memoria": {
+      await asegurarEsquema("operacion"); // PropertyMemory solo existe si ensureOperacionSchema la creó
       const filas = await db.propertyMemory.findMany({ where: { propertyId: propiedad.id, userId }, orderBy: { createdAt: "desc" }, take: 60, select: { kind: true, content: true, createdAt: true, authorAgent: true } });
       return limitar([encabezado, ...(filas.length ? filas.map((m) => `- [${m.kind}] ${m.content} — ${fechaCorta(m.createdAt.toISOString())}${m.authorAgent ? ` · ${m.authorAgent}` : ""}`) : ["Sin notas guardadas."])].join("\n"));
     }
