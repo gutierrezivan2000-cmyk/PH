@@ -74,7 +74,7 @@ describe("POST /api/auth/forgot-password — captcha apagado (sin TURNSTILE_SECR
 });
 
 describe("POST /api/auth/forgot-password — captcha encendido", () => {
-  beforeEach(() => vi.stubEnv("TURNSTILE_SECRET_KEY", SECRETO));
+  beforeEach(() => { vi.stubEnv("TURNSTILE_SECRET_KEY", SECRETO); vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "llave-publica-de-prueba"); });
 
   it("sin captchaToken responde 400 explícito y no toca límites, base de datos ni correo", async () => {
     const r = await POST(peticion({ email: "ana@x.co" }));
@@ -259,6 +259,7 @@ describe("POST /api/auth/forgot-password — límite con failClosed y esquema", 
   it("sin correo o con el captcha rechazado no se asegura el esquema (no se toca la base)", async () => {
     await POST(peticion({}));
     vi.stubEnv("TURNSTILE_SECRET_KEY", SECRETO);
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "llave-publica-de-prueba");
     await POST(peticion({ email: "ana@x.co" }));
     expect(esquema.ensureAdminSchema).not.toHaveBeenCalled();
   });

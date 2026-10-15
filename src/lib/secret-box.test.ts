@@ -261,3 +261,13 @@ describe("sin claves o con claves mal puestas", () => {
     expect(lanza(() => encryptSecret(undefined as unknown as string)).code).toBe("empty");
   });
 });
+
+describe("respaldo a NEXTAUTH_SECRET (igual que auth.ts)", () => {
+  it("cifra y descifra cuando solo existe NEXTAUTH_SECRET", () => {
+    vi.stubEnv("AUTH_SECRET", "");
+    vi.stubEnv("ENCRYPTION_KEY", "");
+    vi.stubEnv("NEXTAUTH_SECRET", "secreto-solo-nextauth-para-derivar-la-clave-1234");
+    const guardado = encryptSecret("p_key_de_prueba");
+    expect(decryptSecret(guardado)).toBe("p_key_de_prueba");
+  });
+});

@@ -46,6 +46,12 @@ export async function verificarCaptcha(token: unknown, ip?: string | null): Prom
   // Se lee en cada llamada (no al cargar el módulo) para que un cambio de configuración o una prueba lo tome.
   const secreto = process.env.TURNSTILE_SECRET_KEY?.trim();
   if (!secreto) return { ok: true, omitido: true };
+  // Configuración a medias: sin la llave pública la pantalla no dibuja el widget ni manda token, así que exigirlo bloquearía
+  // el registro y la recuperación de todos. Mejor dejarlo apagado (y avisarlo) que tumbarlos.
+  if (!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()) {
+    console.error("[captcha] Hay TURNSTILE_SECRET_KEY pero falta NEXT_PUBLIC_TURNSTILE_SITE_KEY: el captcha queda apagado.");
+    return { ok: true, omitido: true };
+  }
 
   if (typeof token !== "string" || !token.trim()) return { ok: false, motivo: "falta el token del captcha" };
   if (token.length > LARGO_MAXIMO_TOKEN) return { ok: false, motivo: "token del captcha demasiado largo" };

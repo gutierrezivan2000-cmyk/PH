@@ -204,6 +204,8 @@ export default function ConfiguracionPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  // Motivo que devolvió el servidor (p. ej. «El teléfono no puede pasar de 30 caracteres.»); si no hay, el texto genérico.
+  const [saveErrorMsg, setSaveErrorMsg] = useState<string | null>(null);
 
   // Editable fields
   const [name, setName] = useState("");
@@ -275,6 +277,7 @@ export default function ConfiguracionPage() {
     setSaving(true);
     setSaved(false);
     setSaveError(false);
+    setSaveErrorMsg(null);
     try {
       const res = await fetch("/api/profile", {
         method: "PUT",
@@ -283,6 +286,8 @@ export default function ConfiguracionPage() {
       });
       if (!res.ok) {
         // Don't show a green "Saved!" when the server rejected the change.
+        const d = (await res.json().catch(() => null)) as { error?: unknown } | null;
+        setSaveErrorMsg(typeof d?.error === "string" && d.error ? d.error : null);
         setSaveError(true);
         return;
       }
@@ -559,7 +564,7 @@ export default function ConfiguracionPage() {
                 <p className="k-apoyo">Guarda tu perfil y la marca de tus documentos a la vez.</p>
                 {saveError && errorEn === "guardar-perfil" && (
                   <p className="k-err" role="alert">
-                    No pudimos guardar tus cambios. Revisa tu conexión e inténtalo de nuevo.
+                    {saveErrorMsg ?? "No pudimos guardar tus cambios. Revisa tu conexión e inténtalo de nuevo."}
                   </p>
                 )}
               </div>
@@ -666,7 +671,7 @@ export default function ConfiguracionPage() {
                   <p className="k-apoyo">Guarda tu perfil y la marca de tus documentos.</p>
                   {saveError && errorEn === "guardar" && (
                     <p className="k-err" role="alert">
-                      No pudimos guardar tus cambios. Revisa tu conexión e inténtalo de nuevo.
+                      {saveErrorMsg ?? "No pudimos guardar tus cambios. Revisa tu conexión e inténtalo de nuevo."}
                     </p>
                   )}
                 </div>

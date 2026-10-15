@@ -14,6 +14,7 @@ beforeEach(() => {
   fetchFalso = vi.fn();
   vi.stubGlobal("fetch", fetchFalso);
   vi.stubEnv("TURNSTILE_SECRET_KEY", SECRETO);
+  vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "llave-publica-de-prueba");
   errores = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -33,6 +34,12 @@ describe("verificarCaptcha — apagado", () => {
     expect(await verificarCaptcha(undefined, "1.2.3.4")).toEqual({ ok: true, omitido: true });
     expect(await verificarCaptcha("cualquier-token", "1.2.3.4")).toEqual({ ok: true, omitido: true });
     expect(fetchFalso).not.toHaveBeenCalled();
+  });
+
+  it("con la secreta pero SIN la llave pública (configuración a medias) queda apagado y no bloquea a nadie", async () => {
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "");
+    const r = await verificarCaptcha(undefined, "1.2.3.4");
+    expect(r).toEqual({ ok: true, omitido: true });
   });
 
   it("una llave en blanco también cuenta como apagado", async () => {

@@ -76,7 +76,8 @@ function claveDeEncryptionKey(): Buffer | null {
 
 /** Clave derivada de AUTH_SECRET: null si no está definida. */
 function claveDeAuthSecret(): Buffer | null {
-  const s = process.env.AUTH_SECRET;
+  // Mismo orden que auth.ts: sin AUTH_SECRET vale NEXTAUTH_SECRET, para que un despliegue que solo tenga esa también cifre.
+  const s = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
   if (!s || !s.trim()) return null;
   return derivar(s, INFO_AUTH_SECRET);
 }

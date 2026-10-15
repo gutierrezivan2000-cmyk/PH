@@ -76,7 +76,7 @@ describe("POST /api/auth/register — captcha apagado (sin TURNSTILE_SECRET_KEY)
 });
 
 describe("POST /api/auth/register — captcha encendido", () => {
-  beforeEach(() => vi.stubEnv("TURNSTILE_SECRET_KEY", SECRETO));
+  beforeEach(() => { vi.stubEnv("TURNSTILE_SECRET_KEY", SECRETO); vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "llave-publica-de-prueba"); });
 
   it("sin captchaToken responde 400 con el mensaje y no toca la base de datos ni manda correo", async () => {
     const r = await POST(peticion(cuerpoValido));

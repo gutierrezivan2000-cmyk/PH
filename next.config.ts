@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           // El micrófono solo para la propia app (grabadora de reuniones); lo demás, apagado.
-          { key: "Permissions-Policy", value: "camera=(), geolocation=(), payment=(), usb=(), microphone=(self)" },
+          { key: "Permissions-Policy", value: "camera=(), geolocation=(), payment=(self), usb=(), microphone=(self)" },
         ],
       },
       {
