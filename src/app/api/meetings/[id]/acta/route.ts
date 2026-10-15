@@ -6,8 +6,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { ensureMeetingsSchema } from "@/lib/ensure-meetings-schema";
 import { checkUsageLimits } from "@/lib/usage";
 import { rateLimit } from "@/lib/rate-limit";
-import { MAX_ACTAS_EN_CURSO, conCandadoDeGeneracion } from "@/lib/meetings/candado-generacion";
-import { reanudarActa, iniciarActa, type ComprobarCupo } from "@/lib/meetings/acta-orquestador";
+import { MAX_ACTAS_EN_CURSO, contarSinCambios, reservarConCupo, type TransaccionConCandado } from "@/lib/meetings/candado-generacion";
+import {
+  avanzarActa, crearGeneracionDeActa, encolarPrimerPasoDeActa, prepararInicioActa, prepararReanudacion, reanudarActaEnTransaccion,
+  rescatarActaEnCurso, type ComprobarCupo, type ContextoParaCrearActa,
+} from "@/lib/meetings/acta-orquestador";
 import { leerActa } from "@/lib/meetings/acta-estado";
 import { exigirVisible, reunionDelUsuario } from "@/lib/meetings/acceso";
 import { almacenBlob } from "@/lib/meetings/almacen-blob";
@@ -100,29 +103,77 @@ export async function POST(req: NextRequest, { params }: Contexto) {
       );
     }
 
-    // Comprobar el cupo y crear la generación como UNA sola operación por usuario (candado de asesoría): sin él, una ráfaga de
-    // peticiones leía todas el mismo conteo y superaba el tope del plan.
-    type Reserva = { ok: true; creada: boolean; yaEnCurso: boolean } | { ok: false; status: number; error: string };
-    const reserva = await conCandadoDeGeneracion<Reserva>(ctx.userId, async (tx) => {
+    // 1. ANTES del candado, con la conexión global: validar la reunión (carga su transcripción) y descartar lo evidente.
+    //    La transacción del candado retiene una conexión del pool, así que no puede hacer nada lento.
+    let contexto: ContextoParaCrearActa | null = null;
+    if (reanudar) {
+      const prep = await prepararReanudacion(id, reanudar);
+      if (!prep.ok) return NextResponse.json({ error: prep.error }, { status: CODIGOS[prep.codigo] });
+    } else {
+      const prep = await prepararInicioActa({ meetingId: id, userId: ctx.userId });
+      if (!prep.ok) return NextResponse.json({ error: prep.error }, { status: CODIGOS[prep.codigo] });
+      // Ya hay una en curso (doble clic): no gasta cupo ni necesita candado.
+      if (prep.modo === "en_curso") {
+        empujar();
+        const { acta } = await leerActa(id);
+        return NextResponse.json({ acta, yaEnCurso: true }, { status: 200 });
+      }
+      contexto = prep.contexto;
+    }
+
+    // 2. El cupo del plan (conexión global, fuera del candado) y 3. la reserva: comprobar el cupo y crear la generación como UNA
+    //    sola operación por usuario (candado de asesoría). Sin él, una ráfaga de peticiones leía todas el mismo conteo y superaba el
+    //    tope del plan. Dentro del candado, SOLO con `tx`: los dos conteos y la fila (ver `candado-generacion`).
+    type Resultado = { ok: true; creada: boolean; yaEnCurso: boolean; generationId?: string } | { ok: false; status: number; error: string };
+    const reservar = async (tx: TransaccionConCandado, instantanea: number) => {
       // Tope de actas redactándose a la vez. Pedir otra vez la de ESTA reunión (doble clic) no suma: devuelve la que está en curso.
       const estaEnCurso = await tx.generation.count({ where: { userId: ctx.userId, meetingId: id, type: "acta", status: { in: ["pending", "processing"] } } });
+      if (estaEnCurso > 0 && !reanudar) return { valor: { ok: true, creada: false, yaEnCurso: true } satisfies Resultado };
       if (estaEnCurso === 0) {
         const enCurso = await tx.generation.count({ where: { userId: ctx.userId, meetingId: { not: id }, type: "acta", status: { in: ["pending", "processing"] } } });
         if (enCurso >= MAX_ACTAS_EN_CURSO) {
-          return { ok: false, status: 429, error: "Ya tienes actas redactándose. Espera a que terminen para pedir otra." };
+          return { valor: { ok: false, status: 429, error: "Ya tienes actas redactándose. Espera a que terminen para pedir otra." } satisfies Resultado };
         }
       }
+      // Si otra generación de la cuenta se coló desde que se miró el plan, esa comprobación ya no vale: se repite.
+      if (!(await contarSinCambios(tx, ctx.userId, instantanea))) return { reintentar: true as const };
       if (reanudar) {
-        const r = await reanudarActa(id, reanudar, new Date(), comprobarCupo);
-        if (!r.ok) return { ok: false, status: CODIGOS[r.codigo], error: r.error };
-        return { ok: true, creada: false, yaEnCurso: false };
+        if (!(await reanudarActaEnTransaccion(tx, id, reanudar, new Date()))) {
+          return { valor: { ok: false, status: CODIGOS.no_en_error, error: "Esta acta no está en error." } satisfies Resultado };
+        }
+        return { valor: { ok: true, creada: false, yaEnCurso: false, generationId: reanudar } satisfies Resultado };
       }
-      const r = await iniciarActa({ meetingId: id, userId: ctx.userId, comprobarCupo });
-      if (!r.ok) return { ok: false, status: CODIGOS[r.codigo], error: r.error };
-      return { ok: true, creada: !r.yaEnCurso, yaEnCurso: r.yaEnCurso };
-    });
-    if (!reserva.ok) return NextResponse.json({ error: reserva.error }, { status: reserva.status });
-    const { creada, yaEnCurso } = reserva;
+      const generationId = await crearGeneracionDeActa(tx, { userId: ctx.userId, meetingId: id, contexto: contexto! });
+      return { valor: { ok: true, creada: true, yaEnCurso: false, generationId } satisfies Resultado };
+    };
+    const reserva = await reservarConCupo<Resultado, { status: number; error: string }>(
+      ctx.userId,
+      async () => {
+        const cupo = await comprobarCupo();
+        return cupo.permitido ? null : { rechazo: { status: CODIGOS.sin_cupo, error: cupo.mensaje ?? "Llegaste al límite de generaciones de tu plan." } };
+      },
+      reservar,
+    );
+    if (!reserva) {
+      // Otras generaciones de la misma cuenta siguen colándose: mejor pedir que reintente que dar un cupo sin comprobar.
+      return NextResponse.json(
+        { error: "Se están iniciando otras generaciones de tu cuenta. Intenta de nuevo en unos segundos." },
+        { status: 429, headers: { "Retry-After": "2" } },
+      );
+    }
+    if ("rechazo" in reserva) return NextResponse.json({ error: reserva.rechazo.error }, { status: reserva.rechazo.status });
+    const resultado = reserva.valor;
+    if (!resultado.ok) return NextResponse.json({ error: resultado.error }, { status: resultado.status });
+    const { creada, yaEnCurso } = resultado;
+
+    // 4. DESPUÉS de confirmar: encolar y avanzar. Si algo se corta aquí, la fila ya existe y el cron la rescata (`avanzarActa`).
+    try {
+      if (reanudar) await avanzarActa(id, reanudar);
+      else if (creada && resultado.generationId && contexto) await encolarPrimerPasoDeActa(id, resultado.generationId, contexto);
+      else if (yaEnCurso) await rescatarActaEnCurso(id);
+    } catch (error) {
+      console.error("[api/meetings/[id]/acta POST] la generación quedó creada pero no se pudo encolar", error);
+    }
 
     empujar();
     const { acta } = await leerActa(id);

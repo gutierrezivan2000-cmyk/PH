@@ -129,7 +129,10 @@ export function nivelDeAviso(porcentajeRestante: number): "ok" | "poco" | "casi_
 
 const NOMBRE_DE_VENTANA: Record<VentanaDeUso, string> = { sesion: "sesión de 5 horas", semana: "semana", mes: "mes" };
 const FECHA_BOGOTA = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", day: "numeric", month: "long" });
-const HORA_BOGOTA = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", hour: "numeric", minute: "2-digit" });
+const HORA_BOGOTA_FORMATO = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", hour: "numeric", minute: "2-digit" });
+// Las versiones nuevas de ICU escriben «p. m.» con un espacio fino sin separación (U+202F): se normaliza a un espacio común para que el
+// mensaje salga igual en cualquier versión de Node.
+const HORA_BOGOTA = { format: (d: Date) => HORA_BOGOTA_FORMATO.format(d).replace(/[\u00a0\u202f]/g, " ") };
 
 /** Una fecha en palabras de Bogotá: «1 de noviembre». */
 export const fechaBogota = (fecha: Date): string => FECHA_BOGOTA.format(fecha);

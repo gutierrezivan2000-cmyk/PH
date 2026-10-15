@@ -13,6 +13,7 @@
  */
 import { db } from "@/lib/db";
 import { leerPlanDeSecciones, partesEnZona, planificarSecciones, type SeccionDeActa } from "./acta";
+import type { TransaccionConCandado } from "./candado-generacion";
 import { FUTURO_LEJANO, encolar } from "./cola";
 import { cargarContextoDeReunion, type ContextoDeReunion } from "./contexto-reunion";
 import {
@@ -119,13 +120,20 @@ async function actaEnCursoDe(meetingId: string): Promise<string | null> {
   return primeras[0]?.id ?? null;
 }
 
+/** Lo que hace falta para crear la fila de un acta nueva (se carga ANTES del candado: la transcripción completa pesa). */
+export type ContextoParaCrearActa = Pick<ContextoDeReunion, "propertyId" | "fecha" | "titulo" | "ficha" | "duracionMs">;
+
+export type PreparacionDeActa =
+  | { ok: true; modo: "en_curso"; generationId: string }
+  | { ok: true; modo: "nueva"; contexto: ContextoParaCrearActa }
+  | { ok: false; codigo: "no_existe" | "no_lista" | "sin_transcripcion" | "sin_cupo"; error: string };
+
 /**
- * Pide el acta de una reunión: crea su `Generation` y encola el primer paso. Si ya hay una en curso devuelve esa (un doble clic
- * no gasta dos actas). Quien llama revisa antes los cupos del plan y, después, empuja el trabajador.
+ * La parte lenta y sin escritura de pedir un acta: valida la reunión (carga su transcripción), busca si ya hay una en curso
+ * (un doble clic no gasta dos; si un corte la dejó sin su primer paso, la rescata) y aplica el tope por reunión. Va ANTES del
+ * candado, con la conexión global: así la transacción que reserva el cupo no retiene una conexión mientras se hace todo esto.
  */
-export async function iniciarActa({
-  meetingId, userId, comprobarCupo,
-}: { meetingId: string; userId: string; comprobarCupo?: ComprobarCupo }): Promise<ResultadoDeIniciarActa> {
+export async function prepararInicioActa({ meetingId, userId }: { meetingId: string; userId: string }): Promise<PreparacionDeActa> {
   const contexto = await cargarContextoDeReunion(meetingId, { userId });
   if (!contexto) return { ok: false, codigo: "no_existe", error: "Reunión no encontrada" };
   if (contexto.status !== "lista") return { ok: false, codigo: "no_lista", error: "Esta reunión todavía se está procesando." };
@@ -133,12 +141,8 @@ export async function iniciarActa({
     return { ok: false, codigo: "sin_transcripcion", error: "Esta reunión no tiene transcripción: no hay de dónde redactar el acta." };
   }
 
-  const enCurso = await actaEnCursoDe(meetingId);
-  if (enCurso) {
-    // Si un corte la dejó sin su primer paso, volver a pedirla la rescata en vez de dejarla esperando a que el cron lo note.
-    await avanzarActa(meetingId, enCurso).catch((e) => console.error("[meetings/acta-orquestador] no se pudo avanzar el acta", enCurso, e));
-    return { ok: true, generationId: enCurso, yaEnCurso: true };
-  }
+  const enCurso = await rescatarActaEnCurso(meetingId);
+  if (enCurso) return { ok: true, modo: "en_curso", generationId: enCurso };
 
   // Tope de actas por reunión (las ya escritas y las en curso; las que fallaron no cuentan).
   const previas = await db.generation.count({ where: { meetingId, type: "acta", status: { in: [...EN_CURSO, "completed"] } } });
@@ -149,18 +153,54 @@ export async function iniciarActa({
       error: `Esta reunión ya tiene ${MAX_ACTAS_POR_REUNION} actas. Descarga la que mejor quedó y ajústala con «Corregir documento».`,
     };
   }
+  const { propertyId, fecha, titulo, ficha, duracionMs } = contexto;
+  return { ok: true, modo: "nueva", contexto: { propertyId, fecha, titulo, ficha, duracionMs } };
+}
+
+/** Si la reunión ya tiene un acta en curso, la devuelve tras avanzarla por si un corte la dejó sin su primer paso. */
+export async function rescatarActaEnCurso(meetingId: string): Promise<string | null> {
+  const enCurso = await actaEnCursoDe(meetingId);
+  if (!enCurso) return null;
+  await avanzarActa(meetingId, enCurso).catch((e) => console.error("[meetings/acta-orquestador] no se pudo avanzar el acta", enCurso, e));
+  return enCurso;
+}
+
+const datosDeActaNueva = (userId: string, meetingId: string, c: ContextoParaCrearActa) => {
+  const fecha = partesEnZona(c.fecha);
+  return {
+    userId, propertyId: c.propertyId, type: "acta", status: "processing", progress: 0, month: fecha.mes, year: fecha.anio, meetingId, inputFiles: [],
+    inputText: `Desde la reunión «${c.titulo}»`,
+  };
+};
+
+/** Lo ÚNICO que va dentro del candado al pedir un acta nueva: crear la fila (`processing`), con la conexión de la transacción. */
+export async function crearGeneracionDeActa(tx: TransaccionConCandado, e: { userId: string; meetingId: string; contexto: ContextoParaCrearActa }): Promise<string> {
+  const g = await tx.generation.create({ data: datosDeActaNueva(e.userId, e.meetingId, e.contexto) });
+  return g.id;
+}
+
+/** Después de confirmar la fila: encola el primer paso (calentar la caché). Si falla, el cron la rescata (`avanzarActa`). */
+export async function encolarPrimerPasoDeActa(meetingId: string, generationId: string, contexto: Pick<ContextoDeReunion, "ficha" | "duracionMs">): Promise<void> {
+  await encolarCalentamiento(meetingId, generationId, contexto);
+}
+
+/**
+ * Pide el acta de una reunión: crea su `Generation` y encola el primer paso. Si ya hay una en curso devuelve esa (un doble clic
+ * no gasta dos actas). Quien llama revisa antes los cupos del plan y, después, empuja el trabajador.
+ * (La ruta HTTP no usa esta función: separa los pasos para que solo la reserva quede bajo el candado. Ver `candado-generacion`.)
+ */
+export async function iniciarActa({
+  meetingId, userId, comprobarCupo,
+}: { meetingId: string; userId: string; comprobarCupo?: ComprobarCupo }): Promise<ResultadoDeIniciarActa> {
+  const prep = await prepararInicioActa({ meetingId, userId });
+  if (!prep.ok) return prep;
+  if (prep.modo === "en_curso") return { ok: true, generationId: prep.generationId, yaEnCurso: true };
 
   // El cupo se mira solo cuando se va a gastar una generación nueva (pedir otra vez la que ya está en curso no gasta nada).
   const cupo = comprobarCupo ? await comprobarCupo() : null;
   if (cupo && !cupo.permitido) return { ok: false, codigo: "sin_cupo", error: cupo.mensaje ?? "Llegaste al límite de generaciones de tu plan." };
 
-  const fecha = partesEnZona(contexto.fecha);
-  const g = await db.generation.create({
-    data: {
-      userId, propertyId: contexto.propertyId, type: "acta", status: "processing", progress: 0, month: fecha.mes, year: fecha.anio, meetingId, inputFiles: [],
-      inputText: `Desde la reunión «${contexto.titulo}»`,
-    },
-  });
+  const g = await db.generation.create({ data: datosDeActaNueva(userId, meetingId, prep.contexto) });
 
   // Dos clics casi a la vez pudieron crear dos: se queda la más antigua y la otra se borra.
   const primera = await actaEnCursoDe(meetingId);
@@ -169,7 +209,7 @@ export async function iniciarActa({
     return { ok: true, generationId: primera, yaEnCurso: true };
   }
 
-  await encolarCalentamiento(meetingId, g.id, contexto);
+  await encolarCalentamiento(meetingId, g.id, prep.contexto);
   return { ok: true, generationId: g.id, yaEnCurso: false };
 }
 
@@ -238,6 +278,31 @@ export async function avanzarActasEnCurso(limite = 25): Promise<number> {
    Reanudar
    ════════════════════════════════════════════════════════════════════ */
 
+const hastaReanudar = (meetingId: string, prefijo: string, ahora: Date) => ({
+  falladas: { where: { meetingId, status: "fallida", key: { startsWith: prefijo } }, data: { status: "pendiente", attempts: 0, runAfter: ahora, lockedAt: null, error: null } },
+  congeladas: { where: { meetingId, status: "pendiente", runAfter: FUTURO_LEJANO, key: { startsWith: prefijo } }, data: { runAfter: ahora } },
+});
+
+/** ¿Hay un acta con error que retomar? (lectura rápida, antes del candado). */
+export async function prepararReanudacion(meetingId: string, generationId: string): Promise<{ ok: true } | { ok: false; codigo: "no_en_error"; error: string }> {
+  const g = await db.generation.findFirst({ where: { id: generationId, meetingId, type: "acta", status: "failed" }, select: { id: true } });
+  return g ? { ok: true } : { ok: false, codigo: "no_en_error", error: "Esta acta no está en error." };
+}
+
+/**
+ * Lo ÚNICO que va dentro del candado al retomar un acta: reactivar sus tareas y pasar la fila de `failed` a `processing` (que es
+ * lo que vuelve a gastar cupo), con la conexión de la transacción. Todo o nada: si algo falla, el acta sigue en error y se puede
+ * reintentar. Solo el primero de dos clics casi a la vez la retoma (`false` para el otro).
+ */
+export async function reanudarActaEnTransaccion(tx: TransaccionConCandado, meetingId: string, generationId: string, ahora: Date): Promise<boolean> {
+  const t = hastaReanudar(meetingId, prefijoDeActa(generationId), ahora);
+  const r = await tx.generation.updateMany({ where: { id: generationId, meetingId, type: "acta", status: "failed" }, data: { status: "processing", errorMessage: null } });
+  if (r.count !== 1) return false;
+  await tx.meetingTask.updateMany(t.falladas);
+  await tx.meetingTask.updateMany(t.congeladas);
+  return true;
+}
+
 /**
  * «Intentar de nuevo»: lo que falló vuelve a empezar de cero y lo que quedó congelado se descongela; lo que ya estaba hecho se
  * conserva (cada sección hecha ya se pagó). Solo si el acta está en error.
@@ -245,14 +310,14 @@ export async function avanzarActasEnCurso(limite = 25): Promise<number> {
 export async function reanudarActa(
   meetingId: string, generationId: string, ahora: Date = new Date(), comprobarCupo?: ComprobarCupo,
 ): Promise<{ ok: true } | { ok: false; codigo: "no_en_error" | "sin_cupo"; error: string }> {
-  const g = await db.generation.findFirst({ where: { id: generationId, meetingId, type: "acta", status: "failed" }, select: { id: true } });
-  if (!g) return { ok: false, codigo: "no_en_error", error: "Esta acta no está en error." };
+  const prep = await prepararReanudacion(meetingId, generationId);
+  if (!prep.ok) return prep;
   // Un acta con error no cuenta para el cupo; al retomarla vuelve a contar.
   const cupo = comprobarCupo ? await comprobarCupo() : null;
   if (cupo && !cupo.permitido) return { ok: false, codigo: "sin_cupo", error: cupo.mensaje ?? "Llegaste al límite de generaciones de tu plan." };
-  const prefijo = prefijoDeActa(generationId);
-  await db.meetingTask.updateMany({ where: { meetingId, status: "fallida", key: { startsWith: prefijo } }, data: { status: "pendiente", attempts: 0, runAfter: ahora, lockedAt: null, error: null } });
-  await db.meetingTask.updateMany({ where: { meetingId, status: "pendiente", runAfter: FUTURO_LEJANO, key: { startsWith: prefijo } }, data: { runAfter: ahora } });
+  const t = hastaReanudar(meetingId, prefijoDeActa(generationId), ahora);
+  await db.meetingTask.updateMany(t.falladas);
+  await db.meetingTask.updateMany(t.congeladas);
   const r = await db.generation.updateMany({ where: { id: generationId, status: "failed" }, data: { status: "processing", errorMessage: null } });
   // Dos clics casi a la vez: solo el primero la retoma.
   if (r.count !== 1) return { ok: false, codigo: "no_en_error", error: "Esta acta no está en error." };

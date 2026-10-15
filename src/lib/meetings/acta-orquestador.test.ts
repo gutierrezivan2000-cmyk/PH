@@ -8,7 +8,8 @@ vi.mock("@/lib/db", () => ({ get db() { return fake.db; } }));
 
 import { planificarSecciones, type SeccionDeActa } from "./acta";
 import {
-  MAX_ACTAS_POR_REUNION, avanzarActa, avanzarActasEnCurso, cacheCalentada, iniciarActa, planificarSiguientesDeActa, reanudarActa, type TareaDeActa,
+  MAX_ACTAS_POR_REUNION, avanzarActa, avanzarActasEnCurso, cacheCalentada, crearGeneracionDeActa, encolarPrimerPasoDeActa, iniciarActa, planificarSiguientesDeActa, prepararInicioActa,
+  reanudarActa, reanudarActaEnTransaccion, type TareaDeActa,
 } from "./acta-orquestador";
 import { FUTURO_LEJANO, fallar, reintentarFallidas } from "./cola";
 import { DURACION_SEPTIEMBRE_MS, FICHA_SEPTIEMBRE, construirIntervenciones } from "./demo-datos";
@@ -543,5 +544,47 @@ describe("un fallo de una tarea del acta detiene el acta, no la reunión", () =>
     await reintentarFallidas(ID);
     expect(fila(claveActaSeccion(gen, 1))).toMatchObject({ status: "fallida", attempts: 3 });
     expect(db.meetingTask.filas.find((x) => x.key === "ficha")).toMatchObject({ status: "pendiente", attempts: 0 });
+  });
+});
+
+describe("los pasos por separado (la ruta los reparte alrededor del candado)", () => {
+  it("prepararInicioActa solo lee: valida, y no crea nada ni encola", async () => {
+    await sembrarReunion();
+    const prep = await prepararInicioActa({ meetingId: ID, userId: "u1" });
+    expect(prep).toMatchObject({ ok: true, modo: "nueva", contexto: { propertyId: expect.any(String), titulo: expect.any(String) } });
+    expect(db.generation.filas).toHaveLength(0);
+    expect(db.meetingTask.filas).toHaveLength(0);
+    expect(await prepararInicioActa({ meetingId: ID, userId: "otra" })).toMatchObject({ ok: false, codigo: "no_existe" });
+  });
+
+  it("crea la fila con la conexión que se le da (tx) y encola el primer paso solo cuando se pide, después", async () => {
+    await sembrarReunion();
+    const prep = await prepararInicioActa({ meetingId: ID, userId: "u1" });
+    if (!prep.ok || prep.modo !== "nueva") throw new Error("se esperaba una acta nueva");
+    const otra = crearDbFalsa(); // «tx»: la global no debe tocarse
+    const id = await crearGeneracionDeActa(otra as never, { userId: "u1", meetingId: ID, contexto: prep.contexto });
+    expect(otra.generation.filas).toMatchObject([{ id, type: "acta", status: "processing", meetingId: ID, userId: "u1", progress: 0 }]);
+    expect(db.generation.filas).toHaveLength(0);
+    expect(db.meetingTask.filas).toHaveLength(0);
+    await encolarPrimerPasoDeActa(ID, id, prep.contexto);
+    expect(db.meetingTask.filas.map((x) => x.key)).toEqual([claveActaCalentar(id)]);
+  });
+
+  it("con un acta ya en curso, prepararInicioActa la devuelve (y la rescata) sin pedir candado", async () => {
+    await sembrarReunion();
+    const a = (await iniciarActa({ meetingId: ID, userId: "u1" })) as { generationId: string };
+    expect(await prepararInicioActa({ meetingId: ID, userId: "u1" })).toEqual({ ok: true, modo: "en_curso", generationId: a.generationId });
+  });
+
+  it("reanudarActaEnTransaccion reactiva tareas y fila con tx; solo el primero la retoma", async () => {
+    await sembrarReunion();
+    const gen = ((await iniciarActa({ meetingId: ID, userId: "u1" })) as { generationId: string }).generationId;
+    await db.meetingTask.updateMany({ where: { meetingId: ID, key: claveActaCalentar(gen) }, data: { status: "fallida", attempts: 3, error: "boom" } });
+    await db.generation.updateMany({ where: { id: gen }, data: { status: "failed", errorMessage: "x" } });
+    const ahora = new Date("2026-10-05T12:00:00Z");
+    expect(await reanudarActaEnTransaccion(db as never, ID, gen, ahora)).toBe(true);
+    expect(db.generation.filas[0]).toMatchObject({ status: "processing", errorMessage: null });
+    expect(db.meetingTask.filas[0]).toMatchObject({ status: "pendiente", attempts: 0, error: null, runAfter: ahora });
+    expect(await reanudarActaEnTransaccion(db as never, ID, gen, ahora)).toBe(false);
   });
 });
