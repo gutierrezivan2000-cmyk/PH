@@ -132,7 +132,7 @@ describe("ensureAdminSchema: camino rápido (una consulta al catálogo en vez de
     expect(sql).toContain("('Generation', 'meetingId')");
     expect(sql).toContain("('Generation', 'Generation_meetingId_idx')");
     expect(sql).toContain("('Account', 'Account_userId_fkey')"); // dentro de un DO/EXCEPTION
-    expect(sql).toContain("('User', 'User_email_key')");
+    expect(sql).not.toContain("User_email_key"); // único de mejor esfuerzo: opcional
     expect(sql).toContain("('CommonAsset', 'CommonAsset_pkey')");
     expect(CAMINO_RAPIDO_ADMIN.esperados().noEntendidas).toEqual([]);
   });

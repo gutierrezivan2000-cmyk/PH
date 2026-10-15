@@ -25,6 +25,12 @@ export type ObjetosEsperados = {
   /** Enums (hoy el esquema no tiene). */
   tipos: string[];
   /**
+   * Objetos que el DDL solo intenta crear dentro de un `DO $$ ... EXCEPTION WHEN OTHERS THEN RAISE NOTICE ... $$` (únicos de «mejor
+   * esfuerzo», p. ej. PendingOrder_epaycoRef_key): en una base heredada con filas repetidas NO se pueden crear y el DDL lo tolera. Si
+   * se exigieran, la consulta los reportaría siempre y el camino rápido jamás se tomaría. No se consultan; el DDL sigue intentándolos.
+   */
+  opcionales: { clase: "indice" | "restriccion"; tabla: string; nombre: string }[];
+  /**
    * Sentencias cuya forma no se supo leer. Si hay alguna no se puede asegurar que «existe todo», así que no hay camino rápido
    * (la prueba de este módulo exige que en las cuatro familias reales esté vacía).
    */
@@ -69,15 +75,19 @@ function partirPorComas(cuerpo: string): string[] {
   return partes;
 }
 
-/** Quita el envoltorio `DO $$ BEGIN <sentencia>; EXCEPTION WHEN <x> THEN ... END $$`. */
-function desenvolver(sql: string): string {
-  const m = /^DO \$\$ BEGIN (.+?);? EXCEPTION WHEN \w+ THEN .* END \$\$$/.exec(sql);
-  return m ? m[1] : sql;
+/**
+ * Quita el envoltorio `DO $$ BEGIN <sentencia>; EXCEPTION WHEN <x> THEN ... END $$`. `mejorEsfuerzo` es true cuando el guardia es
+ * `WHEN OTHERS`: cualquier fallo se traga, así que el objeto puede legítimamente no existir. (`duplicate_object` solo traga «ya existe»,
+ * por lo que ese objeto sigue siendo obligatorio.)
+ */
+function desenvolver(sql: string): { interna: string; mejorEsfuerzo: boolean } {
+  const m = /^DO \$\$ BEGIN (.+?);? EXCEPTION WHEN (\w+) THEN .* END \$\$$/.exec(sql);
+  return m ? { interna: m[1], mejorEsfuerzo: m[2].toLowerCase() === "others" } : { interna: sql, mejorEsfuerzo: false };
 }
 
 /** Deriva de las sentencias del DDL los objetos que deben existir cuando todo está aplicado. */
 export function objetosEsperados(sentencias: readonly string[]): ObjetosEsperados {
-  const e: ObjetosEsperados = { columnas: [], indices: [], restricciones: [], tipos: [], noEntendidas: [] };
+  const e: ObjetosEsperados = { columnas: [], indices: [], restricciones: [], tipos: [], opcionales: [], noEntendidas: [] };
   const vistos = new Set<string>();
   const una = <T>(lista: T[], clave: string, valor: T) => {
     if (vistos.has(clave)) return;
@@ -85,7 +95,7 @@ export function objetosEsperados(sentencias: readonly string[]): ObjetosEsperado
     lista.push(valor);
   };
   for (const cruda of sentencias) {
-    const sql = desenvolver(normaliza(cruda));
+    const { interna: sql, mejorEsfuerzo } = desenvolver(normaliza(cruda));
     let m: RegExpExecArray | null;
     if ((m = /^CREATE TABLE IF NOT EXISTS "(\w+)" \((.*)\)$/.exec(sql))) {
       const tabla = m[1];
@@ -99,9 +109,11 @@ export function objetosEsperados(sentencias: readonly string[]): ObjetosEsperado
     } else if ((m = /^ALTER TABLE "(\w+)" ADD COLUMN IF NOT EXISTS "(\w+)" .+$/.exec(sql))) {
       una(e.columnas, `c.${m[1]}.${m[2]}`, { tabla: m[1], columna: m[2] });
     } else if ((m = /^CREATE (?:UNIQUE )?INDEX IF NOT EXISTS "(\w+)" ON "(\w+)"\(.+\)$/.exec(sql))) {
-      una(e.indices, `i.${m[2]}.${m[1]}`, { tabla: m[2], nombre: m[1] });
+      if (mejorEsfuerzo) una(e.opcionales, `i.${m[2]}.${m[1]}`, { clase: "indice", tabla: m[2], nombre: m[1] });
+      else una(e.indices, `i.${m[2]}.${m[1]}`, { tabla: m[2], nombre: m[1] });
     } else if ((m = /^ALTER TABLE "(\w+)" ADD CONSTRAINT "(\w+)" .+$/.exec(sql))) {
-      una(e.restricciones, `k.${m[1]}.${m[2]}`, { tabla: m[1], nombre: m[2] });
+      if (mejorEsfuerzo) una(e.opcionales, `k.${m[1]}.${m[2]}`, { clase: "restriccion", tabla: m[1], nombre: m[2] });
+      else una(e.restricciones, `k.${m[1]}.${m[2]}`, { tabla: m[1], nombre: m[2] });
     } else if ((m = /^CREATE TYPE "(\w+)" AS ENUM \(.*\)$/.exec(sql))) {
       una(e.tipos, `t.${m[1]}`, m[1]);
     } else e.noEntendidas.push(sql.slice(0, 100));
@@ -150,6 +162,7 @@ export function consultaDeFaltantes(e: ObjetosEsperados, limite = MAX_FALTANTES)
         `WHERE n.nspname = current_schema() AND t.typname = v.nombre AND t.typtype = 'e')`
     );
   }
+  // e.opcionales no se consulta a propósito (ver ObjetosEsperados.opcionales).
   if (!partes.length) throw new Error("no hay objetos que comprobar");
   return `${partes.join(" UNION ALL ")} LIMIT ${Math.max(1, Math.floor(limite))}`;
 }

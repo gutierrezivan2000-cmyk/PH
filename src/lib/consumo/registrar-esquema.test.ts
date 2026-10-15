@@ -97,6 +97,31 @@ describe("asegurarColumnasDeConsumo", () => {
     expect(consultar).toHaveBeenCalledTimes(2);
   });
 
+  it("llamadas concurrentes en frío esperan la MISMA preparación: ninguna crea la fila antes de que existan las columnas", async () => {
+    let liberar!: () => void;
+    consultar.mockReturnValue(new Promise((r) => { liberar = () => r([]); }));
+    const { asegurarColumnasDeConsumo, registrarConsumo } = await cargar();
+    const base: Parameters<typeof registrarConsumo>[0] = { tipo: "chat", proveedor: "anthropic", modelo: "claude-sonnet-5", userId: "u1", tokens: { entrada: 10, salida: 1, cacheLectura: 0, cacheEscritura: 0 } };
+    const a = asegurarColumnasDeConsumo();
+    const b = asegurarColumnasDeConsumo();
+    const registros = [registrarConsumo(base), registrarConsumo(base), registrarConsumo(base)];
+    await new Promise((r) => setTimeout(r, 10));
+    expect(crear).not.toHaveBeenCalled(); // nadie sigue mientras la preparación está en vuelo
+    liberar();
+    await Promise.all([a, b, ...registros]);
+    expect(consultar).toHaveBeenCalledTimes(1);
+    expect(crear).toHaveBeenCalledTimes(3);
+  });
+
+  it("si la preparación en vuelo falla, los concurrentes terminan igual y no se reintenta dentro del minuto", async () => {
+    consultar.mockRejectedValue(new Error("caída"));
+    ejecutar.mockRejectedValue(new Error("caída"));
+    const { asegurarColumnasDeConsumo } = await cargar();
+    await Promise.all([asegurarColumnasDeConsumo(), asegurarColumnasDeConsumo()]);
+    await asegurarColumnasDeConsumo();
+    expect(consultar).toHaveBeenCalledTimes(1);
+  });
+
   it("sin $executeRawUnsafe (base de pruebas) no hace nada ni lanza", async () => {
     const guardada = db.$executeRawUnsafe;
     delete db.$executeRawUnsafe;

@@ -110,10 +110,10 @@ const COLUMNAS = SENTENCIAS_COLUMNAS_CONSUMO;
 const CAMINO_RAPIDO_COLUMNAS = crearCaminoRapido("consumo", COLUMNAS);
 let columnasListas = false;
 let ultimoIntento = 0;
+/** La preparación en vuelo: quien llega mientras otra corre la espera, en vez de seguir y escribir antes de que existan las columnas. */
+let enCurso: Promise<void> | null = null;
 
-export async function asegurarColumnasDeConsumo(): Promise<void> {
-  if (columnasListas || Date.now() - ultimoIntento < 60_000) return;
-  ultimoIntento = Date.now();
+async function prepararColumnas(): Promise<void> {
   const crudo = db as unknown as {
     $executeRawUnsafe?: (sql: string) => Promise<unknown>;
     $queryRawUnsafe?: (sql: string) => Promise<unknown>;
@@ -131,6 +131,18 @@ export async function asegurarColumnasDeConsumo(): Promise<void> {
   } catch (e) {
     console.error("[consumo] no se pudieron preparar las columnas del detalle", e);
   }
+}
+
+export async function asegurarColumnasDeConsumo(): Promise<void> {
+  if (columnasListas) return;
+  if (enCurso) return enCurso; // concurrentes: esperan la misma preparación
+  // `ultimoIntento` solo frena los reintentos tras un fallo (una vez por minuto).
+  if (Date.now() - ultimoIntento < 60_000) return;
+  ultimoIntento = Date.now();
+  enCurso = prepararColumnas().finally(() => {
+    enCurso = null;
+  });
+  return enCurso;
 }
 
 /** Guarda el consumo. Nunca lanza. Devuelve el costo registrado (0 si no se pudo). */

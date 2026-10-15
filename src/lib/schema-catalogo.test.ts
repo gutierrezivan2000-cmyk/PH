@@ -25,7 +25,7 @@ const FAMILIAS = [
   { nombre: "operacion", sentencias: SENTENCIAS_OPERACION, camino: CAMINO_RAPIDO_OPERACION },
 ] as const;
 
-const vacio = (): ObjetosEsperados => ({ columnas: [], indices: [], restricciones: [], tipos: [], noEntendidas: [] });
+const vacio = (): ObjetosEsperados => ({ columnas: [], indices: [], restricciones: [], tipos: [], opcionales: [], noEntendidas: [] });
 
 beforeEach(() => {
   vi.spyOn(console, "info").mockImplementation(() => {});
@@ -54,7 +54,9 @@ describe("objetosEsperados: deriva de las sentencias lo que debe existir", () =>
     expect(e.restricciones).toContainEqual({ tabla: "User", nombre: "User_pkey" });
     expect(e.restricciones.some((k) => k.tabla === "VerificationToken" && k.nombre.endsWith("_pkey"))).toBe(false); // esa tabla no tiene PK
     expect(e.restricciones).toContainEqual({ tabla: "Account", nombre: "Account_userId_fkey" }); // dentro de un DO/EXCEPTION
-    expect(e.indices).toContainEqual({ tabla: "User", nombre: "User_email_key" }); // índice único dentro de un DO/EXCEPTION
+    expect(e.indices.some((i) => i.nombre === "User_email_key")).toBe(false); // único de mejor esfuerzo (WHEN OTHERS): opcional
+    expect(e.opcionales).toContainEqual({ clase: "indice", tabla: "User", nombre: "User_email_key" });
+    expect(e.opcionales).toContainEqual({ clase: "indice", tabla: "PendingOrder", nombre: "PendingOrder_epaycoRef_key" });
     expect(e.indices).toContainEqual({ tabla: "Generation", nombre: "Generation_meetingId_idx" });
     expect(e.tipos).toEqual([]);
   });
@@ -67,8 +69,8 @@ describe("objetosEsperados: deriva de las sentencias lo que debe existir", () =>
       const indices = new Set(texto.map((s) => /CREATE (?:UNIQUE )?INDEX IF NOT EXISTS "(\w+)"/.exec(s)?.[1]).filter(Boolean));
       const fks = new Set(texto.map((s) => /ADD CONSTRAINT "(\w+)"/.exec(s)?.[1]).filter(Boolean));
       const pks = new Set(texto.map((s) => /CONSTRAINT "(\w+_pkey)" PRIMARY KEY/.exec(s)?.[1]).filter(Boolean));
-      expect(new Set(e.indices.map((i) => i.nombre)), `${f.nombre}: índices`).toEqual(indices);
-      expect(new Set(e.restricciones.map((k) => k.nombre)), `${f.nombre}: restricciones`).toEqual(new Set([...fks, ...pks]));
+      expect(new Set([...e.indices, ...e.opcionales.filter((o) => o.clase === "indice")].map((i) => i.nombre)), `${f.nombre}: índices`).toEqual(indices);
+      expect(new Set([...e.restricciones, ...e.opcionales.filter((o) => o.clase === "restriccion")].map((k) => k.nombre)), `${f.nombre}: restricciones`).toEqual(new Set([...fks, ...pks]));
       for (const t of tablas) expect(e.columnas.some((c) => c.tabla === t), `${f.nombre}: la tabla ${t} no aporta columnas`).toBe(true);
     }
   });
@@ -83,6 +85,31 @@ describe("objetosEsperados: deriva de las sentencias lo que debe existir", () =>
     const e = objetosEsperados([`CREATE VIEW "V" AS SELECT 1`, `CREATE INDEX IF NOT EXISTS "A_idx" ON "A"("x")`]);
     expect(e.noEntendidas).toHaveLength(1);
     expect(e.indices).toEqual([{ tabla: "A", nombre: "A_idx" }]);
+  });
+});
+
+describe("objetos de mejor esfuerzo (DO ... EXCEPTION WHEN OTHERS)", () => {
+  const unico = `DO $$ BEGIN CREATE UNIQUE INDEX IF NOT EXISTS "T_x_key" ON "T"("x"); EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'no se pudo: %', SQLERRM; END $$`;
+  const base = [`CREATE TABLE IF NOT EXISTS "T" ("id" TEXT NOT NULL, "x" TEXT, CONSTRAINT "T_pkey" PRIMARY KEY ("id"))`, `CREATE INDEX IF NOT EXISTS "T_id_idx" ON "T"("id")`];
+
+  it("van a opcionales, no a indices, y la consulta no los nombra; los estrictos (incluso con WHEN duplicate_object) siguen siéndolo", () => {
+    const e = objetosEsperados([...base, unico, `DO $$ BEGIN ALTER TABLE "T" ADD CONSTRAINT "T_f_fkey" FOREIGN KEY ("x") REFERENCES "T"("id"); EXCEPTION WHEN duplicate_object THEN NULL; END $$`]);
+    expect(e.opcionales).toEqual([{ clase: "indice", tabla: "T", nombre: "T_x_key" }]);
+    expect(e.indices).toEqual([{ tabla: "T", nombre: "T_id_idx" }]);
+    expect(e.restricciones.map((k) => k.nombre)).toContain("T_f_fkey");
+    const sql = consultaDeFaltantes(e);
+    expect(sql).not.toContain("T_x_key");
+    expect(sql).toContain("T_id_idx");
+    expect(sql).toContain("T_f_fkey");
+  });
+
+  it("índice de mejor esfuerzo ausente => al día (true); objeto estricto ausente => no al día", async () => {
+    const camino = crearCaminoRapido("prueba", [...base, unico]);
+    // Simula el catálogo: responde solo con lo que la consulta realmente pregunta y que "no existe".
+    const noExisten = (ausentes: string[]) => async (sql: string) => ausentes.filter((a) => sql.includes(`'${a}'`)).map((a) => ({ clase: "x", objeto: a }));
+    expect(await camino.alDia(noExisten(["T_x_key"]))).toBe(true);
+    expect(await camino.alDia(noExisten(["T_x_key", "T_id_idx"]))).toBe(false);
+    expect(await camino.alDia(noExisten(["T_pkey"]))).toBe(false);
   });
 });
 
@@ -186,6 +213,17 @@ describe.skipIf(!PGliteClase)("la consulta de catálogo sobre un Postgres real (
       expect(await f.camino.alDia(consultar), f.nombre).toBe(false);
       expect((await faltantes(f.camino.esperados())).length, f.nombre).toBeGreaterThan(0);
     }
+  });
+
+  it("legado con filas repetidas: el único de mejor esfuerzo no se puede crear y aun así las cuatro familias están al día", async () => {
+    await aplicarTodo();
+    await pg.exec(`DROP INDEX "User_email_key"`);
+    await pg.exec(`INSERT INTO "User" ("id","email","updatedAt") VALUES ('u1','dup@x.co',now()), ('u2','dup@x.co',now())`);
+    await pg.exec(`DO $$ BEGIN CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email"); EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'x'; END $$`); // no puede
+    expect((await consultar(`SELECT 1 FROM pg_indexes WHERE indexname = 'User_email_key'`)).length).toBe(0);
+    for (const f of FAMILIAS) expect(await f.camino.alDia(consultar), f.nombre).toBe(true);
+    await pg.exec(`DELETE FROM "User"`);
+    await pg.exec(`CREATE UNIQUE INDEX "User_email_key" ON "User"("email")`);
   });
 
   it("con todo el SQL aplicado, la consulta no devuelve nada: las cuatro familias están al día (el camino rápido se toma)", async () => {
