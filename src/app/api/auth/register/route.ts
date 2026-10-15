@@ -151,6 +151,12 @@ export async function POST(req: NextRequest) {
     await db.verificationToken.create({
       data: { identifier: email, token: hashedCode, expires },
     });
+    // Código nuevo, intentos nuevos: el aviso de «demasiados intentos» pide solicitar un código nuevo, y sin esto seguía bloqueado.
+    try {
+      await db.rateLimit.deleteMany({ where: { key: `verify:${email}` } });
+    } catch {
+      /* mejor esfuerzo: el contador vence solo */
+    }
 
     // Send verification email — report the outcome honestly so the UI can
     // tell the user when the code didn't go out instead of leaving them

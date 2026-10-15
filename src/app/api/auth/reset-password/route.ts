@@ -20,21 +20,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // El token es de 256 bits (no se adivina), pero sí se podía inundar la base con comprobaciones. Se limita por IP y,
-    // además, por correo (tope holgado: 5 por 15 min) para que no se pueda probar sin fin contra una misma cuenta desde
-    // muchas IP. failClosed: si la base falla, se deniega.
+    // El token es de 256 bits (no se adivina): solo se limita por IP, para no poder inundar la base con comprobaciones. Un límite
+    // por correo permitiría a un tercero gastarlo y dejar sin efecto el enlace que la persona recibió. failClosed: si la base
+    // falla, se deniega. Antes se asegura el esquema: sin la tabla RateLimit el limitador fallaba y todos recibían 429.
+    const { ensureAdminSchema: asegurarEsquema } = await import("@/lib/ensure-admin-schema");
+    await asegurarEsquema().catch(() => {});
     const { rateLimit, clientIp } = await import("@/lib/rate-limit");
     const attempt = await rateLimit(`reset:ip:${clientIp(req)}`, {
       max: 20,
       windowMs: 15 * 60 * 1000,
       failClosed: true,
     });
-    const intentoCorreo = await rateLimit(`reset:email:${email}`, {
-      max: 5,
-      windowMs: 15 * 60 * 1000,
-      failClosed: true,
-    });
-    if (!attempt.allowed || !intentoCorreo.allowed) {
+    if (!attempt.allowed) {
       return NextResponse.json(
         { error: "Demasiados intentos. Espera unos minutos e inténtalo de nuevo." },
         { status: 429 }

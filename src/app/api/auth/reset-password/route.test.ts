@@ -32,7 +32,7 @@ describe("POST /api/auth/reset-password — freno por IP", () => {
   it("limita por IP y falla CERRADO si la base de contadores cae", async () => {
     const r = await POST(peticion({ ...valida, email: " Ana@X.co " }));
     expect(r.status).toBe(200);
-    expect(limite.rateLimit).toHaveBeenCalledTimes(2);
+    expect(limite.rateLimit).toHaveBeenCalledTimes(1);
     expect(limite.rateLimit).toHaveBeenCalledWith("reset:ip:1.2.3.4", {
       max: 20,
       windowMs: 15 * 60 * 1000,
@@ -40,21 +40,25 @@ describe("POST /api/auth/reset-password — freno por IP", () => {
     });
   });
 
-  it("también limita por correo normalizado: 5 por 15 min, failClosed", async () => {
-    await POST(peticion({ ...valida, email: " Ana@X.co " }));
-    expect(limite.rateLimit).toHaveBeenCalledWith("reset:email:ana@x.co", {
-      max: 5,
-      windowMs: 15 * 60 * 1000,
-      failClosed: true,
+  it("no hay freno por correo: muchas peticiones inválidas de IPs distintas no hacen fallar un reset válido posterior", async () => {
+    const ips = Array.from({ length: 50 }, (_, i) => `10.0.0.${i}`);
+    const usados = new Map<string, number>();
+    limite.rateLimit.mockImplementation(async (k: string, o: { max: number }) => {
+      const n = (usados.get(k) ?? 0) + 1;
+      usados.set(k, n);
+      return { allowed: n <= o.max };
     });
-  });
-
-  it("pasado el límite por correo responde 429 sin consultar el token", async () => {
-    limite.rateLimit.mockImplementation(async (k: string) => ({ allowed: !k.startsWith("reset:email:") }));
+    db.verificationToken.findFirst.mockResolvedValue(null);
+    for (const ip of ips) {
+      limite.clientIp.mockReturnValue(ip);
+      expect((await POST(peticion({ ...valida, token: "b".repeat(64) }))).status).toBe(400);
+    }
+    db.verificationToken.findFirst.mockResolvedValue({ identifier: "pwreset:ana@x.co", token: hashDe(TOKEN) });
+    limite.clientIp.mockReturnValue("1.2.3.4");
     const r = await POST(peticion(valida));
-    expect(r.status).toBe(429);
-    expect(db.verificationToken.findFirst).not.toHaveBeenCalled();
-    expect(db.user.updateMany).not.toHaveBeenCalled();
+    expect(r.status).toBe(200);
+    expect([...usados.keys()].every((k) => k.startsWith("reset:ip:"))).toBe(true);
+    expect(db.user.updateMany).toHaveBeenCalledTimes(1);
   });
 
   it("correo con ':' o espacios (identifier plantado) se rechaza sin tocar la base", async () => {

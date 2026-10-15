@@ -222,12 +222,12 @@ describe("POST /api/auth/forgot-password — límite con failClosed y esquema", 
     expect(limite.rateLimit).toHaveBeenCalledWith("forgot:ip:203.0.113.9", { max: 6, windowMs: 60 * 60 * 1000, failClosed: true });
   });
 
-  it("si el límite no se pudo contar (unavailable) responde la frase neutral y no toca esquema, usuario, token ni correo", async () => {
+  it("si el límite no se pudo contar (unavailable) responde la frase neutral, asegura el esquema pero no consulta usuario, token ni correo", async () => {
     limite.rateLimit.mockResolvedValue({ allowed: false, retryAfterSec: 30, unavailable: true });
     const r = await POST(peticion({ email: "ana@x.co" }));
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ success: true, message: NEUTRO });
-    expect(esquema.ensureAdminSchema).not.toHaveBeenCalled();
+    expect(esquema.ensureAdminSchema).toHaveBeenCalledTimes(1);
     expect(db.user.findUnique).not.toHaveBeenCalled();
     expect(db.verificationToken.create).not.toHaveBeenCalled();
     expect(correo.sendPasswordResetEmail).not.toHaveBeenCalled();
@@ -250,8 +250,9 @@ describe("POST /api/auth/forgot-password — límite con failClosed y esquema", 
 
   it("antes de consultar User y VerificationToken asegura el esquema (como register)", async () => {
     await POST(peticion({ email: "ana@x.co" }));
-    expect(esquema.ensureAdminSchema).toHaveBeenCalledTimes(1);
+    expect(esquema.ensureAdminSchema).toHaveBeenCalled();
     const orden = (m: { mock: { invocationCallOrder: number[] } }) => m.mock.invocationCallOrder[0];
+    expect(orden(esquema.ensureAdminSchema)).toBeLessThan(orden(limite.rateLimit));
     expect(orden(esquema.ensureAdminSchema)).toBeLessThan(orden(db.user.findUnique));
     expect(orden(esquema.ensureAdminSchema)).toBeLessThan(orden(db.verificationToken.findFirst));
   });

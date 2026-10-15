@@ -56,7 +56,7 @@ const productionProviders = [
       email: { label: "Email", type: "email" },
       password: { label: "Password", type: "password" },
     },
-    async authorize(credentials) {
+    async authorize(credentials, request) {
       try {
         const email = (credentials?.email as string)?.trim().toLowerCase();
         const password = credentials?.password as string;
@@ -76,10 +76,16 @@ const productionProviders = [
         // pasar: sin contador no hay freno, y alguien que sature la base
         // probaría contraseñas sin límite. Se responde igual que ante un
         // límite alcanzado (null): quien entra bien también necesita la base.
-        const { rateLimit } = await import("@/lib/rate-limit");
-        const rlKey = `login:email:${email}`;
+        // Dos contadores: uno por correo+IP (10 por 15 min: frena a quien prueba contraseñas) y otro por correo mucho más holgado
+        // (100). Con solo el del correo, cualquiera que supiera el correo de otra persona podía gastarle los 10 intentos y
+        // dejarla fuera de su propia cuenta indefinidamente.
+        const { rateLimit, clientIp } = await import("@/lib/rate-limit");
+        const ip = request ? clientIp(request as unknown as Parameters<typeof clientIp>[0]) : "unknown";
+        const rlKey = `login:email:${email}:ip:${ip}`;
         const rl = await rateLimit(rlKey, { max: 10, windowMs: 15 * 60 * 1000, failClosed: true });
         if (!rl.allowed) return null;
+        const rlCorreo = await rateLimit(`login:email:${email}`, { max: 100, windowMs: 15 * 60 * 1000, failClosed: true });
+        if (!rlCorreo.allowed) return null;
 
         const user = await db.user.findUnique({ where: { email } });
         if (!user || !user.passwordHash) return null;
@@ -144,8 +150,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     // Runs before jwt on every sign-in. Blocks banned accounts for all
     // providers (Google, credentials). Credentials also checks in authorize().
-    async signIn({ user }) {
+    async signIn({ user, account, profile }) {
       if (IS_DEMO) return true;
+      // Google debe afirmar que el correo está verificado: el jwt enlaza por correo con una cuenta existente (o crea una), así
+      // que un correo sin verificar por Google permitiría tomar la cuenta de otra persona.
+      if (account?.provider === "google" && (profile as { email_verified?: boolean } | undefined)?.email_verified !== true) {
+        return false;
+      }
       const email = user?.email?.trim().toLowerCase();
       if (!email) return true;
       try {

@@ -72,6 +72,12 @@ export async function POST(req: NextRequest) {
     await db.verificationToken.create({
       data: { identifier: email, token: hashedCode, expires },
     });
+    // Código nuevo, intentos nuevos (el tope de verify pide justo esto: «solicita un código nuevo»).
+    try {
+      await db.rateLimit.deleteMany({ where: { key: `verify:${email}` } });
+    } catch {
+      /* mejor esfuerzo: el contador vence solo */
+    }
 
     try {
       const { sendVerificationEmail } = await import("@/lib/email");

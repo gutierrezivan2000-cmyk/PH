@@ -51,6 +51,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: MENSAJE_CAPTCHA_FALLIDO }, { status: 400 });
     }
 
+    // Antes del limitador: sin la tabla RateLimit (base sin migrar) el limitador fallaba y no se mandaba ningún correo.
+    const { ensureAdminSchema: asegurarEsquema } = await import("@/lib/ensure-admin-schema");
+    await asegurarEsquema();
+
     // Rate limit per IP so this can't be used to spam reset emails.
     // failClosed: si la base falla al contar, NO se manda nada (sin contador no hay freno al envío masivo de correos). La
     // respuesta sigue siendo la neutral, igual que al alcanzar el límite.
