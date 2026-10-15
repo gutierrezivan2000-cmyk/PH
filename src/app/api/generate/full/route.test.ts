@@ -27,6 +27,7 @@ vi.mock("@vercel/blob", () => ({ del: (...a: unknown[]) => del(...a) }));
 vi.mock("@/lib/usage", () => ({
   getGenerationFileLimits: async () => ({ maxFiles: limites.maxFiles }),
   checkUsageLimits: (...a: unknown[]) => uso.check(...a),
+  STUCK_MS: 15 * 60 * 1000,
 }));
 vi.mock("@/lib/uso-chat-servidor", () => ({ cupoDeAudioMensual: async () => ({ bloqueado: false }) }));
 vi.mock("@/lib/generation/run", async (original) => ({
@@ -212,6 +213,25 @@ describe("POST /api/generate/full: cupo atómico y ráfagas", () => {
     expect(rs.filter((r) => r.status === 429)).toHaveLength(8);
     expect(db.generation.create).toHaveBeenCalledTimes(2);
     expect(runGeneration).toHaveBeenCalledTimes(2);
+  });
+
+  it("checkUsageLimits recibe el cliente de la transacción (tx), no el db global", async () => {
+    const tx = { ...db, marca: "tx" };
+    db.$transaction.mockImplementation(async (fn: (t: typeof db) => unknown) => fn(tx as never));
+    const r = await generar([]);
+    expect(r.status).toBe(200);
+    expect(uso.check).toHaveBeenCalledWith(U1, tx);
+  });
+
+  it("el tope de generaciones en curso ignora las colgadas de más de 15 min (cuentas beta no las reapan)", async () => {
+    const antes = Date.now();
+    const r = await generar([]);
+    expect(r.status).toBe(200);
+    const where = db.generation.count.mock.calls[0][0].where;
+    expect(where).toMatchObject({ userId: U1, status: "processing", batchId: null, meetingId: null });
+    const limite = (where.createdAt.gte as Date).getTime();
+    expect(limite).toBeGreaterThanOrEqual(antes - 15 * 60_000 - 1000);
+    expect(limite).toBeLessThanOrEqual(Date.now() - 15 * 60_000);
   });
 
   it("con 2 generaciones ya en curso rechaza una tercera (429)", async () => {

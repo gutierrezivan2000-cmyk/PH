@@ -164,3 +164,19 @@ describe("las actas de reuniones también se miden por actividad", () => {
     expect(r.dailyUsed).toBe(0);
   });
 });
+
+describe("cliente de transacción", () => {
+  it("con un cliente explícito (tx) TODAS las lecturas y el reaper van por él y el db global no se toca", async () => {
+    const global = db;
+    const spies = [vi.spyOn(global.generation, "count"), vi.spyOn(global.generation, "updateMany")];
+    const tx = crearDbFalsa();
+    fila({ status: "completed", progress: 100 }, 3 * HORA); // en el db global: no debe leerse
+    tx.generation.filas.push({
+      id: "t1", userId: "u1", propertyId: "p1", type: "custom", status: "completed", progress: 100, batchId: null, meetingId: null,
+      errorMessage: null, createdAt: new Date(Date.now() - 3 * HORA), updatedAt: new Date(Date.now() - 3 * HORA),
+    });
+    const r = await checkUsageLimits("u1", tx as never);
+    expect(r.dailyUsed).toBe(1);
+    for (const s of spies) expect(s).not.toHaveBeenCalled();
+  });
+});

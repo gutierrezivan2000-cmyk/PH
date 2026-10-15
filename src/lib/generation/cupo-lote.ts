@@ -30,13 +30,21 @@ export function topeMensualElite(): number {
 }
 
 /** Generaciones que ya gastaron el cupo del mes. */
-export async function generacionesDelMes(userId: string, desde: Date = inicioDeMesBogota()): Promise<number> {
-  return db.generation.count({
+export async function generacionesDelMes(
+  userId: string,
+  desde: Date = inicioDeMesBogota(),
+  cliente: Pick<typeof db, "generation"> = db
+): Promise<number> {
+  return cliente.generation.count({
     where: { userId, createdAt: { gte: desde }, status: { in: ESTADOS_QUE_GASTAN_CUPO } },
   });
 }
 
 /** Cupo mensual que queda (nunca negativo). */
-export async function cupoMensualRestante(userId: string, desde: Date = inicioDeMesBogota()): Promise<number> {
-  return Math.max(0, topeMensualElite() - (await generacionesDelMes(userId, desde)));
+export async function cupoMensualRestante(
+  userId: string,
+  desde: Date = inicioDeMesBogota(),
+  cliente: Pick<typeof db, "generation"> = db
+): Promise<number> {
+  return Math.max(0, topeMensualElite() - (await generacionesDelMes(userId, desde, cliente)));
 }

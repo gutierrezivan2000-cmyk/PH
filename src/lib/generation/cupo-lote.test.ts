@@ -42,3 +42,14 @@ describe("cupo mensual del lote", () => {
     expect(await cupoMensualRestante("u1", desde)).toBe(0);
   });
 });
+
+describe("cliente de transacción", () => {
+  it("usa el cliente recibido (tx) y no el db global", async () => {
+    const tx = { generation: { count: vi.fn().mockResolvedValue(3) } };
+    const desde = new Date("2026-05-01T05:00:00Z");
+    db.generation.count.mockClear();
+    expect(await cupoMensualRestante("u1", desde, tx as never)).toBe(topeMensualElite() - 3);
+    expect(tx.generation.count).toHaveBeenCalledTimes(1);
+    expect(db.generation.count).not.toHaveBeenCalled();
+  });
+});

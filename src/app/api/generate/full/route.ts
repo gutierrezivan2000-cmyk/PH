@@ -437,12 +437,12 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
     | { ok: false; status: number; body: Record<string, unknown> };
   let reserva: Reserva;
   try {
-    const { checkUsageLimits } = await import("@/lib/usage");
+    const { checkUsageLimits, STUCK_MS } = await import("@/lib/usage");
     reserva = await db.$transaction(
       async (tx): Promise<Reserva> => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`generate:${dbUserId}`}))`;
 
-        const usageCheck = await checkUsageLimits(dbUserId);
+        const usageCheck = await checkUsageLimits(dbUserId, tx);
         if (!usageCheck.allowed) {
           return {
             ok: false,
@@ -451,9 +451,18 @@ async function handleProduction(req: NextRequest, session: { user: { id: string;
           };
         }
 
-        // Tope de generaciones en curso a la vez (los lotes y las reuniones tienen su propio flujo).
+        // Tope de generaciones en curso a la vez (los lotes y las reuniones tienen su propio flujo). Solo cuentan las de menos de
+        // STUCK_MS: checkUsageLimits reapa las colgadas, pero devuelve antes de hacerlo para las cuentas beta/grandfathered, y una
+        // fila muerta (la función murió) las bloquearía para siempre. Es exactamente la regla con que failStuckGenerations da por
+        // muerta una suelta (createdAt < ahora-15 min), así que contar y reapar no se desvían, y es solo lectura (sin otra escritura).
         const enCurso = await tx.generation.count({
-          where: { userId: dbUserId, status: "processing", batchId: null, meetingId: null },
+          where: {
+            userId: dbUserId,
+            status: "processing",
+            batchId: null,
+            meetingId: null,
+            createdAt: { gte: new Date(Date.now() - STUCK_MS) },
+          },
         });
         if (enCurso >= MAX_GENERACIONES_EN_CURSO) {
           return {

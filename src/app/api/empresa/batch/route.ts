@@ -208,7 +208,7 @@ export async function POST(req: NextRequest) {
       // Se lee DENTRO del candado: el lote anterior ya confirmó sus filas pendientes.
       let remaining = Infinity;
       if (elite.plan === "elite") {
-        remaining = await cupoMensualRestante(elite.userId);
+        remaining = await cupoMensualRestante(elite.userId, undefined, tx);
       }
 
       // Build the work list.

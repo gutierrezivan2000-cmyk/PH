@@ -21,9 +21,16 @@ const GRANDFATHER_BEFORE = new Date(
   process.env.BETA_GRANDFATHER_BEFORE || "2026-07-15T00:00:00Z"
 );
 
-async function isGrandfathered(userId: string): Promise<boolean> {
+/**
+ * Cliente de base de datos que aceptan los helpers de cupo: el global `db` o el `tx` de un `db.$transaction`. Pasar `tx` hace que
+ * toda la comprobación corra en LA MISMA conexión (el pool de PrismaPg es de 10: una petición que dentro de su transacción leyera
+ * con el `db` global retendría 2-3 conexiones a la vez y ~10 peticiones concurrentes agotarían el pool esperándose entre sí).
+ */
+export type ClienteUso = Pick<typeof db, "user" | "subscription" | "generation">;
+
+async function isGrandfathered(userId: string, cliente: ClienteUso = db): Promise<boolean> {
   try {
-    const user = await db.user.findUnique({
+    const user = await cliente.user.findUnique({
       where: { id: userId },
       select: { createdAt: true },
     });
@@ -50,7 +57,7 @@ function bogotaStartOfMonth(now: Date): Date {
 // A generation only counts against quota if it succeeded or is still genuinely
 // in flight. Rows stuck in "processing"/"pending" past this window are treated
 // as dead (the serverless function died) and never consume the user's quota.
-const STUCK_MS = 15 * 60 * 1000;
+export const STUCK_MS = 15 * 60 * 1000;
 /**
  * Un acta de una reunión (Generation con `meetingId`) no corre dentro de una función de 300 s: son varias tareas de la cola,
  * con reintentos que esperan hasta 10 min. Se da por muerta cuando pasan 3 h SIN ACTIVIDAD (cada tarea que termina toca la
@@ -101,7 +108,7 @@ function activeGenerationWhere(userId: string, since: Date, ahora: number = Date
  * users (who previously had unlimited free Pro access) instead of hard-
  * locking them out.
  */
-export async function checkSubscriptionAccess(userId: string): Promise<AccessCheck> {
+export async function checkSubscriptionAccess(userId: string, cliente: ClienteUso = db): Promise<AccessCheck> {
   if (IS_DEMO) return { allowed: true, status: "active" };
 
   // Fase de pruebas: todos entran con funciones Pro. Se devuelve ANTES de
@@ -110,14 +117,14 @@ export async function checkSubscriptionAccess(userId: string): Promise<AccessChe
   if (OPEN_TESTING) return { allowed: true, status: "testing" };
 
   // Beta testers (existing accounts) get unrestricted access, no trial row.
-  if (await isGrandfathered(userId)) return { allowed: true, status: "beta" };
+  if (await isGrandfathered(userId, cliente)) return { allowed: true, status: "beta" };
 
   try {
-    let sub = await db.subscription.findUnique({ where: { userId } });
+    let sub = await cliente.subscription.findUnique({ where: { userId } });
     if (!sub) {
       const now = new Date();
       const ends = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
-      sub = await db.subscription.create({
+      sub = await cliente.subscription.create({
         data: {
           userId,
           status: "trialing",
@@ -151,7 +158,7 @@ function getPlanLimits(planId?: string | null): PlanLimits {
   return { ...PLANS.pro.limits };
 }
 
-export async function checkUsageLimits(userId: string): Promise<{
+export async function checkUsageLimits(userId: string, cliente: ClienteUso = db): Promise<{
   allowed: boolean;
   reason?: string;
   dailyUsed: number;
@@ -159,7 +166,7 @@ export async function checkUsageLimits(userId: string): Promise<{
 }> {
   // Gate on subscription/trial status first — without an active plan or a
   // live trial, no generations at all.
-  const access = await checkSubscriptionAccess(userId);
+  const access = await checkSubscriptionAccess(userId, cliente);
   if (!access.allowed) {
     return { allowed: false, reason: access.reason, dailyUsed: 0, monthlyUsed: 0 };
   }
@@ -172,7 +179,7 @@ export async function checkUsageLimits(userId: string): Promise<{
   // Reap dead "processing" rows before counting, so a generation whose backend
   // died never permanently consumes quota (especially the trial's TOTAL cap,
   // which — unlike the daily/monthly windows — can't be escaped by waiting).
-  await failStuckGenerations(userId);
+  await failStuckGenerations(userId, cliente);
 
   const now = new Date();
   const startOfDay = bogotaStartOfDay(now);
@@ -182,7 +189,7 @@ export async function checkUsageLimits(userId: string): Promise<{
   if (access.status === "trialing") {
     let trialStart: Date | undefined;
     try {
-      const sub = await db.subscription.findUnique({
+      const sub = await cliente.subscription.findUnique({
         where: { userId },
         select: { currentPeriodStart: true },
       });
@@ -191,16 +198,15 @@ export async function checkUsageLimits(userId: string): Promise<{
       /* fall through: counts all-time, still bounded by the total cap */
     }
 
-    const [trialDaily, trialTotal] = await Promise.all([
-      db.generation.count({ where: activeGenerationWhere(userId, startOfDay) }),
-      db.generation.count({
-        where: {
-          userId,
-          ...(trialStart ? { createdAt: { gte: trialStart } } : {}),
-          status: { in: ["completed", "processing", "pending"] },
-        },
-      }),
-    ]);
+    // En secuencia: sobre un cliente de transacción (una sola conexión) Promise.all no acelera nada y mezcla las consultas.
+    const trialDaily = await cliente.generation.count({ where: activeGenerationWhere(userId, startOfDay) });
+    const trialTotal = await cliente.generation.count({
+      where: {
+        userId,
+        ...(trialStart ? { createdAt: { gte: trialStart } } : {}),
+        status: { in: ["completed", "processing", "pending"] },
+      },
+    });
 
     if (trialTotal >= TRIAL_LIMITS.totalGenerations) {
       return {
@@ -224,16 +230,14 @@ export async function checkUsageLimits(userId: string): Promise<{
   // Get user's plan
   let limits: PlanLimits = { ...PLANS.pro.limits };
   try {
-    const sub = await db.subscription.findUnique({ where: { userId } });
+    const sub = await cliente.subscription.findUnique({ where: { userId } });
     limits = getPlanLimits(sub?.planId);
   } catch {
     // default to pro limits
   }
 
-  const [dailyCount, monthlyCount] = await Promise.all([
-    db.generation.count({ where: activeGenerationWhere(userId, startOfDay) }),
-    db.generation.count({ where: activeGenerationWhere(userId, startOfMonth) }),
-  ]);
+  const dailyCount = await cliente.generation.count({ where: activeGenerationWhere(userId, startOfDay) });
+  const monthlyCount = await cliente.generation.count({ where: activeGenerationWhere(userId, startOfMonth) });
 
   if (dailyCount >= limits.generationsPerDay) {
     return {
@@ -261,11 +265,11 @@ export async function checkUsageLimits(userId: string): Promise<{
  * window as failed, so the UI stops polling forever and the row stops
  * pretending to be in flight. Called from the job-status path.
  */
-export async function failStuckGenerations(userId: string): Promise<void> {
+export async function failStuckGenerations(userId: string, cliente: ClienteUso = db): Promise<void> {
   try {
     const ahora = Date.now();
     const limite = new Date(ahora - STUCK_MS);
-    await db.generation.updateMany({
+    await cliente.generation.updateMany({
       where: {
         userId,
         OR: [
